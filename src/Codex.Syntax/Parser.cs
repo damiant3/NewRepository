@@ -288,10 +288,37 @@ public sealed class Parser
         if (Current.Kind == TokenKind.LeftParen)
         {
             Token start = Current;
+            if (IsDependentTypeLookahead())
+            {
+                Advance(); // skip (
+                Token paramName = Current;
+                Advance(); // skip name
+                Expect(TokenKind.Colon);
+                TypeNode paramType = ParseType();
+                Expect(TokenKind.RightParen);
+                Expect(TokenKind.Arrow);
+                TypeNode body = ParseType();
+                return new DependentTypeNode(paramName, paramType, body, start.Span.Through(body.Span));
+            }
             Advance();
             TypeNode inner = ParseType();
+            if (Current.Kind is TokenKind.Plus or TokenKind.Minus or TokenKind.Star)
+            {
+                Token op = Current;
+                Advance();
+                TypeNode right = ParseType();
+                Expect(TokenKind.RightParen);
+                return new BinaryTypeNode(inner, op, right, start.Span.Through(Previous.Span));
+            }
             Expect(TokenKind.RightParen);
             return new ParenthesizedTypeNode(inner, start.Span.Through(Previous.Span));
+        }
+
+        if (Current.Kind == TokenKind.IntegerLiteral)
+        {
+            Token lit = Current;
+            Advance();
+            return new IntegerTypeNode(lit, lit.Span);
         }
 
         if (Current.Kind is TokenKind.TypeIdentifier or TokenKind.Identifier)
@@ -301,7 +328,8 @@ public sealed class Parser
             TypeNode baseType = new NamedTypeNode(nameToken);
 
             List<TypeNode> args = [];
-            while (Current.Kind is TokenKind.TypeIdentifier or TokenKind.Identifier or TokenKind.LeftParen
+            while (Current.Kind is TokenKind.TypeIdentifier or TokenKind.Identifier
+                       or TokenKind.LeftParen or TokenKind.IntegerLiteral
                    && !IsAtEnd
                    && Current.Kind != TokenKind.Arrow
                    && Current.Kind != TokenKind.Newline
@@ -753,6 +781,15 @@ public sealed class Parser
         {
             Advance();
         }
+    }
+
+    bool IsDependentTypeLookahead()
+    {
+        Token? t1 = Peek(1);
+        Token? t2 = Peek(2);
+        return t1 is not null && t2 is not null
+            && t1.Kind is TokenKind.Identifier or TokenKind.TypeIdentifier
+            && t2.Kind == TokenKind.Colon;
     }
 
     void SkipToNextDefinition()

@@ -99,6 +99,12 @@ public sealed record EffectfulTypeExpr(IReadOnlyList<TypeExpr> Effects, TypeExpr
 
 public sealed record LinearTypeExpr(TypeExpr Inner, SourceSpan Span) : TypeExpr(Span);
 
+public sealed record DependentTypeExpr(Name ParamName, TypeExpr ParamType, TypeExpr Body, SourceSpan Span) : TypeExpr(Span);
+
+public sealed record IntegerLiteralTypeExpr(long Value, SourceSpan Span) : TypeExpr(Span);
+
+public sealed record BinaryTypeExpr(TypeExpr Left, BinaryOp Op, TypeExpr Right, SourceSpan Span) : TypeExpr(Span);
+
 public abstract record TypeDef(Name Name, IReadOnlyList<Name> TypeParameters, SourceSpan Span);
 
 public sealed record RecordTypeDef(

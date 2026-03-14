@@ -622,6 +622,9 @@ public static class Program
         ParenthesizedTypeNode p => $"({FormatType(p.Inner)})",
         EffectfulTypeNode e => $"[{string.Join(", ", e.Effects.Select(FormatType))}] {FormatType(e.Return)}",
         LinearTypeNode l => $"linear {FormatType(l.Inner)}",
+        DependentTypeNode d => $"({d.ParamName.Text} : {FormatType(d.ParamType)}) → {FormatType(d.Body)}",
+        IntegerTypeNode i => i.Literal.Text,
+        BinaryTypeNode b => $"({FormatType(b.Left)} {b.Operator.Text} {FormatType(b.Right)})",
         _ => "?"
     };
 
@@ -632,6 +635,9 @@ public static class Program
         AppliedTypeExpr a => $"{FormatTypeExpr(a.Constructor)} {string.Join(" ", a.Arguments.Select(FormatTypeExpr))}",
         EffectfulTypeExpr e => $"[{string.Join(", ", e.Effects.Select(FormatTypeExpr))}] {FormatTypeExpr(e.Return)}",
         LinearTypeExpr l => $"linear {FormatTypeExpr(l.Inner)}",
+        DependentTypeExpr d => $"({d.ParamName.Value} : {FormatTypeExpr(d.ParamType)}) → {FormatTypeExpr(d.Body)}",
+        IntegerLiteralTypeExpr i => i.Value.ToString(),
+        BinaryTypeExpr b => $"({FormatTypeExpr(b.Left)} {b.Op} {FormatTypeExpr(b.Right)})",
         _ => "?"
     };
 

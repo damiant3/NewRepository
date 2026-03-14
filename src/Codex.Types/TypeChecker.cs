@@ -12,6 +12,7 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
     Map<string, CodexType> m_typeDefMap = Map<string, CodexType>.s_empty;
     Map<string, CtorInfo> m_ctorMap = Map<string, CtorInfo>.s_empty;
     Map<string, CodexType> m_typeParamEnv = Map<string, CodexType>.s_empty;
+    Map<string, CodexType> m_typeLevelEnv = Map<string, CodexType>.s_empty;
     Set<string> m_currentEffects = Set<string>.s_empty;
 
     public Map<string, CodexType> CheckModule(Module module)
@@ -147,6 +148,11 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             {
                 paramType = ft.Parameter;
                 currentExpected = ft.Return;
+            }
+            else if (currentExpected is DependentFunctionType dep)
+            {
+                paramType = dep.ParamType;
+                currentExpected = dep.Body;
             }
             else
             {
@@ -590,6 +596,8 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
         CodexType current = type;
         while (current is FunctionType ft)
             current = ft.Return;
+        while (current is DependentFunctionType dep)
+            current = dep.Body;
 
         if (current is EffectfulType eft)
         {
@@ -629,12 +637,19 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             AppliedTypeExpr app => ResolveAppliedType(app),
             EffectfulTypeExpr eff => ResolveEffectfulType(eff),
             LinearTypeExpr lin => new LinearType(ResolveTypeExpr(lin.Inner)),
+            DependentTypeExpr dep => ResolveDependentType(dep),
+            IntegerLiteralTypeExpr intLit => new TypeLevelValue(intLit.Value),
+            BinaryTypeExpr bin => ResolveTypeLevelBinary(bin),
             _ => ErrorType.s_instance
         };
     }
 
     CodexType ResolveNamedType(Name name)
     {
+        CodexType? fromTypeLevelEnv = m_typeLevelEnv[name.Value];
+        if (fromTypeLevelEnv is not null)
+            return fromTypeLevelEnv;
+
         CodexType? fromTypeParam = m_typeParamEnv[name.Value];
         if (fromTypeParam is not null)
             return fromTypeParam;
@@ -745,6 +760,54 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
         return type;
     }
 
+    CodexType ResolveDependentType(DependentTypeExpr dep)
+    {
+        CodexType paramType = ResolveTypeExpr(dep.ParamType);
+        Map<string, CodexType> savedTypeLevelEnv = m_typeLevelEnv;
+        m_typeLevelEnv = m_typeLevelEnv.Set(dep.ParamName.Value, new TypeLevelVar(dep.ParamName.Value));
+        CodexType body = ResolveTypeExpr(dep.Body);
+        m_typeLevelEnv = savedTypeLevelEnv;
+        return new DependentFunctionType(dep.ParamName.Value, paramType, body);
+    }
+
+    CodexType ResolveTypeLevelBinary(BinaryTypeExpr bin)
+    {
+        CodexType left = ResolveTypeExpr(bin.Left);
+        CodexType right = ResolveTypeExpr(bin.Right);
+        TypeLevelOp op = bin.Op switch
+        {
+            BinaryOp.Add => TypeLevelOp.Add,
+            BinaryOp.Sub => TypeLevelOp.Sub,
+            BinaryOp.Mul => TypeLevelOp.Mul,
+            _ => TypeLevelOp.Add
+        };
+        return NormalizeTypeLevelExpr(new TypeLevelBinary(op, left, right));
+    }
+
+    static CodexType NormalizeTypeLevelExpr(CodexType type)
+    {
+        if (type is TypeLevelBinary bin)
+        {
+            CodexType left = NormalizeTypeLevelExpr(bin.Left);
+            CodexType right = NormalizeTypeLevelExpr(bin.Right);
+
+            if (left is TypeLevelValue lv && right is TypeLevelValue rv)
+            {
+                long result = bin.Op switch
+                {
+                    TypeLevelOp.Add => lv.Value + rv.Value,
+                    TypeLevelOp.Sub => lv.Value - rv.Value,
+                    TypeLevelOp.Mul => lv.Value * rv.Value,
+                    _ => 0
+                };
+                return new TypeLevelValue(result);
+            }
+
+            return new TypeLevelBinary(bin.Op, left, right);
+        }
+        return type;
+    }
+
     static CodexType SubstituteVar(CodexType type, int varId, CodexType replacement)
     {
         return type switch
@@ -779,6 +842,18 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
                 Return = SubstituteVar(eft.Return, varId, replacement)
             },
             LinearType lin => new LinearType(SubstituteVar(lin.Inner, varId, replacement)),
+            DependentFunctionType dep => new DependentFunctionType(
+                dep.ParamName,
+                SubstituteVar(dep.ParamType, varId, replacement),
+                SubstituteVar(dep.Body, varId, replacement)),
+            TypeLevelBinary bin => NormalizeTypeLevelExpr(new TypeLevelBinary(
+                bin.Op,
+                SubstituteVar(bin.Left, varId, replacement),
+                SubstituteVar(bin.Right, varId, replacement))),
+            ProofType proof => new ProofType(SubstituteVar(proof.Claim, varId, replacement)),
+            LessThanClaim lt => new LessThanClaim(
+                SubstituteVar(lt.Left, varId, replacement),
+                SubstituteVar(lt.Right, varId, replacement)),
             _ => type
         };
     }

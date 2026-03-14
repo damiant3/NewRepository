@@ -35,6 +35,11 @@ public sealed class LinearityChecker(DiagnosticBag diagnostics, Map<string, Code
                 paramType = ft.Parameter;
                 currentType = ft.Return;
             }
+            else if (currentType is DependentFunctionType dep)
+            {
+                paramType = dep.ParamType;
+                currentType = dep.Body;
+            }
             else
             {
                 paramType = ErrorType.s_instance;

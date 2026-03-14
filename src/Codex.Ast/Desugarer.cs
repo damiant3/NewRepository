@@ -167,6 +167,19 @@ public sealed class Desugarer
         LinearTypeNode l => new LinearTypeExpr(
             DesugarType(l.Inner),
             l.Span),
+        DependentTypeNode d => new DependentTypeExpr(
+            new Name(d.ParamName.Text),
+            DesugarType(d.ParamType),
+            DesugarType(d.Body),
+            d.Span),
+        IntegerTypeNode i => new IntegerLiteralTypeExpr(
+            Convert.ToInt64(i.Literal.LiteralValue ?? 0),
+            i.Span),
+        BinaryTypeNode b => new BinaryTypeExpr(
+            DesugarType(b.Left),
+            DesugarBinaryOp(b.Operator.Kind),
+            DesugarType(b.Right),
+            b.Span),
         _ => new NamedTypeExpr(new Name("?"), node.Span)
     };
 

@@ -682,7 +682,7 @@ public sealed class CSharpEmitter : ICodeEmitter
 
         for (int i = bindings.Count - 1; i >= 0; i--)
         {
-            (string name, string access, CodexType type) = bindings[i];
+            (string name, string _, CodexType type) = bindings[i];
             string funcType = $"Func<{EmitType(type)}, {EmitType(body.Type)}>";
             sb.Append("((" + funcType + ")((");
             sb.Append(SanitizeIdentifier(name));
@@ -745,9 +745,15 @@ public sealed class CSharpEmitter : ICodeEmitter
             EffectfulType eft => EmitType(eft.Return),
             LinearType lin => EmitType(lin.Inner),
             FunctionType ft => $"Func<{EmitType(ft.Parameter)}, {EmitType(ft.Return)}>",
+            DependentFunctionType dep => $"Func<{EmitType(dep.ParamType)}, {EmitType(dep.Body)}>",
             ListType lt => $"List<{EmitType(lt.Element)}>",
             SumType st => SanitizeIdentifier(st.TypeName.Value),
             RecordType rt => SanitizeIdentifier(rt.TypeName.Value),
+            ConstructedType ct => SanitizeIdentifier(ct.Constructor.Value),
+            TypeLevelValue => "long",
+            TypeLevelVar => "long",
+            TypeLevelBinary => "long",
+            ProofType => "object",
             TypeVariable => "object",
             ErrorType => "object",
             _ => "object"
@@ -761,6 +767,8 @@ public sealed class CSharpEmitter : ICodeEmitter
         {
             if (type is FunctionType ft)
                 type = ft.Return;
+            else if (type is DependentFunctionType dep)
+                type = dep.Body;
             else
                 break;
         }
@@ -776,6 +784,8 @@ public sealed class CSharpEmitter : ICodeEmitter
         {
             if (type is FunctionType ft)
                 type = ft.Return;
+            else if (type is DependentFunctionType dep)
+                type = dep.Body;
             else
                 break;
         }

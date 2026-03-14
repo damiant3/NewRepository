@@ -140,3 +140,49 @@ public sealed record LinearType(CodexType Inner) : CodexType
 {
     public override string ToString() => $"linear {Inner}";
 }
+
+public sealed record DependentFunctionType(string ParamName, CodexType ParamType, CodexType Body) : CodexType
+{
+    public override string ToString()
+    {
+        string paramStr = $"({ParamName} : {ParamType})";
+        return $"{paramStr} → {Body}";
+    }
+}
+
+public sealed record TypeLevelValue(long Value) : CodexType
+{
+    public override string ToString() => Value.ToString();
+}
+
+public enum TypeLevelOp { Add, Sub, Mul }
+
+public sealed record TypeLevelBinary(TypeLevelOp Op, CodexType Left, CodexType Right) : CodexType
+{
+    public override string ToString()
+    {
+        string opStr = Op switch
+        {
+            TypeLevelOp.Add => "+",
+            TypeLevelOp.Sub => "-",
+            TypeLevelOp.Mul => "*",
+            _ => "?"
+        };
+        return $"({Left} {opStr} {Right})";
+    }
+}
+
+public sealed record TypeLevelVar(string Name) : CodexType
+{
+    public override string ToString() => Name;
+}
+
+public sealed record ProofType(CodexType Claim) : CodexType
+{
+    public override string ToString() => $"{{proof : {Claim}}}";
+}
+
+public sealed record LessThanClaim(CodexType Left, CodexType Right) : CodexType
+{
+    public override string ToString() => $"{Left} < {Right}";
+}

@@ -99,6 +99,55 @@ public sealed class Unifier(DiagnosticBag diagnostics)
             return true;
         }
 
+        if (a is DependentFunctionType da && b is DependentFunctionType db)
+        {
+            return Unify(da.ParamType, db.ParamType, span)
+                && Unify(da.Body, db.Body, span);
+        }
+
+        if (a is DependentFunctionType da2 && b is FunctionType fb2)
+        {
+            return Unify(da2.ParamType, fb2.Parameter, span)
+                && Unify(da2.Body, fb2.Return, span);
+        }
+
+        if (a is FunctionType fa2 && b is DependentFunctionType db2)
+        {
+            return Unify(fa2.Parameter, db2.ParamType, span)
+                && Unify(fa2.Return, db2.Body, span);
+        }
+
+        if (a is TypeLevelValue lva && b is TypeLevelValue lvb)
+        {
+            if (lva.Value != lvb.Value)
+            {
+                ReportMismatch(a, b, span);
+                return false;
+            }
+            return true;
+        }
+
+        if (a is TypeLevelBinary || b is TypeLevelBinary)
+        {
+            CodexType normA = NormalizeTypeLevelExpr(a);
+            CodexType normB = NormalizeTypeLevelExpr(b);
+            if (!normA.Equals(a) || !normB.Equals(b))
+                return Unify(normA, normB, span);
+        }
+
+        if (a is TypeLevelVar tva && b is TypeLevelVar tvb)
+        {
+            if (tva.Name == tvb.Name) return true;
+            ReportMismatch(a, b, span);
+            return false;
+        }
+
+        if (a is ProofType pa && b is ProofType pb)
+            return Unify(pa.Claim, pb.Claim, span);
+
+        if (a is LessThanClaim lta && b is LessThanClaim ltb)
+            return Unify(lta.Left, ltb.Left, span) && Unify(lta.Right, ltb.Right, span);
+
         if (a is ErrorType || b is ErrorType) return true;
 
         ReportMismatch(a, b, span);
@@ -142,6 +191,12 @@ public sealed class Unifier(DiagnosticBag diagnostics)
             },
             EffectfulType eft => eft with { Return = DeepResolve(eft.Return) },
             LinearType lin => new LinearType(DeepResolve(lin.Inner)),
+            DependentFunctionType dep => new DependentFunctionType(
+                dep.ParamName, DeepResolve(dep.ParamType), DeepResolve(dep.Body)),
+            TypeLevelBinary bin => NormalizeTypeLevelExpr(
+                new TypeLevelBinary(bin.Op, DeepResolve(bin.Left), DeepResolve(bin.Right))),
+            ProofType proof => new ProofType(DeepResolve(proof.Claim)),
+            LessThanClaim lt => new LessThanClaim(DeepResolve(lt.Left), DeepResolve(lt.Right)),
             _ => type
         };
     }
@@ -160,8 +215,36 @@ public sealed class Unifier(DiagnosticBag diagnostics)
             RecordType r => r.Fields.Any(f => OccursIn(varId, f.Type)),
             EffectfulType eft => OccursIn(varId, eft.Return),
             LinearType lin => OccursIn(varId, lin.Inner),
+            DependentFunctionType dep => OccursIn(varId, dep.ParamType) || OccursIn(varId, dep.Body),
+            TypeLevelBinary bin => OccursIn(varId, bin.Left) || OccursIn(varId, bin.Right),
+            ProofType proof => OccursIn(varId, proof.Claim),
+            LessThanClaim lt => OccursIn(varId, lt.Left) || OccursIn(varId, lt.Right),
             _ => false
         };
+    }
+
+    static CodexType NormalizeTypeLevelExpr(CodexType type)
+    {
+        if (type is TypeLevelBinary bin)
+        {
+            CodexType left = NormalizeTypeLevelExpr(bin.Left);
+            CodexType right = NormalizeTypeLevelExpr(bin.Right);
+
+            if (left is TypeLevelValue lv && right is TypeLevelValue rv)
+            {
+                long result = bin.Op switch
+                {
+                    TypeLevelOp.Add => lv.Value + rv.Value,
+                    TypeLevelOp.Sub => lv.Value - rv.Value,
+                    TypeLevelOp.Mul => lv.Value * rv.Value,
+                    _ => 0
+                };
+                return new TypeLevelValue(result);
+            }
+
+            return new TypeLevelBinary(bin.Op, left, right);
+        }
+        return type;
     }
 
     void ReportMismatch(CodexType expected, CodexType actual, SourceSpan span)

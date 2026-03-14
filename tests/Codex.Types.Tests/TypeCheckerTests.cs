@@ -213,4 +213,54 @@ public class TypeCheckerTests
             Check("x = \"hello\" + 1");
         Assert.True(diags.HasErrors);
     }
+
+    [Fact]
+    public void Dependent_function_type_parses_and_resolves()
+    {
+        string source = "f : (n : Integer) -> Integer\nf (x) = x";
+        (Map<string, CodexType> types, DiagnosticBag diags) = Check(source);
+        Assert.False(diags.HasErrors);
+        DependentFunctionType dep = Assert.IsType<DependentFunctionType>(types["f"]!);
+        Assert.Equal("n", dep.ParamName);
+        Assert.IsType<IntegerType>(dep.ParamType);
+    }
+
+    [Fact]
+    public void Type_level_integer_literal_resolves()
+    {
+        string source = "f : (n : Integer) -> Integer\nf (x) = x";
+        (Map<string, CodexType> types, DiagnosticBag diags) = Check(source);
+        Assert.False(diags.HasErrors);
+        Assert.IsType<DependentFunctionType>(types["f"]);
+    }
+
+    [Fact]
+    public void Type_level_arithmetic_normalizes_constants()
+    {
+        string source = "f : (m : Integer) -> (n : Integer) -> Integer\nf (x) (y) = x";
+        (Map<string, CodexType> types, DiagnosticBag diags) = Check(source);
+        Assert.False(diags.HasErrors);
+        DependentFunctionType outer = Assert.IsType<DependentFunctionType>(types["f"]);
+        Assert.Equal("m", outer.ParamName);
+        DependentFunctionType inner = Assert.IsType<DependentFunctionType>(outer.Body);
+        Assert.Equal("n", inner.ParamName);
+    }
+
+    [Fact]
+    public void Constructed_type_with_integer_argument_accepted()
+    {
+        string source = "f : (n : Integer) -> Vector n Integer -> Integer\nf (n) (v) = n";
+        (Map<string, CodexType> types, DiagnosticBag diags) = Check(source);
+        Assert.False(diags.HasErrors);
+        DependentFunctionType dep = Assert.IsType<DependentFunctionType>(types["f"]);
+        Assert.IsType<FunctionType>(dep.Body);
+    }
+
+    [Fact]
+    public void Type_level_binary_addition_normalizes()
+    {
+        string source = "f : (m : Integer) -> (n : Integer) -> Vector (m + n) Integer -> Integer\nf (a) (b) (v) = a";
+        (Map<string, CodexType> types, DiagnosticBag diags) = Check(source);
+        Assert.False(diags.HasErrors);
+    }
 }

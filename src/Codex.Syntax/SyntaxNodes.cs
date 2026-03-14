@@ -47,6 +47,9 @@ public enum SyntaxKind
     ApplicationType,
     ParenthesizedType,
     LinearType,
+    DependentType,
+    IntegerLiteralType,
+    BinaryType,
     RecordType,
     RecordTypeField,
     VariantType,
@@ -363,6 +366,24 @@ public sealed record LinearTypeNode(TypeNode Inner, SourceSpan Span)
     : TypeNode(SyntaxKind.LinearType, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [Inner];
+}
+
+public sealed record DependentTypeNode(Token ParamName, TypeNode ParamType, TypeNode Body, SourceSpan Span)
+    : TypeNode(SyntaxKind.DependentType, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [ParamType, Body];
+}
+
+public sealed record IntegerTypeNode(Token Literal, SourceSpan Span)
+    : TypeNode(SyntaxKind.IntegerLiteralType, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [];
+}
+
+public sealed record BinaryTypeNode(TypeNode Left, Token Operator, TypeNode Right, SourceSpan Span)
+    : TypeNode(SyntaxKind.BinaryType, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Left, Right];
 }
 
 public sealed record TypeAnnotationNode(Token Name, TypeNode Type, SourceSpan Span)

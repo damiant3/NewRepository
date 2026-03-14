@@ -293,4 +293,59 @@ public class ParserTests
         Assert.IsType<LinearTypeNode>(fn.Parameter);
         Assert.IsType<EffectfulTypeNode>(fn.Return);
     }
+
+    [Fact]
+    public void Parse_dependent_function_type()
+    {
+        DocumentNode doc = Parse("f : (n : Integer) -> Integer\nf (x) = x");
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        TypeNode typeNode = doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.IsType<DependentTypeNode>(typeNode);
+        DependentTypeNode dep = (DependentTypeNode)typeNode;
+        Assert.Equal("n", dep.ParamName.Text);
+        Assert.IsType<NamedTypeNode>(dep.ParamType);
+        Assert.IsType<NamedTypeNode>(dep.Body);
+    }
+
+    [Fact]
+    public void Parse_type_with_integer_literal_argument()
+    {
+        DocumentNode doc = Parse("f : Vector 5 Integer -> Integer\nf (v) = 0");
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        TypeNode typeNode = doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.IsType<FunctionTypeNode>(typeNode);
+        FunctionTypeNode fn = (FunctionTypeNode)typeNode;
+        Assert.IsType<ApplicationTypeNode>(fn.Parameter);
+        ApplicationTypeNode app = (ApplicationTypeNode)fn.Parameter;
+        Assert.Equal("Vector", ((NamedTypeNode)app.Constructor).Name.Text);
+        Assert.Equal(2, app.Arguments.Count);
+        Assert.IsType<IntegerTypeNode>(app.Arguments[0]);
+    }
+
+    [Fact]
+    public void Parse_type_level_binary_in_parens()
+    {
+        DocumentNode doc = Parse("f : Vector (m + n) Integer -> Integer\nf (v) = 0");
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        TypeNode typeNode = doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.IsType<FunctionTypeNode>(typeNode);
+        FunctionTypeNode fn = (FunctionTypeNode)typeNode;
+        Assert.IsType<ApplicationTypeNode>(fn.Parameter);
+        ApplicationTypeNode app = (ApplicationTypeNode)fn.Parameter;
+        Assert.IsType<BinaryTypeNode>(app.Arguments[0]);
+    }
+
+    [Fact]
+    public void Parse_nested_dependent_types()
+    {
+        DocumentNode doc = Parse("f : (m : Integer) -> (n : Integer) -> Integer\nf (a) (b) = a");
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        TypeNode typeNode = doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.IsType<DependentTypeNode>(typeNode);
+        DependentTypeNode outer = (DependentTypeNode)typeNode;
+        Assert.Equal("m", outer.ParamName.Text);
+        Assert.IsType<DependentTypeNode>(outer.Body);
+        DependentTypeNode inner = (DependentTypeNode)outer.Body;
+        Assert.Equal("n", inner.ParamName.Text);
+    }
 }

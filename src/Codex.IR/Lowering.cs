@@ -54,6 +54,11 @@ public sealed class Lowering
                 paramType = ft.Parameter;
                 currentType = ft.Return;
             }
+            else if (currentType is DependentFunctionType dep)
+            {
+                paramType = dep.ParamType;
+                currentType = dep.Body;
+            }
             else
             {
                 paramType = ErrorType.s_instance;
@@ -209,9 +214,24 @@ public sealed class Lowering
     IRExpr LowerApply(ApplyExpr app, CodexType expectedType)
     {
         IRExpr func = LowerExpr(app.Function, ErrorType.s_instance);
-        CodexType argType = func.Type is FunctionType ft ? ft.Parameter : ErrorType.s_instance;
+        CodexType argType;
+        CodexType returnType;
+        if (func.Type is FunctionType ft)
+        {
+            argType = ft.Parameter;
+            returnType = ft.Return;
+        }
+        else if (func.Type is DependentFunctionType dep)
+        {
+            argType = dep.ParamType;
+            returnType = dep.Body;
+        }
+        else
+        {
+            argType = ErrorType.s_instance;
+            returnType = expectedType;
+        }
         IRExpr arg = LowerExpr(app.Argument, argType);
-        CodexType returnType = func.Type is FunctionType ft2 ? ft2.Return : expectedType;
         return new IRApply(func, arg, returnType);
     }
 
@@ -223,10 +243,23 @@ public sealed class Lowering
         CodexType currentType = expectedType;
         foreach (Parameter p in lam.Parameters)
         {
-            CodexType paramType = currentType is FunctionType ft ? ft.Parameter : ErrorType.s_instance;
+            CodexType paramType;
+            if (currentType is FunctionType ft)
+            {
+                paramType = ft.Parameter;
+                currentType = ft.Return;
+            }
+            else if (currentType is DependentFunctionType dep)
+            {
+                paramType = dep.ParamType;
+                currentType = dep.Body;
+            }
+            else
+            {
+                paramType = ErrorType.s_instance;
+            }
             parameters.Add(new(p.Name.Value, paramType));
             m_localEnv = m_localEnv.Set(p.Name.Value, paramType);
-            currentType = currentType is FunctionType ft2 ? ft2.Return : currentType;
         }
 
         IRExpr body = LowerExpr(lam.Body, currentType);
