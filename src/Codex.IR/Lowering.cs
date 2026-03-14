@@ -5,10 +5,6 @@ using Codex.Types;
 
 namespace Codex.IR;
 
-/// <summary>
-/// Lowers a type-checked AST module into the typed intermediate representation.
-/// Requires the type map produced by <see cref="TypeChecker"/>.
-/// </summary>
 public sealed class Lowering
 {
     private readonly ImmutableDictionary<string, CodexType> m_typeMap;
@@ -22,9 +18,6 @@ public sealed class Lowering
         m_localEnv = ImmutableDictionary<string, CodexType>.Empty;
     }
 
-    /// <summary>
-    /// Lower an entire module to IR.
-    /// </summary>
     public IRModule Lower(Module module)
     {
         ImmutableArray<IRDefinition>.Builder defs = ImmutableArray.CreateBuilder<IRDefinition>();

@@ -1,8 +1,5 @@
 namespace Codex.Syntax;
 
-/// <summary>
-/// Every kind of token the Codex lexer can produce.
-/// </summary>
 public enum TokenKind
 {
     // Structural

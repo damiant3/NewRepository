@@ -3,9 +3,6 @@ using Codex.Syntax;
 
 namespace Codex.Ast;
 
-/// <summary>
-/// Transforms the Concrete Syntax Tree (CST) into an Abstract Syntax Tree (AST).
-/// </summary>
 public sealed class Desugarer
 {
     private readonly DiagnosticBag m_diagnostics;

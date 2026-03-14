@@ -2,19 +2,12 @@ using Codex.Core;
 
 namespace Codex.Syntax;
 
-/// <summary>
-/// The mode the lexer is currently in. Prose mode recognizes natural language.
-/// Notation mode recognizes formal code.
-/// </summary>
 public enum LexerMode
 {
     Prose,
     Notation
 }
 
-/// <summary>
-/// Hand-written lexer for Codex source. Indentation-sensitive with prose/notation mode switching.
-/// </summary>
 public sealed class Lexer
 {
     private readonly SourceText m_source;
@@ -44,7 +37,6 @@ public sealed class Lexer
 
     public DiagnosticBag Diagnostics => m_diagnostics;
 
-    /// <summary>Tokenize the entire source into a list of tokens.</summary>
     public IReadOnlyList<Token> TokenizeAll()
     {
         List<Token> tokens = new List<Token>();
@@ -60,7 +52,6 @@ public sealed class Lexer
         return tokens;
     }
 
-    /// <summary>Produce the next token.</summary>
     public Token NextToken()
     {
         if (m_pending.Count > 0)

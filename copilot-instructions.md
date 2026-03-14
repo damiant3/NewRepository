@@ -20,7 +20,7 @@ Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
 ## Non-Negotiable Code Rules
 
 - **Private instance fields MUST use the `m_` prefix** — e.g. `m_diagnostics`, `m_localEnv`, `m_tokens`. `TreatWarningsAsErrors` is `true`; an unused field is a build failure.
-- **XML doc comments on every public type and method.**
+- **No XML doc comments.** Do not add `///` comments. Code should be self-documenting. Only add a comment if the agent genuinely needs it to avoid re-discovering a non-obvious decision.
 - **No `var` when the type is not obvious** from the right-hand side.
 - Explicit accessibility modifiers on all types and members.
 - 4 spaces indentation, UTF-8, max 120 characters per line.

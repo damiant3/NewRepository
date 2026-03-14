@@ -2,10 +2,6 @@ using Codex.Core;
 
 namespace Codex.Syntax;
 
-/// <summary>
-/// Parses a prose-mode Codex document by splitting the source into structural blocks
-/// (chapters, prose, notation) and delegating notation blocks to the standard <see cref="Parser"/>.
-/// </summary>
 public sealed class ProseParser
 {
     private readonly SourceText m_source;
@@ -13,9 +9,6 @@ public sealed class ProseParser
     private readonly string[] m_lines;
     private int m_lineIndex;
 
-    /// <summary>
-    /// Initializes a new <see cref="ProseParser"/>.
-    /// </summary>
     public ProseParser(SourceText source, DiagnosticBag diagnostics)
     {
         m_source = source;
@@ -24,10 +17,6 @@ public sealed class ProseParser
         m_lineIndex = 0;
     }
 
-    /// <summary>
-    /// Returns <c>true</c> if the source text begins with a <c>Chapter:</c> header,
-    /// indicating it should be parsed as a prose-mode document.
-    /// </summary>
     public static bool IsProseDocument(string content)
     {
         foreach (string line in content.Split('\n'))
@@ -40,9 +29,6 @@ public sealed class ProseParser
         return false;
     }
 
-    /// <summary>
-    /// Parse the entire prose-mode document.
-    /// </summary>
     public DocumentNode ParseDocument()
     {
         SourceSpan docSpan = MakeSpan(0, m_source.Content.Length);
@@ -277,10 +263,6 @@ public sealed class ProseParser
         return new NotationBlockNode(notationDoc.Definitions, span);
     }
 
-    /// <summary>
-    /// Heuristic: does this trimmed line look like code (notation)?
-    /// Code typically starts with an identifier followed by : or (, or a keyword.
-    /// </summary>
     private static bool LooksLikeNotation(string trimmed)
     {
         if (trimmed.Length == 0) return false;

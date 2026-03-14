@@ -2,10 +2,6 @@ using Codex.Core;
 
 namespace Codex.Syntax;
 
-/// <summary>
-/// Recursive descent parser for Codex notation.
-/// Produces a Concrete Syntax Tree from a token stream.
-/// </summary>
 public sealed class Parser
 {
     private readonly IReadOnlyList<Token> m_tokens;
@@ -21,7 +17,6 @@ public sealed class Parser
 
     public DiagnosticBag Diagnostics => m_diagnostics;
 
-    /// <summary>Parse an entire document (a sequence of top-level definitions).</summary>
     public DocumentNode ParseDocument()
     {
         SourceSpan startSpan = Current.Span;

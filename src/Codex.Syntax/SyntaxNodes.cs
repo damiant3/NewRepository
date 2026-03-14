@@ -2,9 +2,6 @@ using Codex.Core;
 
 namespace Codex.Syntax;
 
-/// <summary>
-/// Concrete Syntax Tree node kinds. The CST preserves the full structure of the source.
-/// </summary>
 public enum SyntaxKind
 {
     // Top-level
@@ -63,36 +60,23 @@ public enum SyntaxKind
     ErrorNode,
 }
 
-/// <summary>
-/// A node in the Concrete Syntax Tree.
-/// </summary>
 public abstract record SyntaxNode(SyntaxKind Kind, SourceSpan Span)
 {
     public abstract IEnumerable<SyntaxNode> Children { get; }
 }
 
-/// <summary>
-/// A terminal node — wraps a single token.
-/// </summary>
 public sealed record TokenNode(Token Token)
     : SyntaxNode(SyntaxKind.LiteralExpression, Token.Span)
 {
     public override IEnumerable<SyntaxNode> Children => [];
 }
 
-/// <summary>
-/// The entire document — the root of the CST.
-/// May contain flat definitions (notation-only) or chapters (prose mode).
-/// </summary>
 public sealed record DocumentNode(
     IReadOnlyList<DefinitionNode> Definitions,
     IReadOnlyList<ChapterNode> Chapters,
     SourceSpan Span)
     : SyntaxNode(SyntaxKind.Document, Span)
 {
-    /// <summary>
-    /// Convenience constructor for notation-only documents (no chapters).
-    /// </summary>
     public DocumentNode(IReadOnlyList<DefinitionNode> Definitions, SourceSpan Span)
         : this(Definitions, Array.Empty<ChapterNode>(), Span) { }
 
@@ -106,9 +90,6 @@ public sealed record DocumentNode(
     }
 }
 
-/// <summary>
-/// A chapter in a prose-mode document. Contains a title, prose blocks, and notation blocks.
-/// </summary>
 public sealed record ChapterNode(
     string Title,
     IReadOnlyList<DocumentMember> Members,
@@ -118,23 +99,14 @@ public sealed record ChapterNode(
     public override IEnumerable<SyntaxNode> Children => Members;
 }
 
-/// <summary>
-/// A member of a chapter or section: either a prose block, a notation block (definitions), or a section.
-/// </summary>
 public abstract record DocumentMember(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
 
-/// <summary>
-/// A block of prose text (natural language).
-/// </summary>
 public sealed record ProseBlockNode(string Text, SourceSpan Span)
     : DocumentMember(SyntaxKind.ProseBlock, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [];
 }
 
-/// <summary>
-/// A section within a chapter. Contains prose and notation blocks.
-/// </summary>
 public sealed record SectionNode(
     string Title,
     IReadOnlyList<DocumentMember> Members,
@@ -144,9 +116,6 @@ public sealed record SectionNode(
     public override IEnumerable<SyntaxNode> Children => Members;
 }
 
-/// <summary>
-/// A notation block within a chapter or section — wraps one or more definitions.
-/// </summary>
 public sealed record NotationBlockNode(
     IReadOnlyList<DefinitionNode> Definitions,
     SourceSpan Span)
@@ -155,9 +124,6 @@ public sealed record NotationBlockNode(
     public override IEnumerable<SyntaxNode> Children => Definitions;
 }
 
-/// <summary>
-/// A top-level definition: optional type annotation + name + params + body.
-/// </summary>
 public sealed record DefinitionNode(
     Token Name,
     IReadOnlyList<Token> Parameters,

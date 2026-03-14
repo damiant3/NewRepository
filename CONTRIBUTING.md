@@ -65,9 +65,9 @@ These rules must be enforced by all contributors and automated agents when gener
 
 ---
 
-## XML Documentation
+## Comments
 
-Remove it.
+Do not add `///` XML doc comments. Code should be self-documenting. Only add a regular `//` comment if it is genuinely needed to avoid re-discovering a non-obvious decision.
 
 ---
 

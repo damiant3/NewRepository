@@ -6,10 +6,6 @@ using Codex.Types;
 
 namespace Codex.Emit.CSharp;
 
-/// <summary>
-/// Emits a Codex IR module as a self-contained C# program.
-/// The generated code targets .NET 8 with top-level statements.
-/// </summary>
 public sealed class CSharpEmitter : ICodeEmitter
 {
     public string TargetName => "C#";

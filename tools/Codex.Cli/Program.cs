@@ -9,10 +9,6 @@ using System.Collections.Immutable;
 
 namespace Codex.Cli;
 
-/// <summary>
-/// The Codex command-line interface.
-/// This is the primary tool for compiling and running Codex programs.
-/// </summary>
 public static class Program
 {
     public static int Main(string[] args)
@@ -364,10 +360,6 @@ public static class Program
         }
     }
 
-    /// <summary>
-    /// Full compilation pipeline: source → lex → parse → desugar → resolve → typecheck → lower → emit.
-    /// Returns null on failure.
-    /// </summary>
     private static CompilationResult? CompileFile(string filePath)
     {
         if (!File.Exists(filePath))
@@ -502,9 +494,6 @@ public static class Program
         string CSharpSource,
         ImmutableDictionary<string, CodexType> Types);
 
-    /// <summary>
-    /// Parse a source file, auto-detecting prose-mode vs notation-only.
-    /// </summary>
     private static DocumentNode ParseSourceFile(SourceText source, string content, DiagnosticBag diagnostics)
     {
         if (ProseParser.IsProseDocument(content))

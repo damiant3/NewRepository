@@ -2,9 +2,6 @@ using System.Collections.Immutable;
 
 namespace Codex.Core;
 
-/// <summary>
-/// The severity of a compiler diagnostic.
-/// </summary>
 public enum DiagnosticSeverity
 {
     Hint,
@@ -13,10 +10,6 @@ public enum DiagnosticSeverity
     Error
 }
 
-/// <summary>
-/// A compiler diagnostic — an error, warning, or suggestion with a source location.
-/// Diagnostics are values, not exceptions. They accumulate during compilation.
-/// </summary>
 public sealed record Diagnostic(
     DiagnosticSeverity Severity,
     string Code,
@@ -35,10 +28,6 @@ public sealed record Diagnostic(
         $"{Severity} {Code}: {Message} at {Span}";
 }
 
-/// <summary>
-/// Accumulator for diagnostics. Used throughout the compiler pipeline.
-/// Thread-safe for parallel compilation phases.
-/// </summary>
 public sealed class DiagnosticBag
 {
     private readonly List<Diagnostic> m_diagnostics = [];

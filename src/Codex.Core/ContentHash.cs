@@ -3,11 +3,6 @@ using System.Text;
 
 namespace Codex.Core;
 
-/// <summary>
-/// A content-addressed identity. The SHA-256 hash of an artifact's canonical byte representation.
-/// Two artifacts with identical content have identical hashes. This is the foundation of
-/// the Codex repository: names are derived from content, not assigned.
-/// </summary>
 public readonly record struct ContentHash : IComparable<ContentHash>, IEquatable<ContentHash>
 {
     private readonly byte[] m_bytes;
@@ -17,35 +12,29 @@ public readonly record struct ContentHash : IComparable<ContentHash>, IEquatable
         m_bytes = bytes;
     }
 
-    /// <summary>The raw 32-byte SHA-256 hash.</summary>
     public ReadOnlySpan<byte> Bytes => m_bytes;
 
-    /// <summary>Compute the content hash of arbitrary bytes.</summary>
     public static ContentHash Of(ReadOnlySpan<byte> data)
     {
         byte[] hash = SHA256.HashData(data);
         return new ContentHash(hash);
     }
 
-    /// <summary>Compute the content hash of a UTF-8 string.</summary>
     public static ContentHash Of(string text)
     {
         return Of(Encoding.UTF8.GetBytes(text));
     }
 
-    /// <summary>The hash as a lowercase hex string.</summary>
     public string ToHex()
     {
         return Convert.ToHexString(m_bytes).ToLowerInvariant();
     }
 
-    /// <summary>Parse a hex string back into a ContentHash.</summary>
     public static ContentHash FromHex(string hex)
     {
         return new ContentHash(Convert.FromHexString(hex));
     }
 
-    /// <summary>A short prefix for display (first 8 hex chars).</summary>
     public string ToShortHex() => ToHex()[..16];
 
     public int CompareTo(ContentHash other)

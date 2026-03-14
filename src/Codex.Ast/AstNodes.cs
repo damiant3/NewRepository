@@ -2,11 +2,6 @@ using Codex.Core;
 
 namespace Codex.Ast;
 
-/// <summary>
-/// Abstract Syntax Tree nodes. These are the clean, desugared representation
-/// used for semantic analysis and type checking.
-/// Unlike the CST, the AST discards trivia and normalizes syntax.
-/// </summary>
 
 // --- Module structure ---
 
