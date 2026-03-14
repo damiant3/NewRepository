@@ -7,8 +7,8 @@ namespace Codex.Emit.CSharp;
 
 public sealed class CSharpEmitter : ICodeEmitter
 {
-    private HashSet<string> m_constructorNames = new();
-    private ValueMap<string, int> m_definitionArity = ValueMap<string, int>.s_empty;
+    Set<string> m_constructorNames = Set<string>.s_empty;
+    ValueMap<string, int> m_definitionArity = ValueMap<string, int>.s_empty;
 
     public string TargetName => "C#";
     public string FileExtension => ".cs";
@@ -60,7 +60,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         return sb.ToString();
     }
 
-    private void EmitTypeDefinitions(StringBuilder sb, IRModule module)
+    static void EmitTypeDefinitions(StringBuilder sb, IRModule module)
     {
         foreach (KeyValuePair<string, CodexType> kv in module.TypeDefinitions)
         {
@@ -76,7 +76,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private void EmitSumType(StringBuilder sb, SumType sum)
+    static void EmitSumType(StringBuilder sb, SumType sum)
     {
         string baseName = SanitizeIdentifier(sum.TypeName.Value);
         sb.AppendLine($"public abstract record {baseName};");
@@ -103,7 +103,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.AppendLine();
     }
 
-    private void EmitRecordType(StringBuilder sb, RecordType rec)
+    static void EmitRecordType(StringBuilder sb, RecordType rec)
     {
         string name = SanitizeIdentifier(rec.TypeName.Value);
         sb.Append($"public sealed record {name}(");
@@ -117,23 +117,23 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.AppendLine();
     }
 
-    private static HashSet<string> CollectConstructorNames(IRModule module)
+    static Set<string> CollectConstructorNames(IRModule module)
     {
-        HashSet<string> names = [];
+        Set<string> names = Set<string>.s_empty;
         foreach (KeyValuePair<string, CodexType> kv in module.TypeDefinitions)
         {
             if (kv.Value is SumType sum)
             {
                 foreach (SumConstructorType ctor in sum.Constructors)
                 {
-                    names.Add(ctor.Name.Value);
+                    names = names.Add(ctor.Name.Value);
                 }
             }
         }
         return names;
     }
 
-    private void EmitDefinition(StringBuilder sb, IRDefinition def)
+    void EmitDefinition(StringBuilder sb, IRDefinition def)
     {
         string returnType = EmitType(GetReturnType(def));
         string name = SanitizeIdentifier(def.Name);
@@ -167,7 +167,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.AppendLine("    }");
     }
 
-    private void EmitExpr(StringBuilder sb, IRExpr expr, int indent)
+    void EmitExpr(StringBuilder sb, IRExpr expr, int indent)
     {
         switch (expr)
         {
@@ -357,7 +357,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private static string? FindConstructorName(IRApply app)
+    static string? FindConstructorName(IRApply app)
     {
         IRExpr current = app.Function;
         while (current is IRApply inner)
@@ -371,7 +371,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         return null;
     }
 
-    private static string? FindDefinitionName(IRApply app)
+    static string? FindDefinitionName(IRApply app)
     {
         IRExpr current = app.Function;
         while (current is IRApply inner)
@@ -385,7 +385,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         return null;
     }
 
-    private static void CollectApplyArgs(IRApply app, List<IRExpr> args)
+    static void CollectApplyArgs(IRApply app, List<IRExpr> args)
     {
         if (app.Function is IRApply inner)
         {
@@ -394,7 +394,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         args.Add(app.Argument);
     }
 
-    private void EmitBinary(StringBuilder sb, IRBinary bin, int indent)
+    void EmitBinary(StringBuilder sb, IRBinary bin, int indent)
     {
         switch (bin.Op)
         {
@@ -458,7 +458,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private void EmitLet(StringBuilder sb, IRLet let, int indent)
+    void EmitLet(StringBuilder sb, IRLet let, int indent)
     {
         string funcType = $"Func<{EmitType(let.NameType)}, {EmitType(let.Body.Type)}>";
         sb.Append("((" + funcType + ")((");
@@ -470,7 +470,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.Append(')');
     }
 
-    private void EmitLambda(StringBuilder sb, IRLambda lam, int indent)
+    void EmitLambda(StringBuilder sb, IRLambda lam, int indent)
     {
         sb.Append('(');
         for (int i = 0; i < lam.Parameters.Length; i++)
@@ -482,7 +482,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         EmitExpr(sb, lam.Body, indent);
     }
 
-    private void EmitList(StringBuilder sb, IRList list, int indent)
+    void EmitList(StringBuilder sb, IRList list, int indent)
     {
         sb.Append($"new List<{EmitType(list.ElementType)}>()");
         if (list.Elements.Length > 0)
@@ -497,7 +497,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private void EmitMatch(StringBuilder sb, IRMatch match, int indent)
+    void EmitMatch(StringBuilder sb, IRMatch match, int indent)
     {
         bool hasMultipleCtorBranches = match.Branches
             .Count(b => b.Pattern is IRCtorPattern or IRLiteralPattern) > 1;
@@ -598,7 +598,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private void EmitCtorPatternBody(
+    void EmitCtorPatternBody(
         StringBuilder sb, IRCtorPattern ctorPat, string bindingName,
         IRExpr body, int indent)
     {
@@ -615,28 +615,27 @@ public sealed class CSharpEmitter : ICodeEmitter
         EmitVarBindingsAndBody(sb, varBindings, body, indent);
     }
 
-    private static void CollectPatternBindings(
+    static void CollectPatternBindings(
         IRCtorPattern ctorPat, string bindingName,
         List<(string Name, string Access, CodexType Type)> varBindings,
         List<(IRCtorPattern SubCtor, string Access)> nestedCtors)
     {
         for (int i = 0; i < ctorPat.SubPatterns.Length; i++)
         {
-            string access = $"{bindingName}.Field{i}";
             switch (ctorPat.SubPatterns[i])
             {
                 case IRVarPattern vp:
-                    varBindings.Add((vp.Name, access, vp.Type));
+                    varBindings.Add((vp.Name, $"{bindingName}.Field{i}", vp.Type));
                     break;
                 case IRCtorPattern nested:
-                    nestedCtors.Add((nested, access));
+                    nestedCtors.Add((nested, $"{bindingName}.Field{i}"));
                     CollectPatternBindings(nested, $"_m{SanitizeIdentifier(nested.Name)}_{nestedCtors.Count}_", varBindings, nestedCtors);
                     break;
             }
         }
     }
 
-    private void EmitNestedCtorChecks(
+    void EmitNestedCtorChecks(
         StringBuilder sb,
         List<(IRCtorPattern SubCtor, string Access)> nestedCtors,
         int idx,
@@ -670,7 +669,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.Append($" : throw new InvalidOperationException(\"Pattern match failed\"))");
     }
 
-    private void EmitVarBindingsAndBody(
+    void EmitVarBindingsAndBody(
         StringBuilder sb,
         List<(string Name, string Access, CodexType Type)> bindings,
         IRExpr body, int indent)
@@ -705,7 +704,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private void EmitDoExpr(StringBuilder sb, IRDo doExpr, int indent)
+    void EmitDoExpr(StringBuilder sb, IRDo doExpr, int indent)
     {
         sb.AppendLine("((Func<object>)(() => {");
         string pad = new(' ', (indent + 2) * 4);
@@ -733,7 +732,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.Append("}))()");
     }
 
-    private static string EmitType(CodexType type)
+    static string EmitType(CodexType type)
     {
         return type switch
         {
@@ -755,7 +754,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         };
     }
 
-    private static CodexType GetReturnType(IRDefinition def)
+    static CodexType GetReturnType(IRDefinition def)
     {
         CodexType type = def.Type;
         for (int i = 0; i < def.Parameters.Length; i++)
@@ -770,7 +769,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         return type;
     }
 
-    private static bool IsEffectfulDefinition(IRDefinition def)
+    static bool IsEffectfulDefinition(IRDefinition def)
     {
         CodexType type = def.Type;
         for (int i = 0; i < def.Parameters.Length; i++)
@@ -783,7 +782,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         return type is EffectfulType;
     }
 
-    private static string SanitizeIdentifier(string name)
+    static string SanitizeIdentifier(string name)
     {
         string sanitized = name.Replace('-', '_');
 
@@ -802,7 +801,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         };
     }
 
-    private static string EscapeString(string value)
+    static string EscapeString(string value)
     {
         return value
             .Replace("\\", "\\\\")

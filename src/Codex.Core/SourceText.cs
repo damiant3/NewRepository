@@ -26,7 +26,7 @@ public readonly record struct SourceSpan(SourcePosition Start, SourcePosition En
 
 public sealed class SourceText
 {
-    private int[]? m_lineStarts;
+    int[]? m_lineStarts;
 
     public string FileName { get; }
     public string Content { get; }
@@ -59,7 +59,7 @@ public sealed class SourceText
         return new SourcePosition(offset, line + 1, column);
     }
 
-    private static int BinarySearchLineStarts(ReadOnlySpan<int> starts, int offset)
+    static int BinarySearchLineStarts(ReadOnlySpan<int> starts, int offset)
     {
         int lo = 0, hi = starts.Length - 1;
         while (lo <= hi)
@@ -77,7 +77,7 @@ public sealed class SourceText
         return hi;
     }
 
-    private int[] ComputeLineStarts()
+    int[] ComputeLineStarts()
     {
         List<int> starts = [0];
         for (int i = 0; i < Content.Length; i++)

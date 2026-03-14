@@ -30,8 +30,8 @@ public sealed record Diagnostic(
 
 public sealed class DiagnosticBag
 {
-    private readonly List<Diagnostic> m_diagnostics = [];
-    private readonly object m_lock = new();
+    readonly List<Diagnostic> m_diagnostics = [];
+    readonly object m_lock = new();
 
     public void Add(Diagnostic diagnostic)
     {

@@ -5,7 +5,7 @@ namespace Codex.Ast;
 
 public sealed class Desugarer
 {
-    private readonly DiagnosticBag m_diagnostics;
+    readonly DiagnosticBag m_diagnostics;
 
     public Desugarer(DiagnosticBag diagnostics)
     {
@@ -20,7 +20,7 @@ public sealed class Desugarer
         return new Module(name, definitions, typeDefinitions, document.Span);
     }
 
-    private Definition DesugarDefinition(DefinitionNode node)
+    Definition DesugarDefinition(DefinitionNode node)
     {
         Name name = new Name(node.Name.Text);
         List<Parameter> parameters = node.Parameters.Select(p =>
@@ -33,7 +33,7 @@ public sealed class Desugarer
         return new Definition(name, parameters, declaredType, body, node.Span);
     }
 
-    private Expr DesugarExpr(ExpressionNode node) => node switch
+    Expr DesugarExpr(ExpressionNode node) => node switch
     {
         LiteralExpressionNode lit => new LiteralExpr(
             lit.Literal.LiteralValue ?? lit.Literal.Text,
@@ -119,7 +119,7 @@ public sealed class Desugarer
         _ => new ErrorExpr($"unknown expression node: {node.Kind}", node.Span)
     };
 
-    private DoStatement DesugarDoStatement(DoStatementNode node) => node switch
+    DoStatement DesugarDoStatement(DoStatementNode node) => node switch
     {
         DoBindStatementNode bind => new DoBindStatement(
             new Name(bind.Name.Text), DesugarExpr(bind.Value), bind.Span),
@@ -127,7 +127,7 @@ public sealed class Desugarer
         _ => new DoExprStatement(new ErrorExpr("unknown do statement", node.Span), node.Span)
     };
 
-    private Pattern DesugarPattern(PatternNode node) => node switch
+    Pattern DesugarPattern(PatternNode node) => node switch
     {
         VariablePatternNode v => new VarPattern(new Name(v.Name.Text), v.Span),
         LiteralPatternNode l => new LiteralPattern(
@@ -148,7 +148,7 @@ public sealed class Desugarer
         _ => new WildcardPattern(node.Span)
     };
 
-    private TypeExpr DesugarType(TypeNode node) => node switch
+    TypeExpr DesugarType(TypeNode node) => node switch
     {
         NamedTypeNode n => new NamedTypeExpr(new Name(n.Name.Text), n.Span),
         FunctionTypeNode f => new FunctionTypeExpr(
@@ -170,7 +170,7 @@ public sealed class Desugarer
         _ => new NamedTypeExpr(new Name("?"), node.Span)
     };
 
-    private TypeDef DesugarTypeDefinition(TypeDefinitionNode node)
+    TypeDef DesugarTypeDefinition(TypeDefinitionNode node)
     {
         Name typeName = new Name(node.Name.Text);
         List<Name> typeParams = node.TypeParameters.Select(t => new Name(t.Text)).ToList();
@@ -202,7 +202,7 @@ public sealed class Desugarer
         };
     }
 
-    private static BinaryOp DesugarBinaryOp(TokenKind kind) => kind switch
+    static BinaryOp DesugarBinaryOp(TokenKind kind) => kind switch
     {
         TokenKind.Plus => BinaryOp.Add,
         TokenKind.Minus => BinaryOp.Sub,

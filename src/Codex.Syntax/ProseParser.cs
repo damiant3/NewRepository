@@ -4,10 +4,10 @@ namespace Codex.Syntax;
 
 public sealed class ProseParser
 {
-    private readonly SourceText m_source;
-    private readonly DiagnosticBag m_diagnostics;
-    private readonly string[] m_lines;
-    private int m_lineIndex;
+    readonly SourceText m_source;
+    readonly DiagnosticBag m_diagnostics;
+    readonly string[] m_lines;
+    int m_lineIndex;
 
     public ProseParser(SourceText source, DiagnosticBag diagnostics)
     {
@@ -68,7 +68,7 @@ public sealed class ProseParser
         return new DocumentNode(allDefs, allTypeDefs, chapters, docSpan);
     }
 
-    private ChapterNode ParseChapter()
+    ChapterNode ParseChapter()
     {
         int startOffset = LineOffset(m_lineIndex);
         string headerLine = m_lines[m_lineIndex].TrimStart();
@@ -118,7 +118,7 @@ public sealed class ProseParser
         return new ChapterNode(title, members, span);
     }
 
-    private SectionNode ParseSection()
+    SectionNode ParseSection()
     {
         int startOffset = LineOffset(m_lineIndex);
         string headerLine = m_lines[m_lineIndex].TrimStart();
@@ -160,7 +160,7 @@ public sealed class ProseParser
         return new SectionNode(title, members, span);
     }
 
-    private ProseBlockNode ParseProseBlock()
+    ProseBlockNode ParseProseBlock()
     {
         int startOffset = LineOffset(m_lineIndex);
         List<string> proseLines = [];
@@ -197,7 +197,7 @@ public sealed class ProseParser
         return new ProseBlockNode(text, span);
     }
 
-    private NotationBlockNode ParseNotationBlock()
+    NotationBlockNode ParseNotationBlock()
     {
         int startOffset = LineOffset(m_lineIndex);
 
@@ -264,7 +264,7 @@ public sealed class ProseParser
         return new NotationBlockNode(notationDoc.Definitions, notationDoc.TypeDefinitions, span);
     }
 
-    private static bool LooksLikeNotation(string trimmed)
+    static bool LooksLikeNotation(string trimmed)
     {
         if (trimmed.Length == 0) return false;
 
@@ -280,7 +280,7 @@ public sealed class ProseParser
         return false;
     }
 
-    private static void CollectDefinitions(IReadOnlyList<DocumentMember> members, List<DefinitionNode> defs, List<TypeDefinitionNode> typeDefs)
+    static void CollectDefinitions(IReadOnlyList<DocumentMember> members, List<DefinitionNode> defs, List<TypeDefinitionNode> typeDefs)
     {
         foreach (DocumentMember member in members)
         {
@@ -296,12 +296,12 @@ public sealed class ProseParser
         }
     }
 
-    private string CurrentTrimmed()
+    string CurrentTrimmed()
     {
         return m_lineIndex < m_lines.Length ? m_lines[m_lineIndex].TrimStart() : "";
     }
 
-    private void SkipBlankLines()
+    void SkipBlankLines()
     {
         while (m_lineIndex < m_lines.Length && m_lines[m_lineIndex].TrimStart().Length == 0)
         {
@@ -309,7 +309,7 @@ public sealed class ProseParser
         }
     }
 
-    private static int MeasureIndent(string line)
+    static int MeasureIndent(string line)
     {
         int count = 0;
         foreach (char c in line)
@@ -320,7 +320,7 @@ public sealed class ProseParser
         return count;
     }
 
-    private int LineOffset(int lineIdx)
+    int LineOffset(int lineIdx)
     {
         int offset = 0;
         for (int i = 0; i < lineIdx && i < m_lines.Length; i++)
@@ -330,14 +330,14 @@ public sealed class ProseParser
         return offset;
     }
 
-    private SourceSpan MakeSpan(int startOffset, int endOffset)
+    SourceSpan MakeSpan(int startOffset, int endOffset)
     {
         SourcePosition start = OffsetToPosition(startOffset);
         SourcePosition end = OffsetToPosition(endOffset);
         return new SourceSpan(start, end);
     }
 
-    private SourcePosition OffsetToPosition(int offset)
+    SourcePosition OffsetToPosition(int offset)
     {
         int line = 1;
         int col = 1;
@@ -356,7 +356,7 @@ public sealed class ProseParser
         return new SourcePosition(offset, line, col);
     }
 
-    private SourceSpan MakeLineSpan(int lineIdx)
+    SourceSpan MakeLineSpan(int lineIdx)
     {
         int offset = LineOffset(lineIdx);
         int length = lineIdx < m_lines.Length ? m_lines[lineIdx].Length : 0;

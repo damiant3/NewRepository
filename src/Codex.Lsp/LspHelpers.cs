@@ -29,6 +29,6 @@ internal static class LspHelpers
         return lineText[start..(end + 1)];
     }
 
-    private static bool IsIdentChar(char c) =>
+    static bool IsIdentChar(char c) =>
         char.IsLetterOrDigit(c) || c == '_' || c == '-';
 }

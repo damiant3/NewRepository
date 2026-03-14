@@ -4,13 +4,13 @@ namespace Codex.Types;
 
 public sealed class TypeEnvironment
 {
-    private readonly Map<string, CodexType> m_bindings;
+    readonly Map<string, CodexType> m_bindings;
 
     public TypeEnvironment() : this(Map<string, CodexType>.s_empty)
     {
     }
 
-    private TypeEnvironment(Map<string, CodexType> bindings)
+    TypeEnvironment(Map<string, CodexType> bindings)
     {
         m_bindings = bindings;
     }

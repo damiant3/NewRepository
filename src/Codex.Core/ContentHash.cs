@@ -5,9 +5,9 @@ namespace Codex.Core;
 
 public readonly record struct ContentHash : IComparable<ContentHash>, IEquatable<ContentHash>
 {
-    private readonly byte[] m_bytes;
+    readonly byte[] m_bytes;
 
-    private ContentHash(byte[] bytes)
+    ContentHash(byte[] bytes)
     {
         m_bytes = bytes;
     }

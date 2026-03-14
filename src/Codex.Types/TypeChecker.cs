@@ -4,26 +4,15 @@ using Codex.Ast;
 
 namespace Codex.Types;
 
-public sealed class TypeChecker
+public sealed class TypeChecker(DiagnosticBag diagnostics)
 {
-    private readonly DiagnosticBag m_diagnostics;
-    private readonly Unifier m_unifier;
-    private TypeEnvironment m_env;
-    private Map<string, CodexType> m_typeDefMap;
-    private Map<string, CtorInfo> m_ctorMap;
-    private Map<string, CodexType> m_typeParamEnv;
-    private ImmutableHashSet<string> m_currentEffects;
-
-    public TypeChecker(DiagnosticBag diagnostics)
-    {
-        m_diagnostics = diagnostics;
-        m_unifier = new(diagnostics);
-        m_env = TypeEnvironment.WithBuiltins();
-        m_typeDefMap = Map<string, CodexType>.s_empty;
-        m_ctorMap = Map<string, CtorInfo>.s_empty;
-        m_typeParamEnv = Map<string, CodexType>.s_empty;
-        m_currentEffects = [];
-    }
+    readonly DiagnosticBag m_diagnostics = diagnostics;
+    readonly Unifier m_unifier = new(diagnostics);
+    TypeEnvironment m_env = TypeEnvironment.WithBuiltins();
+    Map<string, CodexType> m_typeDefMap = Map<string, CodexType>.s_empty;
+    Map<string, CtorInfo> m_ctorMap = Map<string, CtorInfo>.s_empty;
+    Map<string, CodexType> m_typeParamEnv = Map<string, CodexType>.s_empty;
+    Set<string> m_currentEffects = Set<string>.s_empty;
 
     public Map<string, CodexType> CheckModule(Module module)
     {
@@ -55,7 +44,7 @@ public sealed class TypeChecker
         return result;
     }
 
-    private void RegisterTypeDefinitions(IReadOnlyList<TypeDef> typeDefs)
+    void RegisterTypeDefinitions(IReadOnlyList<TypeDef> typeDefs)
     {
         foreach (TypeDef td in typeDefs)
         {
@@ -143,10 +132,10 @@ public sealed class TypeChecker
 
     public Map<string, CtorInfo> ConstructorMap => m_ctorMap;
 
-    private CodexType InferDefinition(Definition def, CodexType expectedType)
+    CodexType InferDefinition(Definition def, CodexType expectedType)
     {
         TypeEnvironment savedEnv = m_env;
-        ImmutableHashSet<string> savedEffects = m_currentEffects;
+        Set<string> savedEffects = m_currentEffects;
 
         m_currentEffects = ExtractEffects(expectedType);
 
@@ -185,7 +174,7 @@ public sealed class TypeChecker
         return fullType;
     }
 
-    private CodexType InferExpr(Expr expr)
+    CodexType InferExpr(Expr expr)
     {
         switch (expr)
         {
@@ -258,7 +247,7 @@ public sealed class TypeChecker
         }
     }
 
-    private CodexType InferBinary(BinaryExpr bin)
+    CodexType InferBinary(BinaryExpr bin)
     {
         CodexType leftType = InferExpr(bin.Left);
         CodexType rightType = InferExpr(bin.Right);
@@ -285,7 +274,7 @@ public sealed class TypeChecker
         };
     }
 
-    private CodexType InferArithmetic(CodexType left, CodexType right, BinaryExpr bin)
+    CodexType InferArithmetic(CodexType left, CodexType right, BinaryExpr bin)
     {
         m_unifier.Unify(left, right, bin.Span);
         CodexType resolved = m_unifier.Resolve(left);
@@ -298,20 +287,20 @@ public sealed class TypeChecker
         return left;
     }
 
-    private CodexType InferComparison(CodexType left, CodexType right, BinaryExpr bin)
+    BooleanType InferComparison(CodexType left, CodexType right, BinaryExpr bin)
     {
         m_unifier.Unify(left, right, bin.Span);
         return BooleanType.s_instance;
     }
 
-    private CodexType InferLogical(CodexType left, CodexType right, BinaryExpr bin)
+    BooleanType InferLogical(CodexType left, CodexType right, BinaryExpr bin)
     {
         m_unifier.Unify(left, BooleanType.s_instance, bin.Left.Span);
         m_unifier.Unify(right, BooleanType.s_instance, bin.Right.Span);
         return BooleanType.s_instance;
     }
 
-    private CodexType InferAppend(CodexType left, CodexType right, BinaryExpr bin)
+    CodexType InferAppend(CodexType left, CodexType right, BinaryExpr bin)
     {
         CodexType resolved = m_unifier.Resolve(left);
         if (resolved is TextType)
@@ -323,14 +312,14 @@ public sealed class TypeChecker
         return left;
     }
 
-    private CodexType InferCons(CodexType left, CodexType right, BinaryExpr bin)
+    ListType InferCons(CodexType left, CodexType right, BinaryExpr bin)
     {
         ListType listType = new(left);
         m_unifier.Unify(right, listType, bin.Span);
         return listType;
     }
 
-    private CodexType InferApplication(ApplyExpr app)
+    CodexType InferApplication(ApplyExpr app)
     {
         CodexType funcType = InferExpr(app.Function);
         CodexType argType = InferExpr(app.Argument);
@@ -347,7 +336,7 @@ public sealed class TypeChecker
         return returnType;
     }
 
-    private CodexType InferLet(LetExpr let)
+    CodexType InferLet(LetExpr let)
     {
         TypeEnvironment savedEnv = m_env;
 
@@ -362,7 +351,7 @@ public sealed class TypeChecker
         return bodyType;
     }
 
-    private CodexType InferLambda(LambdaExpr lam)
+    CodexType InferLambda(LambdaExpr lam)
     {
         TypeEnvironment savedEnv = m_env;
 
@@ -386,7 +375,7 @@ public sealed class TypeChecker
         return result;
     }
 
-    private CodexType InferMatch(MatchExpr match)
+    CodexType InferMatch(MatchExpr match)
     {
         CodexType scrutineeType = InferExpr(match.Scrutinee);
         CodexType resultType = m_unifier.FreshVar();
@@ -405,7 +394,7 @@ public sealed class TypeChecker
         return resultType;
     }
 
-    private void CheckExhaustiveness(MatchExpr match, CodexType scrutineeType)
+    void CheckExhaustiveness(MatchExpr match, CodexType scrutineeType)
     {
         CodexType resolved = m_unifier.Resolve(scrutineeType);
         if (resolved is not SumType sumType)
@@ -416,11 +405,11 @@ public sealed class TypeChecker
         if (hasCatchAll)
             return;
 
-        HashSet<string> covered = [];
+        Set<string> covered = Set<string>.s_empty;
         foreach (MatchBranch branch in match.Branches)
         {
             if (branch.Pattern is CtorPattern cp)
-                covered.Add(cp.Constructor.Value);
+                covered = covered.Add(cp.Constructor.Value);
         }
 
         List<string> missing = [];
@@ -439,7 +428,7 @@ public sealed class TypeChecker
         }
     }
 
-    private void CheckPattern(Pattern pattern, CodexType expectedType)
+    void CheckPattern(Pattern pattern, CodexType expectedType)
     {
         switch (pattern)
         {
@@ -490,7 +479,7 @@ public sealed class TypeChecker
         }
     }
 
-    private CodexType InferRecord(RecordExpr rec)
+    CodexType InferRecord(RecordExpr rec)
     {
         if (rec.TypeName is null)
             return m_unifier.FreshVar();
@@ -512,7 +501,7 @@ public sealed class TypeChecker
         return recordType;
     }
 
-    private CodexType InferFieldAccess(FieldAccessExpr fa)
+    CodexType InferFieldAccess(FieldAccessExpr fa)
     {
         CodexType recordType = InferExpr(fa.Record);
         CodexType resolved = m_unifier.Resolve(recordType);
@@ -529,10 +518,10 @@ public sealed class TypeChecker
         return ErrorType.s_instance;
     }
 
-    private CodexType InferDoExpr(DoExpr doExpr)
+    CodexType InferDoExpr(DoExpr doExpr)
     {
         TypeEnvironment savedEnv = m_env;
-        HashSet<string> collectedEffects = [];
+        Set<string> collectedEffects = Set<string>.s_empty;
         CodexType lastType = NothingType.s_instance;
 
         foreach (DoStatement stmt in doExpr.Statements)
@@ -542,7 +531,7 @@ public sealed class TypeChecker
                 case DoBindStatement bind:
                 {
                     CodexType valueType = InferExpr(bind.Value);
-                    CodexType unwrapped = UnwrapEffectful(valueType, collectedEffects);
+                    CodexType unwrapped = UnwrapEffectful(valueType, ref collectedEffects);
                     m_env = m_env.Bind(bind.Name, unwrapped);
                     lastType = NothingType.s_instance;
                     break;
@@ -550,7 +539,7 @@ public sealed class TypeChecker
                 case DoExprStatement exprStmt:
                 {
                     CodexType stmtType = InferExpr(exprStmt.Expression);
-                    UnwrapEffectful(stmtType, collectedEffects);
+                    UnwrapEffectful(stmtType, ref collectedEffects);
                     lastType = stmtType;
                     break;
                 }
@@ -570,18 +559,18 @@ public sealed class TypeChecker
         return lastType;
     }
 
-    private static CodexType UnwrapEffectful(CodexType type, HashSet<string> effects)
+    static CodexType UnwrapEffectful(CodexType type, ref Set<string> effects)
     {
         if (type is EffectfulType eft)
         {
             foreach (EffectType effect in eft.Effects)
-                effects.Add(effect.EffectName.Value);
+                effects = effects.Add(effect.EffectName.Value);
             return eft.Return;
         }
         return type;
     }
 
-    private CodexType InferList(ListExpr list)
+    ListType InferList(ListExpr list)
     {
         if (list.Elements.Count == 0)
             return new ListType(m_unifier.FreshVar());
@@ -596,7 +585,7 @@ public sealed class TypeChecker
         return new ListType(elementType);
     }
 
-    private static ImmutableHashSet<string> ExtractEffects(CodexType type)
+    static Set<string> ExtractEffects(CodexType type)
     {
         CodexType current = type;
         while (current is FunctionType ft)
@@ -604,12 +593,15 @@ public sealed class TypeChecker
 
         if (current is EffectfulType eft)
         {
-            return [.. eft.Effects.Select(e => e.EffectName.Value)];
+            Set<string> result = Set<string>.s_empty;
+            foreach (EffectType e in eft.Effects)
+                result = result.Add(e.EffectName.Value);
+            return result;
         }
-        return [];
+        return Set<string>.s_empty;
     }
 
-    private void CheckEffectAllowed(CodexType type, SourceSpan span)
+    void CheckEffectAllowed(CodexType type, SourceSpan span)
     {
         if (type is not EffectfulType eft)
             return;
@@ -626,7 +618,7 @@ public sealed class TypeChecker
         }
     }
 
-    private CodexType ResolveTypeExpr(TypeExpr typeExpr)
+    CodexType ResolveTypeExpr(TypeExpr typeExpr)
     {
         return typeExpr switch
         {
@@ -641,7 +633,7 @@ public sealed class TypeChecker
         };
     }
 
-    private CodexType ResolveNamedType(Name name)
+    CodexType ResolveNamedType(Name name)
     {
         CodexType? fromTypeParam = m_typeParamEnv[name.Value];
         if (fromTypeParam is not null)
@@ -667,7 +659,7 @@ public sealed class TypeChecker
         return new ConstructedType(name, []);
     }
 
-    private CodexType ResolveAppliedType(AppliedTypeExpr app)
+    CodexType ResolveAppliedType(AppliedTypeExpr app)
     {
         if (app.Constructor is NamedTypeExpr namedCtor && namedCtor.Name.Value == "List"
             && app.Arguments.Count == 1)
@@ -706,7 +698,7 @@ public sealed class TypeChecker
         return new ConstructedType(ctorName, fallbackArgs);
     }
 
-    private CodexType ResolveEffectfulType(EffectfulTypeExpr eff)
+    EffectfulType ResolveEffectfulType(EffectfulTypeExpr eff)
     {
         ImmutableArray<EffectType>.Builder effects = ImmutableArray.CreateBuilder<EffectType>();
         foreach (TypeExpr e in eff.Effects)
@@ -725,7 +717,7 @@ public sealed class TypeChecker
         return new EffectfulType(effects.ToImmutable(), returnType);
     }
 
-    private static CodexType InstantiateParametricType(CodexType typeDef, ImmutableArray<CodexType> args)
+    static CodexType InstantiateParametricType(CodexType typeDef, ImmutableArray<CodexType> args)
     {
         ImmutableArray<int> paramIds = typeDef switch
         {
@@ -743,7 +735,7 @@ public sealed class TypeChecker
         return result;
     }
 
-    private CodexType Instantiate(CodexType type)
+    CodexType Instantiate(CodexType type)
     {
         while (type is ForAllType forAll)
         {
@@ -753,7 +745,7 @@ public sealed class TypeChecker
         return type;
     }
 
-    private static CodexType SubstituteVar(CodexType type, int varId, CodexType replacement)
+    static CodexType SubstituteVar(CodexType type, int varId, CodexType replacement)
     {
         return type switch
         {

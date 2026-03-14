@@ -9,7 +9,7 @@ namespace Codex.Lsp;
 
 internal sealed class DocumentSymbolHandler : DocumentSymbolHandlerBase
 {
-    private readonly DocumentStore m_store;
+    readonly DocumentStore m_store;
 
     public DocumentSymbolHandler(DocumentStore store)
     {

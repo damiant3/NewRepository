@@ -1,4 +1,4 @@
-﻿# EditorConfig for SparseLattice and SparseLattice.Test
+# EditorConfig for SparseLattice and SparseLattice.Test
 root = true
 
 [*]
@@ -58,7 +58,9 @@ dotnet_naming_style.s_prefix_style.capitalization = camel_case
 # Member accessibility ordering
 file_header_template = 
 
-# Prefer expression-bodied and others left to developer, but keep explicit accessibility
+# Omit default accessibility modifiers (private on members, internal on types)
+dotnet_style_require_accessibility_modifiers = omit_if_default:suggestion
+
 csharp_style_var_for_built_in_types = false:warning
 csharp_style_var_when_type_is_apparent = false:warning
 csharp_style_var_elsewhere = false:warning

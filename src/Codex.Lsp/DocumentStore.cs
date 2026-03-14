@@ -4,7 +4,7 @@ namespace Codex.Lsp;
 
 internal sealed class DocumentStore
 {
-    private volatile Map<string, DocumentEntry> m_entries = Map<string, DocumentEntry>.s_empty;
+    volatile Map<string, DocumentEntry> m_entries = Map<string, DocumentEntry>.s_empty;
 
     public void Update(string uri, string text)
     {

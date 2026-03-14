@@ -11,8 +11,8 @@ namespace Codex.Lsp;
 
 internal sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
 {
-    private readonly ILanguageServerFacade m_server;
-    private readonly DocumentStore m_store;
+    readonly ILanguageServerFacade m_server;
+    readonly DocumentStore m_store;
 
     public TextDocumentSyncHandler(ILanguageServerFacade server, DocumentStore store)
     {
@@ -70,7 +70,7 @@ internal sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
         };
     }
 
-    private void PublishDiagnostics(string uri, string text)
+    void PublishDiagnostics(string uri, string text)
     {
         AnalysisResult result = Analyzer.Analyze(uri, text);
         m_store.UpdateResult(uri, result);
@@ -102,7 +102,7 @@ internal sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
             Math.Max(0, span.End.Line - 1), Math.Max(0, span.End.Column - 1));
     }
 
-    private static OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity? MapSeverity(
+    static OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity? MapSeverity(
         Codex.Core.DiagnosticSeverity severity)
     {
         return severity switch

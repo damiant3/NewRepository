@@ -8,21 +8,21 @@ namespace Codex.Lsp;
 
 internal sealed class CompletionHandler : CompletionHandlerBase
 {
-    private readonly DocumentStore m_store;
+    readonly DocumentStore m_store;
 
-    private static readonly string[] s_keywords =
+    static readonly string[] s_keywords =
     [
         "if", "then", "else", "let", "in", "when", "do", "linear",
         "record", "True", "False",
     ];
 
-    private static readonly string[] s_builtins =
+    static readonly string[] s_builtins =
     [
         "show", "negate", "print-line", "read-line",
         "open-file", "read-all", "close-file",
     ];
 
-    private static readonly string[] s_typeNames =
+    static readonly string[] s_typeNames =
     [
         "Integer", "Number", "Text", "Boolean", "Nothing",
         "List", "FileHandle",

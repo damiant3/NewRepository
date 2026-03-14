@@ -3,20 +3,12 @@ using Codex.Ast;
 
 namespace Codex.Types;
 
-public sealed class LinearityChecker
+public sealed class LinearityChecker(DiagnosticBag diagnostics, Map<string, CodexType> typeMap)
 {
-    private readonly DiagnosticBag m_diagnostics;
-    private readonly Map<string, CodexType> m_typeMap;
-    private ValueMap<string, int> m_usageCounts;
-    private Map<string, CodexType> m_linearBindings;
-
-    public LinearityChecker(DiagnosticBag diagnostics, Map<string, CodexType> typeMap)
-    {
-        m_diagnostics = diagnostics;
-        m_typeMap = typeMap;
-        m_usageCounts = ValueMap<string, int>.s_empty;
-        m_linearBindings = Map<string, CodexType>.s_empty;
-    }
+    readonly DiagnosticBag m_diagnostics = diagnostics;
+    readonly Map<string, CodexType> m_typeMap = typeMap;
+    ValueMap<string, int> m_usageCounts = ValueMap<string, int>.s_empty;
+    Map<string, CodexType> m_linearBindings = Map<string, CodexType>.s_empty;
 
     public void CheckModule(Module module)
     {
@@ -26,7 +18,7 @@ public sealed class LinearityChecker
         }
     }
 
-    private void CheckDefinition(Definition def)
+    void CheckDefinition(Definition def)
     {
         ValueMap<string, int> savedCounts = m_usageCounts;
         Map<string, CodexType> savedLinear = m_linearBindings;
@@ -62,7 +54,7 @@ public sealed class LinearityChecker
         m_linearBindings = savedLinear;
     }
 
-    private void CheckExpr(Expr expr)
+    void CheckExpr(Expr expr)
     {
         switch (expr)
         {
@@ -149,7 +141,7 @@ public sealed class LinearityChecker
         }
     }
 
-    private void CheckMatchBranches(MatchExpr match)
+    void CheckMatchBranches(MatchExpr match)
     {
         if (match.Branches.Count == 0) return;
 
@@ -175,7 +167,7 @@ public sealed class LinearityChecker
             m_usageCounts = mergedCounts;
     }
 
-    private void MergeBranchCounts(
+    void MergeBranchCounts(
         ValueMap<string, int> branch1,
         ValueMap<string, int> branch2,
         SourceSpan span)
@@ -195,7 +187,7 @@ public sealed class LinearityChecker
         }
     }
 
-    private void RecordUsage(string name, SourceSpan span)
+    void RecordUsage(string name, SourceSpan span)
     {
         if (m_linearBindings[name] is null) return;
 
@@ -210,7 +202,7 @@ public sealed class LinearityChecker
         }
     }
 
-    private void ReportUnusedLinearBindings(SourceSpan span)
+    void ReportUnusedLinearBindings(SourceSpan span)
     {
         foreach (KeyValuePair<string, CodexType> kv in m_linearBindings)
         {

@@ -8,7 +8,7 @@ namespace Codex.Lsp;
 
 internal sealed class HoverHandler : HoverHandlerBase
 {
-    private readonly DocumentStore m_store;
+    readonly DocumentStore m_store;
 
     public HoverHandler(DocumentStore store)
     {

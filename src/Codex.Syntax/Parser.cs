@@ -4,9 +4,9 @@ namespace Codex.Syntax;
 
 public sealed class Parser
 {
-    private readonly IReadOnlyList<Token> m_tokens;
-    private readonly DiagnosticBag m_diagnostics;
-    private int m_position;
+    readonly IReadOnlyList<Token> m_tokens;
+    readonly DiagnosticBag m_diagnostics;
+    int m_position;
 
     public Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostics)
     {
@@ -51,7 +51,7 @@ public sealed class Parser
         return new DocumentNode(definitions, typeDefinitions, Array.Empty<ChapterNode>(), startSpan.Through(endSpan));
     }
 
-    private TypeDefinitionNode? TryParseTypeDefinition()
+    TypeDefinitionNode? TryParseTypeDefinition()
     {
         if (Current.Kind != TokenKind.TypeIdentifier)
             return null;
@@ -99,7 +99,7 @@ public sealed class Parser
         return null;
     }
 
-    private RecordTypeBody ParseRecordTypeBody()
+    RecordTypeBody ParseRecordTypeBody()
     {
         Token recordKw = Expect(TokenKind.RecordKeyword);
         Expect(TokenKind.LeftBrace);
@@ -125,7 +125,7 @@ public sealed class Parser
         return new RecordTypeBody(fields, recordKw.Span.Through(closeBrace.Span));
     }
 
-    private VariantTypeBody ParseVariantTypeBody()
+    VariantTypeBody ParseVariantTypeBody()
     {
         SourceSpan startSpan = Current.Span;
         List<VariantConstructorNode> constructors = [];
@@ -165,7 +165,7 @@ public sealed class Parser
         return new VariantTypeBody(constructors, startSpan.Through(endSpan));
     }
 
-    private DefinitionNode? TryParseDefinition()
+    DefinitionNode? TryParseDefinition()
     {
         if (Current.Kind is not (TokenKind.Identifier or TokenKind.TypeIdentifier))
         {
@@ -234,7 +234,7 @@ public sealed class Parser
         return new DefinitionNode(nameToken, parameters, annotation, body, span);
     }
 
-    private TypeAnnotationNode ParseTypeAnnotation()
+    TypeAnnotationNode ParseTypeAnnotation()
     {
         Token nameToken = Current;
         Advance();
@@ -257,7 +257,7 @@ public sealed class Parser
         return left;
     }
 
-    private TypeNode ParseTypeAtom()
+    TypeNode ParseTypeAtom()
     {
         if (Current.Kind == TokenKind.LinearKeyword)
         {
@@ -331,7 +331,7 @@ public sealed class Parser
         return ParseBinary(0);
     }
 
-    private ExpressionNode ParseBinary(int minPrecedence)
+    ExpressionNode ParseBinary(int minPrecedence)
     {
         ExpressionNode left = ParseUnary();
 
@@ -356,7 +356,7 @@ public sealed class Parser
         return left;
     }
 
-    private ExpressionNode ParseUnary()
+    ExpressionNode ParseUnary()
     {
         if (Current.Kind == TokenKind.Minus)
         {
@@ -369,7 +369,7 @@ public sealed class Parser
         return ParseApplication();
     }
 
-    private ExpressionNode ParseApplication()
+    ExpressionNode ParseApplication()
     {
         ExpressionNode func = ParseAtom();
 
@@ -395,7 +395,7 @@ public sealed class Parser
         return func;
     }
 
-    private bool IsApplicationStart()
+    bool IsApplicationStart()
     {
         return Current.Kind is TokenKind.Identifier
             or TokenKind.TypeIdentifier
@@ -408,7 +408,7 @@ public sealed class Parser
             or TokenKind.LeftBracket;
     }
 
-    private ExpressionNode ParseAtom()
+    ExpressionNode ParseAtom()
     {
         switch (Current.Kind)
         {
@@ -473,7 +473,7 @@ public sealed class Parser
         }
     }
 
-    private ExpressionNode ParseRecordExpression(Token typeName)
+    ExpressionNode ParseRecordExpression(Token typeName)
     {
         SourceSpan start = typeName.Span;
         Expect(TokenKind.LeftBrace);
@@ -499,7 +499,7 @@ public sealed class Parser
         return new RecordExpressionNode(typeName, fields, start.Through(Previous.Span));
     }
 
-    private ExpressionNode ParseListExpression()
+    ExpressionNode ParseListExpression()
     {
         Token start = Current;
         Advance();
@@ -521,7 +521,7 @@ public sealed class Parser
         return new ListExpressionNode(elements, start.Span.Through(Previous.Span));
     }
 
-    private ExpressionNode ParseIfExpression()
+    ExpressionNode ParseIfExpression()
     {
         Token start = Current;
         Advance();
@@ -538,7 +538,7 @@ public sealed class Parser
         return new IfExpressionNode(condition, thenExpr, elseExpr, start.Span.Through(elseExpr.Span));
     }
 
-    private ExpressionNode ParseLetExpression()
+    ExpressionNode ParseLetExpression()
     {
         Token start = Current;
         Advance();
@@ -567,7 +567,7 @@ public sealed class Parser
         return new LetExpressionNode(bindings, body, start.Span.Through(body.Span));
     }
 
-    private ExpressionNode ParseMatchExpression()
+    ExpressionNode ParseMatchExpression()
     {
         Token start = Current;
         Advance();
@@ -595,7 +595,7 @@ public sealed class Parser
         return new MatchExpressionNode(scrutinee, branches, start.Span.Through(endSpan));
     }
 
-    private ExpressionNode ParseDoExpression()
+    ExpressionNode ParseDoExpression()
     {
         Token start = Current;
         Advance();
@@ -631,7 +631,7 @@ public sealed class Parser
         return new DoExpressionNode(statements, start.Span.Through(endSpan));
     }
 
-    private PatternNode ParsePattern()
+    PatternNode ParsePattern()
     {
         switch (Current.Kind)
         {
@@ -690,9 +690,9 @@ public sealed class Parser
         }
     }
 
-    private enum Associativity { Left, Right }
+    enum Associativity { Left, Right }
 
-    private static (int Precedence, Associativity Assoc) GetPrecedence(TokenKind kind) => kind switch
+    static (int Precedence, Associativity Assoc) GetPrecedence(TokenKind kind) => kind switch
     {
         TokenKind.PlusPlus      => (5, Associativity.Right),
         TokenKind.ColonColon    => (5, Associativity.Right),
@@ -714,19 +714,19 @@ public sealed class Parser
         _                       => (-1, Associativity.Left),
     };
 
-    private Token Current => m_position < m_tokens.Count ? m_tokens[m_position] : m_tokens[^1];
+    Token Current => m_position < m_tokens.Count ? m_tokens[m_position] : m_tokens[^1];
 
-    private Token Previous => m_position > 0 ? m_tokens[m_position - 1] : m_tokens[0];
+    Token Previous => m_position > 0 ? m_tokens[m_position - 1] : m_tokens[0];
 
-    private bool IsAtEnd => Current.Kind == TokenKind.EndOfFile;
+    bool IsAtEnd => Current.Kind == TokenKind.EndOfFile;
 
-    private Token? Peek(int offset)
+    Token? Peek(int offset)
     {
         int idx = m_position + offset;
         return idx >= 0 && idx < m_tokens.Count ? m_tokens[idx] : null;
     }
 
-    private void Advance()
+    void Advance()
     {
         if (!IsAtEnd)
         {
@@ -734,7 +734,7 @@ public sealed class Parser
         }
     }
 
-    private Token Expect(TokenKind kind)
+    Token Expect(TokenKind kind)
     {
         if (Current.Kind == kind)
         {
@@ -747,7 +747,7 @@ public sealed class Parser
         return Current;
     }
 
-    private void SkipNewlines()
+    void SkipNewlines()
     {
         while (Current.Kind is TokenKind.Newline or TokenKind.Indent or TokenKind.Dedent)
         {
@@ -755,7 +755,7 @@ public sealed class Parser
         }
     }
 
-    private void SkipToNextDefinition()
+    void SkipToNextDefinition()
     {
         while (!IsAtEnd)
         {

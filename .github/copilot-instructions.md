@@ -25,7 +25,7 @@ Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
 - **Minimize type information at callsites.** Use `new()` instead of `new TypeName()` when the target type is already specified by the declaration (field, variable, parameter, return type). Example: `Map<string, CodexType> m_map = Map<string, CodexType>.s_empty;` not `... = new Map<string, CodexType>(...)`.
 - **Usings: trial-and-error, compile-and-test.** Do not add `using` directives speculatively. `System`, `System.Collections.Generic`, `System.Linq`, `System.IO`, `System.Net.Http`, `System.Threading`, `System.Threading.Tasks` are implicit. `System.Collections.Immutable` is NOT implicit — add it only when the file uses `ImmutableArray`, `ImmutableDictionary`, etc. When you add a using, check if there are now-redundant fully-qualified type names in the same file and shorten them.
 - **Prefer null-safe abstractions over `TryGetValue`.** Use `Map<K,V>` (in `Codex.Core`) which returns `null` on missing keys instead of `ImmutableDictionary` + `TryGetValue`. If a .NET abstraction has bad null behavior (throws on missing key, requires `out` patterns), clone it null-safe in `Codex.Core` and use that.
-- Explicit accessibility modifiers on all types and members.
+- **Omit default accessibility modifiers.** Do not write `private` on class members or `internal` on top-level types — those are the C# defaults. Only write an accessibility modifier when it differs from the default (e.g., `public`, `protected`, `internal` on a member).
 - 4 spaces indentation, UTF-8, max 120 characters per line.
 - `sealed record` for immutable reference types; `readonly record struct` for small value types.
 

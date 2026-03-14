@@ -6,7 +6,7 @@ namespace Codex.Lsp;
 
 internal static class Program
 {
-    private static async Task Main(string[] args)
+    static async Task Main(string[] args)
     {
         ILanguageServer server = await LanguageServer.From(options =>
         {

@@ -7,7 +7,7 @@ namespace Codex.Lsp;
 
 internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 {
-    private readonly DocumentStore m_store;
+    readonly DocumentStore m_store;
 
     internal static readonly SemanticTokensLegend s_legend = new()
     {
@@ -84,7 +84,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         return Task.FromResult(new SemanticTokensDocument(s_legend));
     }
 
-    private static int ClassifyToken(Token token)
+    static int ClassifyToken(Token token)
     {
         return token.Kind switch
         {

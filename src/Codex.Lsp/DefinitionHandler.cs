@@ -9,7 +9,7 @@ namespace Codex.Lsp;
 
 internal sealed class DefinitionHandler : DefinitionHandlerBase
 {
-    private readonly DocumentStore m_store;
+    readonly DocumentStore m_store;
 
     public DefinitionHandler(DocumentStore store)
     {

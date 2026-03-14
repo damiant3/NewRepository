@@ -21,7 +21,7 @@ public sealed record Fact(
     string Justification,
     ImmutableArray<ContentHash> References)
 {
-    public static Fact CreateDefinition(string moduleName, string source, string author, string justification)
+    public static Fact CreateDefinition(string source, string author, string justification)
     {
         ContentHash hash = ContentHash.Of(source);
         return new Fact(hash, FactKind.Definition, source, author, DateTime.UtcNow,
@@ -38,19 +38,12 @@ public sealed record Fact(
     }
 }
 
-public sealed class FactStore
+public sealed class FactStore(string rootPath)
 {
-    private readonly string m_rootPath;
-    private readonly string m_factsPath;
-    private readonly string m_viewPath;
-    private Map<ContentHash, Fact> m_cache = Map<ContentHash, Fact>.s_empty;
-
-    public FactStore(string rootPath)
-    {
-        m_rootPath = rootPath;
-        m_factsPath = Path.Combine(rootPath, ".codex", "facts");
-        m_viewPath = Path.Combine(rootPath, ".codex", "view.json");
-    }
+    readonly string m_rootPath = rootPath;
+    readonly string m_factsPath = Path.Combine(rootPath, ".codex", "facts");
+    readonly string m_viewPath = Path.Combine(rootPath, ".codex", "view.json");
+    Map<ContentHash, Fact> m_cache = Map<ContentHash, Fact>.s_empty;
 
     public static FactStore Init(string rootPath)
     {
@@ -160,14 +153,16 @@ public sealed class FactStore
 
     public IReadOnlyList<Fact> GetHistory(string name)
     {
-        List<Fact> history = new();
+        List<Fact> history = [];
         ContentHash? current = LookupView(name);
-        HashSet<string> visited = new();
+        Set<string> visited = Set<string>.s_empty;
 
         while (current is not null)
         {
-            if (!visited.Add(current.Value.ToHex()))
+            string hex = current.Value.ToHex();
+            if (visited.Contains(hex))
                 break;
+            visited = visited.Add(hex);
 
             Fact? fact = Load(current.Value);
             if (fact is null) break;
@@ -191,7 +186,7 @@ public sealed class FactStore
         return history;
     }
 
-    private Fact? FindSupersessionOf(ContentHash newHash)
+    Fact? FindSupersessionOf(ContentHash newHash)
     {
         if (!Directory.Exists(m_factsPath))
             return null;
@@ -220,7 +215,7 @@ public sealed class FactStore
 
     public bool IsInitialized => Directory.Exists(Path.Combine(m_rootPath, ".codex"));
 
-    private Map<string, string> LoadViewMap()
+    Map<string, string> LoadViewMap()
     {
         if (!File.Exists(m_viewPath))
             return Map<string, string>.s_empty;
@@ -235,23 +230,23 @@ public sealed class FactStore
         return result;
     }
 
-    private void SaveViewMap(Map<string, string> view)
+    void SaveViewMap(Map<string, string> view)
     {
-        Dictionary<string, string> raw = new();
+        Dictionary<string, string> raw = [];
         foreach (KeyValuePair<string, string> kv in view)
             raw[kv.Key] = kv.Value;
         string json = JsonSerializer.Serialize(raw, s_jsonOptions);
         File.WriteAllText(m_viewPath, json);
     }
 
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private sealed class FactDto
+    sealed class FactDto
     {
         public string Hash { get; set; } = "";
         public string Kind { get; set; } = "";
@@ -259,6 +254,6 @@ public sealed class FactStore
         public string Author { get; set; } = "";
         public DateTime Timestamp { get; set; }
         public string Justification { get; set; } = "";
-        public List<string> References { get; set; } = new();
+        public List<string> References { get; set; } = [];
     }
 }

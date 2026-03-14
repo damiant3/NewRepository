@@ -10,18 +10,18 @@ public enum LexerMode
 
 public sealed class Lexer
 {
-    private readonly DiagnosticBag m_diagnostics;
-    private readonly string m_text;
+    readonly DiagnosticBag m_diagnostics;
+    readonly string m_text;
 
-    private int m_position;
-    private int m_line;
-    private int m_column;
+    int m_position;
+    int m_line;
+    int m_column;
 
-    private readonly Stack<int> m_indentStack = new();
-    private int m_currentLineIndent;
-    private bool m_atLineStart = true;
+    readonly Stack<int> m_indentStack = new();
+    int m_currentLineIndent;
+    bool m_atLineStart = true;
 
-    private readonly List<Token> m_pending = [];
+    readonly List<Token> m_pending = [];
 
     public Lexer(SourceText source, DiagnosticBag diagnostics)
     {
@@ -87,7 +87,7 @@ public sealed class Lexer
         return ScanToken();
     }
 
-    private Token ScanToken()
+    Token ScanToken()
     {
         SkipSpaces();
 
@@ -124,7 +124,7 @@ public sealed class Lexer
         return ScanOperator();
     }
 
-    private Token ScanTextLiteral()
+    Token ScanTextLiteral()
     {
         SourcePosition start = MakePosition();
         Advance();
@@ -169,7 +169,7 @@ public sealed class Lexer
         };
     }
 
-    private Token ScanNumber()
+    Token ScanNumber()
     {
         SourcePosition start = MakePosition();
         bool isFloat = false;
@@ -209,7 +209,7 @@ public sealed class Lexer
         }
     }
 
-    private Token ScanIdentifierOrKeyword()
+    Token ScanIdentifierOrKeyword()
     {
         SourcePosition start = MakePosition();
 
@@ -245,7 +245,7 @@ public sealed class Lexer
         return token;
     }
 
-    private static TokenKind ClassifyWord(string text) => text switch
+    static TokenKind ClassifyWord(string text) => text switch
     {
         "let" => TokenKind.LetKeyword,
         "in" => TokenKind.InKeyword,
@@ -268,7 +268,7 @@ public sealed class Lexer
         _ => char.IsUpper(text[0]) ? TokenKind.TypeIdentifier : TokenKind.Identifier
     };
 
-    private Token ScanOperator()
+    Token ScanOperator()
     {
         SourcePosition start = MakePosition();
         char c = Current;
@@ -346,7 +346,7 @@ public sealed class Lexer
         }
     }
 
-    private void SkipBlankLines()
+    void SkipBlankLines()
     {
         while (!IsAtEnd)
         {
@@ -375,7 +375,7 @@ public sealed class Lexer
         }
     }
 
-    private int MeasureIndentation()
+    int MeasureIndentation()
     {
         int indent = 0;
         while (!IsAtEnd && Current == ' ')
@@ -386,7 +386,7 @@ public sealed class Lexer
         return indent;
     }
 
-    private void EmitIndentationTokens()
+    void EmitIndentationTokens()
     {
         int indent = m_currentLineIndent;
         int currentIndent = m_indentStack.Peek();
@@ -413,7 +413,7 @@ public sealed class Lexer
         }
     }
 
-    private Token EmitDedentsToZero()
+    Token EmitDedentsToZero()
     {
         SourcePosition pos = MakePosition();
         SourceSpan span = SourceSpan.Single(pos.Offset, pos.Line, pos.Column);
@@ -435,11 +435,11 @@ public sealed class Lexer
         return new Token(TokenKind.EndOfFile, "", span);
     }
 
-    private bool IsAtEnd => m_position >= m_text.Length;
+    bool IsAtEnd => m_position >= m_text.Length;
 
-    private char Current => m_text[m_position];
+    char Current => m_text[m_position];
 
-    private void Advance()
+    void Advance()
     {
         if (m_position < m_text.Length)
         {
@@ -448,7 +448,7 @@ public sealed class Lexer
         }
     }
 
-    private void ConsumeNewline()
+    void ConsumeNewline()
     {
         if (Current == '\r')
         {
@@ -466,7 +466,7 @@ public sealed class Lexer
         m_column = 1;
     }
 
-    private void SkipSpaces()
+    void SkipSpaces()
     {
         while (!IsAtEnd && Current == ' ')
         {
@@ -474,8 +474,8 @@ public sealed class Lexer
         }
     }
 
-    private SourcePosition MakePosition() => new(m_position, m_line, m_column);
+    SourcePosition MakePosition() => new(m_position, m_line, m_column);
 
-    private SourceSpan MakeSpan(SourcePosition start) =>
+    SourceSpan MakeSpan(SourcePosition start) =>
         new(start, MakePosition());
 }

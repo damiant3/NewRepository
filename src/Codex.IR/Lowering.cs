@@ -7,13 +7,13 @@ namespace Codex.IR;
 
 public sealed class Lowering
 {
-    private readonly Map<string, CodexType> m_typeMap;
-    private readonly Map<string, CtorInfo> m_ctorMap;
-    private readonly Map<string, CodexType> m_typeDefMap;
-    private readonly DiagnosticBag m_diagnostics;
-    private Map<string, CodexType> m_localEnv;
+    readonly Map<string, CodexType> m_typeMap;
+    readonly Map<string, CtorInfo> m_ctorMap;
+    readonly Map<string, CodexType> m_typeDefMap;
+    readonly DiagnosticBag m_diagnostics;
+    Map<string, CodexType> m_localEnv;
 
-    private static readonly Map<string, CodexType> s_builtinTypes = BuildBuiltinTypes();
+    static readonly Map<string, CodexType> s_builtinTypes = BuildBuiltinTypes();
 
     public Lowering(
         Map<string, CodexType> typeMap,
@@ -38,7 +38,7 @@ public sealed class Lowering
         return new(module.Name, defs.ToImmutable(), m_typeDefMap);
     }
 
-    private IRDefinition LowerDefinition(Definition def)
+    IRDefinition LowerDefinition(Definition def)
     {
         CodexType fullType = m_typeMap[def.Name.Value] ?? ErrorType.s_instance;
 
@@ -67,7 +67,7 @@ public sealed class Lowering
         return new(def.Name.Value, parameters.ToImmutable(), fullType, body);
     }
 
-    private IRExpr LowerExpr(Expr expr, CodexType expectedType)
+    IRExpr LowerExpr(Expr expr, CodexType expectedType)
     {
         switch (expr)
         {
@@ -127,7 +127,7 @@ public sealed class Lowering
         }
     }
 
-    private static IRExpr LowerLiteral(LiteralExpr lit)
+    static IRExpr LowerLiteral(LiteralExpr lit)
     {
         return lit.Kind switch
         {
@@ -139,7 +139,7 @@ public sealed class Lowering
         };
     }
 
-    private IRExpr LowerBinary(BinaryExpr bin, CodexType expectedType)
+    IRExpr LowerBinary(BinaryExpr bin, CodexType expectedType)
     {
         IRExpr left = LowerExpr(bin.Left, expectedType);
         IRExpr right = LowerExpr(bin.Right, expectedType);
@@ -182,7 +182,7 @@ public sealed class Lowering
         return new IRBinary(op, left, right, resultType);
     }
 
-    private IRExpr LowerLet(LetExpr let, CodexType expectedType)
+    IRExpr LowerLet(LetExpr let, CodexType expectedType)
     {
         Map<string, CodexType> savedEnv = m_localEnv;
 
@@ -206,7 +206,7 @@ public sealed class Lowering
         return body;
     }
 
-    private IRExpr LowerApply(ApplyExpr app, CodexType expectedType)
+    IRExpr LowerApply(ApplyExpr app, CodexType expectedType)
     {
         IRExpr func = LowerExpr(app.Function, ErrorType.s_instance);
         CodexType argType = func.Type is FunctionType ft ? ft.Parameter : ErrorType.s_instance;
@@ -215,7 +215,7 @@ public sealed class Lowering
         return new IRApply(func, arg, returnType);
     }
 
-    private IRExpr LowerLambda(LambdaExpr lam, CodexType expectedType)
+    IRExpr LowerLambda(LambdaExpr lam, CodexType expectedType)
     {
         Map<string, CodexType> savedEnv = m_localEnv;
 
@@ -234,7 +234,7 @@ public sealed class Lowering
         return new IRLambda(parameters.ToImmutable(), body, expectedType);
     }
 
-    private IRExpr LowerMatch(MatchExpr match, CodexType expectedType)
+    IRExpr LowerMatch(MatchExpr match, CodexType expectedType)
     {
         IRExpr scrutinee = LowerExpr(match.Scrutinee, ErrorType.s_instance);
         ImmutableArray<IRMatchBranch>.Builder branches = ImmutableArray.CreateBuilder<IRMatchBranch>();
@@ -251,7 +251,7 @@ public sealed class Lowering
         return new IRMatch(scrutinee, branches.ToImmutable(), expectedType);
     }
 
-    private IRPattern LowerPattern(Pattern pattern, CodexType scrutineeType)
+    IRPattern LowerPattern(Pattern pattern, CodexType scrutineeType)
     {
         switch (pattern)
         {
@@ -269,7 +269,7 @@ public sealed class Lowering
         }
     }
 
-    private IRPattern LowerCtorPattern(CtorPattern ctor, CodexType scrutineeType)
+    IRPattern LowerCtorPattern(CtorPattern ctor, CodexType scrutineeType)
     {
         SumType? sumType = scrutineeType as SumType;
         SumConstructorType? sumCtor = sumType?.Constructors
@@ -287,7 +287,7 @@ public sealed class Lowering
         return new IRCtorPattern(ctor.Constructor.Value, subPatterns.ToImmutable(), scrutineeType);
     }
 
-    private IRExpr LowerList(ListExpr list, CodexType expectedType)
+    IRExpr LowerList(ListExpr list, CodexType expectedType)
     {
         CodexType elementType = expectedType is ListType lt
             ? lt.Element
@@ -302,7 +302,7 @@ public sealed class Lowering
         return new IRList(elements.ToImmutable(), elementType);
     }
 
-    private static CodexType InferElementType(ListExpr list)
+    static CodexType InferElementType(ListExpr list)
     {
         if (list.Elements.Count == 0) return ErrorType.s_instance;
         return list.Elements[0] switch
@@ -319,7 +319,7 @@ public sealed class Lowering
         };
     }
 
-    private CodexType LookupName(string name, CodexType fallback)
+    CodexType LookupName(string name, CodexType fallback)
     {
         return m_localEnv[name]
             ?? m_typeMap[name]
@@ -328,7 +328,7 @@ public sealed class Lowering
             ?? fallback;
     }
 
-    private IRExpr LowerDoExpr(DoExpr doExpr, CodexType expectedType)
+    IRExpr LowerDoExpr(DoExpr doExpr, CodexType expectedType)
     {
         Map<string, CodexType> savedEnv = m_localEnv;
         ImmutableArray<IRDoStatement>.Builder statements = ImmutableArray.CreateBuilder<IRDoStatement>();
@@ -358,7 +358,7 @@ public sealed class Lowering
         return new IRDo(statements.ToImmutable(), expectedType);
     }
 
-    private IRExpr LowerRecord(RecordExpr rec, CodexType expectedType)
+    IRExpr LowerRecord(RecordExpr rec, CodexType expectedType)
     {
         ImmutableArray<(string FieldName, IRExpr Value)>.Builder fields =
             ImmutableArray.CreateBuilder<(string, IRExpr)>();
@@ -391,7 +391,7 @@ public sealed class Lowering
         return new IRRecord(emittedName, fields.ToImmutable(), recType);
     }
 
-    private IRExpr LowerFieldAccess(FieldAccessExpr fa, CodexType expectedType)
+    IRExpr LowerFieldAccess(FieldAccessExpr fa, CodexType expectedType)
     {
         IRExpr record = LowerExpr(fa.Record, ErrorType.s_instance);
         CodexType fieldType = expectedType;
@@ -404,7 +404,7 @@ public sealed class Lowering
         return new IRFieldAccess(record, fa.FieldName.Value, fieldType);
     }
 
-    private static Map<string, CodexType> BuildBuiltinTypes()
+    static Map<string, CodexType> BuildBuiltinTypes()
     {
         Map<string, CodexType> map = Map<string, CodexType>.s_empty;
         map = map.Set("show", new ForAllType(0,
@@ -441,7 +441,7 @@ public sealed class Lowering
         return map;
     }
 
-    private static bool IsNumeric(CodexType type) => type is IntegerType or NumberType;
-    private static bool IsInteger(CodexType type) => type is IntegerType;
-    private static bool IsText(CodexType type) => type is TextType;
+    static bool IsNumeric(CodexType type) => type is IntegerType or NumberType;
+    static bool IsInteger(CodexType type) => type is IntegerType;
+    static bool IsText(CodexType type) => type is TextType;
 }

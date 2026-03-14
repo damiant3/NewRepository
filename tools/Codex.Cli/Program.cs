@@ -36,7 +36,7 @@ public static class Program
         };
     }
 
-    private static int RunParse(string[] args)
+    static int RunParse(string[] args)
     {
         if (args.Length == 0)
         {
@@ -116,7 +116,7 @@ public static class Program
         return diagnostics.HasErrors ? 1 : 0;
     }
 
-    private static int RunCheck(string[] args)
+    static int RunCheck(string[] args)
     {
         if (args.Length == 0)
         {
@@ -179,7 +179,7 @@ public static class Program
         return diagnostics.HasErrors ? 1 : 0;
     }
 
-    private static int RunBuild(string[] args)
+    static int RunBuild(string[] args)
     {
         if (args.Length == 0)
         {
@@ -201,7 +201,7 @@ public static class Program
         return 0;
     }
 
-    private static int RunRun(string[] args)
+    static int RunRun(string[] args)
     {
         if (args.Length == 0)
         {
@@ -283,7 +283,7 @@ public static class Program
         }
     }
 
-    private static int RunRead(string[] args)
+    static int RunRead(string[] args)
     {
         if (args.Length == 0)
         {
@@ -327,7 +327,7 @@ public static class Program
         return 0;
     }
 
-    private static void RenderMembers(IReadOnlyList<DocumentMember> members, string indent)
+    static void RenderMembers(IReadOnlyList<DocumentMember> members, string indent)
     {
         foreach (DocumentMember member in members)
         {
@@ -364,7 +364,7 @@ public static class Program
         }
     }
 
-    private static CompilationResult? CompileFile(string filePath)
+    static CompilationResult? CompileFile(string filePath)
     {
         if (!File.Exists(filePath))
         {
@@ -410,7 +410,7 @@ public static class Program
         return new CompilationResult(csharpSource, types);
     }
 
-    private static string GenerateCsproj()
+    static string GenerateCsproj()
     {
         return """
             <Project Sdk="Microsoft.NET.Sdk">
@@ -424,27 +424,27 @@ public static class Program
             """;
     }
 
-    private static int RunVersion()
+    static int RunVersion()
     {
         Console.WriteLine("Codex 0.1.0-bootstrap");
         Console.WriteLine("The beginning.");
         return 0;
     }
 
-    private static int RunHelp()
+    static int RunHelp()
     {
         PrintUsage();
         return 0;
     }
 
-    private static int UnknownCommand(string command)
+    static int UnknownCommand(string command)
     {
         Console.Error.WriteLine($"Unknown command: {command}");
         PrintUsage();
         return 1;
     }
 
-    private static int RunInit(string[] args)
+    static int RunInit(string[] args)
     {
         string dir = args.Length > 0 ? args[0] : Directory.GetCurrentDirectory();
         if (!Directory.Exists(dir))
@@ -457,7 +457,7 @@ public static class Program
         return 0;
     }
 
-    private static int RunPublish(string[] args)
+    static int RunPublish(string[] args)
     {
         if (args.Length == 0)
         {
@@ -500,7 +500,7 @@ public static class Program
 
         ContentHash? existing = store.LookupView(moduleName);
 
-        Fact fact = Fact.CreateDefinition(moduleName, source, author, justification);
+        Fact fact = Fact.CreateDefinition(source, author, justification);
         ContentHash hash = store.Store(fact);
 
         if (existing is not null && !existing.Value.Equals(hash))
@@ -521,7 +521,7 @@ public static class Program
         return 0;
     }
 
-    private static int RunHistory(string[] args)
+    static int RunHistory(string[] args)
     {
         if (args.Length == 0)
         {
@@ -567,7 +567,7 @@ public static class Program
         return 0;
     }
 
-    private static string FindRepositoryRoot(string startDir)
+    static string FindRepositoryRoot(string startDir)
     {
         string? dir = startDir;
         while (dir is not null)
@@ -579,7 +579,7 @@ public static class Program
         return "";
     }
 
-    private static void PrintUsage()
+    static void PrintUsage()
     {
         Console.WriteLine("Codex — A language for the rest of human time");
         Console.WriteLine();
@@ -598,7 +598,7 @@ public static class Program
         Console.WriteLine("  --help, -h        Display this help message");
     }
 
-    private static void PrintDiagnostics(DiagnosticBag diagnostics)
+    static void PrintDiagnostics(DiagnosticBag diagnostics)
     {
         foreach (Diagnostic diag in diagnostics.ToImmutable())
         {
@@ -614,7 +614,7 @@ public static class Program
         }
     }
 
-    private static string FormatType(TypeNode node) => node switch
+    static string FormatType(TypeNode node) => node switch
     {
         NamedTypeNode n => n.Name.Text,
         FunctionTypeNode f => $"{FormatType(f.Parameter)} → {FormatType(f.Return)}",
@@ -625,7 +625,7 @@ public static class Program
         _ => "?"
     };
 
-    private static string FormatTypeExpr(TypeExpr node) => node switch
+    static string FormatTypeExpr(TypeExpr node) => node switch
     {
         NamedTypeExpr n => n.Name.Value,
         FunctionTypeExpr f => $"{FormatTypeExpr(f.Parameter)} → {FormatTypeExpr(f.Return)}",
@@ -635,11 +635,11 @@ public static class Program
         _ => "?"
     };
 
-    private sealed record CompilationResult(
+    sealed record CompilationResult(
         string CSharpSource,
         Map<string, CodexType> Types);
 
-    private static DocumentNode ParseSourceFile(SourceText source, string content, DiagnosticBag diagnostics)
+    static DocumentNode ParseSourceFile(SourceText source, string content, DiagnosticBag diagnostics)
     {
         if (ProseParser.IsProseDocument(content))
         {
@@ -655,7 +655,7 @@ public static class Program
         }
     }
 
-    private static void PrintMembers(IReadOnlyList<DocumentMember> members, string indent)
+    static void PrintMembers(IReadOnlyList<DocumentMember> members, string indent)
     {
         foreach (DocumentMember member in members)
         {

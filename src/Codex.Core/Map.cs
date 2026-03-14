@@ -8,9 +8,9 @@ public sealed class Map<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>
     where TKey : notnull
     where TValue : class
 {
-    private readonly ImmutableDictionary<TKey, TValue> m_inner;
+    readonly ImmutableDictionary<TKey, TValue> m_inner;
 
-    private Map(ImmutableDictionary<TKey, TValue> inner)
+    Map(ImmutableDictionary<TKey, TValue> inner)
     {
         m_inner = inner;
     }
@@ -47,9 +47,9 @@ public sealed class ValueMap<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TVal
     where TKey : notnull
     where TValue : struct
 {
-    private readonly ImmutableDictionary<TKey, TValue> m_inner;
+    readonly ImmutableDictionary<TKey, TValue> m_inner;
 
-    private ValueMap(ImmutableDictionary<TKey, TValue> inner)
+    ValueMap(ImmutableDictionary<TKey, TValue> inner)
     {
         m_inner = inner;
     }

@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using Codex.Core;
 using Codex.Ast;
 
@@ -6,83 +5,78 @@ namespace Codex.Semantics;
 
 public sealed record ResolvedModule(
     Module Module,
-    ImmutableHashSet<string> TopLevelNames,
-    ImmutableHashSet<string> TypeNames,
-    ImmutableHashSet<string> ConstructorNames);
+    Set<string> TopLevelNames,
+    Set<string> TypeNames,
+    Set<string> ConstructorNames);
 
-public sealed class NameResolver
+public sealed class NameResolver(DiagnosticBag diagnostics)
 {
-    private readonly DiagnosticBag m_diagnostics;
+    readonly DiagnosticBag m_diagnostics = diagnostics;
 
-    private static readonly ImmutableHashSet<string> s_builtins = ImmutableHashSet.Create(
+    static readonly Set<string> s_builtins = Set<string>.Of(
         "show", "negate", "True", "False", "Nothing",
         "print-line", "read-line",
         "open-file", "read-all", "close-file"
     );
 
-    public NameResolver(DiagnosticBag diagnostics)
-    {
-        m_diagnostics = diagnostics;
-    }
-
     public ResolvedModule Resolve(Module module)
     {
-        ImmutableHashSet<string>.Builder topLevel = ImmutableHashSet.CreateBuilder<string>();
+        Set<string> topLevel = Set<string>.s_empty;
         foreach (Definition def in module.Definitions)
         {
-            if (!topLevel.Add(def.Name.Value))
+            if (topLevel.Contains(def.Name.Value))
             {
                 m_diagnostics.Error("CDX3001",
                     $"Duplicate definition: '{def.Name.Value}' is already defined",
                     def.Span);
             }
+            topLevel = topLevel.Add(def.Name.Value);
         }
 
-        ImmutableHashSet<string>.Builder typeNames = ImmutableHashSet.CreateBuilder<string>();
-        ImmutableHashSet<string>.Builder ctorNames = ImmutableHashSet.CreateBuilder<string>();
+        Set<string> typeNames = Set<string>.s_empty;
+        Set<string> ctorNames = Set<string>.s_empty;
 
         foreach (TypeDef td in module.TypeDefinitions)
         {
-            if (!typeNames.Add(td.Name.Value))
+            if (typeNames.Contains(td.Name.Value))
             {
                 m_diagnostics.Error("CDX3001",
                     $"Duplicate type definition: '{td.Name.Value}' is already defined",
                     td.Span);
             }
+            typeNames = typeNames.Add(td.Name.Value);
 
             if (td is VariantTypeDef variant)
             {
                 foreach (VariantCtorDef ctor in variant.Constructors)
                 {
-                    if (!ctorNames.Add(ctor.Name.Value))
+                    if (ctorNames.Contains(ctor.Name.Value))
                     {
                         m_diagnostics.Error("CDX3001",
                             $"Duplicate constructor: '{ctor.Name.Value}' is already defined",
                             ctor.Span);
                     }
+                    ctorNames = ctorNames.Add(ctor.Name.Value);
                 }
             }
         }
 
-        ImmutableHashSet<string> topLevelNames = topLevel.ToImmutable();
-        ImmutableHashSet<string> allCtors = ctorNames.ToImmutable();
-        ImmutableHashSet<string> allTypeNames = typeNames.ToImmutable();
-
-        ImmutableHashSet<string> allKnownNames = topLevelNames
+        Set<string> allKnownNames = topLevel
             .Union(s_builtins)
-            .Union(allCtors);
+            .Union(ctorNames);
 
         foreach (Definition def in module.Definitions)
         {
-            ImmutableHashSet<string> scope = allKnownNames
-                .Union(def.Parameters.Select(p => p.Name.Value));
+            Set<string> scope = allKnownNames;
+            foreach (Parameter p in def.Parameters)
+                scope = scope.Add(p.Name.Value);
             ResolveExpr(def.Body, scope);
         }
 
-        return new ResolvedModule(module, topLevelNames, allTypeNames, allCtors);
+        return new ResolvedModule(module, topLevel, typeNames, ctorNames);
     }
 
-    private void ResolveExpr(Expr expr, ImmutableHashSet<string> scope)
+    void ResolveExpr(Expr expr, Set<string> scope)
     {
         switch (expr)
         {
@@ -119,7 +113,7 @@ public sealed class NameResolver
                 break;
 
             case LetExpr let:
-                ImmutableHashSet<string> letScope = scope;
+                Set<string> letScope = scope;
                 foreach (LetBinding binding in let.Bindings)
                 {
                     ResolveExpr(binding.Value, letScope);
@@ -129,7 +123,7 @@ public sealed class NameResolver
                 break;
 
             case LambdaExpr lam:
-                ImmutableHashSet<string> lamScope = scope;
+                Set<string> lamScope = scope;
                 foreach (Parameter p in lam.Parameters)
                 {
                     lamScope = lamScope.Add(p.Name.Value);
@@ -141,7 +135,7 @@ public sealed class NameResolver
                 ResolveExpr(match.Scrutinee, scope);
                 foreach (MatchBranch branch in match.Branches)
                 {
-                    ImmutableHashSet<string> branchScope = scope;
+                    Set<string> branchScope = scope;
                     CollectPatternBindings(branch.Pattern, ref branchScope);
                     ResolveExpr(branch.Body, branchScope);
                 }
@@ -163,7 +157,7 @@ public sealed class NameResolver
 
             case DoExpr doExpr:
             {
-                ImmutableHashSet<string> doScope = scope;
+                Set<string> doScope = scope;
                 foreach (DoStatement stmt in doExpr.Statements)
                 {
                     switch (stmt)
@@ -185,7 +179,7 @@ public sealed class NameResolver
         }
     }
 
-    private static void CollectPatternBindings(Pattern pattern, ref ImmutableHashSet<string> scope)
+    static void CollectPatternBindings(Pattern pattern, ref Set<string> scope)
     {
         switch (pattern)
         {
@@ -202,5 +196,5 @@ public sealed class NameResolver
         }
     }
 
-    private static bool IsTypeName(Name name) => name.IsTypeName;
+    static bool IsTypeName(Name name) => name.IsTypeName;
 }

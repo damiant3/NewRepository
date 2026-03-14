@@ -2,16 +2,11 @@ using Codex.Core;
 
 namespace Codex.Types;
 
-public sealed class Unifier
+public sealed class Unifier(DiagnosticBag diagnostics)
 {
-    private Map<int, CodexType> m_substitutions = Map<int, CodexType>.s_empty;
-    private readonly DiagnosticBag m_diagnostics;
-    private int m_nextId;
-
-    public Unifier(DiagnosticBag diagnostics)
-    {
-        m_diagnostics = diagnostics;
-    }
+    Map<int, CodexType> m_substitutions = Map<int, CodexType>.s_empty;
+    readonly DiagnosticBag m_diagnostics = diagnostics;
+    int m_nextId;
 
     public TypeVariable FreshVar() => new(m_nextId++);
 
@@ -151,7 +146,7 @@ public sealed class Unifier
         };
     }
 
-    private bool OccursIn(int varId, CodexType type)
+    bool OccursIn(int varId, CodexType type)
     {
         type = Resolve(type);
         return type switch
@@ -169,7 +164,7 @@ public sealed class Unifier
         };
     }
 
-    private void ReportMismatch(CodexType expected, CodexType actual, SourceSpan span)
+    void ReportMismatch(CodexType expected, CodexType actual, SourceSpan span)
     {
         m_diagnostics.Error("CDX2001",
             $"Type mismatch: expected {expected}, but found {actual}", span);
