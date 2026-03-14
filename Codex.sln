@@ -54,6 +54,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{02EA681E-C
 		docs\10-PRINCIPLES.md = docs\10-PRINCIPLES.md
 		docs\DECISIONS.md = docs\DECISIONS.md
 		docs\GLOSSARY.md = docs\GLOSSARY.md
+		docs\ITERATION-3-HANDOFF.md = docs\ITERATION-3-HANDOFF.md
+		docs\ITERATION-4-HANDOFF.md = docs\ITERATION-4-HANDOFF.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vision", "Vision", "{A3CE87D7-BB10-4058-8F2B-538BE36F10EE}"

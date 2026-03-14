@@ -1,0 +1,18 @@
+Result (a) =
+  | Success (a)
+  | Failure Text
+
+safe-divide : Integer -> Integer -> Result Integer
+safe-divide (x) (y) =
+  if y == 0
+    then Failure "division by zero"
+    else Success (x / y)
+
+describe : Result Integer -> Text
+describe (result) =
+  when result
+    if Success (n) -> "got " ++ show n
+    if Failure (msg) -> "error: " ++ msg
+
+main : Text
+main = describe (safe-divide 42 7)

@@ -74,7 +74,10 @@ public sealed record ListType(CodexType Element) : CodexType
     public override string ToString() => $"List {Element}";
 }
 
-public sealed record RecordType(Name TypeName, ImmutableArray<RecordFieldType> Fields) : CodexType
+public sealed record RecordType(
+    Name TypeName,
+    ImmutableArray<int> TypeParamIds,
+    ImmutableArray<RecordFieldType> Fields) : CodexType
 {
     public override string ToString()
     {
@@ -85,7 +88,10 @@ public sealed record RecordType(Name TypeName, ImmutableArray<RecordFieldType> F
 
 public sealed record RecordFieldType(Name FieldName, CodexType Type);
 
-public sealed record SumType(Name TypeName, ImmutableArray<SumConstructorType> Constructors) : CodexType
+public sealed record SumType(
+    Name TypeName,
+    ImmutableArray<int> TypeParamIds,
+    ImmutableArray<SumConstructorType> Constructors) : CodexType
 {
     public override string ToString()
     {

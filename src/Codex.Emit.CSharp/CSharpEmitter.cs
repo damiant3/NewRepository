@@ -173,10 +173,25 @@ public sealed class CSharpEmitter : ICodeEmitter
                 break;
 
             case IRApply app:
-                EmitExpr(sb, app.Function, indent);
-                sb.Append('(');
-                EmitExpr(sb, app.Argument, indent);
-                sb.Append(')');
+                if (app.Function is IRName fn && fn.Name == "show")
+                {
+                    sb.Append("Convert.ToString(");
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(')');
+                }
+                else if (app.Function is IRName fn2 && fn2.Name == "negate")
+                {
+                    sb.Append("(-");
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(')');
+                }
+                else
+                {
+                    EmitExpr(sb, app.Function, indent);
+                    sb.Append('(');
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(')');
+                }
                 break;
 
             case IRLambda lam:

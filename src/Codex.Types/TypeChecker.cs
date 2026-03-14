@@ -11,6 +11,7 @@ public sealed class TypeChecker
     private TypeEnvironment m_env;
     private Map<string, CodexType> m_typeDefMap;
     private Map<string, CtorInfo> m_ctorMap;
+    private Map<string, CodexType> m_typeParamEnv;
 
     public TypeChecker(DiagnosticBag diagnostics)
     {
@@ -19,6 +20,7 @@ public sealed class TypeChecker
         m_env = TypeEnvironment.WithBuiltins();
         m_typeDefMap = Map<string, CodexType>.s_empty;
         m_ctorMap = Map<string, CtorInfo>.s_empty;
+        m_typeParamEnv = Map<string, CodexType>.s_empty;
     }
 
     public ImmutableDictionary<string, CodexType> CheckModule(Module module)
@@ -60,19 +62,45 @@ public sealed class TypeChecker
             {
                 case RecordTypeDef rec:
                 {
+                    Map<string, CodexType> typeParamEnv = Map<string, CodexType>.s_empty;
+                    ImmutableArray<int>.Builder paramIds = ImmutableArray.CreateBuilder<int>();
+                    foreach (Name tp in rec.TypeParameters)
+                    {
+                        TypeVariable tv = m_unifier.FreshVar();
+                        typeParamEnv = typeParamEnv.Set(tp.Value, tv);
+                        paramIds.Add(tv.Id);
+                    }
+
+                    Map<string, CodexType> savedTypeParams = m_typeParamEnv;
+                    m_typeParamEnv = typeParamEnv;
+
                     ImmutableArray<RecordFieldType>.Builder fields =
                         ImmutableArray.CreateBuilder<RecordFieldType>();
                     foreach (RecordFieldDef f in rec.Fields)
                     {
                         fields.Add(new(f.FieldName, ResolveTypeExpr(f.Type)));
                     }
-                    RecordType recordType = new(rec.Name, fields.ToImmutable());
+                    RecordType recordType = new(rec.Name, paramIds.ToImmutable(), fields.ToImmutable());
                     m_typeDefMap = m_typeDefMap.Set(rec.Name.Value, recordType);
+
+                    m_typeParamEnv = savedTypeParams;
                     break;
                 }
 
                 case VariantTypeDef variant:
                 {
+                    Map<string, CodexType> typeParamEnv = Map<string, CodexType>.s_empty;
+                    ImmutableArray<int>.Builder paramIds = ImmutableArray.CreateBuilder<int>();
+                    foreach (Name tp in variant.TypeParameters)
+                    {
+                        TypeVariable tv = m_unifier.FreshVar();
+                        typeParamEnv = typeParamEnv.Set(tp.Value, tv);
+                        paramIds.Add(tv.Id);
+                    }
+
+                    Map<string, CodexType> savedTypeParams = m_typeParamEnv;
+                    m_typeParamEnv = typeParamEnv;
+
                     ImmutableArray<SumConstructorType>.Builder ctors =
                         ImmutableArray.CreateBuilder<SumConstructorType>();
                     foreach (VariantCtorDef c in variant.Constructors)
@@ -85,7 +113,7 @@ public sealed class TypeChecker
                         }
                         ctors.Add(new(c.Name, ctorFields.ToImmutable()));
                     }
-                    SumType sumType = new(variant.Name, ctors.ToImmutable());
+                    SumType sumType = new(variant.Name, paramIds.ToImmutable(), ctors.ToImmutable());
                     m_typeDefMap = m_typeDefMap.Set(variant.Name.Value, sumType);
 
                     foreach (SumConstructorType ctor in sumType.Constructors)
@@ -95,9 +123,15 @@ public sealed class TypeChecker
                         {
                             ctorType = new FunctionType(ctor.Fields[i], ctorType);
                         }
+                        for (int i = paramIds.Count - 1; i >= 0; i--)
+                        {
+                            ctorType = new ForAllType(paramIds[i], ctorType);
+                        }
                         m_ctorMap = m_ctorMap.Set(ctor.Name.Value, new(ctorType, sumType));
                         m_env = m_env.Bind(ctor.Name, ctorType);
                     }
+
+                    m_typeParamEnv = savedTypeParams;
                     break;
                 }
             }
@@ -355,7 +389,43 @@ public sealed class TypeChecker
             m_env = savedEnv;
         }
 
+        CheckExhaustiveness(match, scrutineeType);
+
         return resultType;
+    }
+
+    private void CheckExhaustiveness(MatchExpr match, CodexType scrutineeType)
+    {
+        CodexType resolved = m_unifier.Resolve(scrutineeType);
+        if (resolved is not SumType sumType)
+            return;
+
+        bool hasCatchAll = match.Branches.Any(b =>
+            b.Pattern is VarPattern or WildcardPattern);
+        if (hasCatchAll)
+            return;
+
+        HashSet<string> covered = new();
+        foreach (MatchBranch branch in match.Branches)
+        {
+            if (branch.Pattern is CtorPattern cp)
+                covered.Add(cp.Constructor.Value);
+        }
+
+        List<string> missing = new();
+        foreach (SumConstructorType ctor in sumType.Constructors)
+        {
+            if (!covered.Contains(ctor.Name.Value))
+                missing.Add(ctor.Name.Value);
+        }
+
+        if (missing.Count > 0)
+        {
+            string missingStr = string.Join(", ", missing);
+            m_diagnostics.Warning("CDX2020",
+                $"Non-exhaustive match: missing constructor(s) {missingStr}",
+                match.Span);
+        }
     }
 
     private void CheckPattern(Pattern pattern, CodexType expectedType)
@@ -381,21 +451,20 @@ public sealed class TypeChecker
                 CtorInfo? info = m_ctorMap[ctor.Constructor.Value];
                 if (info is not null)
                 {
-                    m_unifier.Unify(expectedType, info.OwnerType, ctor.Span);
-                    SumConstructorType? sumCtor = (info.OwnerType as SumType)?.Constructors
-                        .FirstOrDefault(c => c.Name.Value == ctor.Constructor.Value);
-
-                    if (sumCtor is not null && ctor.SubPatterns.Count == sumCtor.Fields.Length)
+                    CodexType ctorType = Instantiate(info.ConstructorType);
+                    CodexType resultType = ctorType;
+                    List<CodexType> fieldTypes = new();
+                    while (resultType is FunctionType ft)
                     {
-                        for (int i = 0; i < ctor.SubPatterns.Count; i++)
-                        {
-                            CheckPattern(ctor.SubPatterns[i], sumCtor.Fields[i]);
-                        }
+                        fieldTypes.Add(ft.Parameter);
+                        resultType = ft.Return;
                     }
-                    else
+                    m_unifier.Unify(expectedType, resultType, ctor.Span);
+
+                    int count = Math.Min(ctor.SubPatterns.Count, fieldTypes.Count);
+                    for (int i = 0; i < count; i++)
                     {
-                        foreach (Pattern sub in ctor.SubPatterns)
-                            CheckPattern(sub, m_unifier.FreshVar());
+                        CheckPattern(ctor.SubPatterns[i], fieldTypes[i]);
                     }
                 }
                 else
@@ -479,6 +548,10 @@ public sealed class TypeChecker
 
     private CodexType ResolveNamedType(Name name)
     {
+        CodexType? fromTypeParam = m_typeParamEnv[name.Value];
+        if (fromTypeParam is not null)
+            return fromTypeParam;
+
         CodexType? fromPrimitive = name.Value switch
         {
             "Integer" => IntegerType.s_instance,
@@ -507,20 +580,50 @@ public sealed class TypeChecker
             return new ListType(ResolveTypeExpr(app.Arguments[0]));
         }
 
+        if (app.Constructor is NamedTypeExpr named)
+        {
+            CodexType? userDef = m_typeDefMap[named.Name.Value];
+            if (userDef is not null)
+            {
+                ImmutableArray<CodexType> args = [.. app.Arguments.Select(ResolveTypeExpr)];
+                return InstantiateParametricType(userDef, args);
+            }
+        }
+
         Name ctorName = app.Constructor is NamedTypeExpr n
             ? n.Name
             : new("?");
 
-        ImmutableArray<CodexType> args = [.. app.Arguments.Select(ResolveTypeExpr)];
-        return new ConstructedType(ctorName, args);
+        ImmutableArray<CodexType> fallbackArgs = [.. app.Arguments.Select(ResolveTypeExpr)];
+        return new ConstructedType(ctorName, fallbackArgs);
+    }
+
+    private static CodexType InstantiateParametricType(CodexType typeDef, ImmutableArray<CodexType> args)
+    {
+        ImmutableArray<int> paramIds = typeDef switch
+        {
+            SumType s => s.TypeParamIds,
+            RecordType r => r.TypeParamIds,
+            _ => []
+        };
+
+        CodexType result = typeDef;
+        int count = Math.Min(paramIds.Length, args.Length);
+        for (int i = 0; i < count; i++)
+        {
+            result = SubstituteVar(result, paramIds[i], args[i]);
+        }
+        return result;
     }
 
     private CodexType Instantiate(CodexType type)
     {
-        if (type is not ForAllType forAll)
-            return type;
-        TypeVariable fresh = m_unifier.FreshVar();
-        return SubstituteVar(forAll.Body, forAll.VariableId, fresh);
+        while (type is ForAllType forAll)
+        {
+            TypeVariable fresh = m_unifier.FreshVar();
+            type = SubstituteVar(forAll.Body, forAll.VariableId, fresh);
+        }
+        return type;
     }
 
     private static CodexType SubstituteVar(CodexType type, int varId, CodexType replacement)
@@ -538,6 +641,20 @@ public sealed class TypeChecker
             },
             ForAllType fa when fa.VariableId != varId =>
                 fa with { Body = SubstituteVar(fa.Body, varId, replacement) },
+            SumType s => s with
+            {
+                Constructors = [.. s.Constructors.Select(c => c with
+                {
+                    Fields = [.. c.Fields.Select(f => SubstituteVar(f, varId, replacement))]
+                })]
+            },
+            RecordType r => r with
+            {
+                Fields = [.. r.Fields.Select(f => f with
+                {
+                    Type = SubstituteVar(f.Type, varId, replacement)
+                })]
+            },
             _ => type
         };
     }

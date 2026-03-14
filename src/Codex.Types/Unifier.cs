@@ -54,10 +54,26 @@ public sealed class Unifier
             return Unify(la.Element, lb.Element, span);
 
         if (a is SumType sa && b is SumType sb && sa.TypeName == sb.TypeName)
+        {
+            if (sa.Constructors.Length != sb.Constructors.Length) return true;
+            for (int i = 0; i < sa.Constructors.Length; i++)
+            {
+                SumConstructorType ca2 = sa.Constructors[i];
+                SumConstructorType cb2 = sb.Constructors[i];
+                int fieldCount = Math.Min(ca2.Fields.Length, cb2.Fields.Length);
+                for (int j = 0; j < fieldCount; j++)
+                    Unify(ca2.Fields[j], cb2.Fields[j], span);
+            }
             return true;
+        }
 
         if (a is RecordType ra && b is RecordType rb && ra.TypeName == rb.TypeName)
+        {
+            int fieldCount = Math.Min(ra.Fields.Length, rb.Fields.Length);
+            for (int i = 0; i < fieldCount; i++)
+                Unify(ra.Fields[i].Type, rb.Fields[i].Type, span);
             return true;
+        }
 
         if (a is ConstructedType ca && b is ConstructedType cb)
         {
@@ -101,6 +117,20 @@ public sealed class Unifier
                 Arguments = [.. c.Arguments.Select(DeepResolve)]
             },
             ForAllType fa => fa with { Body = DeepResolve(fa.Body) },
+            SumType s => s with
+            {
+                Constructors = [.. s.Constructors.Select(c => c with
+                {
+                    Fields = [.. c.Fields.Select(DeepResolve)]
+                })]
+            },
+            RecordType r => r with
+            {
+                Fields = [.. r.Fields.Select(f => f with
+                {
+                    Type = DeepResolve(f.Type)
+                })]
+            },
             _ => type
         };
     }
@@ -115,6 +145,8 @@ public sealed class Unifier
             ListType l => OccursIn(varId, l.Element),
             ConstructedType c => c.Arguments.Any(a => OccursIn(varId, a)),
             ForAllType fa => OccursIn(varId, fa.Body),
+            SumType s => s.Constructors.Any(c => c.Fields.Any(f => OccursIn(varId, f))),
+            RecordType r => r.Fields.Any(f => OccursIn(varId, f.Type)),
             _ => false
         };
     }

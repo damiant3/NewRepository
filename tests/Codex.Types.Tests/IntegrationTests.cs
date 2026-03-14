@@ -301,4 +301,131 @@ public class IntegrationTests
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("wrap"));
     }
+
+    [Fact]
+    public void Exhaustive_match_produces_no_warning()
+    {
+        string source =
+            "Color =\n" +
+            "  | Red\n" +
+            "  | Green\n" +
+            "  | Blue\n\n" +
+            "name : Color -> Text\n" +
+            "name (c) =\n" +
+            "  when c\n" +
+            "    if Red -> \"red\"\n" +
+            "    if Green -> \"green\"\n" +
+            "    if Blue -> \"blue\"\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.False(diag.HasErrors);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Code == "CDX2020");
+    }
+
+    [Fact]
+    public void NonExhaustive_match_produces_warning()
+    {
+        string source =
+            "Color =\n" +
+            "  | Red\n" +
+            "  | Green\n" +
+            "  | Blue\n\n" +
+            "name : Color -> Text\n" +
+            "name (c) =\n" +
+            "  when c\n" +
+            "    if Red -> \"red\"\n" +
+            "    if Green -> \"green\"\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.False(diag.HasErrors);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX2020" && d.Message.Contains("Blue"));
+    }
+
+    [Fact]
+    public void Wildcard_match_is_exhaustive()
+    {
+        string source =
+            "Color =\n" +
+            "  | Red\n" +
+            "  | Green\n" +
+            "  | Blue\n\n" +
+            "is-red : Color -> Boolean\n" +
+            "is-red (c) =\n" +
+            "  when c\n" +
+            "    if Red -> True\n" +
+            "    if _ -> False\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.False(diag.HasErrors);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Code == "CDX2020");
+    }
+
+    [Fact]
+    public void Parametric_sum_type_type_checks()
+    {
+        string source =
+            "Maybe (a) =\n" +
+            "  | Just (a)\n" +
+            "  | None\n\n" +
+            "wrap : Integer -> Maybe Integer\n" +
+            "wrap (x) = Just x\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("wrap"));
+    }
+
+    [Fact]
+    public void Parametric_sum_type_pattern_match_type_checks()
+    {
+        string source =
+            "Maybe (a) =\n" +
+            "  | Just (a)\n" +
+            "  | None\n\n" +
+            "unwrap : Maybe Integer -> Integer\n" +
+            "unwrap (m) =\n" +
+            "  when m\n" +
+            "    if Just (n) -> n\n" +
+            "    if None -> 0\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("unwrap"));
+    }
+
+    [Fact]
+    public void Parametric_sum_type_compiles_to_csharp()
+    {
+        string source =
+            "Maybe (a) =\n" +
+            "  | Just (a)\n" +
+            "  | None\n\n" +
+            "wrap : Integer -> Maybe Integer\n" +
+            "wrap (x) = Just x\n\n" +
+            "main : Integer\n" +
+            "main =\n" +
+            "  when wrap 42\n" +
+            "    if Just (n) -> n\n" +
+            "    if None -> 0\n";
+        string? cs = CompileToCS(source, "maybe_test");
+        Assert.NotNull(cs);
+        Assert.Contains("Just", cs);
+        Assert.Contains("Maybe", cs);
+    }
+
+    private static DiagnosticBag TypeCheckWithDiagnostics(string source, string moduleName = "test")
+    {
+        SourceText src = new SourceText("test.codex", source);
+        DiagnosticBag diagnostics = new DiagnosticBag();
+
+        Lexer lexer = new Lexer(src, diagnostics);
+        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+        Parser parser = new Parser(tokens, diagnostics);
+        DocumentNode document = parser.ParseDocument();
+
+        Desugarer desugarer = new Desugarer(diagnostics);
+        Module module = desugarer.Desugar(document, moduleName);
+
+        NameResolver resolver = new NameResolver(diagnostics);
+        ResolvedModule resolved = resolver.Resolve(module);
+
+        TypeChecker checker = new TypeChecker(diagnostics);
+        checker.CheckModule(resolved.Module);
+        return diagnostics;
+    }
 }
