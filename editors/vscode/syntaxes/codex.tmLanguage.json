@@ -1,0 +1,49 @@
+{
+  "scopeName": "source.codex",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#keyword" },
+    { "include": "#type" },
+    { "include": "#operator" },
+    { "include": "#identifier" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "--.*$",
+      "name": "comment.line.double-dash.codex"
+    },
+    "string": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.codex",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.codex"
+        }
+      ]
+    },
+    "number": {
+      "match": "\\b\\d[\\d_]*(\\.[\\d_]+)?\\b",
+      "name": "constant.numeric.codex"
+    },
+    "keyword": {
+      "match": "\\b(if|then|else|let|in|when|do|linear|Chapter|Section|record|True|False)\\b",
+      "name": "keyword.control.codex"
+    },
+    "type": {
+      "match": "\\b[A-Z][a-zA-Z0-9]*\\b",
+      "name": "entity.name.type.codex"
+    },
+    "operator": {
+      "match": "->|→|<-|::|\\+\\+|===|==|!=|<=|>=|[=:<>+\\-*/^&|]",
+      "name": "keyword.operator.codex"
+    },
+    "identifier": {
+      "match": "\\b[a-z][a-zA-Z0-9_-]*\\b",
+      "name": "variable.other.codex"
+    }
+  }
+}

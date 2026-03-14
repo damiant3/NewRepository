@@ -1,0 +1,118 @@
+using System.Collections.Immutable;
+using Codex.Core;
+using MediatR;
+using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
+using OmniSharp.Extensions.LanguageServer.Protocol.Document;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+
+namespace Codex.Lsp;
+
+internal sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
+{
+    private readonly ILanguageServerFacade m_server;
+    private readonly DocumentStore m_store;
+
+    public TextDocumentSyncHandler(ILanguageServerFacade server, DocumentStore store)
+    {
+        m_server = server;
+        m_store = store;
+    }
+
+    public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
+    {
+        return new TextDocumentAttributes(uri, "codex");
+    }
+
+    public override Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken ct)
+    {
+        string uri = request.TextDocument.Uri.ToString();
+        string text = request.TextDocument.Text;
+        m_store.Update(uri, text);
+        PublishDiagnostics(uri, text);
+        return Unit.Task;
+    }
+
+    public override Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken ct)
+    {
+        string uri = request.TextDocument.Uri.ToString();
+        string text = request.ContentChanges.Last().Text;
+        m_store.Update(uri, text);
+        PublishDiagnostics(uri, text);
+        return Unit.Task;
+    }
+
+    public override Task<Unit> Handle(DidCloseTextDocumentParams request, CancellationToken ct)
+    {
+        string uri = request.TextDocument.Uri.ToString();
+        m_store.Remove(uri);
+        m_server.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
+        {
+            Uri = request.TextDocument.Uri,
+            Diagnostics = new Container<OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic>(),
+        });
+        return Unit.Task;
+    }
+
+    public override Task<Unit> Handle(DidSaveTextDocumentParams request, CancellationToken ct)
+    {
+        return Unit.Task;
+    }
+
+    protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(
+        TextSynchronizationCapability capability,
+        ClientCapabilities clientCapabilities)
+    {
+        return new TextDocumentSyncRegistrationOptions
+        {
+            DocumentSelector = DocumentStore.s_selector,
+            Change = TextDocumentSyncKind.Full,
+            Save = new SaveOptions { IncludeText = false },
+        };
+    }
+
+    private void PublishDiagnostics(string uri, string text)
+    {
+        AnalysisResult result = Analyzer.Analyze(uri, text);
+        m_store.UpdateResult(uri, result);
+
+        List<OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic> lspDiags = [];
+        foreach (Codex.Core.Diagnostic diag in result.Diagnostics)
+        {
+            lspDiags.Add(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic
+            {
+                Range = SpanToRange(diag.Span),
+                Severity = MapSeverity(diag.Severity),
+                Code = diag.Code,
+                Source = "codex",
+                Message = diag.Message,
+            });
+        }
+
+        m_server.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
+        {
+            Uri = DocumentUri.Parse(uri),
+            Diagnostics = new Container<OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic>(lspDiags),
+        });
+    }
+
+    internal static OmniSharp.Extensions.LanguageServer.Protocol.Models.Range SpanToRange(SourceSpan span)
+    {
+        return new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+            Math.Max(0, span.Start.Line - 1), Math.Max(0, span.Start.Column - 1),
+            Math.Max(0, span.End.Line - 1), Math.Max(0, span.End.Column - 1));
+    }
+
+    private static DiagnosticSeverity? MapSeverity(Codex.Core.DiagnosticSeverity severity)
+    {
+        return severity switch
+        {
+            Codex.Core.DiagnosticSeverity.Error => DiagnosticSeverity.Error,
+            Codex.Core.DiagnosticSeverity.Warning => DiagnosticSeverity.Warning,
+            Codex.Core.DiagnosticSeverity.Info => DiagnosticSeverity.Information,
+            Codex.Core.DiagnosticSeverity.Hint => DiagnosticSeverity.Hint,
+            _ => DiagnosticSeverity.Information,
+        };
+    }
+}
