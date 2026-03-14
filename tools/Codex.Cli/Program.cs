@@ -6,7 +6,6 @@ using Codex.Types;
 using Codex.IR;
 using Codex.Emit.CSharp;
 using Codex.Repository;
-using System.Collections.Immutable;
 
 namespace Codex.Cli;
 
@@ -53,14 +52,14 @@ public static class Program
         }
 
         string content = File.ReadAllText(filePath);
-        SourceText source = new SourceText(filePath, content);
-        DiagnosticBag diagnostics = new DiagnosticBag();
+        SourceText source = new(filePath, content);
+        DiagnosticBag diagnostics = new();
 
         DocumentNode document;
         if (ProseParser.IsProseDocument(content))
         {
             Console.WriteLine("(prose-mode document detected)");
-            ProseParser proseParser = new ProseParser(source, diagnostics);
+            ProseParser proseParser = new(source, diagnostics);
             document = proseParser.ParseDocument();
 
             Console.WriteLine("\n=== Chapters ===");
@@ -72,7 +71,7 @@ public static class Program
         }
         else
         {
-            Lexer lexer = new Lexer(source, diagnostics);
+            Lexer lexer = new(source, diagnostics);
             IReadOnlyList<Token> tokens = lexer.TokenizeAll();
 
             Console.WriteLine("=== Tokens ===");
@@ -88,7 +87,7 @@ public static class Program
                 }
             }
 
-            Parser parser = new Parser(tokens, diagnostics);
+            Parser parser = new(tokens, diagnostics);
             document = parser.ParseDocument();
         }
 
@@ -102,7 +101,7 @@ public static class Program
             Console.WriteLine($"  {def.Name.Text}{paramsStr}{typeStr}");
         }
 
-        Desugarer desugarer = new Desugarer(diagnostics);
+        Desugarer desugarer = new(diagnostics);
         string moduleName = Path.GetFileNameWithoutExtension(filePath);
         Module module = desugarer.Desugar(document, moduleName);
 
@@ -133,12 +132,12 @@ public static class Program
         }
 
         string content = File.ReadAllText(filePath);
-        SourceText source = new SourceText(filePath, content);
-        DiagnosticBag diagnostics = new DiagnosticBag();
+        SourceText source = new(filePath, content);
+        DiagnosticBag diagnostics = new();
 
         DocumentNode document = ParseSourceFile(source, content, diagnostics);
 
-        Desugarer desugarer = new Desugarer(diagnostics);
+        Desugarer desugarer = new(diagnostics);
         string moduleName = Path.GetFileNameWithoutExtension(filePath);
         Module module = desugarer.Desugar(document, moduleName);
 
@@ -148,7 +147,7 @@ public static class Program
             return 1;
         }
 
-        NameResolver resolver = new NameResolver(diagnostics);
+        NameResolver resolver = new(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
 
         if (diagnostics.HasErrors)
@@ -157,12 +156,12 @@ public static class Program
             return 1;
         }
 
-        TypeChecker checker = new TypeChecker(diagnostics);
-        ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
+        TypeChecker checker = new(diagnostics);
+        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return 1; }
 
-        LinearityChecker linearityChecker = new LinearityChecker(diagnostics, types);
+        LinearityChecker linearityChecker = new(diagnostics, types);
         linearityChecker.CheckModule(resolved.Module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return 1; }
@@ -263,7 +262,7 @@ public static class Program
             System.Diagnostics.Process? runProc = System.Diagnostics.Process.Start(runInfo);
             if (runProc is null)
             {
-                Console.Error.WriteLine("Failed to start dot</>net run");
+                Console.Error.WriteLine("Failed to start dotnet run");
                 return 1;
             }
 
@@ -300,8 +299,8 @@ public static class Program
         }
 
         string content = File.ReadAllText(filePath);
-        SourceText source = new SourceText(filePath, content);
-        DiagnosticBag diagnostics = new DiagnosticBag();
+        SourceText source = new(filePath, content);
+        DiagnosticBag diagnostics = new();
 
         if (!ProseParser.IsProseDocument(content))
         {
@@ -309,7 +308,7 @@ public static class Program
             return 1;
         }
 
-        ProseParser proseParser = new ProseParser(source, diagnostics);
+        ProseParser proseParser = new(source, diagnostics);
         DocumentNode document = proseParser.ParseDocument();
 
         if (diagnostics.HasErrors)
@@ -374,38 +373,38 @@ public static class Program
         }
 
         string content = File.ReadAllText(filePath);
-        SourceText source = new SourceText(filePath, content);
-        DiagnosticBag diagnostics = new DiagnosticBag();
+        SourceText source = new(filePath, content);
+        DiagnosticBag diagnostics = new();
 
         DocumentNode document = ParseSourceFile(source, content, diagnostics);
 
-        Desugarer desugarer = new Desugarer(diagnostics);
+        Desugarer desugarer = new(diagnostics);
         string moduleName = Path.GetFileNameWithoutExtension(filePath);
         Module module = desugarer.Desugar(document, moduleName);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        NameResolver resolver = new NameResolver(diagnostics);
+        NameResolver resolver = new(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        TypeChecker checker = new TypeChecker(diagnostics);
-        ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
+        TypeChecker checker = new(diagnostics);
+        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        LinearityChecker linearityChecker = new LinearityChecker(diagnostics, types);
+        LinearityChecker linearityChecker = new(diagnostics, types);
         linearityChecker.CheckModule(resolved.Module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        Lowering lowering = new Lowering(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
+        Lowering lowering = new(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
         IRModule irModule = lowering.Lower(resolved.Module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        CSharpEmitter emitter = new CSharpEmitter();
+        CSharpEmitter emitter = new();
         string csharpSource = emitter.Emit(irModule);
 
         return new CompilationResult(csharpSource, types);
@@ -638,20 +637,20 @@ public static class Program
 
     private sealed record CompilationResult(
         string CSharpSource,
-        ImmutableDictionary<string, CodexType> Types);
+        Map<string, CodexType> Types);
 
     private static DocumentNode ParseSourceFile(SourceText source, string content, DiagnosticBag diagnostics)
     {
         if (ProseParser.IsProseDocument(content))
         {
-            ProseParser proseParser = new ProseParser(source, diagnostics);
+            ProseParser proseParser = new(source, diagnostics);
             return proseParser.ParseDocument();
         }
         else
         {
-            Lexer lexer = new Lexer(source, diagnostics);
+            Lexer lexer = new(source, diagnostics);
             IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-            Parser parser = new Parser(tokens, diagnostics);
+            Parser parser = new(tokens, diagnostics);
             return parser.ParseDocument();
         }
     }

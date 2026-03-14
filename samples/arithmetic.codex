@@ -8,3 +8,6 @@ clamp : Integer -> Integer -> Integer -> Integer
 clamp (lo) (hi) (x) =
   let clamped = if x < lo then lo else if x > hi then hi else x
   in clamped
+
+main : Integer
+main = clamp 0 100 (abs (max (-42) 37))

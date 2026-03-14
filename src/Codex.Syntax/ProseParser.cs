@@ -32,7 +32,7 @@ public sealed class ProseParser
     public DocumentNode ParseDocument()
     {
         SourceSpan docSpan = MakeSpan(0, m_source.Content.Length);
-        List<ChapterNode> chapters = new List<ChapterNode>();
+        List<ChapterNode> chapters = [];
 
         SkipBlankLines();
 
@@ -58,8 +58,8 @@ public sealed class ProseParser
         }
 
         // Collect all definitions from all notation blocks
-        List<DefinitionNode> allDefs = new();
-        List<TypeDefinitionNode> allTypeDefs = new();
+        List<DefinitionNode> allDefs = [];
+        List<TypeDefinitionNode> allTypeDefs = [];
         foreach (ChapterNode chapter in chapters)
         {
             CollectDefinitions(chapter.Members, allDefs, allTypeDefs);
@@ -72,10 +72,10 @@ public sealed class ProseParser
     {
         int startOffset = LineOffset(m_lineIndex);
         string headerLine = m_lines[m_lineIndex].TrimStart();
-        string title = headerLine.Substring("Chapter:".Length).Trim();
+        string title = headerLine["Chapter:".Length..].Trim();
         m_lineIndex++;
 
-        List<DocumentMember> members = new List<DocumentMember>();
+        List<DocumentMember> members = [];
         SkipBlankLines();
 
         while (m_lineIndex < m_lines.Length)
@@ -122,10 +122,10 @@ public sealed class ProseParser
     {
         int startOffset = LineOffset(m_lineIndex);
         string headerLine = m_lines[m_lineIndex].TrimStart();
-        string title = headerLine.Substring("Section:".Length).Trim();
+        string title = headerLine["Section:".Length..].Trim();
         m_lineIndex++;
 
-        List<DocumentMember> members = new List<DocumentMember>();
+        List<DocumentMember> members = [];
         SkipBlankLines();
 
         while (m_lineIndex < m_lines.Length)
@@ -163,7 +163,7 @@ public sealed class ProseParser
     private ProseBlockNode ParseProseBlock()
     {
         int startOffset = LineOffset(m_lineIndex);
-        List<string> proseLines = new List<string>();
+        List<string> proseLines = [];
 
         while (m_lineIndex < m_lines.Length)
         {
@@ -202,7 +202,7 @@ public sealed class ProseParser
         int startOffset = LineOffset(m_lineIndex);
 
         // Collect all notation lines (indented 4+)
-        List<string> notationLines = new List<string>();
+        List<string> notationLines = [];
         int baseIndent = MeasureIndent(m_lines[m_lineIndex]);
 
         while (m_lineIndex < m_lines.Length)
@@ -237,18 +237,18 @@ public sealed class ProseParser
                 break;
 
             // Dedent the notation to be relative (remove the base indent)
-            string dedented = indent >= baseIndent ? line.Substring(baseIndent) : trimmed;
+            string dedented = indent >= baseIndent ? line[baseIndent..] : trimmed;
             notationLines.Add(dedented);
             m_lineIndex++;
         }
 
         // Now parse the notation block using the standard Lexer + Parser pipeline
         string notationSource = string.Join("\n", notationLines);
-        SourceText notationText = new SourceText(m_source.FileName, notationSource);
-        DiagnosticBag notationDiag = new DiagnosticBag();
-        Lexer lexer = new Lexer(notationText, notationDiag);
+        SourceText notationText = new(m_source.FileName, notationSource);
+        DiagnosticBag notationDiag = new();
+        Lexer lexer = new(notationText, notationDiag);
         IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-        Parser parser = new Parser(tokens, notationDiag);
+        Parser parser = new(tokens, notationDiag);
         DocumentNode notationDoc = parser.ParseDocument();
 
         // Propagate diagnostics
@@ -273,7 +273,7 @@ public sealed class ProseParser
         {
             // Look for type annotation pattern: "name : Type"
             // or definition pattern: "name (param) = ..." or "name = ..."
-            if (trimmed.Contains(" : ") || trimmed.Contains(" = ") || trimmed.Contains("("))
+            if (trimmed.Contains(" : ") || trimmed.Contains(" = ") || trimmed.Contains('('))
                 return true;
         }
 

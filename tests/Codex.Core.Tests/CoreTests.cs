@@ -50,7 +50,7 @@ public class SourceTextTests
     [Fact]
     public void GetPosition_first_character()
     {
-        SourceText source = new SourceText("test.codex", "hello\nworld");
+        SourceText source = new("test.codex", "hello\nworld");
         SourcePosition pos = source.GetPosition(0);
         Assert.Equal(1, pos.Line);
         Assert.Equal(1, pos.Column);
@@ -59,7 +59,7 @@ public class SourceTextTests
     [Fact]
     public void GetPosition_second_line()
     {
-        SourceText source = new SourceText("test.codex", "hello\nworld");
+        SourceText source = new("test.codex", "hello\nworld");
         SourcePosition pos = source.GetPosition(6);
         Assert.Equal(2, pos.Line);
         Assert.Equal(1, pos.Column);
@@ -68,7 +68,7 @@ public class SourceTextTests
     [Fact]
     public void GetText_from_span()
     {
-        SourceText source = new SourceText("test.codex", "hello world");
+        SourceText source = new("test.codex", "hello world");
         SourceSpan span = new SourceSpan(
             new SourcePosition(6, 1, 7),
             new SourcePosition(11, 1, 12));
@@ -117,7 +117,7 @@ public class DiagnosticBagTests
     [Fact]
     public void Initially_no_errors()
     {
-        DiagnosticBag bag = new DiagnosticBag();
+        DiagnosticBag bag = new();
         Assert.False(bag.HasErrors);
         Assert.Equal(0, bag.Count);
     }
@@ -125,7 +125,7 @@ public class DiagnosticBagTests
     [Fact]
     public void Adding_error_sets_has_errors()
     {
-        DiagnosticBag bag = new DiagnosticBag();
+        DiagnosticBag bag = new();
         bag.Error("CDX0001", "test error", SourceSpan.s_synthetic);
         Assert.True(bag.HasErrors);
         Assert.Equal(1, bag.Count);
@@ -134,7 +134,7 @@ public class DiagnosticBagTests
     [Fact]
     public void Warning_does_not_count_as_error()
     {
-        DiagnosticBag bag = new DiagnosticBag();
+        DiagnosticBag bag = new();
         bag.Warning("CDX0002", "test warning", SourceSpan.s_synthetic);
         Assert.False(bag.HasErrors);
         Assert.Equal(1, bag.Count);
@@ -143,7 +143,7 @@ public class DiagnosticBagTests
     [Fact]
     public void ToImmutable_returns_all_diagnostics()
     {
-        DiagnosticBag bag = new DiagnosticBag();
+        DiagnosticBag bag = new();
         bag.Error("CDX0001", "error 1", SourceSpan.s_synthetic);
         bag.Warning("CDX0002", "warning 1", SourceSpan.s_synthetic);
         bag.Info("CDX0003", "info 1", SourceSpan.s_synthetic);

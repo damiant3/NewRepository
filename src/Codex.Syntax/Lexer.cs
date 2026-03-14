@@ -10,7 +10,6 @@ public enum LexerMode
 
 public sealed class Lexer
 {
-    private readonly SourceText m_source;
     private readonly DiagnosticBag m_diagnostics;
     private readonly string m_text;
 
@@ -26,7 +25,6 @@ public sealed class Lexer
 
     public Lexer(SourceText source, DiagnosticBag diagnostics)
     {
-        m_source = source;
         m_diagnostics = diagnostics;
         m_text = source.Content;
         m_position = 0;
@@ -39,7 +37,7 @@ public sealed class Lexer
 
     public IReadOnlyList<Token> TokenizeAll()
     {
-        List<Token> tokens = new List<Token>();
+        List<Token> tokens = [];
         while (true)
         {
             Token token = NextToken();
@@ -131,7 +129,7 @@ public sealed class Lexer
         SourcePosition start = MakePosition();
         Advance();
 
-        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        System.Text.StringBuilder sb = new();
         while (!IsAtEnd && Current != '"' && Current != '\n')
         {
             if (Current == '\\' && m_position + 1 < m_text.Length)
@@ -233,7 +231,7 @@ public sealed class Lexer
         string text = m_text[start.Offset..span.End.Offset];
 
         TokenKind kind = ClassifyWord(text);
-        Token token = new Token(kind, text, span);
+        Token token = new(kind, text, span);
 
         if (kind == TokenKind.TrueKeyword)
         {

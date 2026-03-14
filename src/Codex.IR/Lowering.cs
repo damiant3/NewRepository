@@ -7,7 +7,7 @@ namespace Codex.IR;
 
 public sealed class Lowering
 {
-    private readonly ImmutableDictionary<string, CodexType> m_typeMap;
+    private readonly Map<string, CodexType> m_typeMap;
     private readonly Map<string, CtorInfo> m_ctorMap;
     private readonly Map<string, CodexType> m_typeDefMap;
     private readonly DiagnosticBag m_diagnostics;
@@ -16,7 +16,7 @@ public sealed class Lowering
     private static readonly Map<string, CodexType> s_builtinTypes = BuildBuiltinTypes();
 
     public Lowering(
-        ImmutableDictionary<string, CodexType> typeMap,
+        Map<string, CodexType> typeMap,
         Map<string, CtorInfo> ctorMap,
         Map<string, CodexType> typeDefMap,
         DiagnosticBag diagnostics)
@@ -40,9 +40,7 @@ public sealed class Lowering
 
     private IRDefinition LowerDefinition(Definition def)
     {
-        CodexType fullType = m_typeMap.TryGetValue(def.Name.Value, out CodexType? t)
-            ? t
-            : ErrorType.s_instance;
+        CodexType fullType = m_typeMap[def.Name.Value] ?? ErrorType.s_instance;
 
         Map<string, CodexType> savedEnv = m_localEnv;
 
@@ -86,11 +84,16 @@ public sealed class Lowering
                 return new IRNegate(LowerExpr(un.Operand, IntegerType.s_instance));
 
             case IfExpr iff:
+            {
+                IRExpr thenExpr = LowerExpr(iff.Then, expectedType);
+                IRExpr elseExpr = LowerExpr(iff.Else, expectedType is ErrorType ? thenExpr.Type : expectedType);
+                CodexType resultType = expectedType is ErrorType ? thenExpr.Type : expectedType;
                 return new IRIf(
                     LowerExpr(iff.Condition, BooleanType.s_instance),
-                    LowerExpr(iff.Then, expectedType),
-                    LowerExpr(iff.Else, expectedType),
-                    expectedType);
+                    thenExpr,
+                    elseExpr,
+                    resultType);
+            }
 
             case LetExpr let:
                 return LowerLet(let, expectedType);
@@ -184,7 +187,7 @@ public sealed class Lowering
         Map<string, CodexType> savedEnv = m_localEnv;
 
         List<(string Name, IRExpr Value)> loweredBindings = new();
-        foreach (Ast.LetBinding binding in let.Bindings)
+        foreach (LetBinding binding in let.Bindings)
         {
             IRExpr value = LowerExpr(binding.Value, ErrorType.s_instance);
             loweredBindings.Add((binding.Name.Value, value));
@@ -319,7 +322,7 @@ public sealed class Lowering
     private CodexType LookupName(string name, CodexType fallback)
     {
         return m_localEnv[name]
-            ?? (m_typeMap.TryGetValue(name, out CodexType? type) ? type : null)
+            ?? m_typeMap[name]
             ?? m_ctorMap[name]?.ConstructorType
             ?? s_builtinTypes[name]
             ?? fallback;
@@ -364,9 +367,7 @@ public sealed class Lowering
         if (rt is null && rec.TypeName is not null)
         {
             string typeName = rec.TypeName.Value.Value;
-            CodexType? looked = m_typeMap.TryGetValue(typeName, out CodexType? t) ? t : null;
-            if (looked is null)
-                looked = m_typeDefMap[typeName];
+            CodexType? looked = m_typeMap[typeName] ?? m_typeDefMap[typeName];
             rt = looked as RecordType;
             if (rt is not null)
                 recType = rt;

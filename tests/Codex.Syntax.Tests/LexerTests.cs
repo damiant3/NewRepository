@@ -8,9 +8,9 @@ public class LexerTests
 {
     private static IReadOnlyList<Token> Tokenize(string source)
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag bag = new DiagnosticBag();
-        Lexer lexer = new Lexer(src, bag);
+        SourceText src = new("test.codex", source);
+        DiagnosticBag bag = new();
+        Lexer lexer = new(src, bag);
         return lexer.TokenizeAll();
     }
 

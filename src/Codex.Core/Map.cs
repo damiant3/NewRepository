@@ -16,6 +16,8 @@ public sealed class Map<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>
 
     public static readonly Map<TKey, TValue> s_empty = new(ImmutableDictionary<TKey, TValue>.Empty);
 
+    public static Map<TKey, TValue> From(ImmutableDictionary<TKey, TValue> dict) => new(dict);
+
     public TValue? this[TKey key] =>
         m_inner.TryGetValue(key, out TValue? value) ? value : null;
 

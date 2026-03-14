@@ -8,21 +8,21 @@ public class ParserTests
 {
     private static DocumentNode Parse(string source)
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag bag = new DiagnosticBag();
-        Lexer lexer = new Lexer(src, bag);
+        SourceText src = new("test.codex", source);
+        DiagnosticBag bag = new();
+        Lexer lexer = new(src, bag);
         IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-        Parser parser = new Parser(tokens, bag);
+        Parser parser = new(tokens, bag);
         return parser.ParseDocument();
     }
 
     private static (DocumentNode Doc, DiagnosticBag Diags) ParseWithDiags(string source)
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag bag = new DiagnosticBag();
-        Lexer lexer = new Lexer(src, bag);
+        SourceText src = new("test.codex", source);
+        DiagnosticBag bag = new();
+        Lexer lexer = new(src, bag);
         IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-        Parser parser = new Parser(tokens, bag);
+        Parser parser = new(tokens, bag);
         return (parser.ParseDocument(), bag);
     }
 

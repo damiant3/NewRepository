@@ -22,10 +22,10 @@ public sealed class TypeChecker
         m_typeDefMap = Map<string, CodexType>.s_empty;
         m_ctorMap = Map<string, CtorInfo>.s_empty;
         m_typeParamEnv = Map<string, CodexType>.s_empty;
-        m_currentEffects = ImmutableHashSet<string>.Empty;
+        m_currentEffects = [];
     }
 
-    public ImmutableDictionary<string, CodexType> CheckModule(Module module)
+    public Map<string, CodexType> CheckModule(Module module)
     {
         RegisterTypeDefinitions(module.TypeDefinitions);
 
@@ -46,14 +46,13 @@ public sealed class TypeChecker
             m_unifier.Unify(expectedType, bodyType, def.Span);
         }
 
-        ImmutableDictionary<string, CodexType>.Builder result =
-            ImmutableDictionary.CreateBuilder<string, CodexType>();
+        Map<string, CodexType> result = Map<string, CodexType>.s_empty;
         foreach (KeyValuePair<string, CodexType> kv in topLevelTypes)
         {
-            result[kv.Key] = m_unifier.DeepResolve(kv.Value);
+            result = result.Set(kv.Key, m_unifier.DeepResolve(kv.Value));
         }
 
-        return result.ToImmutable();
+        return result;
     }
 
     private void RegisterTypeDefinitions(IReadOnlyList<TypeDef> typeDefs)
@@ -367,7 +366,7 @@ public sealed class TypeChecker
     {
         TypeEnvironment savedEnv = m_env;
 
-        List<CodexType> paramTypes = new();
+        List<CodexType> paramTypes = [];
         foreach (Parameter p in lam.Parameters)
         {
             CodexType paramType = m_unifier.FreshVar();
@@ -417,7 +416,7 @@ public sealed class TypeChecker
         if (hasCatchAll)
             return;
 
-        HashSet<string> covered = new();
+        HashSet<string> covered = [];
         foreach (MatchBranch branch in match.Branches)
         {
             if (branch.Pattern is CtorPattern cp)
@@ -465,7 +464,7 @@ public sealed class TypeChecker
                 {
                     CodexType ctorType = Instantiate(info.ConstructorType);
                     CodexType resultType = ctorType;
-                    List<CodexType> fieldTypes = new();
+                    List<CodexType> fieldTypes = [];
                     while (resultType is FunctionType ft)
                     {
                         fieldTypes.Add(ft.Parameter);
@@ -533,7 +532,7 @@ public sealed class TypeChecker
     private CodexType InferDoExpr(DoExpr doExpr)
     {
         TypeEnvironment savedEnv = m_env;
-        HashSet<string> collectedEffects = new();
+        HashSet<string> collectedEffects = [];
         CodexType lastType = NothingType.s_instance;
 
         foreach (DoStatement stmt in doExpr.Statements)
@@ -607,7 +606,7 @@ public sealed class TypeChecker
         {
             return [.. eft.Effects.Select(e => e.EffectName.Value)];
         }
-        return ImmutableHashSet<string>.Empty;
+        return [];
     }
 
     private void CheckEffectAllowed(CodexType type, SourceSpan span)

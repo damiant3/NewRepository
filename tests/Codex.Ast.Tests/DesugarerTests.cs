@@ -9,13 +9,13 @@ public class DesugarerTests
 {
     private static Module ParseAndDesugar(string source, string moduleName = "Test")
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag bag = new DiagnosticBag();
-        Lexer lexer = new Lexer(src, bag);
+        SourceText src = new("test.codex", source);
+        DiagnosticBag bag = new();
+        Lexer lexer = new(src, bag);
         IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-        Parser parser = new Parser(tokens, bag);
+        Parser parser = new(tokens, bag);
         DocumentNode doc = parser.ParseDocument();
-        Desugarer desugarer = new Desugarer(bag);
+        Desugarer desugarer = new(bag);
         return desugarer.Desugar(doc, moduleName);
     }
 

@@ -8,17 +8,17 @@ public class ProseParserTests
 {
     private static DocumentNode ParseProse(string source)
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag bag = new DiagnosticBag();
-        ProseParser parser = new ProseParser(src, bag);
+        SourceText src = new("test.codex", source);
+        DiagnosticBag bag = new();
+        ProseParser parser = new(src, bag);
         return parser.ParseDocument();
     }
 
     private static (DocumentNode Doc, DiagnosticBag Diags) ParseProseWithDiags(string source)
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag bag = new DiagnosticBag();
-        ProseParser parser = new ProseParser(src, bag);
+        SourceText src = new("test.codex", source);
+        DiagnosticBag bag = new();
+        ProseParser parser = new(src, bag);
         return (parser.ParseDocument(), bag);
     }
 
@@ -150,8 +150,8 @@ public class ProseParserTests
             "    main = greet \"World\"\n";
 
         DocumentNode doc = ParseProse(source);
-        DiagnosticBag diagnostics = new DiagnosticBag();
-        Codex.Ast.Desugarer desugarer = new Codex.Ast.Desugarer(diagnostics);
+        DiagnosticBag diagnostics = new();
+        Codex.Ast.Desugarer desugarer = new(diagnostics);
         Codex.Ast.Module module = desugarer.Desugar(doc, "greeting");
 
         Assert.False(diagnostics.HasErrors);

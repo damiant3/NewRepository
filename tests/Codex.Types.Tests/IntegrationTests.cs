@@ -1,9 +1,7 @@
-using System.Collections.Immutable;
 using Codex.Core;
 using Codex.Syntax;
 using Codex.Ast;
 using Codex.Semantics;
-using Codex.Types;
 using Codex.IR;
 using Codex.Emit.CSharp;
 using Xunit;
@@ -14,77 +12,77 @@ public class IntegrationTests
 {
     private static string? CompileToCS(string source, string moduleName = "test")
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag diagnostics = new DiagnosticBag();
+        SourceText src = new("test.codex", source);
+        DiagnosticBag diagnostics = new();
 
         DocumentNode document;
         if (ProseParser.IsProseDocument(source))
         {
-            ProseParser proseParser = new ProseParser(src, diagnostics);
+            ProseParser proseParser = new(src, diagnostics);
             document = proseParser.ParseDocument();
         }
         else
         {
-            Lexer lexer = new Lexer(src, diagnostics);
+            Lexer lexer = new(src, diagnostics);
             IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-            Parser parser = new Parser(tokens, diagnostics);
+            Parser parser = new(tokens, diagnostics);
             document = parser.ParseDocument();
         }
 
-        Desugarer desugarer = new Desugarer(diagnostics);
+        Desugarer desugarer = new(diagnostics);
         Module module = desugarer.Desugar(document, moduleName);
         if (diagnostics.HasErrors) return null;
 
-        NameResolver resolver = new NameResolver(diagnostics);
+        NameResolver resolver = new(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
         if (diagnostics.HasErrors) return null;
 
-        TypeChecker checker = new TypeChecker(diagnostics);
-        ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
+        TypeChecker checker = new(diagnostics);
+        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
         if (diagnostics.HasErrors) return null;
 
-        LinearityChecker linearityChecker = new LinearityChecker(diagnostics, types);
+        LinearityChecker linearityChecker = new(diagnostics, types);
         linearityChecker.CheckModule(resolved.Module);
         if (diagnostics.HasErrors) return null;
 
-        Lowering lowering = new Lowering(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
+        Lowering lowering = new(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
         IRModule irModule = lowering.Lower(resolved.Module);
         if (diagnostics.HasErrors) return null;
 
-        CSharpEmitter emitter = new CSharpEmitter();
+        CSharpEmitter emitter = new();
         return emitter.Emit(irModule);
     }
 
-    private static ImmutableDictionary<string, CodexType>? TypeCheck(
+    private static Map<string, CodexType>? TypeCheck(
         string source, string moduleName = "test")
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag diagnostics = new DiagnosticBag();
+        SourceText src = new("test.codex", source);
+        DiagnosticBag diagnostics = new();
 
         DocumentNode document;
         if (ProseParser.IsProseDocument(source))
         {
-            ProseParser proseParser = new ProseParser(src, diagnostics);
+            ProseParser proseParser = new(src, diagnostics);
             document = proseParser.ParseDocument();
         }
         else
         {
-            Lexer lexer = new Lexer(src, diagnostics);
+            Lexer lexer = new(src, diagnostics);
             IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-            Parser parser = new Parser(tokens, diagnostics);
+            Parser parser = new(tokens, diagnostics);
             document = parser.ParseDocument();
         }
 
-        Desugarer desugarer = new Desugarer(diagnostics);
+        Desugarer desugarer = new(diagnostics);
         Module module = desugarer.Desugar(document, moduleName);
         if (diagnostics.HasErrors) return null;
 
-        NameResolver resolver = new NameResolver(diagnostics);
+        NameResolver resolver = new(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
         if (diagnostics.HasErrors) return null;
 
-        TypeChecker checker = new TypeChecker(diagnostics);
-        ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
+        TypeChecker checker = new(diagnostics);
+        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
         return diagnostics.HasErrors ? null : types;
     }
 
@@ -144,7 +142,7 @@ public class IntegrationTests
         string source =
             "fib (n) = if n == 0 then 0 else if n == 1 then 1 else fib (n - 1) + fib (n - 2)\n\n" +
             "main : Integer\nmain = fib 20";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("fib"));
         Assert.True(types.ContainsKey("main"));
@@ -178,10 +176,10 @@ public class IntegrationTests
             "    double (x) = x + x\n\n" +
             "    main : Integer\n" +
             "    main = double 21\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("double"));
-        Assert.Equal("Integer → Integer", types["double"].ToString());
+        Assert.Equal("Integer → Integer", types["double"]!.ToString());
     }
 
     // --- Generated C# structure ---
@@ -219,7 +217,7 @@ public class IntegrationTests
             "    if Red -> \"red\"\n" +
             "    if Green -> \"green\"\n" +
             "    if Blue -> \"blue\"\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("name"));
     }
@@ -236,7 +234,7 @@ public class IntegrationTests
             "  when s\n" +
             "    if Circle (r) -> \"circle\"\n" +
             "    if Rect (w) (h) -> \"rect\"\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("describe"));
     }
@@ -271,7 +269,7 @@ public class IntegrationTests
             "}\n\n" +
             "origin : Point\n" +
             "origin = Point { x = 0.0, y = 0.0 }\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("origin"));
     }
@@ -286,10 +284,10 @@ public class IntegrationTests
             "}\n\n" +
             "get-x : Point -> Number\n" +
             "get-x (p) = p.x\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("get-x"));
-        Assert.Contains("Number", types["get-x"].ToString());
+        Assert.Contains("Number", types["get-x"]!.ToString());
     }
 
     [Fact]
@@ -301,7 +299,7 @@ public class IntegrationTests
             "  | None\n\n" +
             "wrap : Integer -> Maybe\n" +
             "wrap (x) = Just x\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("wrap"));
     }
@@ -370,7 +368,7 @@ public class IntegrationTests
             "  | None\n\n" +
             "wrap : Integer -> Maybe Integer\n" +
             "wrap (x) = Just x\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("wrap"));
     }
@@ -387,7 +385,7 @@ public class IntegrationTests
             "  when m\n" +
             "    if Just (n) -> n\n" +
             "    if None -> 0\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("unwrap"));
     }
@@ -414,45 +412,45 @@ public class IntegrationTests
 
     private static DiagnosticBag TypeCheckWithDiagnostics(string source, string moduleName = "test")
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag diagnostics = new DiagnosticBag();
+        SourceText src = new("test.codex", source);
+        DiagnosticBag diagnostics = new();
 
-        Lexer lexer = new Lexer(src, diagnostics);
+        Lexer lexer = new(src, diagnostics);
         IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-        Parser parser = new Parser(tokens, diagnostics);
+        Parser parser = new(tokens, diagnostics);
         DocumentNode document = parser.ParseDocument();
 
-        Desugarer desugarer = new Desugarer(diagnostics);
+        Desugarer desugarer = new(diagnostics);
         Module module = desugarer.Desugar(document, moduleName);
 
-        NameResolver resolver = new NameResolver(diagnostics);
+        NameResolver resolver = new(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
 
-        TypeChecker checker = new TypeChecker(diagnostics);
+        TypeChecker checker = new(diagnostics);
         checker.CheckModule(resolved.Module);
         return diagnostics;
     }
 
     private static DiagnosticBag CheckWithLinearity(string source, string moduleName = "test")
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag diagnostics = new DiagnosticBag();
+        SourceText src = new("test.codex", source);
+        DiagnosticBag diagnostics = new();
 
-        Lexer lexer = new Lexer(src, diagnostics);
+        Lexer lexer = new(src, diagnostics);
         IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-        Parser parser = new Parser(tokens, diagnostics);
+        Parser parser = new(tokens, diagnostics);
         DocumentNode document = parser.ParseDocument();
 
-        Desugarer desugarer = new Desugarer(diagnostics);
+        Desugarer desugarer = new(diagnostics);
         Module module = desugarer.Desugar(document, moduleName);
 
-        NameResolver resolver = new NameResolver(diagnostics);
+        NameResolver resolver = new(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
 
-        TypeChecker checker = new TypeChecker(diagnostics);
-        ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
+        TypeChecker checker = new(diagnostics);
+        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
 
-        LinearityChecker linearityChecker = new LinearityChecker(diagnostics, types);
+        LinearityChecker linearityChecker = new(diagnostics, types);
         linearityChecker.CheckModule(resolved.Module);
 
         return diagnostics;
@@ -467,10 +465,10 @@ public class IntegrationTests
             "main : [Console] Nothing\n" +
             "main = do\n" +
             "  print-line \"hello\"\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("main"));
-        Assert.Contains("Console", types["main"].ToString());
+        Assert.Contains("Console", types["main"]!.ToString());
     }
 
     [Fact]
@@ -494,7 +492,7 @@ public class IntegrationTests
             "main = do\n" +
             "  name <- read-line\n" +
             "  print-line name\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("main"));
     }
@@ -635,10 +633,10 @@ public class IntegrationTests
         string source =
             "consume : linear FileHandle -> [FileSystem] Nothing\n" +
             "consume (h) = close-file h\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
         Assert.True(types!.ContainsKey("consume"));
-        CodexType consumeType = types["consume"];
+        CodexType consumeType = types["consume"]!;
         Assert.IsType<FunctionType>(consumeType);
         FunctionType ft = (FunctionType)consumeType;
         Assert.IsType<LinearType>(ft.Parameter);
@@ -685,7 +683,7 @@ public class IntegrationTests
             "open-and-close (path) = do\n" +
             "  handle <- open-file path\n" +
             "  close-file handle\n";
-        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Map<string, CodexType>? types = TypeCheck(source);
         Assert.NotNull(types);
     }
 

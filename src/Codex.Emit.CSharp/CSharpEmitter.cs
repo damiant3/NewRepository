@@ -32,7 +32,7 @@ public sealed class CSharpEmitter : ICodeEmitter
 
         if (mainDef is not null && mainDef.Parameters.Length == 0)
         {
-            if (IsEffectfulMain(mainDef))
+            if (IsEffectfulDefinition(mainDef))
             {
                 sb.AppendLine($"{className}.main();");
             }
@@ -229,8 +229,8 @@ public sealed class CSharpEmitter : ICodeEmitter
                 {
                     sb.Append("Convert.ToString(");
                     EmitExpr(sb, app.Argument, indent);
-                    sb.Append(')')
-;}
+                    sb.Append(')');
+                }
                 else if (app.Function is IRName fn2 && fn2.Name == "negate")
                 {
                     sb.Append("(-");
@@ -767,19 +767,6 @@ public sealed class CSharpEmitter : ICodeEmitter
         if (type is EffectfulType eft)
             type = eft.Return;
         return type;
-    }
-
-    private static bool IsEffectfulMain(IRDefinition def)
-    {
-        CodexType type = def.Type;
-        for (int i = 0; i < def.Parameters.Length; i++)
-        {
-            if (type is FunctionType ft)
-                type = ft.Return;
-            else
-                break;
-        }
-        return type is EffectfulType;
     }
 
     private static bool IsEffectfulDefinition(IRDefinition def)

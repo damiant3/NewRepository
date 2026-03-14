@@ -20,8 +20,8 @@ public sealed class Parser
     public DocumentNode ParseDocument()
     {
         SourceSpan startSpan = Current.Span;
-        List<DefinitionNode> definitions = new List<DefinitionNode>();
-        List<TypeDefinitionNode> typeDefinitions = new List<TypeDefinitionNode>();
+        List<DefinitionNode> definitions = [];
+        List<TypeDefinitionNode> typeDefinitions = [];
 
         SkipNewlines();
         while (!IsAtEnd)
@@ -61,7 +61,7 @@ public sealed class Parser
         Token nameToken = Current;
         Advance();
 
-        List<Token> typeParams = new List<Token>();
+        List<Token> typeParams = [];
         while (Current.Kind == TokenKind.LeftParen
             && Peek(1)?.Kind is TokenKind.Identifier or TokenKind.TypeIdentifier
             && Peek(2)?.Kind == TokenKind.RightParen)
@@ -105,7 +105,7 @@ public sealed class Parser
         Expect(TokenKind.LeftBrace);
         SkipNewlines();
 
-        List<RecordTypeFieldNode> fields = new List<RecordTypeFieldNode>();
+        List<RecordTypeFieldNode> fields = [];
         while (Current.Kind == TokenKind.Identifier && !IsAtEnd)
         {
             Token fieldName = Current;
@@ -128,7 +128,7 @@ public sealed class Parser
     private VariantTypeBody ParseVariantTypeBody()
     {
         SourceSpan startSpan = Current.Span;
-        List<VariantConstructorNode> constructors = new List<VariantConstructorNode>();
+        List<VariantConstructorNode> constructors = [];
 
         while (Current.Kind == TokenKind.Pipe)
         {
@@ -136,7 +136,7 @@ public sealed class Parser
             SkipNewlines();
 
             Token ctorName = Expect(TokenKind.TypeIdentifier);
-            List<VariantFieldNode> fields = new List<VariantFieldNode>();
+            List<VariantFieldNode> fields = [];
 
             while (Current.Kind == TokenKind.LeftParen)
             {
@@ -172,7 +172,6 @@ public sealed class Parser
             return null;
         }
 
-        Token startToken = Current;
         int startPos = m_position;
 
         TypeAnnotationNode? annotation = null;
@@ -199,7 +198,7 @@ public sealed class Parser
 
         Token nameToken = Expect(Current.Kind is TokenKind.Identifier ? TokenKind.Identifier : TokenKind.TypeIdentifier);
 
-        List<Token> parameters = new List<Token>();
+        List<Token> parameters = [];
         while (Current.Kind == TokenKind.LeftParen)
         {
             Advance();
@@ -272,7 +271,7 @@ public sealed class Parser
         {
             Token start = Current;
             Advance();
-            List<TypeNode> effects = new List<TypeNode>();
+            List<TypeNode> effects = [];
             while (Current.Kind != TokenKind.RightBracket && !IsAtEnd)
             {
                 effects.Add(ParseTypeAtom());
@@ -301,7 +300,7 @@ public sealed class Parser
             Advance();
             TypeNode baseType = new NamedTypeNode(nameToken);
 
-            List<TypeNode> args = new List<TypeNode>();
+            List<TypeNode> args = [];
             while (Current.Kind is TokenKind.TypeIdentifier or TokenKind.Identifier or TokenKind.LeftParen
                    && !IsAtEnd
                    && Current.Kind != TokenKind.Arrow
@@ -480,7 +479,7 @@ public sealed class Parser
         Expect(TokenKind.LeftBrace);
         SkipNewlines();
 
-        List<RecordFieldNode> fields = new List<RecordFieldNode>();
+        List<RecordFieldNode> fields = [];
         while (Current.Kind != TokenKind.RightBrace && !IsAtEnd)
         {
             Token fieldName = Expect(TokenKind.Identifier);
@@ -506,7 +505,7 @@ public sealed class Parser
         Advance();
         SkipNewlines();
 
-        List<ExpressionNode> elements = new List<ExpressionNode>();
+        List<ExpressionNode> elements = [];
         while (Current.Kind != TokenKind.RightBracket && !IsAtEnd)
         {
             elements.Add(ParseExpression());
@@ -545,7 +544,7 @@ public sealed class Parser
         Advance();
         SkipNewlines();
 
-        List<Syntax.LetBinding> bindings = new List<Syntax.LetBinding>();
+        List<Syntax.LetBinding> bindings = [];
         while (Current.Kind == TokenKind.Identifier)
         {
             Token name = Current;
@@ -575,7 +574,7 @@ public sealed class Parser
         ExpressionNode scrutinee = ParseExpression();
         SkipNewlines();
 
-        List<MatchBranchNode> branches = new List<MatchBranchNode>();
+        List<MatchBranchNode> branches = [];
         while (Current.Kind == TokenKind.IfKeyword)
         {
             Advance();
@@ -602,7 +601,7 @@ public sealed class Parser
         Advance();
         SkipNewlines();
 
-        List<DoStatementNode> statements = new List<DoStatementNode>();
+        List<DoStatementNode> statements = [];
         while (!IsAtEnd
             && Current.Kind is not (TokenKind.EndOfFile or TokenKind.Dedent)
             && !(Current.Kind == TokenKind.Identifier && Peek(1)?.Kind == TokenKind.Colon))
@@ -657,7 +656,7 @@ public sealed class Parser
             {
                 Token ctor = Current;
                 Advance();
-                List<PatternNode> subPatterns = new List<PatternNode>();
+                List<PatternNode> subPatterns = [];
 
                 while (Current.Kind == TokenKind.LeftParen)
                 {

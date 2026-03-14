@@ -10,15 +10,15 @@ public class NameResolverTests
 {
     private static (ResolvedModule Resolved, DiagnosticBag Diags) ResolveSource(string source)
     {
-        SourceText src = new SourceText("test.codex", source);
-        DiagnosticBag bag = new DiagnosticBag();
-        Lexer lexer = new Lexer(src, bag);
+        SourceText src = new("test.codex", source);
+        DiagnosticBag bag = new();
+        Lexer lexer = new(src, bag);
         IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-        Parser parser = new Parser(tokens, bag);
+        Parser parser = new(tokens, bag);
         DocumentNode doc = parser.ParseDocument();
-        Desugarer desugarer = new Desugarer(bag);
+        Desugarer desugarer = new(bag);
         Module module = desugarer.Desugar(doc, "Test");
-        NameResolver resolver = new NameResolver(bag);
+        NameResolver resolver = new(bag);
         ResolvedModule resolved = resolver.Resolve(module);
         return (resolved, bag);
     }

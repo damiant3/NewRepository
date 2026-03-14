@@ -79,7 +79,7 @@ public sealed class SourceText
 
     private int[] ComputeLineStarts()
     {
-        List<int> starts = new List<int> { 0 };
+        List<int> starts = [0];
         for (int i = 0; i < Content.Length; i++)
         {
             if (Content[i] == '\n')

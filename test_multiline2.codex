@@ -1,0 +1,8 @@
+compute : Integer -> Integer -> Integer
+compute (x) (y) =
+  let a = x + y,
+      b = x * y
+  in a + b
+
+main : Integer
+main = compute 3 4

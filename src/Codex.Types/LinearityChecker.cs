@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using Codex.Core;
 using Codex.Ast;
 
@@ -7,15 +6,15 @@ namespace Codex.Types;
 public sealed class LinearityChecker
 {
     private readonly DiagnosticBag m_diagnostics;
-    private readonly ImmutableDictionary<string, CodexType> m_typeMap;
+    private readonly Map<string, CodexType> m_typeMap;
     private Dictionary<string, int> m_usageCounts;
     private Map<string, CodexType> m_linearBindings;
 
-    public LinearityChecker(DiagnosticBag diagnostics, ImmutableDictionary<string, CodexType> typeMap)
+    public LinearityChecker(DiagnosticBag diagnostics, Map<string, CodexType> typeMap)
     {
         m_diagnostics = diagnostics;
         m_typeMap = typeMap;
-        m_usageCounts = new();
+        m_usageCounts = [];
         m_linearBindings = Map<string, CodexType>.s_empty;
     }
 
@@ -31,11 +30,10 @@ public sealed class LinearityChecker
     {
         Dictionary<string, int> savedCounts = m_usageCounts;
         Map<string, CodexType> savedLinear = m_linearBindings;
-        m_usageCounts = new();
+        m_usageCounts = [];
         m_linearBindings = Map<string, CodexType>.s_empty;
 
-        CodexType defType = m_typeMap.TryGetValue(def.Name.Value, out CodexType? dt)
-            ? dt : ErrorType.s_instance;
+        CodexType defType = m_typeMap[def.Name.Value] ?? ErrorType.s_instance;
         CodexType currentType = defType;
         foreach (Parameter param in def.Parameters)
         {
