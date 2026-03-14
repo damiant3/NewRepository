@@ -66,7 +66,7 @@ public sealed class FactStore
             File.WriteAllText(viewPath, "{}");
         }
 
-        return new FactStore(rootPath);
+        return new(rootPath);
     }
 
     public static FactStore? Open(string rootPath)
@@ -74,7 +74,7 @@ public sealed class FactStore
         string codexDir = Path.Combine(rootPath, ".codex");
         if (!Directory.Exists(codexDir))
             return null;
-        return new FactStore(rootPath);
+        return new(rootPath);
     }
 
     public ContentHash Store(Fact fact)
