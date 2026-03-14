@@ -539,4 +539,62 @@ public class IntegrationTests
         }
         Assert.Equal(3, count);
     }
+
+    // --- M2 gap fixes ---
+
+    [Fact]
+    public void Nested_ctor_pattern_compiles()
+    {
+        string source =
+            "Maybe (a) =\n" +
+            "  | Just (a)\n" +
+            "  | None\n\n" +
+            "unwrap-nested : Maybe (Maybe Integer) -> Integer\n" +
+            "unwrap-nested (m) =\n" +
+            "  when m\n" +
+            "    if Just (Just (n)) -> n\n" +
+            "    if _ -> 0\n";
+        string? cs = CompileToCS(source, "nested");
+        Assert.NotNull(cs);
+        Assert.Contains("Just", cs!);
+    }
+
+    [Fact]
+    public void Type_param_arity_too_many_args_produces_error()
+    {
+        string source =
+            "Maybe (a) =\n" +
+            "  | Just (a)\n" +
+            "  | None\n\n" +
+            "bad : Maybe (Integer) (Text) -> Integer\n" +
+            "bad (x) = 0\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX2032");
+    }
+
+    [Fact]
+    public void Type_param_arity_correct_no_error()
+    {
+        string source =
+            "Maybe (a) =\n" +
+            "  | Just (a)\n" +
+            "  | None\n\n" +
+            "wrap : Integer -> Maybe Integer\n" +
+            "wrap (x) = Just x\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Code == "CDX2032");
+    }
+
+    [Fact]
+    public void Show_as_first_class_value_compiles()
+    {
+        string source =
+            "apply-to : (Integer -> Text) -> Integer -> Text\n" +
+            "apply-to (f) (x) = f x\n\n" +
+            "main : Text\n" +
+            "main = apply-to show 42\n";
+        string? cs = CompileToCS(source, "showval");
+        Assert.NotNull(cs);
+        Assert.Contains("Convert.ToString", cs!);
+    }
 }

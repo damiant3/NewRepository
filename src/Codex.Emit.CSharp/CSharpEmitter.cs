@@ -166,6 +166,10 @@ public sealed class CSharpEmitter : ICodeEmitter
             case IRName name:
                 if (name.Name == "read-line")
                     sb.Append("Console.ReadLine()");
+                else if (name.Name == "show")
+                    sb.Append("new Func<object, string>(x => Convert.ToString(x))");
+                else if (name.Name == "negate")
+                    sb.Append("new Func<long, long>(x => -x)");
                 else
                     sb.Append(SanitizeIdentifier(name.Name));
                 break;
@@ -315,7 +319,7 @@ public sealed class CSharpEmitter : ICodeEmitter
     private static void EmitLet(StringBuilder sb, IRLet let, int indent)
     {
         string funcType = $"Func<{EmitType(let.NameType)}, {EmitType(let.Body.Type)}>";
-        sb.Append($"(({funcType})((");
+        sb.Append($"(({funcType}((");
         sb.Append(SanitizeIdentifier(let.Name));
         sb.Append(") => ");
         EmitExpr(sb, let.Body, indent);
@@ -408,26 +412,89 @@ public sealed class CSharpEmitter : ICodeEmitter
         StringBuilder sb, IRCtorPattern ctorPat, string bindingName,
         IRExpr body, int indent)
     {
-        List<(string Name, string Access, CodexType Type)> bindings = new();
-        for (int i = 0; i < ctorPat.SubPatterns.Length; i++)
+        List<(string Name, string Access, CodexType Type)> varBindings = new();
+        List<(IRCtorPattern SubCtor, string Access)> nestedCtors = new();
+        CollectPatternBindings(ctorPat, bindingName, varBindings, nestedCtors);
+
+        if (nestedCtors.Count > 0)
         {
-            if (ctorPat.SubPatterns[i] is IRVarPattern vp)
-            {
-                bindings.Add((vp.Name, $"{bindingName}.Field{i}", vp.Type));
-            }
+            EmitNestedCtorChecks(sb, nestedCtors, 0, varBindings, body, indent);
+            return;
         }
 
+        EmitVarBindingsAndBody(sb, varBindings, body, indent);
+    }
+
+    private static void CollectPatternBindings(
+        IRCtorPattern ctorPat, string bindingName,
+        List<(string Name, string Access, CodexType Type)> varBindings,
+        List<(IRCtorPattern SubCtor, string Access)> nestedCtors)
+    {
+        for (int i = 0; i < ctorPat.SubPatterns.Length; i++)
+        {
+            string access = $"{bindingName}.Field{i}";
+            switch (ctorPat.SubPatterns[i])
+            {
+                case IRVarPattern vp:
+                    varBindings.Add((vp.Name, access, vp.Type));
+                    break;
+                case IRCtorPattern nested:
+                    nestedCtors.Add((nested, access));
+                    CollectPatternBindings(nested, $"_m{SanitizeIdentifier(nested.Name)}_{nestedCtors.Count}_", varBindings, nestedCtors);
+                    break;
+            }
+        }
+    }
+
+    private static void EmitNestedCtorChecks(
+        StringBuilder sb,
+        List<(IRCtorPattern SubCtor, string Access)> nestedCtors,
+        int idx,
+        List<(string Name, string Access, CodexType Type)> varBindings,
+        IRExpr body, int indent)
+    {
+        if (idx >= nestedCtors.Count)
+        {
+            EmitVarBindingsAndBody(sb, varBindings, body, indent);
+            return;
+        }
+
+        (IRCtorPattern subCtor, string access) = nestedCtors[idx];
+        string subCtorId = SanitizeIdentifier(subCtor.Name);
+        string subBinding = $"_m{subCtorId}_{idx}_";
+        sb.Append($"({access} is {subCtorId} {subBinding} ? ");
+
+        List<(string, string, CodexType)> patchedBindings = new();
+        foreach ((string name, string acc, CodexType type) in varBindings)
+        {
+            string patchedAccess = acc;
+            string oldPrefix = $"_m{subCtorId}_{nestedCtors.Count}_";
+            if (acc.StartsWith(oldPrefix))
+            {
+                patchedAccess = subBinding + acc[oldPrefix.Length..];
+            }
+            patchedBindings.Add((name, patchedAccess, type));
+        }
+
+        EmitNestedCtorChecks(sb, nestedCtors, idx + 1, patchedBindings, body, indent);
+        sb.Append($" : throw new InvalidOperationException(\"Pattern match failed\"))");
+    }
+
+    private static void EmitVarBindingsAndBody(
+        StringBuilder sb,
+        List<(string Name, string Access, CodexType Type)> bindings,
+        IRExpr body, int indent)
+    {
         if (bindings.Count == 0)
         {
             EmitExpr(sb, body, indent);
             return;
         }
 
-        IRExpr current = body;
         for (int i = bindings.Count - 1; i >= 0; i--)
         {
             (string name, string access, CodexType type) = bindings[i];
-            string funcType = $"Func<{EmitType(type)}, {EmitType(current.Type)}>";
+            string funcType = $"Func<{EmitType(type)}, {EmitType(body.Type)}>";
             sb.Append($"(({funcType}((");
             sb.Append(SanitizeIdentifier(name));
             sb.Append(") => ");

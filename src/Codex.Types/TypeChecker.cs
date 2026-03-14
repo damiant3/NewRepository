@@ -681,6 +681,19 @@ public sealed class TypeChecker
             if (userDef is not null)
             {
                 ImmutableArray<CodexType> args = [.. app.Arguments.Select(ResolveTypeExpr)];
+                int expectedArity = userDef switch
+                {
+                    SumType s => s.TypeParamIds.Length,
+                    RecordType r => r.TypeParamIds.Length,
+                    _ => -1
+                };
+                if (expectedArity >= 0 && args.Length != expectedArity)
+                {
+                    m_diagnostics.Error("CDX2032",
+                        $"Type '{named.Name.Value}' expects {expectedArity} type argument(s), " +
+                        $"but received {args.Length}",
+                        app.Span);
+                }
                 return InstantiateParametricType(userDef, args);
             }
         }
