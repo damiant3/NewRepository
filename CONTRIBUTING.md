@@ -67,15 +67,7 @@ These rules must be enforced by all contributors and automated agents when gener
 
 ## XML Documentation
 
-Every public type and every public method must have XML doc comments. Example:
-
-```csharp
-/// <summary>
-/// Lowers an AST <see cref="Module"/> to a typed <see cref="IRModule"/>.
-/// All expressions carry resolved <see cref="CodexType"/>s after lowering.
-/// </summary>
-public sealed class Lowering { ... }
-```
+Remove it.
 
 ---
 
@@ -152,7 +144,6 @@ To add a new emission target (e.g., Rust, Python):
 - Build must pass: `dotnet build Codex.sln` with no warnings (warnings are errors).
 - All tests must pass: `dotnet test Codex.sln`.
 - No new unused fields, variables, or parameters.
-- XML docs on all new public surface.
 
 ---
 
@@ -160,7 +151,6 @@ To add a new emission target (e.g., Rust, Python):
 
 - [ ] `dotnet build Codex.sln` passes (zero warnings).
 - [ ] `dotnet test Codex.sln` passes (all existing tests + new tests).
-- [ ] New public types and methods have XML doc comments.
 - [ ] Private fields use the `m_` prefix.
 - [ ] No `var` where the type is non-obvious.
 - [ ] Commit message follows Conventional Commits (`feat:`, `fix:`, etc.).

@@ -30,6 +30,7 @@ public static class Program
             "parse" => RunParse(args.Skip(1).ToArray()),
             "build" => RunBuild(args.Skip(1).ToArray()),
             "run" => RunRun(args.Skip(1).ToArray()),
+            "read" => RunRead(args.Skip(1).ToArray()),
             "version" => RunVersion(),
             "--help" or "-h" => RunHelp(),
             _ => UnknownCommand(command)
@@ -55,24 +56,41 @@ public static class Program
         SourceText source = new SourceText(filePath, content);
         DiagnosticBag diagnostics = new DiagnosticBag();
 
-        Lexer lexer = new Lexer(source, diagnostics);
-        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-
-        Console.WriteLine("=== Tokens ===");
-        foreach (Token token in tokens)
+        DocumentNode document;
+        if (ProseParser.IsProseDocument(content))
         {
-            if (token.Kind is TokenKind.Newline or TokenKind.Indent or TokenKind.Dedent or TokenKind.EndOfFile)
+            Console.WriteLine("(prose-mode document detected)");
+            ProseParser proseParser = new ProseParser(source, diagnostics);
+            document = proseParser.ParseDocument();
+
+            Console.WriteLine("\n=== Chapters ===");
+            foreach (ChapterNode chapter in document.Chapters)
             {
-                Console.WriteLine($"  {token.Kind}");
-            }
-            else
-            {
-                Console.WriteLine($"  {token.Kind,-20} {token.Text}");
+                Console.WriteLine($"  Chapter: {chapter.Title}");
+                PrintMembers(chapter.Members, "    ");
             }
         }
+        else
+        {
+            Lexer lexer = new Lexer(source, diagnostics);
+            IReadOnlyList<Token> tokens = lexer.TokenizeAll();
 
-        Parser parser = new Parser(tokens, diagnostics);
-        DocumentNode document = parser.ParseDocument();
+            Console.WriteLine("=== Tokens ===");
+            foreach (Token token in tokens)
+            {
+                if (token.Kind is TokenKind.Newline or TokenKind.Indent or TokenKind.Dedent or TokenKind.EndOfFile)
+                {
+                    Console.WriteLine($"  {token.Kind}");
+                }
+                else
+                {
+                    Console.WriteLine($"  {token.Kind,-20} {token.Text}");
+                }
+            }
+
+            Parser parser = new Parser(tokens, diagnostics);
+            document = parser.ParseDocument();
+        }
 
         Console.WriteLine("\n=== Definitions ===");
         foreach (DefinitionNode def in document.Definitions)
@@ -118,11 +136,7 @@ public static class Program
         SourceText source = new SourceText(filePath, content);
         DiagnosticBag diagnostics = new DiagnosticBag();
 
-        Lexer lexer = new Lexer(source, diagnostics);
-        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-
-        Parser parser = new Parser(tokens, diagnostics);
-        DocumentNode document = parser.ParseDocument();
+        DocumentNode document = ParseSourceFile(source, content, diagnostics);
 
         Desugarer desugarer = new Desugarer(diagnostics);
         string moduleName = Path.GetFileNameWithoutExtension(filePath);
@@ -247,7 +261,7 @@ public static class Program
             System.Diagnostics.Process? runProc = System.Diagnostics.Process.Start(runInfo);
             if (runProc is null)
             {
-                Console.Error.WriteLine("Failed to start dotnet run");
+                Console.Error.WriteLine("Failed to start dot</>net run");
                 return 1;
             }
 
@@ -268,6 +282,88 @@ public static class Program
         }
     }
 
+    private static int RunRead(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: codex read <file.codex>");
+            return 1;
+        }
+
+        string filePath = args[0];
+        if (!File.Exists(filePath))
+        {
+            Console.Error.WriteLine($"File not found: {filePath}");
+            return 1;
+        }
+
+        string content = File.ReadAllText(filePath);
+        SourceText source = new SourceText(filePath, content);
+        DiagnosticBag diagnostics = new DiagnosticBag();
+
+        if (!ProseParser.IsProseDocument(content))
+        {
+            Console.Error.WriteLine("Not a prose-mode document. Use 'codex parse' for notation-only files.");
+            return 1;
+        }
+
+        ProseParser proseParser = new ProseParser(source, diagnostics);
+        DocumentNode document = proseParser.ParseDocument();
+
+        if (diagnostics.HasErrors)
+        {
+            PrintDiagnostics(diagnostics);
+            return 1;
+        }
+
+        // Render the document as formatted prose
+        foreach (ChapterNode chapter in document.Chapters)
+        {
+            Console.WriteLine($"═══ {chapter.Title} ═══");
+            Console.WriteLine();
+            RenderMembers(chapter.Members, "  ");
+        }
+
+        return 0;
+    }
+
+    private static void RenderMembers(IReadOnlyList<DocumentMember> members, string indent)
+    {
+        foreach (DocumentMember member in members)
+        {
+            switch (member)
+            {
+                case ProseBlockNode prose:
+                    foreach (string line in prose.Text.Split('\n'))
+                    {
+                        Console.WriteLine($"{indent}{line}");
+                    }
+                    Console.WriteLine();
+                    break;
+
+                case NotationBlockNode notation:
+                    foreach (DefinitionNode def in notation.Definitions)
+                    {
+                        string typeStr = def.TypeAnnotation is not null
+                            ? $" : {FormatType(def.TypeAnnotation.Type)}"
+                            : "";
+                        string paramsStr = def.Parameters.Count > 0
+                            ? " (" + string.Join(") (", def.Parameters.Select(p => p.Text)) + ")"
+                            : "";
+                        Console.WriteLine($"{indent}  {def.Name.Text}{paramsStr}{typeStr}");
+                    }
+                    Console.WriteLine();
+                    break;
+
+                case SectionNode section:
+                    Console.WriteLine($"{indent}--- {section.Title} ---");
+                    Console.WriteLine();
+                    RenderMembers(section.Members, indent + "  ");
+                    break;
+            }
+        }
+    }
+
     /// <summary>
     /// Full compilation pipeline: source → lex → parse → desugar → resolve → typecheck → lower → emit.
     /// Returns null on failure.
@@ -284,13 +380,8 @@ public static class Program
         SourceText source = new SourceText(filePath, content);
         DiagnosticBag diagnostics = new DiagnosticBag();
 
-        // Lex
-        Lexer lexer = new Lexer(source, diagnostics);
-        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
-
-        // Parse
-        Parser parser = new Parser(tokens, diagnostics);
-        DocumentNode document = parser.ParseDocument();
+        // Parse (prose-aware)
+        DocumentNode document = ParseSourceFile(source, content, diagnostics);
 
         // Desugar
         Desugarer desugarer = new Desugarer(diagnostics);
@@ -369,6 +460,7 @@ public static class Program
         Console.WriteLine("  check <file>    Parse and type-check a Codex file");
         Console.WriteLine("  build <file>    Compile a Codex file to C#");
         Console.WriteLine("  run <file>      Compile and execute a Codex file");
+        Console.WriteLine("  read <file>     Display a prose-mode document as formatted text");
         Console.WriteLine("  version         Display the Codex version");
         Console.WriteLine("  --help, -h      Display this help message");
     }
@@ -409,4 +501,47 @@ public static class Program
     private sealed record CompilationResult(
         string CSharpSource,
         ImmutableDictionary<string, CodexType> Types);
+
+    /// <summary>
+    /// Parse a source file, auto-detecting prose-mode vs notation-only.
+    /// </summary>
+    private static DocumentNode ParseSourceFile(SourceText source, string content, DiagnosticBag diagnostics)
+    {
+        if (ProseParser.IsProseDocument(content))
+        {
+            ProseParser proseParser = new ProseParser(source, diagnostics);
+            return proseParser.ParseDocument();
+        }
+        else
+        {
+            Lexer lexer = new Lexer(source, diagnostics);
+            IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+            Parser parser = new Parser(tokens, diagnostics);
+            return parser.ParseDocument();
+        }
+    }
+
+    private static void PrintMembers(IReadOnlyList<DocumentMember> members, string indent)
+    {
+        foreach (DocumentMember member in members)
+        {
+            switch (member)
+            {
+                case ProseBlockNode prose:
+                    Console.WriteLine($"{indent}[prose] {prose.Text.Split('\n')[0]}...");
+                    break;
+                case NotationBlockNode notation:
+                    Console.WriteLine($"{indent}[notation] {notation.Definitions.Count} definition(s)");
+                    foreach (DefinitionNode def in notation.Definitions)
+                    {
+                        Console.WriteLine($"{indent}  {def.Name.Text}");
+                    }
+                    break;
+                case SectionNode section:
+                    Console.WriteLine($"{indent}Section: {section.Title}");
+                    PrintMembers(section.Members, indent + "  ");
+                    break;
+            }
+        }
+    }
 }
