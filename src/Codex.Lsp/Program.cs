@@ -20,6 +20,9 @@ internal static class Program
                 .WithHandler<TextDocumentSyncHandler>()
                 .WithHandler<HoverHandler>()
                 .WithHandler<DocumentSymbolHandler>()
+                .WithHandler<DefinitionHandler>()
+                .WithHandler<CompletionHandler>()
+                .WithHandler<SemanticTokensHandler>()
                 .OnInitialize((server, request, ct) =>
                 {
                     return Task.CompletedTask;

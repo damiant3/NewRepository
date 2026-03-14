@@ -29,19 +29,19 @@ public sealed class TypeChecker
     {
         RegisterTypeDefinitions(module.TypeDefinitions);
 
-        Dictionary<string, CodexType> topLevelTypes = new();
+        Map<string, CodexType> topLevelTypes = Map<string, CodexType>.s_empty;
         foreach (Definition def in module.Definitions)
         {
             CodexType declaredType = def.DeclaredType is not null
                 ? ResolveTypeExpr(def.DeclaredType)
                 : m_unifier.FreshVar();
-            topLevelTypes[def.Name.Value] = declaredType;
+            topLevelTypes = topLevelTypes.Set(def.Name.Value, declaredType);
             m_env = m_env.Bind(def.Name, declaredType);
         }
 
         foreach (Definition def in module.Definitions)
         {
-            CodexType expectedType = topLevelTypes[def.Name.Value];
+            CodexType expectedType = topLevelTypes[def.Name.Value]!;
             CodexType bodyType = InferDefinition(def, expectedType);
             m_unifier.Unify(expectedType, bodyType, def.Span);
         }
@@ -423,7 +423,7 @@ public sealed class TypeChecker
                 covered.Add(cp.Constructor.Value);
         }
 
-        List<string> missing = new();
+        List<string> missing = [];
         foreach (SumConstructorType ctor in sumType.Constructors)
         {
             if (!covered.Contains(ctor.Name.Value))

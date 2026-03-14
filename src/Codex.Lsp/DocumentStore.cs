@@ -1,53 +1,41 @@
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Codex.Core;
 
 namespace Codex.Lsp;
 
 internal sealed class DocumentStore
 {
-    private readonly Dictionary<string, string> m_documents = new();
-    private readonly Dictionary<string, AnalysisResult> m_results = new();
-    private readonly object m_lock = new();
-
-    internal static readonly DocumentSelector s_selector = DocumentSelector.ForLanguage("codex");
+    private volatile Map<string, DocumentEntry> m_entries = Map<string, DocumentEntry>.s_empty;
 
     public void Update(string uri, string text)
     {
-        lock (m_lock)
-        {
-            m_documents[uri] = text;
-        }
+        DocumentEntry? existing = m_entries[uri];
+        DocumentEntry entry = existing is not null
+            ? existing with { Text = text }
+            : new DocumentEntry(text, null);
+        m_entries = m_entries.Set(uri, entry);
     }
 
     public void UpdateResult(string uri, AnalysisResult result)
     {
-        lock (m_lock)
-        {
-            m_results[uri] = result;
-        }
+        DocumentEntry? existing = m_entries[uri];
+        if (existing is not null)
+            m_entries = m_entries.Set(uri, existing with { Result = result });
     }
 
     public void Remove(string uri)
     {
-        lock (m_lock)
-        {
-            m_documents.Remove(uri);
-            m_results.Remove(uri);
-        }
+        m_entries = m_entries.Remove(uri);
     }
 
     public string? GetText(string uri)
     {
-        lock (m_lock)
-        {
-            return m_documents.TryGetValue(uri, out string? text) ? text : null;
-        }
+        return m_entries[uri]?.Text;
     }
 
     public AnalysisResult? GetResult(string uri)
     {
-        lock (m_lock)
-        {
-            return m_results.TryGetValue(uri, out AnalysisResult? result) ? result : null;
-        }
+        return m_entries[uri]?.Result;
     }
 }
+
+internal sealed record DocumentEntry(string Text, AnalysisResult? Result);

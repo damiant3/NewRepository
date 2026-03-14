@@ -66,9 +66,7 @@ internal sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
     {
         return new TextDocumentSyncRegistrationOptions
         {
-            DocumentSelector = DocumentStore.s_selector,
-            Change = TextDocumentSyncKind.Full,
-            Save = new SaveOptions { IncludeText = false },
+            DocumentSelector = LspHelpers.s_selector,
         };
     }
 
@@ -104,15 +102,20 @@ internal sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
             Math.Max(0, span.End.Line - 1), Math.Max(0, span.End.Column - 1));
     }
 
-    private static DiagnosticSeverity? MapSeverity(Codex.Core.DiagnosticSeverity severity)
+    private static OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity? MapSeverity(
+        Codex.Core.DiagnosticSeverity severity)
     {
         return severity switch
         {
-            Codex.Core.DiagnosticSeverity.Error => DiagnosticSeverity.Error,
-            Codex.Core.DiagnosticSeverity.Warning => DiagnosticSeverity.Warning,
-            Codex.Core.DiagnosticSeverity.Info => DiagnosticSeverity.Information,
-            Codex.Core.DiagnosticSeverity.Hint => DiagnosticSeverity.Hint,
-            _ => DiagnosticSeverity.Information,
+            Codex.Core.DiagnosticSeverity.Error =>
+                OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity.Error,
+            Codex.Core.DiagnosticSeverity.Warning =>
+                OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity.Warning,
+            Codex.Core.DiagnosticSeverity.Info =>
+                OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity.Information,
+            Codex.Core.DiagnosticSeverity.Hint =>
+                OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity.Hint,
+            _ => OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity.Information,
         };
     }
 }

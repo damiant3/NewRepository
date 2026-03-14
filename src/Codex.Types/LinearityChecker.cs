@@ -7,14 +7,14 @@ public sealed class LinearityChecker
 {
     private readonly DiagnosticBag m_diagnostics;
     private readonly Map<string, CodexType> m_typeMap;
-    private Dictionary<string, int> m_usageCounts;
+    private ValueMap<string, int> m_usageCounts;
     private Map<string, CodexType> m_linearBindings;
 
     public LinearityChecker(DiagnosticBag diagnostics, Map<string, CodexType> typeMap)
     {
         m_diagnostics = diagnostics;
         m_typeMap = typeMap;
-        m_usageCounts = [];
+        m_usageCounts = ValueMap<string, int>.s_empty;
         m_linearBindings = Map<string, CodexType>.s_empty;
     }
 
@@ -28,9 +28,9 @@ public sealed class LinearityChecker
 
     private void CheckDefinition(Definition def)
     {
-        Dictionary<string, int> savedCounts = m_usageCounts;
+        ValueMap<string, int> savedCounts = m_usageCounts;
         Map<string, CodexType> savedLinear = m_linearBindings;
-        m_usageCounts = [];
+        m_usageCounts = ValueMap<string, int>.s_empty;
         m_linearBindings = Map<string, CodexType>.s_empty;
 
         CodexType defType = m_typeMap[def.Name.Value] ?? ErrorType.s_instance;
@@ -51,7 +51,7 @@ public sealed class LinearityChecker
             if (paramType is LinearType)
             {
                 m_linearBindings = m_linearBindings.Set(param.Name.Value, paramType);
-                m_usageCounts[param.Name.Value] = 0;
+                m_usageCounts = m_usageCounts.Set(param.Name.Value, 0);
             }
         }
 
@@ -89,12 +89,12 @@ public sealed class LinearityChecker
 
             case IfExpr iff:
                 CheckExpr(iff.Condition);
-                Dictionary<string, int> savedThen = CloneCounts();
+                ValueMap<string, int> savedThen = m_usageCounts;
                 CheckExpr(iff.Then);
-                Dictionary<string, int> afterThen = CloneCounts();
+                ValueMap<string, int> afterThen = m_usageCounts;
                 m_usageCounts = savedThen;
                 CheckExpr(iff.Else);
-                Dictionary<string, int> afterElse = CloneCounts();
+                ValueMap<string, int> afterElse = m_usageCounts;
                 MergeBranchCounts(afterThen, afterElse, iff.Span);
                 break;
 
@@ -153,38 +153,38 @@ public sealed class LinearityChecker
     {
         if (match.Branches.Count == 0) return;
 
-        Dictionary<string, int> savedCounts = CloneCounts();
-        Dictionary<string, int>? mergedCounts = null;
+        ValueMap<string, int> savedCounts = m_usageCounts;
+        ValueMap<string, int>? mergedCounts = null;
 
         foreach (MatchBranch branch in match.Branches)
         {
-            RestoreCounts(savedCounts);
+            m_usageCounts = savedCounts;
             CheckExpr(branch.Body);
             if (mergedCounts is null)
             {
-                mergedCounts = CloneCounts();
+                mergedCounts = m_usageCounts;
             }
             else
             {
-                MergeBranchCounts(mergedCounts, CloneCounts(), match.Span);
-                mergedCounts = CloneCounts();
+                MergeBranchCounts(mergedCounts, m_usageCounts, match.Span);
+                mergedCounts = m_usageCounts;
             }
         }
 
         if (mergedCounts is not null)
-            RestoreCounts(mergedCounts);
+            m_usageCounts = mergedCounts;
     }
 
     private void MergeBranchCounts(
-        Dictionary<string, int> branch1,
-        Dictionary<string, int> branch2,
+        ValueMap<string, int> branch1,
+        ValueMap<string, int> branch2,
         SourceSpan span)
     {
         foreach (KeyValuePair<string, CodexType> kv in m_linearBindings)
         {
             string name = kv.Key;
-            int count1 = branch1.GetValueOrDefault(name, 0);
-            int count2 = branch2.GetValueOrDefault(name, 0);
+            int count1 = branch1[name] ?? 0;
+            int count2 = branch2[name] ?? 0;
             if (count1 != count2)
             {
                 m_diagnostics.Error("CDX2042",
@@ -199,8 +199,8 @@ public sealed class LinearityChecker
     {
         if (m_linearBindings[name] is null) return;
 
-        int current = m_usageCounts.GetValueOrDefault(name, 0);
-        m_usageCounts[name] = current + 1;
+        int current = m_usageCounts[name] ?? 0;
+        m_usageCounts = m_usageCounts.Set(name, current + 1);
 
         if (current + 1 > 1)
         {
@@ -214,7 +214,7 @@ public sealed class LinearityChecker
     {
         foreach (KeyValuePair<string, CodexType> kv in m_linearBindings)
         {
-            int count = m_usageCounts.GetValueOrDefault(kv.Key, 0);
+            int count = m_usageCounts[kv.Key] ?? 0;
             if (count == 0)
             {
                 m_diagnostics.Error("CDX2040",
@@ -222,12 +222,5 @@ public sealed class LinearityChecker
                     span);
             }
         }
-    }
-
-    private Dictionary<string, int> CloneCounts() => new(m_usageCounts);
-
-    private void RestoreCounts(Dictionary<string, int> counts)
-    {
-        m_usageCounts = new(counts);
     }
 }

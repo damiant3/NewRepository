@@ -4,6 +4,9 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Codex.Lsp.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="OmniSharp.Extensions.LanguageServer" Version="0.19.9" />
   </ItemGroup>
   <ItemGroup>

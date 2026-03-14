@@ -43,7 +43,7 @@ public sealed class FactStore
     private readonly string m_rootPath;
     private readonly string m_factsPath;
     private readonly string m_viewPath;
-    private readonly Dictionary<ContentHash, Fact> m_cache = new();
+    private Map<ContentHash, Fact> m_cache = Map<ContentHash, Fact>.s_empty;
 
     public FactStore(string rootPath)
     {
@@ -100,13 +100,14 @@ public sealed class FactStore
             File.WriteAllText(factFile, json);
         }
 
-        m_cache[fact.Hash] = fact;
+        m_cache = m_cache.Set(fact.Hash, fact);
         return fact.Hash;
     }
 
     public Fact? Load(ContentHash hash)
     {
-        if (m_cache.TryGetValue(hash, out Fact? cached))
+        Fact? cached = m_cache[hash];
+        if (cached is not null)
             return cached;
 
         string hex = hash.ToHex();
@@ -128,30 +129,31 @@ public sealed class FactStore
             dto.Justification,
             [.. dto.References.Select(ContentHash.FromHex)]);
 
-        m_cache[hash] = fact;
+        m_cache = m_cache.Set(hash, fact);
         return fact;
     }
 
     public void UpdateView(string name, ContentHash hash)
     {
-        Dictionary<string, string> view = LoadViewMap();
-        view[name] = hash.ToHex();
+        Map<string, string> view = LoadViewMap();
+        view = view.Set(name, hash.ToHex());
         SaveViewMap(view);
     }
 
     public ContentHash? LookupView(string name)
     {
-        Dictionary<string, string> view = LoadViewMap();
-        return view.TryGetValue(name, out string? hex) ? ContentHash.FromHex(hex) : null;
+        Map<string, string> view = LoadViewMap();
+        string? hex = view[name];
+        return hex is not null ? ContentHash.FromHex(hex) : null;
     }
 
-    public IReadOnlyDictionary<string, ContentHash> GetView()
+    public ValueMap<string, ContentHash> GetView()
     {
-        Dictionary<string, string> raw = LoadViewMap();
-        Dictionary<string, ContentHash> result = new();
+        Map<string, string> raw = LoadViewMap();
+        ValueMap<string, ContentHash> result = ValueMap<string, ContentHash>.s_empty;
         foreach (KeyValuePair<string, string> kv in raw)
         {
-            result[kv.Key] = ContentHash.FromHex(kv.Value);
+            result = result.Set(kv.Key, ContentHash.FromHex(kv.Value));
         }
         return result;
     }
@@ -218,17 +220,27 @@ public sealed class FactStore
 
     public bool IsInitialized => Directory.Exists(Path.Combine(m_rootPath, ".codex"));
 
-    private Dictionary<string, string> LoadViewMap()
+    private Map<string, string> LoadViewMap()
     {
         if (!File.Exists(m_viewPath))
-            return new();
+            return Map<string, string>.s_empty;
         string json = File.ReadAllText(m_viewPath);
-        return JsonSerializer.Deserialize<Dictionary<string, string>>(json, s_jsonOptions) ?? new();
+        Dictionary<string, string>? raw =
+            JsonSerializer.Deserialize<Dictionary<string, string>>(json, s_jsonOptions);
+        if (raw is null)
+            return Map<string, string>.s_empty;
+        Map<string, string> result = Map<string, string>.s_empty;
+        foreach (KeyValuePair<string, string> kv in raw)
+            result = result.Set(kv.Key, kv.Value);
+        return result;
     }
 
-    private void SaveViewMap(Dictionary<string, string> view)
+    private void SaveViewMap(Map<string, string> view)
     {
-        string json = JsonSerializer.Serialize(view, s_jsonOptions);
+        Dictionary<string, string> raw = new();
+        foreach (KeyValuePair<string, string> kv in view)
+            raw[kv.Key] = kv.Value;
+        string json = JsonSerializer.Serialize(raw, s_jsonOptions);
         File.WriteAllText(m_viewPath, json);
     }
 

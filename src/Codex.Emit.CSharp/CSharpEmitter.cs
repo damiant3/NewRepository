@@ -1,5 +1,5 @@
 using System.Text;
-using Codex.Emit;
+using Codex.Core;
 using Codex.IR;
 using Codex.Types;
 
@@ -8,7 +8,7 @@ namespace Codex.Emit.CSharp;
 public sealed class CSharpEmitter : ICodeEmitter
 {
     private HashSet<string> m_constructorNames = new();
-    private Dictionary<string, int> m_definitionArity = new();
+    private ValueMap<string, int> m_definitionArity = ValueMap<string, int>.s_empty;
 
     public string TargetName => "C#";
     public string FileExtension => ".cs";
@@ -16,8 +16,9 @@ public sealed class CSharpEmitter : ICodeEmitter
     public string Emit(IRModule module)
     {
         m_constructorNames = CollectConstructorNames(module);
-        m_definitionArity = module.Definitions
-            .ToDictionary(d => d.Name, d => d.Parameters.Length);
+        m_definitionArity = ValueMap<string, int>.s_empty;
+        foreach (IRDefinition d in module.Definitions)
+            m_definitionArity = m_definitionArity.Set(d.Name, d.Parameters.Length);
 
         StringBuilder sb = new();
         sb.AppendLine("using System;");
@@ -118,7 +119,7 @@ public sealed class CSharpEmitter : ICodeEmitter
 
     private static HashSet<string> CollectConstructorNames(IRModule module)
     {
-        HashSet<string> names = new();
+        HashSet<string> names = [];
         foreach (KeyValuePair<string, CodexType> kv in module.TypeDefinitions)
         {
             if (kv.Value is SumType sum)
@@ -265,7 +266,7 @@ public sealed class CSharpEmitter : ICodeEmitter
                     string? ctorName = FindConstructorName(app);
                     if (ctorName is not null)
                     {
-                        List<IRExpr> args = new();
+                        List<IRExpr> args = [];
                         CollectApplyArgs(app, args);
                         sb.Append($"new {SanitizeIdentifier(ctorName)}(");
                         for (int i = 0; i < args.Count; i++)
@@ -279,10 +280,10 @@ public sealed class CSharpEmitter : ICodeEmitter
                     {
                         string? defName = FindDefinitionName(app);
                         if (defName is not null
-                            && m_definitionArity.TryGetValue(defName, out int arity)
+                            && m_definitionArity.TryGet(defName, out int arity)
                             && arity > 1)
                         {
-                            List<IRExpr> args = new();
+                            List<IRExpr> args = [];
                             CollectApplyArgs(app, args);
                             if (args.Count == arity)
                             {
@@ -601,8 +602,8 @@ public sealed class CSharpEmitter : ICodeEmitter
         StringBuilder sb, IRCtorPattern ctorPat, string bindingName,
         IRExpr body, int indent)
     {
-        List<(string Name, string Access, CodexType Type)> varBindings = new();
-        List<(IRCtorPattern SubCtor, string Access)> nestedCtors = new();
+        List<(string Name, string Access, CodexType Type)> varBindings = [];
+        List<(IRCtorPattern SubCtor, string Access)> nestedCtors = [];
         CollectPatternBindings(ctorPat, bindingName, varBindings, nestedCtors);
 
         if (nestedCtors.Count > 0)
@@ -653,7 +654,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         string subBinding = $"_m{subCtorId}_{idx}_";
         sb.Append($"({access} is {subCtorId} {subBinding} ? ");
 
-        List<(string, string, CodexType)> patchedBindings = new();
+        List<(string, string, CodexType)> patchedBindings = [];
         foreach ((string name, string acc, CodexType type) in varBindings)
         {
             string patchedAccess = acc;

@@ -4,7 +4,7 @@ namespace Codex.Types;
 
 public sealed class Unifier
 {
-    private readonly Dictionary<int, CodexType> m_substitutions = new();
+    private Map<int, CodexType> m_substitutions = Map<int, CodexType>.s_empty;
     private readonly DiagnosticBag m_diagnostics;
     private int m_nextId;
 
@@ -29,7 +29,7 @@ public sealed class Unifier
                 m_diagnostics.Error("CDX2010", $"Infinite type: {va} occurs in {b}", span);
                 return false;
             }
-            m_substitutions[va.Id] = b;
+            m_substitutions = m_substitutions.Set(va.Id, b);
             return true;
         }
 
@@ -40,7 +40,7 @@ public sealed class Unifier
                 m_diagnostics.Error("CDX2010", $"Infinite type: {vb} occurs in {a}", span);
                 return false;
             }
-            m_substitutions[vb.Id] = a;
+            m_substitutions = m_substitutions.Set(vb.Id, a);
             return true;
         }
 
@@ -112,7 +112,7 @@ public sealed class Unifier
 
     public CodexType Resolve(CodexType type)
     {
-        while (type is TypeVariable tv && m_substitutions.TryGetValue(tv.Id, out CodexType? resolved))
+        while (type is TypeVariable tv && m_substitutions.TryGet(tv.Id, out CodexType? resolved))
         {
             type = resolved;
         }

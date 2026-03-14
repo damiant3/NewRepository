@@ -55,7 +55,7 @@ internal sealed class DocumentSymbolHandler : DocumentSymbolHandlerBase
     {
         return new DocumentSymbolRegistrationOptions
         {
-            DocumentSelector = DocumentStore.s_selector,
+            DocumentSelector = LspHelpers.s_selector,
         };
     }
 }
