@@ -110,6 +110,12 @@ public sealed class Lowering
             case DoExpr doExpr:
                 return LowerDoExpr(doExpr, expectedType);
 
+            case RecordExpr rec:
+                return LowerRecord(rec, expectedType);
+
+            case FieldAccessExpr fa:
+                return LowerFieldAccess(fa, expectedType);
+
             case ErrorExpr err:
                 return new IRError(err.Message, expectedType);
 
@@ -347,6 +353,54 @@ public sealed class Lowering
 
         m_localEnv = savedEnv;
         return new IRDo(statements.ToImmutable(), expectedType);
+    }
+
+    private IRExpr LowerRecord(RecordExpr rec, CodexType expectedType)
+    {
+        ImmutableArray<(string FieldName, IRExpr Value)>.Builder fields =
+            ImmutableArray.CreateBuilder<(string, IRExpr)>();
+        CodexType recType = expectedType;
+        RecordType? rt = recType as RecordType;
+        if (rt is null && rec.TypeName is not null)
+        {
+            string typeName = rec.TypeName.Value.Value;
+            CodexType? looked = m_typeMap.TryGetValue(typeName, out CodexType? t) ? t : null;
+            if (looked is null)
+                looked = m_typeDefMap[typeName];
+            rt = looked as RecordType;
+            if (rt is not null)
+                recType = rt;
+        }
+
+        foreach (RecordFieldExpr field in rec.Fields)
+        {
+            CodexType fieldType = ErrorType.s_instance;
+            if (rt is not null)
+            {
+                RecordFieldType? rft = rt.Fields
+                    .FirstOrDefault(f => f.FieldName.Value == field.FieldName.Value);
+                if (rft is not null) fieldType = rft.Type;
+            }
+            fields.Add((field.FieldName.Value, LowerExpr(field.Value, fieldType)));
+        }
+
+        string emittedName = rec.TypeName is not null
+            ? rec.TypeName.Value.Value
+            : rt?.TypeName.Value ?? "Unknown";
+        return new IRRecord(emittedName, fields.ToImmutable(), recType);
+    }
+
+    private IRExpr LowerFieldAccess(FieldAccessExpr fa, CodexType expectedType)
+    {
+        IRExpr record = LowerExpr(fa.Record, ErrorType.s_instance);
+        CodexType fieldType = expectedType;
+        if (record.Type is RecordType rt)
+        {
+            RecordFieldType? rft = rt.Fields
+                .FirstOrDefault(f => f.FieldName.Value == fa.FieldName.Value);
+            if (rft is not null) fieldType = rft.Type;
+        }
+        return new IRFieldAccess(record, fa.FieldName.Value, fieldType);
     }
 
     private static Map<string, CodexType> BuildBuiltinTypes()

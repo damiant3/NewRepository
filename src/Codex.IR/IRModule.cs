@@ -78,3 +78,8 @@ public abstract record IRDoStatement;
 public sealed record IRDoBind(string Name, CodexType NameType, IRExpr Value) : IRDoStatement;
 
 public sealed record IRDoExec(IRExpr Expression) : IRDoStatement;
+
+public sealed record IRRecord(string TypeName, ImmutableArray<(string FieldName, IRExpr Value)> Fields, CodexType Type)
+    : IRExpr(Type);
+
+public sealed record IRFieldAccess(IRExpr Record, string FieldName, CodexType Type) : IRExpr(Type);

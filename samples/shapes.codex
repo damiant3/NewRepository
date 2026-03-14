@@ -1,12 +1,5 @@
 Shape =
-  | Circle (radius : Number)
-  | Rectangle (width : Number) (height : Number)
+  | Circle (Number)
+  | Rectangle (Number) (Number)
 
-area : Shape -> Number
-area (s) =
-  when s
-    if Circle (r) -> 3.14 * r * r
-    if Rectangle (w) (h) -> w * h
-
-main : Number
-main = area (Circle 5.0)
+main = when (Circle 5.0) if Circle (r) -> 3.14 * r * r if Rectangle (w) (h) -> w * h

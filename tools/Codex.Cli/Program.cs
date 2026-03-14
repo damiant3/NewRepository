@@ -5,6 +5,7 @@ using Codex.Semantics;
 using Codex.Types;
 using Codex.IR;
 using Codex.Emit.CSharp;
+using Codex.Repository;
 using System.Collections.Immutable;
 
 namespace Codex.Cli;
@@ -27,6 +28,9 @@ public static class Program
             "build" => RunBuild(args.Skip(1).ToArray()),
             "run" => RunRun(args.Skip(1).ToArray()),
             "read" => RunRead(args.Skip(1).ToArray()),
+            "init" => RunInit(args.Skip(1).ToArray()),
+            "publish" => RunPublish(args.Skip(1).ToArray()),
+            "history" => RunHistory(args.Skip(1).ToArray()),
             "version" => RunVersion(),
             "--help" or "-h" => RunHelp(),
             _ => UnknownCommand(command)
@@ -441,6 +445,141 @@ public static class Program
         return 1;
     }
 
+    private static int RunInit(string[] args)
+    {
+        string dir = args.Length > 0 ? args[0] : Directory.GetCurrentDirectory();
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        FactStore store = FactStore.Init(dir);
+        Console.WriteLine($"✓ Initialized Codex repository in {Path.GetFullPath(dir)}");
+        return 0;
+    }
+
+    private static int RunPublish(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: codex publish <file.codex>");
+            return 1;
+        }
+
+        string filePath = args[0];
+        if (!File.Exists(filePath))
+        {
+            Console.Error.WriteLine($"File not found: {filePath}");
+            return 1;
+        }
+
+        string repoDir = FindRepositoryRoot(Directory.GetCurrentDirectory());
+        if (repoDir == "")
+        {
+            Console.Error.WriteLine("No Codex repository found. Run 'codex init' first.");
+            return 1;
+        }
+
+        FactStore? store = FactStore.Open(repoDir);
+        if (store is null)
+        {
+            Console.Error.WriteLine("Failed to open Codex repository.");
+            return 1;
+        }
+
+        CompilationResult? result = CompileFile(filePath);
+        if (result is null)
+        {
+            Console.Error.WriteLine("Compilation failed. Fix errors before publishing.");
+            return 1;
+        }
+
+        string source = File.ReadAllText(filePath);
+        string moduleName = Path.GetFileNameWithoutExtension(filePath);
+        string author = Environment.UserName;
+        string justification = args.Length > 1 ? args[1] : "Published from CLI";
+
+        ContentHash? existing = store.LookupView(moduleName);
+
+        Fact fact = Fact.CreateDefinition(moduleName, source, author, justification);
+        ContentHash hash = store.Store(fact);
+
+        if (existing is not null && !existing.Value.Equals(hash))
+        {
+            Fact supersession = Fact.CreateSupersession(hash, existing.Value, author,
+                $"Updated {moduleName}");
+            store.Store(supersession);
+        }
+
+        store.UpdateView(moduleName, hash);
+
+        Console.WriteLine($"✓ Published {moduleName} ({hash})");
+        foreach (KeyValuePair<string, CodexType> kv in result.Types)
+        {
+            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        }
+
+        return 0;
+    }
+
+    private static int RunHistory(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: codex history <name>");
+            return 1;
+        }
+
+        string name = args[0];
+        string repoDir = FindRepositoryRoot(Directory.GetCurrentDirectory());
+        if (repoDir == "")
+        {
+            Console.Error.WriteLine("No Codex repository found. Run 'codex init' first.");
+            return 1;
+        }
+
+        FactStore? store = FactStore.Open(repoDir);
+        if (store is null)
+        {
+            Console.Error.WriteLine("Failed to open Codex repository.");
+            return 1;
+        }
+
+        ContentHash? current = store.LookupView(name);
+        if (current is null)
+        {
+            Console.Error.WriteLine($"No published definition found for '{name}'.");
+            return 1;
+        }
+
+        IReadOnlyList<Fact> history = store.GetHistory(name);
+        Console.WriteLine($"History of '{name}':");
+        Console.WriteLine();
+        for (int i = 0; i < history.Count; i++)
+        {
+            Fact fact = history[i];
+            string marker = i == 0 ? " (current)" : "";
+            Console.WriteLine($"  {fact.Hash}{marker}");
+            Console.WriteLine($"    by {fact.Author} at {fact.Timestamp:yyyy-MM-dd HH:mm:ss}");
+            Console.WriteLine($"    \"{fact.Justification}\"");
+            Console.WriteLine();
+        }
+
+        return 0;
+    }
+
+    private static string FindRepositoryRoot(string startDir)
+    {
+        string? dir = startDir;
+        while (dir is not null)
+        {
+            if (Directory.Exists(Path.Combine(dir, ".codex")))
+                return dir;
+            dir = Path.GetDirectoryName(dir);
+        }
+        return "";
+    }
+
     private static void PrintUsage()
     {
         Console.WriteLine("Codex — A language for the rest of human time");
@@ -448,13 +587,16 @@ public static class Program
         Console.WriteLine("Usage: codex <command> [arguments]");
         Console.WriteLine();
         Console.WriteLine("Commands:");
-        Console.WriteLine("  parse <file>    Lex, parse, and display the structure of a Codex file");
-        Console.WriteLine("  check <file>    Parse and type-check a Codex file");
-        Console.WriteLine("  build <file>    Compile a Codex file to C#");
-        Console.WriteLine("  run <file>      Compile and execute a Codex file");
-        Console.WriteLine("  read <file>     Display a prose-mode document as formatted text");
-        Console.WriteLine("  version         Display the Codex version");
-        Console.WriteLine("  --help, -h      Display this help message");
+        Console.WriteLine("  parse <file>      Lex, parse, and display the structure of a Codex file");
+        Console.WriteLine("  check <file>      Parse and type-check a Codex file");
+        Console.WriteLine("  build <file>      Compile a Codex file to C#");
+        Console.WriteLine("  run <file>        Compile and execute a Codex file");
+        Console.WriteLine("  read <file>       Display a prose-mode document as formatted text");
+        Console.WriteLine("  init [dir]        Initialize a Codex repository in the given directory");
+        Console.WriteLine("  publish <file>    Publish a .codex file to the local repository");
+        Console.WriteLine("  history <name>    Show the history of a published definition");
+        Console.WriteLine("  version           Display the Codex version");
+        Console.WriteLine("  --help, -h        Display this help message");
     }
 
     private static void PrintDiagnostics(DiagnosticBag diagnostics)

@@ -7,18 +7,23 @@ namespace Codex.Emit.CSharp;
 
 public sealed class CSharpEmitter : ICodeEmitter
 {
+    private HashSet<string> m_constructorNames = new();
+    private Dictionary<string, int> m_definitionArity = new();
+
     public string TargetName => "C#";
     public string FileExtension => ".cs";
 
     public string Emit(IRModule module)
     {
+        m_constructorNames = CollectConstructorNames(module);
+        m_definitionArity = module.Definitions
+            .ToDictionary(d => d.Name, d => d.Parameters.Length);
+
         StringBuilder sb = new();
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using System.Linq;");
         sb.AppendLine();
-
-        EmitTypeDefinitions(sb, module);
 
         string className = "Codex_" + SanitizeIdentifier(module.Name.Leaf.Value);
 
@@ -38,6 +43,8 @@ public sealed class CSharpEmitter : ICodeEmitter
             sb.AppendLine();
         }
 
+        EmitTypeDefinitions(sb, module);
+
         sb.AppendLine($"public static class {className}");
         sb.AppendLine("{");
 
@@ -52,7 +59,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         return sb.ToString();
     }
 
-    private static void EmitTypeDefinitions(StringBuilder sb, IRModule module)
+    private void EmitTypeDefinitions(StringBuilder sb, IRModule module)
     {
         foreach (KeyValuePair<string, CodexType> kv in module.TypeDefinitions)
         {
@@ -68,7 +75,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private static void EmitSumType(StringBuilder sb, SumType sum)
+    private void EmitSumType(StringBuilder sb, SumType sum)
     {
         string baseName = SanitizeIdentifier(sum.TypeName.Value);
         sb.AppendLine($"public abstract record {baseName};");
@@ -95,7 +102,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.AppendLine();
     }
 
-    private static void EmitRecordType(StringBuilder sb, RecordType rec)
+    private void EmitRecordType(StringBuilder sb, RecordType rec)
     {
         string name = SanitizeIdentifier(rec.TypeName.Value);
         sb.Append($"public sealed record {name}(");
@@ -109,7 +116,23 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.AppendLine();
     }
 
-    private static void EmitDefinition(StringBuilder sb, IRDefinition def)
+    private static HashSet<string> CollectConstructorNames(IRModule module)
+    {
+        HashSet<string> names = new();
+        foreach (KeyValuePair<string, CodexType> kv in module.TypeDefinitions)
+        {
+            if (kv.Value is SumType sum)
+            {
+                foreach (SumConstructorType ctor in sum.Constructors)
+                {
+                    names.Add(ctor.Name.Value);
+                }
+            }
+        }
+        return names;
+    }
+
+    private void EmitDefinition(StringBuilder sb, IRDefinition def)
     {
         string returnType = EmitType(GetReturnType(def));
         string name = SanitizeIdentifier(def.Name);
@@ -143,7 +166,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.AppendLine("    }");
     }
 
-    private static void EmitExpr(StringBuilder sb, IRExpr expr, int indent)
+    private void EmitExpr(StringBuilder sb, IRExpr expr, int indent)
     {
         switch (expr)
         {
@@ -170,6 +193,9 @@ public sealed class CSharpEmitter : ICodeEmitter
                     sb.Append("new Func<object, string>(x => Convert.ToString(x))");
                 else if (name.Name == "negate")
                     sb.Append("new Func<long, long>(x => -x)");
+                else if (name.Name.Length > 0 && char.IsUpper(name.Name[0])
+                    && name.Type is not FunctionType)
+                    sb.Append($"new {SanitizeIdentifier(name.Name)}()");
                 else
                     sb.Append(SanitizeIdentifier(name.Name));
                 break;
@@ -203,8 +229,8 @@ public sealed class CSharpEmitter : ICodeEmitter
                 {
                     sb.Append("Convert.ToString(");
                     EmitExpr(sb, app.Argument, indent);
-                    sb.Append(')');
-                }
+                    sb.Append(')')
+;}
                 else if (app.Function is IRName fn2 && fn2.Name == "negate")
                 {
                     sb.Append("(-");
@@ -236,10 +262,55 @@ public sealed class CSharpEmitter : ICodeEmitter
                 }
                 else
                 {
-                    EmitExpr(sb, app.Function, indent);
-                    sb.Append('(');
-                    EmitExpr(sb, app.Argument, indent);
-                    sb.Append(')');
+                    string? ctorName = FindConstructorName(app);
+                    if (ctorName is not null)
+                    {
+                        List<IRExpr> args = new();
+                        CollectApplyArgs(app, args);
+                        sb.Append($"new {SanitizeIdentifier(ctorName)}(");
+                        for (int i = 0; i < args.Count; i++)
+                        {
+                            if (i > 0) sb.Append(", ");
+                            EmitExpr(sb, args[i], indent);
+                        }
+                        sb.Append(')');
+                    }
+                    else
+                    {
+                        string? defName = FindDefinitionName(app);
+                        if (defName is not null
+                            && m_definitionArity.TryGetValue(defName, out int arity)
+                            && arity > 1)
+                        {
+                            List<IRExpr> args = new();
+                            CollectApplyArgs(app, args);
+                            if (args.Count == arity)
+                            {
+                                sb.Append(SanitizeIdentifier(defName));
+                                sb.Append('(');
+                                for (int i = 0; i < args.Count; i++)
+                                {
+                                    if (i > 0) sb.Append(", ");
+                                    EmitExpr(sb, args[i], indent);
+                                }
+                                sb.Append(')');
+                            }
+                            else
+                            {
+                                EmitExpr(sb, app.Function, indent);
+                                sb.Append('(');
+                                EmitExpr(sb, app.Argument, indent);
+                                sb.Append(')');
+                            }
+                        }
+                        else
+                        {
+                            EmitExpr(sb, app.Function, indent);
+                            sb.Append('(');
+                            EmitExpr(sb, app.Argument, indent);
+                            sb.Append(')');
+                        }
+                    }
                 }
                 break;
 
@@ -259,6 +330,22 @@ public sealed class CSharpEmitter : ICodeEmitter
                 EmitDoExpr(sb, doExpr, indent);
                 break;
 
+            case IRRecord rec:
+                sb.Append($"new {SanitizeIdentifier(rec.TypeName)}(");
+                for (int i = 0; i < rec.Fields.Length; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    EmitExpr(sb, rec.Fields[i].Value, indent);
+                }
+                sb.Append(')');
+                break;
+
+            case IRFieldAccess fa:
+                EmitExpr(sb, fa.Record, indent);
+                sb.Append('.');
+                sb.Append(SanitizeIdentifier(fa.FieldName));
+                break;
+
             case IRError err:
                 sb.Append($"throw new InvalidOperationException(\"{EscapeString(err.Message)}\")");
                 break;
@@ -269,7 +356,44 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private static void EmitBinary(StringBuilder sb, IRBinary bin, int indent)
+    private static string? FindConstructorName(IRApply app)
+    {
+        IRExpr current = app.Function;
+        while (current is IRApply inner)
+        {
+            current = inner.Function;
+        }
+        if (current is IRName name && name.Name.Length > 0 && char.IsUpper(name.Name[0]))
+        {
+            return name.Name;
+        }
+        return null;
+    }
+
+    private static string? FindDefinitionName(IRApply app)
+    {
+        IRExpr current = app.Function;
+        while (current is IRApply inner)
+        {
+            current = inner.Function;
+        }
+        if (current is IRName name && name.Name.Length > 0 && char.IsLower(name.Name[0]))
+        {
+            return name.Name;
+        }
+        return null;
+    }
+
+    private static void CollectApplyArgs(IRApply app, List<IRExpr> args)
+    {
+        if (app.Function is IRApply inner)
+        {
+            CollectApplyArgs(inner, args);
+        }
+        args.Add(app.Argument);
+    }
+
+    private void EmitBinary(StringBuilder sb, IRBinary bin, int indent)
     {
         switch (bin.Op)
         {
@@ -333,10 +457,10 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private static void EmitLet(StringBuilder sb, IRLet let, int indent)
+    private void EmitLet(StringBuilder sb, IRLet let, int indent)
     {
         string funcType = $"Func<{EmitType(let.NameType)}, {EmitType(let.Body.Type)}>";
-        sb.Append($"(({funcType}((");
+        sb.Append("((" + funcType + ")((");
         sb.Append(SanitizeIdentifier(let.Name));
         sb.Append(") => ");
         EmitExpr(sb, let.Body, indent);
@@ -345,7 +469,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.Append(')');
     }
 
-    private static void EmitLambda(StringBuilder sb, IRLambda lam, int indent)
+    private void EmitLambda(StringBuilder sb, IRLambda lam, int indent)
     {
         sb.Append('(');
         for (int i = 0; i < lam.Parameters.Length; i++)
@@ -357,7 +481,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         EmitExpr(sb, lam.Body, indent);
     }
 
-    private static void EmitList(StringBuilder sb, IRList list, int indent)
+    private void EmitList(StringBuilder sb, IRList list, int indent)
     {
         sb.Append($"new List<{EmitType(list.ElementType)}>()");
         if (list.Elements.Length > 0)
@@ -372,9 +496,25 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private static void EmitMatch(StringBuilder sb, IRMatch match, int indent)
+    private void EmitMatch(StringBuilder sb, IRMatch match, int indent)
     {
+        bool hasMultipleCtorBranches = match.Branches
+            .Count(b => b.Pattern is IRCtorPattern or IRLiteralPattern) > 1;
+
+        string scrutineeRef;
+        if (hasMultipleCtorBranches)
+        {
+            string scrutineeType = EmitType(match.Scrutinee.Type);
+            sb.Append($"((Func<{scrutineeType}, {EmitType(match.Type)}>)((_scrutinee_) => ");
+            scrutineeRef = "_scrutinee_";
+        }
+        else
+        {
+            scrutineeRef = "";
+        }
+
         bool first = true;
+        int openParens = 0;
         foreach (IRMatchBranch branch in match.Branches)
         {
             if (!first) sb.Append(" : ");
@@ -384,7 +524,11 @@ public sealed class CSharpEmitter : ICodeEmitter
             {
                 case IRLiteralPattern litPat:
                     sb.Append('(');
-                    EmitExpr(sb, match.Scrutinee, indent);
+                    openParens++;
+                    if (hasMultipleCtorBranches)
+                        sb.Append(scrutineeRef);
+                    else
+                        EmitExpr(sb, match.Scrutinee, indent);
                     sb.Append(litPat.Value switch
                     {
                         bool b => $".Equals({(b ? "true" : "false")})",
@@ -400,32 +544,60 @@ public sealed class CSharpEmitter : ICodeEmitter
                     string ctorId = SanitizeIdentifier(ctorPat.Name);
                     string binding = $"_m{ctorId}_";
                     sb.Append('(');
-                    EmitExpr(sb, match.Scrutinee, indent);
+                    openParens++;
+                    if (hasMultipleCtorBranches)
+                        sb.Append(scrutineeRef);
+                    else
+                        EmitExpr(sb, match.Scrutinee, indent);
                     sb.Append($" is {ctorId} {binding} ? ");
                     EmitCtorPatternBody(sb, ctorPat, binding, branch.Body, indent);
                     break;
 
                 case IRVarPattern varPat:
                     string varFuncType = $"Func<{EmitType(varPat.Type)}, {EmitType(branch.Body.Type)}>";
-                    sb.Append($"(({varFuncType}((");
+                    sb.Append("((" + varFuncType + ")((");
                     sb.Append(SanitizeIdentifier(varPat.Name));
                     sb.Append(") => ");
                     EmitExpr(sb, branch.Body, indent);
                     sb.Append("))(");
-                    EmitExpr(sb, match.Scrutinee, indent);
+                    if (hasMultipleCtorBranches)
+                        sb.Append(scrutineeRef);
+                    else
+                        EmitExpr(sb, match.Scrutinee, indent);
                     sb.Append(')');
+                    for (int i = 0; i < openParens; i++) sb.Append(')');
+                    if (hasMultipleCtorBranches)
+                    {
+                        sb.Append("))(");
+                        EmitExpr(sb, match.Scrutinee, indent);
+                        sb.Append(')');
+                    }
                     return;
 
                 case IRWildcardPattern:
                     EmitExpr(sb, branch.Body, indent);
+                    for (int i = 0; i < openParens; i++) sb.Append(')');
+                    if (hasMultipleCtorBranches)
+                    {
+                        sb.Append("))(");
+                        EmitExpr(sb, match.Scrutinee, indent);
+                        sb.Append(')');
+                    }
                     return;
             }
         }
 
         sb.Append($" : throw new InvalidOperationException(\"Non-exhaustive match\")");
+        for (int i = 0; i < openParens; i++) sb.Append(')');
+        if (hasMultipleCtorBranches)
+        {
+            sb.Append("))(");
+            EmitExpr(sb, match.Scrutinee, indent);
+            sb.Append(')');
+        }
     }
 
-    private static void EmitCtorPatternBody(
+    private void EmitCtorPatternBody(
         StringBuilder sb, IRCtorPattern ctorPat, string bindingName,
         IRExpr body, int indent)
     {
@@ -463,7 +635,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
-    private static void EmitNestedCtorChecks(
+    private void EmitNestedCtorChecks(
         StringBuilder sb,
         List<(IRCtorPattern SubCtor, string Access)> nestedCtors,
         int idx,
@@ -497,7 +669,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         sb.Append($" : throw new InvalidOperationException(\"Pattern match failed\"))");
     }
 
-    private static void EmitVarBindingsAndBody(
+    private void EmitVarBindingsAndBody(
         StringBuilder sb,
         List<(string Name, string Access, CodexType Type)> bindings,
         IRExpr body, int indent)
@@ -512,7 +684,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         {
             (string name, string access, CodexType type) = bindings[i];
             string funcType = $"Func<{EmitType(type)}, {EmitType(body.Type)}>";
-            sb.Append($"(({funcType}((");
+            sb.Append("((" + funcType + ")((");
             sb.Append(SanitizeIdentifier(name));
             sb.Append(") => ");
         }
@@ -521,11 +693,18 @@ public sealed class CSharpEmitter : ICodeEmitter
 
         for (int i = 0; i < bindings.Count; i++)
         {
-            sb.Append($"))({bindings[i].Access})");
+            (string _, string access, CodexType type) = bindings[i];
+            string castStr = type is not (ErrorType or TypeVariable or NothingType or VoidType)
+                ? $"({EmitType(type)})"
+                : "";
+            sb.Append("))(");
+            sb.Append(castStr);
+            sb.Append(access);
+            sb.Append(')');
         }
     }
 
-    private static void EmitDoExpr(StringBuilder sb, IRDo doExpr, int indent)
+    private void EmitDoExpr(StringBuilder sb, IRDo doExpr, int indent)
     {
         sb.AppendLine("((Func<object>)(() => {");
         string pad = new(' ', (indent + 2) * 4);

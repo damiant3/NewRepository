@@ -374,6 +374,12 @@ public sealed class Parser
     {
         ExpressionNode func = ParseAtom();
 
+        bool isCompound = func is MatchExpressionNode
+            or IfExpressionNode
+            or LetExpressionNode
+            or DoExpressionNode;
+        if (isCompound) return func;
+
         while (IsApplicationStart())
         {
             ExpressionNode arg = ParseAtom();
