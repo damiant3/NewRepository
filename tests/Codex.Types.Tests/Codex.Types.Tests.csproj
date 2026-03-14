@@ -16,6 +16,10 @@
     <ProjectReference Include="..\..\src\Codex.Core\Codex.Core.csproj" />
     <ProjectReference Include="..\..\src\Codex.Syntax\Codex.Syntax.csproj" />
     <ProjectReference Include="..\..\src\Codex.Ast\Codex.Ast.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Semantics\Codex.Semantics.csproj" />
     <ProjectReference Include="..\..\src\Codex.Types\Codex.Types.csproj" />
+    <ProjectReference Include="..\..\src\Codex.IR\Codex.IR.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Emit\Codex.Emit.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Emit.CSharp\Codex.Emit.CSharp.csproj" />
   </ItemGroup>
 </Project>

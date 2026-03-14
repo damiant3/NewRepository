@@ -15,5 +15,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Codex.Core\Codex.Core.csproj" />
     <ProjectReference Include="..\..\src\Codex.Syntax\Codex.Syntax.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Ast\Codex.Ast.csproj" />
   </ItemGroup>
 </Project>

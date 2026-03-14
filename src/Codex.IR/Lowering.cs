@@ -164,35 +164,24 @@ public sealed class Lowering
     private IRExpr LowerLet(LetExpr let, CodexType expectedType)
     {
         ImmutableDictionary<string, CodexType> savedEnv = m_localEnv;
-        IRExpr body = LowerExpr(let.Body, expectedType);
 
-        for (int i = let.Bindings.Count - 1; i >= 0; i--)
-        {
-            Ast.LetBinding binding = let.Bindings[i];
-            CodexType bindingType = LookupName(binding.Name.Value, ErrorType.s_instance);
-            IRExpr value = LowerExpr(binding.Value, bindingType);
-            body = new IRLet(binding.Name.Value, value.Type, value, body);
-            m_localEnv = m_localEnv.SetItem(binding.Name.Value, value.Type);
-        }
-
-        m_localEnv = savedEnv;
-
-        // Re-lower with bindings in scope
-        m_localEnv = savedEnv;
+        // Single pass: lower each binding and add its type to the local env
+        List<(string Name, IRExpr Value)> loweredBindings = new List<(string, IRExpr)>();
         foreach (Ast.LetBinding binding in let.Bindings)
         {
             IRExpr value = LowerExpr(binding.Value, ErrorType.s_instance);
+            loweredBindings.Add((binding.Name.Value, value));
             m_localEnv = m_localEnv.SetItem(binding.Name.Value, value.Type);
         }
 
-        body = LowerExpr(let.Body, expectedType);
+        // Lower the body with all bindings in scope
+        IRExpr body = LowerExpr(let.Body, expectedType);
 
-        // Wrap in nested lets
-        for (int i = let.Bindings.Count - 1; i >= 0; i--)
+        // Wrap in nested IRLets from inside out
+        for (int i = loweredBindings.Count - 1; i >= 0; i--)
         {
-            Ast.LetBinding binding = let.Bindings[i];
-            IRExpr value = LowerExpr(binding.Value, ErrorType.s_instance);
-            body = new IRLet(binding.Name.Value, value.Type, value, body);
+            (string name, IRExpr value) = loweredBindings[i];
+            body = new IRLet(name, value.Type, value, body);
         }
 
         m_localEnv = savedEnv;
