@@ -32,7 +32,8 @@ Download from https://code.visualstudio.com if you do not have it.
 
 ## One-time setup: build the extension
 
-Open a terminal, `cd` to the VS Code extension folder inside this repo, and run `npm install` then `npm run compile`:
+The VS Code extension lives in `editors\vscode` **inside the repo root** (not in any project `bin` folder).
+Open a terminal at the repo root and run:
 
 ```
 cd editors\vscode
