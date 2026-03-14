@@ -30,7 +30,7 @@ Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
 
 ## Terminal Discipline
 
-- **Never run multi-line PowerShell scripts directly in the terminal.** Write a `.ps1` script file, then invoke it with `pwsh -File <path>`. Multi-line scripts cause the terminal to hang waiting for input the agent cannot provide.
+- **Never run multi-line PowerShell scripts directly in the terminal.** Write a `.ps1` script file, then invoke it with `pwsh -File <script.ps1>`. Multi-line scripts cause the terminal to hang waiting for input the agent cannot provide.
 - **Never use `Write-Output`, `Write-Host`, or bare expressions for terminal feedback.** These are unreliable in the agent terminal. Write results to a temp file and read it back with `get_file`, or use `edit_file` / `create_file` directly.
 - **If a terminal command takes more than a few seconds, assume it is hung.** Switch to a file-based approach.
 - **Prefer `edit_file` and `create_file` over terminal commands for all file mutations.**
