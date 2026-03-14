@@ -3,6 +3,8 @@ using Codex.Syntax;
 using Codex.Ast;
 using Codex.Semantics;
 using Codex.Types;
+using Codex.IR;
+using Codex.Emit.CSharp;
 using System.Collections.Immutable;
 
 namespace Codex.Cli;
@@ -26,6 +28,8 @@ public static class Program
         {
             "check" => RunCheck(args.Skip(1).ToArray()),
             "parse" => RunParse(args.Skip(1).ToArray()),
+            "build" => RunBuild(args.Skip(1).ToArray()),
+            "run" => RunRun(args.Skip(1).ToArray()),
             "version" => RunVersion(),
             "--help" or "-h" => RunHelp(),
             _ => UnknownCommand(command)
@@ -157,6 +161,183 @@ public static class Program
         return diagnostics.HasErrors ? 1 : 0;
     }
 
+    private static int RunBuild(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: codex build <file.codex>");
+            return 1;
+        }
+
+        string filePath = args[0];
+        CompilationResult? result = CompileFile(filePath);
+        if (result is null) return 1;
+
+        string outputPath = Path.ChangeExtension(filePath, ".cs");
+        File.WriteAllText(outputPath, result.CSharpSource);
+        Console.WriteLine($"✓ Compiled to {outputPath}");
+        foreach (KeyValuePair<string, CodexType> kv in result.Types)
+        {
+            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        }
+        return 0;
+    }
+
+    private static int RunRun(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: codex run <file.codex>");
+            return 1;
+        }
+
+        string filePath = args[0];
+        CompilationResult? result = CompileFile(filePath);
+        if (result is null) return 1;
+
+        // Write the generated C# to a temp directory and compile+run it
+        string tempDir = Path.Combine(Path.GetTempPath(), "codex_run_" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            string csFile = Path.Combine(tempDir, "Program.cs");
+            File.WriteAllText(csFile, result.CSharpSource);
+
+            string csproj = Path.Combine(tempDir, "CodexOutput.csproj");
+            File.WriteAllText(csproj, GenerateCsproj());
+
+            // Build
+            System.Diagnostics.ProcessStartInfo buildInfo = new("dotnet", "build --nologo --verbosity quiet")
+            {
+                WorkingDirectory = tempDir,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            System.Diagnostics.Process? buildProc = System.Diagnostics.Process.Start(buildInfo);
+            if (buildProc is null)
+            {
+                Console.Error.WriteLine("Failed to start dotnet build");
+                return 1;
+            }
+
+            string buildStdout = buildProc.StandardOutput.ReadToEnd();
+            string buildStderr = buildProc.StandardError.ReadToEnd();
+            buildProc.WaitForExit();
+
+            if (buildProc.ExitCode != 0)
+            {
+                Console.Error.WriteLine("C# compilation failed:");
+                Console.Error.WriteLine(buildStdout);
+                Console.Error.WriteLine(buildStderr);
+                return 1;
+            }
+
+            // Run
+            System.Diagnostics.ProcessStartInfo runInfo = new("dotnet", "run --no-build --nologo")
+            {
+                WorkingDirectory = tempDir,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            System.Diagnostics.Process? runProc = System.Diagnostics.Process.Start(runInfo);
+            if (runProc is null)
+            {
+                Console.Error.WriteLine("Failed to start dotnet run");
+                return 1;
+            }
+
+            string output = runProc.StandardOutput.ReadToEnd();
+            string errOutput = runProc.StandardError.ReadToEnd();
+            runProc.WaitForExit();
+
+            if (output.Length > 0)
+                Console.Write(output);
+            if (errOutput.Length > 0)
+                Console.Error.Write(errOutput);
+
+            return runProc.ExitCode;
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, true); } catch { /* best effort cleanup */ }
+        }
+    }
+
+    /// <summary>
+    /// Full compilation pipeline: source → lex → parse → desugar → resolve → typecheck → lower → emit.
+    /// Returns null on failure.
+    /// </summary>
+    private static CompilationResult? CompileFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.Error.WriteLine($"File not found: {filePath}");
+            return null;
+        }
+
+        string content = File.ReadAllText(filePath);
+        SourceText source = new SourceText(filePath, content);
+        DiagnosticBag diagnostics = new DiagnosticBag();
+
+        // Lex
+        Lexer lexer = new Lexer(source, diagnostics);
+        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+
+        // Parse
+        Parser parser = new Parser(tokens, diagnostics);
+        DocumentNode document = parser.ParseDocument();
+
+        // Desugar
+        Desugarer desugarer = new Desugarer(diagnostics);
+        string moduleName = Path.GetFileNameWithoutExtension(filePath);
+        Module module = desugarer.Desugar(document, moduleName);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        // Name resolution
+        NameResolver resolver = new NameResolver(diagnostics);
+        ResolvedModule resolved = resolver.Resolve(module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        // Type checking
+        TypeChecker checker = new TypeChecker(diagnostics);
+        ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        // Lower to IR
+        Lowering lowering = new Lowering(types, diagnostics);
+        IRModule irModule = lowering.Lower(resolved.Module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        // Emit C#
+        CSharpEmitter emitter = new CSharpEmitter();
+        string csharpSource = emitter.Emit(irModule);
+
+        return new CompilationResult(csharpSource, types);
+    }
+
+    private static string GenerateCsproj()
+    {
+        return """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """;
+    }
+
     private static int RunVersion()
     {
         Console.WriteLine("Codex 0.1.0-bootstrap");
@@ -185,7 +366,9 @@ public static class Program
         Console.WriteLine();
         Console.WriteLine("Commands:");
         Console.WriteLine("  parse <file>    Lex, parse, and display the structure of a Codex file");
-        Console.WriteLine("  check <file>    Parse and check a Codex file for errors");
+        Console.WriteLine("  check <file>    Parse and type-check a Codex file");
+        Console.WriteLine("  build <file>    Compile a Codex file to C#");
+        Console.WriteLine("  run <file>      Compile and execute a Codex file");
         Console.WriteLine("  version         Display the Codex version");
         Console.WriteLine("  --help, -h      Display this help message");
     }
@@ -222,4 +405,8 @@ public static class Program
         AppliedTypeExpr a => $"{FormatTypeExpr(a.Constructor)} {string.Join(" ", a.Arguments.Select(FormatTypeExpr))}",
         _ => "?"
     };
+
+    private sealed record CompilationResult(
+        string CSharpSource,
+        ImmutableDictionary<string, CodexType> Types);
 }
