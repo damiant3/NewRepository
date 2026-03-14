@@ -1,0 +1,113 @@
+using Codex.Core;
+using Codex.Syntax;
+using Codex.Ast;
+using Xunit;
+
+namespace Codex.Ast.Tests;
+
+public class DesugarerTests
+{
+    private static Module ParseAndDesugar(string source, string moduleName = "Test")
+    {
+        SourceText src = new SourceText("test.codex", source);
+        DiagnosticBag bag = new DiagnosticBag();
+        Lexer lexer = new Lexer(src, bag);
+        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+        Parser parser = new Parser(tokens, bag);
+        DocumentNode doc = parser.ParseDocument();
+        Desugarer desugarer = new Desugarer(bag);
+        return desugarer.Desugar(doc, moduleName);
+    }
+
+    [Fact]
+    public void Desugar_simple_definition()
+    {
+        Module module = ParseAndDesugar("x = 42");
+        Assert.Single(module.Definitions);
+        Assert.Equal("x", module.Definitions[0].Name.Value);
+        Assert.IsType<LiteralExpr>(module.Definitions[0].Body);
+    }
+
+    [Fact]
+    public void Desugar_preserves_module_name()
+    {
+        Module module = ParseAndDesugar("x = 1", "MyModule");
+        Assert.Equal("MyModule", module.Name.Leaf.Value);
+    }
+
+    [Fact]
+    public void Desugar_binary_expression()
+    {
+        Module module = ParseAndDesugar("x = 1 + 2");
+        Assert.IsType<BinaryExpr>(module.Definitions[0].Body);
+        BinaryExpr bin = (BinaryExpr)module.Definitions[0].Body;
+        Assert.Equal(BinaryOp.Add, bin.Op);
+    }
+
+    [Fact]
+    public void Desugar_if_expression()
+    {
+        Module module = ParseAndDesugar("x = if True then 1 else 0");
+        Assert.IsType<IfExpr>(module.Definitions[0].Body);
+    }
+
+    [Fact]
+    public void Desugar_let_expression()
+    {
+        Module module = ParseAndDesugar("x = let a = 1 in a + 2");
+        Assert.IsType<LetExpr>(module.Definitions[0].Body);
+        LetExpr letExpr = (LetExpr)module.Definitions[0].Body;
+        Assert.Single(letExpr.Bindings);
+        Assert.Equal("a", letExpr.Bindings[0].Name.Value);
+    }
+
+    [Fact]
+    public void Desugar_with_type_annotation()
+    {
+        string source = "square : Integer -> Integer\nsquare (x) = x * x";
+        Module module = ParseAndDesugar(source);
+        Assert.Single(module.Definitions);
+        Assert.NotNull(module.Definitions[0].DeclaredType);
+        Assert.IsType<FunctionTypeExpr>(module.Definitions[0].DeclaredType);
+    }
+
+    [Fact]
+    public void Desugar_list_expression()
+    {
+        Module module = ParseAndDesugar("xs = [1, 2, 3]");
+        Assert.IsType<ListExpr>(module.Definitions[0].Body);
+        ListExpr list = (ListExpr)module.Definitions[0].Body;
+        Assert.Equal(3, list.Elements.Count);
+    }
+
+    [Fact]
+    public void Desugar_function_application()
+    {
+        Module module = ParseAndDesugar("x = f 1");
+        Assert.IsType<ApplyExpr>(module.Definitions[0].Body);
+    }
+
+    [Fact]
+    public void Desugar_multiple_definitions()
+    {
+        Module module = ParseAndDesugar("a = 1\nb = 2\nc = 3");
+        Assert.Equal(3, module.Definitions.Count);
+    }
+
+    [Fact]
+    public void Desugar_match_expression()
+    {
+        string source = "x = when y if True -> 1 if False -> 0";
+        Module module = ParseAndDesugar(source);
+        Assert.IsType<MatchExpr>(module.Definitions[0].Body);
+        MatchExpr match = (MatchExpr)module.Definitions[0].Body;
+        Assert.Equal(2, match.Branches.Count);
+    }
+
+    [Fact]
+    public void Desugar_record_expression()
+    {
+        Module module = ParseAndDesugar("p = Point { x = 1, y = 2 }");
+        Assert.IsType<RecordExpr>(module.Definitions[0].Body);
+    }
+}

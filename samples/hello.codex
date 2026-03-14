@@ -1,0 +1,8 @@
+square : Integer -> Integer
+square (x) = x * x
+
+double : Integer -> Integer
+double (x) = x + x
+
+main : Integer
+main = square 5

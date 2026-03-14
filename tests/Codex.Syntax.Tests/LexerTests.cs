@@ -1,0 +1,179 @@
+using Codex.Core;
+using Codex.Syntax;
+using Xunit;
+
+namespace Codex.Syntax.Tests;
+
+public class LexerTests
+{
+    private static IReadOnlyList<Token> Tokenize(string source)
+    {
+        SourceText src = new SourceText("test.codex", source);
+        DiagnosticBag bag = new DiagnosticBag();
+        Lexer lexer = new Lexer(src, bag);
+        return lexer.TokenizeAll();
+    }
+
+    private static IReadOnlyList<Token> NonTrivialTokens(string source)
+    {
+        return Tokenize(source)
+            .Where(t => t.Kind is not (TokenKind.Newline or TokenKind.Indent
+                or TokenKind.Dedent or TokenKind.EndOfFile))
+            .ToList();
+    }
+
+    [Fact]
+    public void Empty_source_produces_eof()
+    {
+        IReadOnlyList<Token> tokens = Tokenize("");
+        Assert.Single(tokens);
+        Assert.Equal(TokenKind.EndOfFile, tokens[0].Kind);
+    }
+
+    [Fact]
+    public void Integer_literal()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("42");
+        Assert.Single(tokens);
+        Assert.Equal(TokenKind.IntegerLiteral, tokens[0].Kind);
+        Assert.Equal(42L, tokens[0].LiteralValue);
+    }
+
+    [Fact]
+    public void Number_literal_with_decimal()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("3.14");
+        Assert.Single(tokens);
+        Assert.Equal(TokenKind.NumberLiteral, tokens[0].Kind);
+        Assert.Equal(3.14m, tokens[0].LiteralValue);
+    }
+
+    [Fact]
+    public void Text_literal()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("\"hello\"");
+        Assert.Single(tokens);
+        Assert.Equal(TokenKind.TextLiteral, tokens[0].Kind);
+        Assert.Equal("hello", tokens[0].LiteralValue);
+    }
+
+    [Fact]
+    public void Text_literal_with_escapes()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("\"hello\\nworld\"");
+        Assert.Single(tokens);
+        Assert.Equal("hello\nworld", tokens[0].LiteralValue);
+    }
+
+    [Fact]
+    public void Hyphenated_identifier()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("compute-monthly-payment");
+        Assert.Single(tokens);
+        Assert.Equal(TokenKind.Identifier, tokens[0].Kind);
+        Assert.Equal("compute-monthly-payment", tokens[0].Text);
+    }
+
+    [Fact]
+    public void Type_identifier()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("Account");
+        Assert.Single(tokens);
+        Assert.Equal(TokenKind.TypeIdentifier, tokens[0].Kind);
+    }
+
+    [Fact]
+    public void Keywords_are_recognized()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("let in if then else when where do");
+        TokenKind[] kinds = tokens.Select(t => t.Kind).ToArray();
+        Assert.Equal(new[]
+        {
+            TokenKind.LetKeyword, TokenKind.InKeyword,
+            TokenKind.IfKeyword, TokenKind.ThenKeyword, TokenKind.ElseKeyword,
+            TokenKind.WhenKeyword, TokenKind.WhereKeyword, TokenKind.DoKeyword
+        }, kinds);
+    }
+
+    [Fact]
+    public void Operators()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("+ - * / = == ++ :: -> : |");
+        TokenKind[] kinds = tokens.Select(t => t.Kind).ToArray();
+        Assert.Equal(new[]
+        {
+            TokenKind.Plus, TokenKind.Minus, TokenKind.Star, TokenKind.Slash,
+            TokenKind.Equals, TokenKind.DoubleEquals,
+            TokenKind.PlusPlus, TokenKind.ColonColon,
+            TokenKind.Arrow, TokenKind.Colon, TokenKind.Pipe
+        }, kinds);
+    }
+
+    [Fact]
+    public void Unicode_operators()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("→ ← ∀ ∃ ≡ ≠ ≤ ≥ ⊢ ⊗");
+        TokenKind[] kinds = tokens.Select(t => t.Kind).ToArray();
+        Assert.Equal(new[]
+        {
+            TokenKind.Arrow, TokenKind.LeftArrow,
+            TokenKind.ForAllSymbol, TokenKind.ExistsSymbol,
+            TokenKind.TripleEquals, TokenKind.NotEquals,
+            TokenKind.LessOrEqual, TokenKind.GreaterOrEqual,
+            TokenKind.Turnstile, TokenKind.LinearProduct
+        }, kinds);
+    }
+
+    [Fact]
+    public void Boolean_literals()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("True False");
+        Assert.Equal(TokenKind.TrueKeyword, tokens[0].Kind);
+        Assert.Equal(true, tokens[0].LiteralValue);
+        Assert.Equal(TokenKind.FalseKeyword, tokens[1].Kind);
+        Assert.Equal(false, tokens[1].LiteralValue);
+    }
+
+    [Fact]
+    public void Delimiters()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("( ) [ ] { } , .");
+        TokenKind[] kinds = tokens.Select(t => t.Kind).ToArray();
+        Assert.Equal(new[]
+        {
+            TokenKind.LeftParen, TokenKind.RightParen,
+            TokenKind.LeftBracket, TokenKind.RightBracket,
+            TokenKind.LeftBrace, TokenKind.RightBrace,
+            TokenKind.Comma, TokenKind.Dot
+        }, kinds);
+    }
+
+    [Fact]
+    public void Indentation_produces_indent_dedent()
+    {
+        IReadOnlyList<Token> tokens = Tokenize("a\n  b\nc");
+        List<TokenKind> kinds = tokens.Select(t => t.Kind).ToList();
+        Assert.Contains(TokenKind.Indent, kinds);
+        Assert.Contains(TokenKind.Dedent, kinds);
+    }
+
+    [Fact]
+    public void Complete_definition_tokens()
+    {
+        string source = "square : Integer -> Integer\nsquare (x) = x * x";
+        IReadOnlyList<Token> tokens = NonTrivialTokens(source);
+        Assert.Equal(TokenKind.Identifier, tokens[0].Kind);
+        Assert.Equal("square", tokens[0].Text);
+        Assert.Equal(TokenKind.Colon, tokens[1].Kind);
+        Assert.Equal(TokenKind.TypeIdentifier, tokens[2].Kind);
+        Assert.Equal("Integer", tokens[2].Text);
+    }
+
+    [Fact]
+    public void Underscored_number()
+    {
+        IReadOnlyList<Token> tokens = NonTrivialTokens("1_000_000");
+        Assert.Single(tokens);
+        Assert.Equal(1000000L, tokens[0].LiteralValue);
+    }
+}

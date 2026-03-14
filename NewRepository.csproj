@@ -6,4 +6,23 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Include="Codex.sln" />
+    <None Include="src\Codex.Ast\Codex.Ast.csproj" />
+    <None Include="src\Codex.Core\Codex.Core.csproj" />
+    <None Include="src\Codex.Emit.CSharp\Codex.Emit.CSharp.csproj" />
+    <None Include="src\Codex.Emit\Codex.Emit.csproj" />
+    <None Include="src\Codex.IR\Codex.IR.csproj" />
+    <None Include="src\Codex.Narration\Codex.Narration.csproj" />
+    <None Include="src\Codex.Proofs\Codex.Proofs.csproj" />
+    <None Include="src\Codex.Repository\Codex.Repository.csproj" />
+    <None Include="src\Codex.Semantics\Codex.Semantics.csproj" />
+    <None Include="src\Codex.Syntax\Codex.Syntax.csproj" />
+    <None Include="src\Codex.Types\Codex.Types.csproj" />
+    <None Include="tests\Codex.Ast.Tests\Codex.Ast.Tests.csproj" />
+    <None Include="tests\Codex.Core.Tests\Codex.Core.Tests.csproj" />
+    <None Include="tests\Codex.Syntax.Tests\Codex.Syntax.Tests.csproj" />
+    <None Include="tools\Codex.Cli\Codex.Cli.csproj" />
+  </ItemGroup>
+
 </Project>
