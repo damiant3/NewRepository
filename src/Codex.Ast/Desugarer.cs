@@ -110,9 +110,21 @@ public sealed class Desugarer
 
         ParenthesizedExpressionNode paren => DesugarExpr(paren.Inner),
 
+        DoExpressionNode doExpr => new DoExpr(
+            doExpr.Statements.Select(DesugarDoStatement).ToList(),
+            doExpr.Span),
+
         ErrorExpressionNode err => new ErrorExpr("parse error", err.Span),
 
         _ => new ErrorExpr($"unknown expression node: {node.Kind}", node.Span)
+    };
+
+    private DoStatement DesugarDoStatement(DoStatementNode node) => node switch
+    {
+        DoBindStatementNode bind => new DoBindStatement(
+            new Name(bind.Name.Text), DesugarExpr(bind.Value), bind.Span),
+        DoExprStatementNode expr => new DoExprStatement(DesugarExpr(expr.Expression), expr.Span),
+        _ => new DoExprStatement(new ErrorExpr("unknown do statement", node.Span), node.Span)
     };
 
     private Pattern DesugarPattern(PatternNode node) => node switch
@@ -148,6 +160,10 @@ public sealed class Desugarer
             a.Arguments.Select(DesugarType).ToList(),
             a.Span),
         ParenthesizedTypeNode p => DesugarType(p.Inner),
+        EffectfulTypeNode e => new EffectfulTypeExpr(
+            e.Effects.Select(DesugarType).ToList(),
+            DesugarType(e.Return),
+            e.Span),
         _ => new NamedTypeExpr(new Name("?"), node.Span)
     };
 

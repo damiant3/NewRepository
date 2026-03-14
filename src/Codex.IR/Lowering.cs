@@ -13,6 +13,8 @@ public sealed class Lowering
     private readonly DiagnosticBag m_diagnostics;
     private Map<string, CodexType> m_localEnv;
 
+    private static readonly Map<string, CodexType> s_builtinTypes = BuildBuiltinTypes();
+
     public Lowering(
         ImmutableDictionary<string, CodexType> typeMap,
         Map<string, CtorInfo> ctorMap,
@@ -104,6 +106,9 @@ public sealed class Lowering
 
             case ListExpr list:
                 return LowerList(list, expectedType);
+
+            case DoExpr doExpr:
+                return LowerDoExpr(doExpr, expectedType);
 
             case ErrorExpr err:
                 return new IRError(err.Message, expectedType);
@@ -310,7 +315,57 @@ public sealed class Lowering
         return m_localEnv[name]
             ?? (m_typeMap.TryGetValue(name, out CodexType? type) ? type : null)
             ?? m_ctorMap[name]?.ConstructorType
+            ?? s_builtinTypes[name]
             ?? fallback;
+    }
+
+    private IRExpr LowerDoExpr(DoExpr doExpr, CodexType expectedType)
+    {
+        Map<string, CodexType> savedEnv = m_localEnv;
+        ImmutableArray<IRDoStatement>.Builder statements = ImmutableArray.CreateBuilder<IRDoStatement>();
+
+        foreach (DoStatement stmt in doExpr.Statements)
+        {
+            switch (stmt)
+            {
+                case DoBindStatement bind:
+                {
+                    IRExpr value = LowerExpr(bind.Value, ErrorType.s_instance);
+                    CodexType boundType = value.Type is EffectfulType eft ? eft.Return : value.Type;
+                    statements.Add(new IRDoBind(bind.Name.Value, boundType, value));
+                    m_localEnv = m_localEnv.Set(bind.Name.Value, boundType);
+                    break;
+                }
+                case DoExprStatement exprStmt:
+                {
+                    IRExpr value = LowerExpr(exprStmt.Expression, ErrorType.s_instance);
+                    statements.Add(new IRDoExec(value));
+                    break;
+                }
+            }
+        }
+
+        m_localEnv = savedEnv;
+        return new IRDo(statements.ToImmutable(), expectedType);
+    }
+
+    private static Map<string, CodexType> BuildBuiltinTypes()
+    {
+        Map<string, CodexType> map = Map<string, CodexType>.s_empty;
+        map = map.Set("show", new ForAllType(0,
+            new FunctionType(new TypeVariable(0), TextType.s_instance)));
+        map = map.Set("negate", new FunctionType(IntegerType.s_instance, IntegerType.s_instance));
+
+        EffectfulType consoleText = new(
+            [new EffectType(new Name("Console"))],
+            TextType.s_instance);
+        map = map.Set("read-line", consoleText);
+
+        EffectfulType consoleNothing = new(
+            [new EffectType(new Name("Console"))],
+            NothingType.s_instance);
+        map = map.Set("print-line", new FunctionType(TextType.s_instance, consoleNothing));
+        return map;
     }
 
     private static bool IsNumeric(CodexType type) => type is IntegerType or NumberType;

@@ -27,7 +27,14 @@ public sealed class CSharpEmitter : ICodeEmitter
 
         if (mainDef is not null && mainDef.Parameters.Length == 0)
         {
-            sb.AppendLine($"Console.WriteLine({className}.main());");
+            if (IsEffectfulMain(mainDef))
+            {
+                sb.AppendLine($"{className}.main();");
+            }
+            else
+            {
+                sb.AppendLine($"Console.WriteLine({className}.main());");
+            }
             sb.AppendLine();
         }
 
@@ -118,9 +125,21 @@ public sealed class CSharpEmitter : ICodeEmitter
 
         sb.AppendLine(")");
         sb.AppendLine("    {");
-        sb.Append("        return ");
-        EmitExpr(sb, def.Body, 2);
-        sb.AppendLine(";");
+
+        if (IsEffectfulDefinition(def))
+        {
+            sb.Append("        ");
+            EmitExpr(sb, def.Body, 2);
+            sb.AppendLine(";");
+            sb.AppendLine("        return null;");
+        }
+        else
+        {
+            sb.Append("        return ");
+            EmitExpr(sb, def.Body, 2);
+            sb.AppendLine(";");
+        }
+
         sb.AppendLine("    }");
     }
 
@@ -145,7 +164,10 @@ public sealed class CSharpEmitter : ICodeEmitter
                 break;
 
             case IRName name:
-                sb.Append(SanitizeIdentifier(name.Name));
+                if (name.Name == "read-line")
+                    sb.Append("Console.ReadLine()");
+                else
+                    sb.Append(SanitizeIdentifier(name.Name));
                 break;
 
             case IRBinary bin:
@@ -185,6 +207,12 @@ public sealed class CSharpEmitter : ICodeEmitter
                     EmitExpr(sb, app.Argument, indent);
                     sb.Append(')');
                 }
+                else if (app.Function is IRName fn3 && fn3.Name == "print-line")
+                {
+                    sb.Append("Console.WriteLine(");
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(')');
+                }
                 else
                 {
                     EmitExpr(sb, app.Function, indent);
@@ -204,6 +232,10 @@ public sealed class CSharpEmitter : ICodeEmitter
 
             case IRMatch match:
                 EmitMatch(sb, match, indent);
+                break;
+
+            case IRDo doExpr:
+                EmitDoExpr(sb, doExpr, indent);
                 break;
 
             case IRError err:
@@ -354,7 +386,7 @@ public sealed class CSharpEmitter : ICodeEmitter
 
                 case IRVarPattern varPat:
                     string varFuncType = $"Func<{EmitType(varPat.Type)}, {EmitType(branch.Body.Type)}>";
-                    sb.Append($"(({varFuncType})((");
+                    sb.Append($"(({varFuncType}((");
                     sb.Append(SanitizeIdentifier(varPat.Name));
                     sb.Append(") => ");
                     EmitExpr(sb, branch.Body, indent);
@@ -409,6 +441,34 @@ public sealed class CSharpEmitter : ICodeEmitter
         }
     }
 
+    private static void EmitDoExpr(StringBuilder sb, IRDo doExpr, int indent)
+    {
+        sb.AppendLine("((Func<object>)(() => {");
+        string pad = new(' ', (indent + 2) * 4);
+        foreach (IRDoStatement stmt in doExpr.Statements)
+        {
+            switch (stmt)
+            {
+                case IRDoBind bind:
+                    sb.Append(pad);
+                    sb.Append($"var {SanitizeIdentifier(bind.Name)} = ");
+                    EmitExpr(sb, bind.Value, indent + 2);
+                    sb.AppendLine(";");
+                    break;
+                case IRDoExec exec:
+                    sb.Append(pad);
+                    EmitExpr(sb, exec.Expression, indent + 2);
+                    sb.AppendLine(";");
+                    break;
+            }
+        }
+        sb.Append(pad);
+        sb.Append("return null;");
+        sb.AppendLine();
+        sb.Append(new string(' ', (indent + 1) * 4));
+        sb.Append("}))()");
+    }
+
     private static string EmitType(CodexType type)
     {
         return type switch
@@ -419,6 +479,7 @@ public sealed class CSharpEmitter : ICodeEmitter
             BooleanType => "bool",
             NothingType => "object",
             VoidType => "void",
+            EffectfulType eft => EmitType(eft.Return),
             FunctionType ft => $"Func<{EmitType(ft.Parameter)}, {EmitType(ft.Return)}>",
             ListType lt => $"List<{EmitType(lt.Element)}>",
             SumType st => SanitizeIdentifier(st.TypeName.Value),
@@ -439,7 +500,35 @@ public sealed class CSharpEmitter : ICodeEmitter
             else
                 break;
         }
+        if (type is EffectfulType eft)
+            type = eft.Return;
         return type;
+    }
+
+    private static bool IsEffectfulMain(IRDefinition def)
+    {
+        CodexType type = def.Type;
+        for (int i = 0; i < def.Parameters.Length; i++)
+        {
+            if (type is FunctionType ft)
+                type = ft.Return;
+            else
+                break;
+        }
+        return type is EffectfulType;
+    }
+
+    private static bool IsEffectfulDefinition(IRDefinition def)
+    {
+        CodexType type = def.Type;
+        for (int i = 0; i < def.Parameters.Length; i++)
+        {
+            if (type is FunctionType ft)
+                type = ft.Return;
+            else
+                break;
+        }
+        return type is EffectfulType;
     }
 
     private static string SanitizeIdentifier(string name)

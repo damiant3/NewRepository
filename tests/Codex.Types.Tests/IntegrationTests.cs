@@ -428,4 +428,115 @@ public class IntegrationTests
         checker.CheckModule(resolved.Module);
         return diagnostics;
     }
+
+    // --- Effectful programs ---
+
+    [Fact]
+    public void Effectful_function_type_checks()
+    {
+        string source =
+            "main : [Console] Nothing\n" +
+            "main = do\n" +
+            "  print-line \"hello\"\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("main"));
+        Assert.Contains("Console", types["main"].ToString());
+    }
+
+    [Fact]
+    public void Effectful_function_compiles_to_csharp()
+    {
+        string source =
+            "main : [Console] Nothing\n" +
+            "main = do\n" +
+            "  print-line \"hello\"\n";
+        string? cs = CompileToCS(source, "eftest");
+        Assert.NotNull(cs);
+        Assert.Contains("Console.WriteLine", cs!);
+        Assert.DoesNotContain("Console.WriteLine(Codex_eftest.main())", cs);
+    }
+
+    [Fact]
+    public void Do_bind_type_checks()
+    {
+        string source =
+            "main : [Console] Nothing\n" +
+            "main = do\n" +
+            "  name <- read-line\n" +
+            "  print-line name\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("main"));
+    }
+
+    [Fact]
+    public void Do_bind_compiles_to_csharp()
+    {
+        string source =
+            "main : [Console] Nothing\n" +
+            "main = do\n" +
+            "  name <- read-line\n" +
+            "  print-line (\"Hello, \" ++ name)\n";
+        string? cs = CompileToCS(source, "dobind");
+        Assert.NotNull(cs);
+        Assert.Contains("Console.ReadLine()", cs!);
+        Assert.Contains("Console.WriteLine", cs);
+    }
+
+    [Fact]
+    public void Effectful_helper_function_compiles()
+    {
+        string source =
+            "greet : Text -> [Console] Nothing\n" +
+            "greet (name) = print-line (\"Hello, \" ++ name)\n\n" +
+            "main : [Console] Nothing\n" +
+            "main = do\n" +
+            "  greet \"World\"\n";
+        string? cs = CompileToCS(source, "efhelper");
+        Assert.NotNull(cs);
+        Assert.Contains("greet", cs!);
+        Assert.Contains("Console.WriteLine", cs);
+    }
+
+    [Fact]
+    public void Pure_function_calling_effectful_produces_error()
+    {
+        string source =
+            "bad : Nothing\n" +
+            "bad = print-line \"oops\"\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX2031");
+    }
+
+    [Fact]
+    public void Effectful_function_calling_effectful_is_allowed()
+    {
+        string source =
+            "say-hello : [Console] Nothing\n" +
+            "say-hello = print-line \"hello\"\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Code == "CDX2031");
+    }
+
+    [Fact]
+    public void Multiple_do_statements_compile()
+    {
+        string source =
+            "main : [Console] Nothing\n" +
+            "main = do\n" +
+            "  print-line \"one\"\n" +
+            "  print-line \"two\"\n" +
+            "  print-line \"three\"\n";
+        string? cs = CompileToCS(source, "multi");
+        Assert.NotNull(cs);
+        int count = 0;
+        int idx = 0;
+        while ((idx = cs!.IndexOf("Console.WriteLine", idx)) >= 0)
+        {
+            count++;
+            idx++;
+        }
+        Assert.Equal(3, count);
+    }
 }

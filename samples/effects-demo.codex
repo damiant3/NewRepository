@@ -1,0 +1,8 @@
+greet : Text -> [Console] Nothing
+greet (name) = print-line ("Hello, " ++ name ++ "!")
+
+main : [Console] Nothing
+main = do
+  greet "Alice"
+  greet "Bob"
+  print-line "Done!"

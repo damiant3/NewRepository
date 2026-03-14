@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Codex.Core;
 
 namespace Codex.Types;
@@ -31,6 +32,17 @@ public sealed class TypeEnvironment
         env = env.Bind("show", new ForAllType(0,
             new FunctionType(new TypeVariable(0), TextType.s_instance)));
         env = env.Bind("negate", new FunctionType(IntegerType.s_instance, IntegerType.s_instance));
+
+        EffectfulType consoleText = new(
+            [new EffectType(new Name("Console"))],
+            TextType.s_instance);
+        env = env.Bind("read-line", consoleText);
+
+        EffectfulType consoleNothing = new(
+            [new EffectType(new Name("Console"))],
+            NothingType.s_instance);
+        env = env.Bind("print-line", new FunctionType(TextType.s_instance, consoleNothing));
+
         return env;
     }
 }

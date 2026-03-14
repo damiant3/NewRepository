@@ -260,6 +260,24 @@ public sealed class Parser
 
     private TypeNode ParseTypeAtom()
     {
+        if (Current.Kind == TokenKind.LeftBracket)
+        {
+            Token start = Current;
+            Advance();
+            List<TypeNode> effects = new List<TypeNode>();
+            while (Current.Kind != TokenKind.RightBracket && !IsAtEnd)
+            {
+                effects.Add(ParseTypeAtom());
+                if (Current.Kind == TokenKind.Comma)
+                {
+                    Advance();
+                }
+            }
+            Expect(TokenKind.RightBracket);
+            TypeNode returnType = ParseType();
+            return new EffectfulTypeNode(effects, returnType, start.Span.Through(returnType.Span));
+        }
+
         if (Current.Kind == TokenKind.LeftParen)
         {
             Token start = Current;
@@ -429,6 +447,9 @@ public sealed class Parser
             case TokenKind.WhenKeyword:
                 return ParseMatchExpression();
 
+            case TokenKind.DoKeyword:
+                return ParseDoExpression();
+
             default:
             {
                 m_diagnostics.Error("CDX1020", $"Expected an expression, found {Current.Kind}", Current.Span);
@@ -559,6 +580,42 @@ public sealed class Parser
 
         SourceSpan endSpan = branches.Count > 0 ? branches[^1].Span : scrutinee.Span;
         return new MatchExpressionNode(scrutinee, branches, start.Span.Through(endSpan));
+    }
+
+    private ExpressionNode ParseDoExpression()
+    {
+        Token start = Current;
+        Advance();
+        SkipNewlines();
+
+        List<DoStatementNode> statements = new List<DoStatementNode>();
+        while (!IsAtEnd
+            && Current.Kind is not (TokenKind.EndOfFile or TokenKind.Dedent)
+            && !(Current.Kind == TokenKind.Identifier && Peek(1)?.Kind == TokenKind.Colon))
+        {
+            if (Current.Kind == TokenKind.Identifier && Peek(1)?.Kind == TokenKind.LeftArrow)
+            {
+                Token name = Current;
+                Advance();
+                Advance();
+                ExpressionNode value = ParseExpression();
+                statements.Add(new DoBindStatementNode(name, value, name.Span.Through(value.Span)));
+            }
+            else
+            {
+                ExpressionNode expr = ParseExpression();
+                statements.Add(new DoExprStatementNode(expr, expr.Span));
+            }
+            SkipNewlines();
+        }
+
+        if (statements.Count == 0)
+        {
+            m_diagnostics.Error("CDX1040", "do expression requires at least one statement", start.Span);
+        }
+
+        SourceSpan endSpan = statements.Count > 0 ? statements[^1].Span : start.Span;
+        return new DoExpressionNode(statements, start.Span.Through(endSpan));
     }
 
     private PatternNode ParsePattern()

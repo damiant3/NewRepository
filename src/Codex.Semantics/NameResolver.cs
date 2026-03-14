@@ -15,7 +15,8 @@ public sealed class NameResolver
     private readonly DiagnosticBag m_diagnostics;
 
     private static readonly ImmutableHashSet<string> s_builtins = ImmutableHashSet.Create(
-        "show", "negate", "True", "False", "Nothing"
+        "show", "negate", "True", "False", "Nothing",
+        "print-line", "read-line"
     );
 
     public NameResolver(DiagnosticBag diagnostics)
@@ -158,6 +159,25 @@ public sealed class NameResolver
             case FieldAccessExpr fa:
                 ResolveExpr(fa.Record, scope);
                 break;
+
+            case DoExpr doExpr:
+            {
+                ImmutableHashSet<string> doScope = scope;
+                foreach (DoStatement stmt in doExpr.Statements)
+                {
+                    switch (stmt)
+                    {
+                        case DoBindStatement bind:
+                            ResolveExpr(bind.Value, doScope);
+                            doScope = doScope.Add(bind.Name.Value);
+                            break;
+                        case DoExprStatement exprStmt:
+                            ResolveExpr(exprStmt.Expression, doScope);
+                            break;
+                    }
+                }
+                break;
+            }
 
             case ErrorExpr:
                 break;

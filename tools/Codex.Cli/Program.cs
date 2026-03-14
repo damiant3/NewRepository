@@ -467,6 +467,7 @@ public static class Program
         FunctionTypeNode f => $"{FormatType(f.Parameter)} → {FormatType(f.Return)}",
         ApplicationTypeNode a => $"{FormatType(a.Constructor)} {string.Join(" ", a.Arguments.Select(FormatType))}",
         ParenthesizedTypeNode p => $"({FormatType(p.Inner)})",
+        EffectfulTypeNode e => $"[{string.Join(", ", e.Effects.Select(FormatType))}] {FormatType(e.Return)}",
         _ => "?"
     };
 
@@ -475,6 +476,7 @@ public static class Program
         NamedTypeExpr n => n.Name.Value,
         FunctionTypeExpr f => $"{FormatTypeExpr(f.Parameter)} → {FormatTypeExpr(f.Return)}",
         AppliedTypeExpr a => $"{FormatTypeExpr(a.Constructor)} {string.Join(" ", a.Arguments.Select(FormatTypeExpr))}",
+        EffectfulTypeExpr e => $"[{string.Join(", ", e.Effects.Select(FormatTypeExpr))}] {FormatTypeExpr(e.Return)}",
         _ => "?"
     };
 

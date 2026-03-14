@@ -69,6 +69,14 @@ public sealed record FieldAccessExpr(Expr Record, Name FieldName, SourceSpan Spa
 
 public sealed record ErrorExpr(string Message, SourceSpan Span) : Expr(Span);
 
+public sealed record DoExpr(IReadOnlyList<DoStatement> Statements, SourceSpan Span) : Expr(Span);
+
+public abstract record DoStatement(SourceSpan Span);
+
+public sealed record DoBindStatement(Name Name, Expr Value, SourceSpan Span) : DoStatement(Span);
+
+public sealed record DoExprStatement(Expr Expression, SourceSpan Span) : DoStatement(Span);
+
 public abstract record Pattern(SourceSpan Span);
 
 public sealed record VarPattern(Name Name, SourceSpan Span) : Pattern(Span);
@@ -86,6 +94,8 @@ public sealed record NamedTypeExpr(Name Name, SourceSpan Span) : TypeExpr(Span);
 public sealed record FunctionTypeExpr(TypeExpr Parameter, TypeExpr Return, SourceSpan Span) : TypeExpr(Span);
 
 public sealed record AppliedTypeExpr(TypeExpr Constructor, IReadOnlyList<TypeExpr> Arguments, SourceSpan Span) : TypeExpr(Span);
+
+public sealed record EffectfulTypeExpr(IReadOnlyList<TypeExpr> Effects, TypeExpr Return, SourceSpan Span) : TypeExpr(Span);
 
 public abstract record TypeDef(Name Name, IReadOnlyList<Name> TypeParameters, SourceSpan Span);
 

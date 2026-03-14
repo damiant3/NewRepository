@@ -75,6 +75,17 @@ public sealed class Unifier
             return true;
         }
 
+        if (a is EffectfulType ea && b is EffectfulType eb)
+        {
+            return Unify(ea.Return, eb.Return, span);
+        }
+
+        if (a is EffectfulType ea2)
+            return Unify(ea2.Return, b, span);
+
+        if (b is EffectfulType eb2)
+            return Unify(a, eb2.Return, span);
+
         if (a is ConstructedType ca && b is ConstructedType cb)
         {
             if (ca.Constructor != cb.Constructor || ca.Arguments.Length != cb.Arguments.Length)
@@ -131,6 +142,7 @@ public sealed class Unifier
                     Type = DeepResolve(f.Type)
                 })]
             },
+            EffectfulType eft => eft with { Return = DeepResolve(eft.Return) },
             _ => type
         };
     }
@@ -147,6 +159,7 @@ public sealed class Unifier
             ForAllType fa => OccursIn(varId, fa.Body),
             SumType s => s.Constructors.Any(c => c.Fields.Any(f => OccursIn(varId, f))),
             RecordType r => r.Fields.Any(f => OccursIn(varId, f.Type)),
+            EffectfulType eft => OccursIn(varId, eft.Return),
             _ => false
         };
     }

@@ -12,6 +12,7 @@ public sealed class TypeChecker
     private Map<string, CodexType> m_typeDefMap;
     private Map<string, CtorInfo> m_ctorMap;
     private Map<string, CodexType> m_typeParamEnv;
+    private ImmutableHashSet<string> m_currentEffects;
 
     public TypeChecker(DiagnosticBag diagnostics)
     {
@@ -21,6 +22,7 @@ public sealed class TypeChecker
         m_typeDefMap = Map<string, CodexType>.s_empty;
         m_ctorMap = Map<string, CtorInfo>.s_empty;
         m_typeParamEnv = Map<string, CodexType>.s_empty;
+        m_currentEffects = ImmutableHashSet<string>.Empty;
     }
 
     public ImmutableDictionary<string, CodexType> CheckModule(Module module)
@@ -145,6 +147,9 @@ public sealed class TypeChecker
     private CodexType InferDefinition(Definition def, CodexType expectedType)
     {
         TypeEnvironment savedEnv = m_env;
+        ImmutableHashSet<string> savedEffects = m_currentEffects;
+
+        m_currentEffects = ExtractEffects(expectedType);
 
         CodexType currentExpected = expectedType;
         foreach (Parameter param in def.Parameters)
@@ -177,6 +182,7 @@ public sealed class TypeChecker
         }
 
         m_env = savedEnv;
+        m_currentEffects = savedEffects;
         return fullType;
     }
 
@@ -241,6 +247,9 @@ public sealed class TypeChecker
 
             case FieldAccessExpr fa:
                 return InferFieldAccess(fa);
+
+            case DoExpr doExpr:
+                return InferDoExpr(doExpr);
 
             case ErrorExpr:
                 return ErrorType.s_instance;
@@ -332,6 +341,9 @@ public sealed class TypeChecker
         {
             return ErrorType.s_instance;
         }
+
+        CodexType resolved = m_unifier.Resolve(returnType);
+        CheckEffectAllowed(resolved, app.Span);
 
         return returnType;
     }
@@ -518,6 +530,58 @@ public sealed class TypeChecker
         return ErrorType.s_instance;
     }
 
+    private CodexType InferDoExpr(DoExpr doExpr)
+    {
+        TypeEnvironment savedEnv = m_env;
+        HashSet<string> collectedEffects = new();
+        CodexType lastType = NothingType.s_instance;
+
+        foreach (DoStatement stmt in doExpr.Statements)
+        {
+            switch (stmt)
+            {
+                case DoBindStatement bind:
+                {
+                    CodexType valueType = InferExpr(bind.Value);
+                    CodexType unwrapped = UnwrapEffectful(valueType, collectedEffects);
+                    m_env = m_env.Bind(bind.Name, unwrapped);
+                    lastType = NothingType.s_instance;
+                    break;
+                }
+                case DoExprStatement exprStmt:
+                {
+                    CodexType stmtType = InferExpr(exprStmt.Expression);
+                    UnwrapEffectful(stmtType, collectedEffects);
+                    lastType = stmtType;
+                    break;
+                }
+            }
+        }
+
+        m_env = savedEnv;
+
+        if (collectedEffects.Count > 0)
+        {
+            ImmutableArray<EffectType> effects = [.. collectedEffects.Select(
+                e => new EffectType(new Name(e)))];
+            CodexType returnType = lastType is EffectfulType eft ? eft.Return : lastType;
+            return new EffectfulType(effects, returnType);
+        }
+
+        return lastType;
+    }
+
+    private static CodexType UnwrapEffectful(CodexType type, HashSet<string> effects)
+    {
+        if (type is EffectfulType eft)
+        {
+            foreach (EffectType effect in eft.Effects)
+                effects.Add(effect.EffectName.Value);
+            return eft.Return;
+        }
+        return type;
+    }
+
     private CodexType InferList(ListExpr list)
     {
         if (list.Elements.Count == 0)
@@ -533,6 +597,36 @@ public sealed class TypeChecker
         return new ListType(elementType);
     }
 
+    private static ImmutableHashSet<string> ExtractEffects(CodexType type)
+    {
+        CodexType current = type;
+        while (current is FunctionType ft)
+            current = ft.Return;
+
+        if (current is EffectfulType eft)
+        {
+            return [.. eft.Effects.Select(e => e.EffectName.Value)];
+        }
+        return ImmutableHashSet<string>.Empty;
+    }
+
+    private void CheckEffectAllowed(CodexType type, SourceSpan span)
+    {
+        if (type is not EffectfulType eft)
+            return;
+
+        foreach (EffectType effect in eft.Effects)
+        {
+            if (!m_currentEffects.Contains(effect.EffectName.Value))
+            {
+                m_diagnostics.Error("CDX2031",
+                    $"Effect '{effect.EffectName.Value}' is not allowed in this context. " +
+                    $"Declare it in the function's type signature.",
+                    span);
+            }
+        }
+    }
+
     private CodexType ResolveTypeExpr(TypeExpr typeExpr)
     {
         return typeExpr switch
@@ -542,6 +636,7 @@ public sealed class TypeChecker
                 ResolveTypeExpr(func.Parameter),
                 ResolveTypeExpr(func.Return)),
             AppliedTypeExpr app => ResolveAppliedType(app),
+            EffectfulTypeExpr eff => ResolveEffectfulType(eff),
             _ => ErrorType.s_instance
         };
     }
@@ -596,6 +691,25 @@ public sealed class TypeChecker
 
         ImmutableArray<CodexType> fallbackArgs = [.. app.Arguments.Select(ResolveTypeExpr)];
         return new ConstructedType(ctorName, fallbackArgs);
+    }
+
+    private CodexType ResolveEffectfulType(EffectfulTypeExpr eff)
+    {
+        ImmutableArray<EffectType>.Builder effects = ImmutableArray.CreateBuilder<EffectType>();
+        foreach (TypeExpr e in eff.Effects)
+        {
+            if (e is NamedTypeExpr named)
+            {
+                effects.Add(new EffectType(named.Name));
+            }
+            else
+            {
+                m_diagnostics.Error("CDX2030",
+                    "Effect label must be a name", e.Span);
+            }
+        }
+        CodexType returnType = ResolveTypeExpr(eff.Return);
+        return new EffectfulType(effects.ToImmutable(), returnType);
     }
 
     private static CodexType InstantiateParametricType(CodexType typeDef, ImmutableArray<CodexType> args)
@@ -654,6 +768,10 @@ public sealed class TypeChecker
                 {
                     Type = SubstituteVar(f.Type, varId, replacement)
                 })]
+            },
+            EffectfulType eft => eft with
+            {
+                Return = SubstituteVar(eft.Return, varId, replacement)
             },
             _ => type
         };

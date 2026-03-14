@@ -209,4 +209,63 @@ public class ParserTests
         Assert.Single(doc.Definitions);
         Assert.Equal("favorite", doc.Definitions[0].Name.Text);
     }
+
+    [Fact]
+    public void Parse_effectful_type_annotation()
+    {
+        DocumentNode doc = Parse("main : [Console] Nothing\nmain = 42");
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        Assert.IsType<EffectfulTypeNode>(doc.Definitions[0].TypeAnnotation!.Type);
+        EffectfulTypeNode eft = (EffectfulTypeNode)doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.Single(eft.Effects);
+        Assert.IsType<NamedTypeNode>(eft.Effects[0]);
+        Assert.IsType<NamedTypeNode>(eft.Return);
+    }
+
+    [Fact]
+    public void Parse_effectful_type_with_multiple_effects()
+    {
+        DocumentNode doc = Parse("main : [Console, FileSystem] Nothing\nmain = 42");
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        Assert.IsType<EffectfulTypeNode>(doc.Definitions[0].TypeAnnotation!.Type);
+        EffectfulTypeNode eft = (EffectfulTypeNode)doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.Equal(2, eft.Effects.Count);
+    }
+
+    [Fact]
+    public void Parse_do_expression()
+    {
+        string source = "main : [Console] Nothing\nmain = do\n  print-line \"hello\"\n";
+        DocumentNode doc = Parse(source);
+        Assert.IsType<DoExpressionNode>(doc.Definitions[0].Body);
+        DoExpressionNode doExpr = (DoExpressionNode)doc.Definitions[0].Body;
+        Assert.Single(doExpr.Statements);
+        Assert.IsType<DoExprStatementNode>(doExpr.Statements[0]);
+    }
+
+    [Fact]
+    public void Parse_do_bind_statement()
+    {
+        string source = "main : [Console] Nothing\nmain = do\n  x <- read-line\n  print-line x\n";
+        DocumentNode doc = Parse(source);
+        Assert.IsType<DoExpressionNode>(doc.Definitions[0].Body);
+        DoExpressionNode doExpr = (DoExpressionNode)doc.Definitions[0].Body;
+        Assert.Equal(2, doExpr.Statements.Count);
+        Assert.IsType<DoBindStatementNode>(doExpr.Statements[0]);
+        DoBindStatementNode bind = (DoBindStatementNode)doExpr.Statements[0];
+        Assert.Equal("x", bind.Name.Text);
+    }
+
+    [Fact]
+    public void Parse_function_with_effectful_return()
+    {
+        string source = "greet : Text -> [Console] Nothing\ngreet (name) = print-line name\n";
+        DocumentNode doc = Parse(source);
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        TypeNode typeNode = doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.IsType<FunctionTypeNode>(typeNode);
+        FunctionTypeNode fn = (FunctionTypeNode)typeNode;
+        Assert.IsType<NamedTypeNode>(fn.Parameter);
+        Assert.IsType<EffectfulTypeNode>(fn.Return);
+    }
 }

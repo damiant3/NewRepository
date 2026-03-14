@@ -70,3 +70,11 @@ public sealed record IRCtorPattern(string Name, ImmutableArray<IRPattern> SubPat
 public sealed record IRWildcardPattern : IRPattern;
 
 public sealed record IRError(string Message, CodexType Type) : IRExpr(Type);
+
+public sealed record IRDo(ImmutableArray<IRDoStatement> Statements, CodexType Type) : IRExpr(Type);
+
+public abstract record IRDoStatement;
+
+public sealed record IRDoBind(string Name, CodexType NameType, IRExpr Value) : IRDoStatement;
+
+public sealed record IRDoExec(IRExpr Expression) : IRDoStatement;

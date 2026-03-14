@@ -114,3 +114,17 @@ public sealed record ErrorType : CodexType
     public static readonly ErrorType s_instance = new();
     public override string ToString() => "<error>";
 }
+
+public sealed record EffectType(Name EffectName) : CodexType
+{
+    public override string ToString() => EffectName.Value;
+}
+
+public sealed record EffectfulType(ImmutableArray<EffectType> Effects, CodexType Return) : CodexType
+{
+    public override string ToString()
+    {
+        string effectStr = string.Join(", ", Effects.Select(e => e.EffectName.Value));
+        return $"[{effectStr}] {Return}";
+    }
+}

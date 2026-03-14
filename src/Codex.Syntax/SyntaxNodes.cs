@@ -266,6 +266,26 @@ public sealed record ErrorExpressionNode(Token ErrorToken)
     public override IEnumerable<SyntaxNode> Children => [];
 }
 
+public sealed record DoExpressionNode(IReadOnlyList<DoStatementNode> Statements, SourceSpan Span)
+    : ExpressionNode(SyntaxKind.DoExpression, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => Statements;
+}
+
+public abstract record DoStatementNode(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
+
+public sealed record DoBindStatementNode(Token Name, ExpressionNode Value, SourceSpan Span)
+    : DoStatementNode(SyntaxKind.DoBindStatement, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Value];
+}
+
+public sealed record DoExprStatementNode(ExpressionNode Expression, SourceSpan Span)
+    : DoStatementNode(SyntaxKind.DoExprStatement, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Expression];
+}
+
 public abstract record PatternNode(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
 
 public sealed record VariablePatternNode(Token Name)
@@ -323,6 +343,19 @@ public sealed record ParenthesizedTypeNode(TypeNode Inner, SourceSpan Span)
     : TypeNode(SyntaxKind.ParenthesizedType, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [Inner];
+}
+
+public sealed record EffectfulTypeNode(IReadOnlyList<TypeNode> Effects, TypeNode Return, SourceSpan Span)
+    : TypeNode(SyntaxKind.EffectfulType, Span)
+{
+    public override IEnumerable<SyntaxNode> Children
+    {
+        get
+        {
+            foreach (TypeNode e in Effects) yield return e;
+            yield return Return;
+        }
+    }
 }
 
 public sealed record TypeAnnotationNode(Token Name, TypeNode Type, SourceSpan Span)
