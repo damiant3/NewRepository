@@ -2,8 +2,6 @@ using Codex.Core;
 
 namespace Codex.Types;
 
-// Union-find based unifier for type variables.
-// Mutable during inference, then the resolved types are read out.
 public sealed class Unifier
 {
     private readonly Dictionary<int, CodexType> m_substitutions = new();
@@ -15,10 +13,7 @@ public sealed class Unifier
         m_diagnostics = diagnostics;
     }
 
-    public TypeVariable FreshVar()
-    {
-        return new TypeVariable(m_nextId++);
-    }
+    public TypeVariable FreshVar() => new(m_nextId++);
 
     public bool Unify(CodexType a, CodexType b, SourceSpan span)
     {
@@ -56,9 +51,13 @@ public sealed class Unifier
         }
 
         if (a is ListType la && b is ListType lb)
-        {
             return Unify(la.Element, lb.Element, span);
-        }
+
+        if (a is SumType sa && b is SumType sb && sa.TypeName == sb.TypeName)
+            return true;
+
+        if (a is RecordType ra && b is RecordType rb && ra.TypeName == rb.TypeName)
+            return true;
 
         if (a is ConstructedType ca && b is ConstructedType cb)
         {
@@ -90,7 +89,6 @@ public sealed class Unifier
         return type;
     }
 
-    // Fully resolve a type, substituting through all structure
     public CodexType DeepResolve(CodexType type)
     {
         type = Resolve(type);

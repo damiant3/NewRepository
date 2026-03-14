@@ -58,13 +58,14 @@ public sealed class ProseParser
         }
 
         // Collect all definitions from all notation blocks
-        List<DefinitionNode> allDefs = new List<DefinitionNode>();
+        List<DefinitionNode> allDefs = new();
+        List<TypeDefinitionNode> allTypeDefs = new();
         foreach (ChapterNode chapter in chapters)
         {
-            CollectDefinitions(chapter.Members, allDefs);
+            CollectDefinitions(chapter.Members, allDefs, allTypeDefs);
         }
 
-        return new DocumentNode(allDefs, chapters, docSpan);
+        return new DocumentNode(allDefs, allTypeDefs, chapters, docSpan);
     }
 
     private ChapterNode ParseChapter()
@@ -260,7 +261,7 @@ public sealed class ProseParser
             ? LineOffset(m_lineIndex)
             : m_source.Content.Length;
         SourceSpan span = MakeSpan(startOffset, endOffset);
-        return new NotationBlockNode(notationDoc.Definitions, span);
+        return new NotationBlockNode(notationDoc.Definitions, notationDoc.TypeDefinitions, span);
     }
 
     private static bool LooksLikeNotation(string trimmed)
@@ -279,22 +280,21 @@ public sealed class ProseParser
         return false;
     }
 
-    private static void CollectDefinitions(IReadOnlyList<DocumentMember> members, List<DefinitionNode> defs)
+    private static void CollectDefinitions(IReadOnlyList<DocumentMember> members, List<DefinitionNode> defs, List<TypeDefinitionNode> typeDefs)
     {
         foreach (DocumentMember member in members)
         {
             if (member is NotationBlockNode notation)
             {
                 defs.AddRange(notation.Definitions);
+                typeDefs.AddRange(notation.TypeDefinitions);
             }
             else if (member is SectionNode section)
             {
-                CollectDefinitions(section.Members, defs);
+                CollectDefinitions(section.Members, defs, typeDefs);
             }
         }
     }
-
-    // --- Helpers ---
 
     private string CurrentTrimmed()
     {

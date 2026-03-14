@@ -4,25 +4,27 @@ using Codex.Ast;
 
 namespace Codex.Types;
 
-// Bidirectional type checker for Codex.
-// Infers types for expressions and checks them against declared annotations.
 public sealed class TypeChecker
 {
     private readonly DiagnosticBag m_diagnostics;
     private readonly Unifier m_unifier;
     private TypeEnvironment m_env;
+    private Map<string, CodexType> m_typeDefMap;
+    private Map<string, CtorInfo> m_ctorMap;
 
     public TypeChecker(DiagnosticBag diagnostics)
     {
         m_diagnostics = diagnostics;
-        m_unifier = new Unifier(diagnostics);
+        m_unifier = new(diagnostics);
         m_env = TypeEnvironment.WithBuiltins();
+        m_typeDefMap = Map<string, CodexType>.s_empty;
+        m_ctorMap = Map<string, CtorInfo>.s_empty;
     }
 
     public ImmutableDictionary<string, CodexType> CheckModule(Module module)
     {
-        // First pass: register all top-level names with fresh type variables
-        // so definitions can reference each other (mutual recursion).
+        RegisterTypeDefinitions(module.TypeDefinitions);
+
         Dictionary<string, CodexType> topLevelTypes = new();
         foreach (Definition def in module.Definitions)
         {
@@ -33,16 +35,13 @@ public sealed class TypeChecker
             m_env = m_env.Bind(def.Name, declaredType);
         }
 
-        // Second pass: infer/check the body of each definition
         foreach (Definition def in module.Definitions)
         {
             CodexType expectedType = topLevelTypes[def.Name.Value];
             CodexType bodyType = InferDefinition(def, expectedType);
-
             m_unifier.Unify(expectedType, bodyType, def.Span);
         }
 
-        // Resolve all types to their final form
         ImmutableDictionary<string, CodexType>.Builder result =
             ImmutableDictionary.CreateBuilder<string, CodexType>();
         foreach (KeyValuePair<string, CodexType> kv in topLevelTypes)
@@ -53,11 +52,66 @@ public sealed class TypeChecker
         return result.ToImmutable();
     }
 
+    private void RegisterTypeDefinitions(IReadOnlyList<TypeDef> typeDefs)
+    {
+        foreach (TypeDef td in typeDefs)
+        {
+            switch (td)
+            {
+                case RecordTypeDef rec:
+                {
+                    ImmutableArray<RecordFieldType>.Builder fields =
+                        ImmutableArray.CreateBuilder<RecordFieldType>();
+                    foreach (RecordFieldDef f in rec.Fields)
+                    {
+                        fields.Add(new(f.FieldName, ResolveTypeExpr(f.Type)));
+                    }
+                    RecordType recordType = new(rec.Name, fields.ToImmutable());
+                    m_typeDefMap = m_typeDefMap.Set(rec.Name.Value, recordType);
+                    break;
+                }
+
+                case VariantTypeDef variant:
+                {
+                    ImmutableArray<SumConstructorType>.Builder ctors =
+                        ImmutableArray.CreateBuilder<SumConstructorType>();
+                    foreach (VariantCtorDef c in variant.Constructors)
+                    {
+                        ImmutableArray<CodexType>.Builder ctorFields =
+                            ImmutableArray.CreateBuilder<CodexType>();
+                        foreach (VariantFieldDef f in c.Fields)
+                        {
+                            ctorFields.Add(ResolveTypeExpr(f.Type));
+                        }
+                        ctors.Add(new(c.Name, ctorFields.ToImmutable()));
+                    }
+                    SumType sumType = new(variant.Name, ctors.ToImmutable());
+                    m_typeDefMap = m_typeDefMap.Set(variant.Name.Value, sumType);
+
+                    foreach (SumConstructorType ctor in sumType.Constructors)
+                    {
+                        CodexType ctorType = sumType;
+                        for (int i = ctor.Fields.Length - 1; i >= 0; i--)
+                        {
+                            ctorType = new FunctionType(ctor.Fields[i], ctorType);
+                        }
+                        m_ctorMap = m_ctorMap.Set(ctor.Name.Value, new(ctorType, sumType));
+                        m_env = m_env.Bind(ctor.Name, ctorType);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    public Map<string, CodexType> TypeDefMap => m_typeDefMap;
+
+    public Map<string, CtorInfo> ConstructorMap => m_ctorMap;
+
     private CodexType InferDefinition(Definition def, CodexType expectedType)
     {
         TypeEnvironment savedEnv = m_env;
 
-        // Peel off function parameters from the expected type
         CodexType currentExpected = expectedType;
         foreach (Parameter param in def.Parameters)
         {
@@ -81,7 +135,6 @@ public sealed class TypeChecker
         CodexType bodyType = InferExpr(def.Body);
         m_unifier.Unify(currentExpected, bodyType, def.Body.Span);
 
-        // Reconstruct full function type from params
         CodexType fullType = bodyType;
         for (int i = def.Parameters.Count - 1; i >= 0; i--)
         {
@@ -149,13 +202,11 @@ public sealed class TypeChecker
             case ListExpr list:
                 return InferList(list);
 
-            case RecordExpr:
-                // Records need type definitions to check properly — defer for now
-                return m_unifier.FreshVar();
+            case RecordExpr rec:
+                return InferRecord(rec);
 
-            case FieldAccessExpr:
-                // Field access needs record type info — defer for now
-                return m_unifier.FreshVar();
+            case FieldAccessExpr fa:
+                return InferFieldAccess(fa);
 
             case ErrorExpr:
                 return ErrorType.s_instance;
@@ -232,7 +283,7 @@ public sealed class TypeChecker
 
     private CodexType InferCons(CodexType left, CodexType right, BinaryExpr bin)
     {
-        ListType listType = new ListType(left);
+        ListType listType = new(left);
         m_unifier.Unify(right, listType, bin.Span);
         return listType;
     }
@@ -241,11 +292,9 @@ public sealed class TypeChecker
     {
         CodexType funcType = InferExpr(app.Function);
         CodexType argType = InferExpr(app.Argument);
-
         CodexType returnType = m_unifier.FreshVar();
-        FunctionType expected = new FunctionType(argType, returnType);
 
-        if (!m_unifier.Unify(funcType, expected, app.Span))
+        if (!m_unifier.Unify(funcType, new FunctionType(argType, returnType), app.Span))
         {
             return ErrorType.s_instance;
         }
@@ -329,10 +378,30 @@ public sealed class TypeChecker
                 break;
 
             case CtorPattern ctor:
-                foreach (Pattern sub in ctor.SubPatterns)
+                CtorInfo? info = m_ctorMap[ctor.Constructor.Value];
+                if (info is not null)
                 {
-                    CodexType subType = m_unifier.FreshVar();
-                    CheckPattern(sub, subType);
+                    m_unifier.Unify(expectedType, info.OwnerType, ctor.Span);
+                    SumConstructorType? sumCtor = (info.OwnerType as SumType)?.Constructors
+                        .FirstOrDefault(c => c.Name.Value == ctor.Constructor.Value);
+
+                    if (sumCtor is not null && ctor.SubPatterns.Count == sumCtor.Fields.Length)
+                    {
+                        for (int i = 0; i < ctor.SubPatterns.Count; i++)
+                        {
+                            CheckPattern(ctor.SubPatterns[i], sumCtor.Fields[i]);
+                        }
+                    }
+                    else
+                    {
+                        foreach (Pattern sub in ctor.SubPatterns)
+                            CheckPattern(sub, m_unifier.FreshVar());
+                    }
+                }
+                else
+                {
+                    foreach (Pattern sub in ctor.SubPatterns)
+                        CheckPattern(sub, m_unifier.FreshVar());
                 }
                 break;
 
@@ -341,12 +410,49 @@ public sealed class TypeChecker
         }
     }
 
+    private CodexType InferRecord(RecordExpr rec)
+    {
+        if (rec.TypeName is null)
+            return m_unifier.FreshVar();
+
+        CodexType? typeDef = m_typeDefMap[rec.TypeName.Value.Value];
+        if (typeDef is not RecordType recordType)
+            return m_unifier.FreshVar();
+
+        foreach (RecordFieldExpr field in rec.Fields)
+        {
+            RecordFieldType? expectedField = recordType.Fields
+                .FirstOrDefault(f => f.FieldName.Value == field.FieldName.Value);
+            CodexType fieldType = InferExpr(field.Value);
+            if (expectedField is not null)
+            {
+                m_unifier.Unify(fieldType, expectedField.Type, field.Span);
+            }
+        }
+        return recordType;
+    }
+
+    private CodexType InferFieldAccess(FieldAccessExpr fa)
+    {
+        CodexType recordType = InferExpr(fa.Record);
+        CodexType resolved = m_unifier.Resolve(recordType);
+        if (resolved is not RecordType rt)
+            return m_unifier.FreshVar();
+
+        RecordFieldType? field = rt.Fields.FirstOrDefault(f => f.FieldName.Value == fa.FieldName.Value);
+        if (field is not null)
+            return field.Type;
+
+        m_diagnostics.Error("CDX2005",
+            $"Record type '{rt.TypeName.Value}' has no field '{fa.FieldName.Value}'",
+            fa.Span);
+        return ErrorType.s_instance;
+    }
+
     private CodexType InferList(ListExpr list)
     {
         if (list.Elements.Count == 0)
-        {
             return new ListType(m_unifier.FreshVar());
-        }
 
         CodexType elementType = InferExpr(list.Elements[0]);
         for (int i = 1; i < list.Elements.Count; i++)
@@ -358,7 +464,6 @@ public sealed class TypeChecker
         return new ListType(elementType);
     }
 
-    // Resolve a surface TypeExpr to an internal CodexType
     private CodexType ResolveTypeExpr(TypeExpr typeExpr)
     {
         return typeExpr switch
@@ -372,9 +477,9 @@ public sealed class TypeChecker
         };
     }
 
-    private static CodexType ResolveNamedType(Name name)
+    private CodexType ResolveNamedType(Name name)
     {
-        return name.Value switch
+        CodexType? fromPrimitive = name.Value switch
         {
             "Integer" => IntegerType.s_instance,
             "Number" => NumberType.s_instance,
@@ -382,8 +487,16 @@ public sealed class TypeChecker
             "Boolean" => BooleanType.s_instance,
             "Nothing" => NothingType.s_instance,
             "Void" => VoidType.s_instance,
-            _ => new ConstructedType(name, [])
+            _ => null
         };
+        if (fromPrimitive is not null)
+            return fromPrimitive;
+
+        CodexType? userDef = m_typeDefMap[name.Value];
+        if (userDef is not null)
+            return userDef;
+
+        return new ConstructedType(name, []);
     }
 
     private CodexType ResolveAppliedType(AppliedTypeExpr app)
@@ -396,7 +509,7 @@ public sealed class TypeChecker
 
         Name ctorName = app.Constructor is NamedTypeExpr n
             ? n.Name
-            : new Name("?");
+            : new("?");
 
         ImmutableArray<CodexType> args = [.. app.Arguments.Select(ResolveTypeExpr)];
         return new ConstructedType(ctorName, args);
@@ -404,12 +517,10 @@ public sealed class TypeChecker
 
     private CodexType Instantiate(CodexType type)
     {
-        if (type is ForAllType forAll)
-        {
-            TypeVariable fresh = m_unifier.FreshVar();
-            return SubstituteVar(forAll.Body, forAll.VariableId, fresh);
-        }
-        return type;
+        if (type is not ForAllType forAll)
+            return type;
+        TypeVariable fresh = m_unifier.FreshVar();
+        return SubstituteVar(forAll.Body, forAll.VariableId, fresh);
     }
 
     private static CodexType SubstituteVar(CodexType type, int varId, CodexType replacement)
@@ -431,3 +542,5 @@ public sealed class TypeChecker
         };
     }
 }
+
+public sealed record CtorInfo(CodexType ConstructorType, CodexType OwnerType);

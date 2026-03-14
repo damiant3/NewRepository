@@ -8,14 +8,22 @@ namespace Codex.IR;
 public sealed class Lowering
 {
     private readonly ImmutableDictionary<string, CodexType> m_typeMap;
+    private readonly Map<string, CtorInfo> m_ctorMap;
+    private readonly Map<string, CodexType> m_typeDefMap;
     private readonly DiagnosticBag m_diagnostics;
-    private ImmutableDictionary<string, CodexType> m_localEnv;
+    private Map<string, CodexType> m_localEnv;
 
-    public Lowering(ImmutableDictionary<string, CodexType> typeMap, DiagnosticBag diagnostics)
+    public Lowering(
+        ImmutableDictionary<string, CodexType> typeMap,
+        Map<string, CtorInfo> ctorMap,
+        Map<string, CodexType> typeDefMap,
+        DiagnosticBag diagnostics)
     {
         m_typeMap = typeMap;
+        m_ctorMap = ctorMap;
+        m_typeDefMap = typeDefMap;
         m_diagnostics = diagnostics;
-        m_localEnv = ImmutableDictionary<string, CodexType>.Empty;
+        m_localEnv = Map<string, CodexType>.s_empty;
     }
 
     public IRModule Lower(Module module)
@@ -25,7 +33,7 @@ public sealed class Lowering
         {
             defs.Add(LowerDefinition(def));
         }
-        return new IRModule(module.Name, defs.ToImmutable());
+        return new(module.Name, defs.ToImmutable(), m_typeDefMap);
     }
 
     private IRDefinition LowerDefinition(Definition def)
@@ -34,7 +42,7 @@ public sealed class Lowering
             ? t
             : ErrorType.s_instance;
 
-        ImmutableDictionary<string, CodexType> savedEnv = m_localEnv;
+        Map<string, CodexType> savedEnv = m_localEnv;
 
         ImmutableArray<IRParameter>.Builder parameters = ImmutableArray.CreateBuilder<IRParameter>();
         CodexType currentType = fullType;
@@ -50,13 +58,13 @@ public sealed class Lowering
             {
                 paramType = ErrorType.s_instance;
             }
-            parameters.Add(new IRParameter(param.Name.Value, paramType));
-            m_localEnv = m_localEnv.SetItem(param.Name.Value, paramType);
+            parameters.Add(new(param.Name.Value, paramType));
+            m_localEnv = m_localEnv.Set(param.Name.Value, paramType);
         }
 
         IRExpr body = LowerExpr(def.Body, currentType);
         m_localEnv = savedEnv;
-        return new IRDefinition(def.Name.Value, parameters.ToImmutable(), fullType, body);
+        return new(def.Name.Value, parameters.ToImmutable(), fullType, body);
     }
 
     private IRExpr LowerExpr(Expr expr, CodexType expectedType)
@@ -67,8 +75,7 @@ public sealed class Lowering
                 return LowerLiteral(lit);
 
             case NameExpr name:
-                CodexType nameType = LookupName(name.Name.Value, expectedType);
-                return new IRName(name.Name.Value, nameType);
+                return new IRName(name.Name.Value, LookupName(name.Name.Value, expectedType));
 
             case BinaryExpr bin:
                 return LowerBinary(bin, expectedType);
@@ -163,21 +170,18 @@ public sealed class Lowering
 
     private IRExpr LowerLet(LetExpr let, CodexType expectedType)
     {
-        ImmutableDictionary<string, CodexType> savedEnv = m_localEnv;
+        Map<string, CodexType> savedEnv = m_localEnv;
 
-        // Single pass: lower each binding and add its type to the local env
-        List<(string Name, IRExpr Value)> loweredBindings = new List<(string, IRExpr)>();
+        List<(string Name, IRExpr Value)> loweredBindings = new();
         foreach (Ast.LetBinding binding in let.Bindings)
         {
             IRExpr value = LowerExpr(binding.Value, ErrorType.s_instance);
             loweredBindings.Add((binding.Name.Value, value));
-            m_localEnv = m_localEnv.SetItem(binding.Name.Value, value.Type);
+            m_localEnv = m_localEnv.Set(binding.Name.Value, value.Type);
         }
 
-        // Lower the body with all bindings in scope
         IRExpr body = LowerExpr(let.Body, expectedType);
 
-        // Wrap in nested IRLets from inside out
         for (int i = loweredBindings.Count - 1; i >= 0; i--)
         {
             (string name, IRExpr value) = loweredBindings[i];
@@ -199,15 +203,15 @@ public sealed class Lowering
 
     private IRExpr LowerLambda(LambdaExpr lam, CodexType expectedType)
     {
-        ImmutableDictionary<string, CodexType> savedEnv = m_localEnv;
+        Map<string, CodexType> savedEnv = m_localEnv;
 
         ImmutableArray<IRParameter>.Builder parameters = ImmutableArray.CreateBuilder<IRParameter>();
         CodexType currentType = expectedType;
         foreach (Parameter p in lam.Parameters)
         {
             CodexType paramType = currentType is FunctionType ft ? ft.Parameter : ErrorType.s_instance;
-            parameters.Add(new IRParameter(p.Name.Value, paramType));
-            m_localEnv = m_localEnv.SetItem(p.Name.Value, paramType);
+            parameters.Add(new(p.Name.Value, paramType));
+            m_localEnv = m_localEnv.Set(p.Name.Value, paramType);
             currentType = currentType is FunctionType ft2 ? ft2.Return : currentType;
         }
 
@@ -223,10 +227,10 @@ public sealed class Lowering
 
         foreach (MatchBranch branch in match.Branches)
         {
-            ImmutableDictionary<string, CodexType> savedEnv = m_localEnv;
+            Map<string, CodexType> savedEnv = m_localEnv;
             IRPattern pattern = LowerPattern(branch.Pattern, scrutinee.Type);
             IRExpr body = LowerExpr(branch.Body, expectedType);
-            branches.Add(new IRMatchBranch(pattern, body));
+            branches.Add(new(pattern, body));
             m_localEnv = savedEnv;
         }
 
@@ -238,8 +242,10 @@ public sealed class Lowering
         switch (pattern)
         {
             case VarPattern v:
-                m_localEnv = m_localEnv.SetItem(v.Name.Value, scrutineeType);
+                m_localEnv = m_localEnv.Set(v.Name.Value, scrutineeType);
                 return new IRVarPattern(v.Name.Value, scrutineeType);
+            case CtorPattern ctor:
+                return LowerCtorPattern(ctor, scrutineeType);
             case LiteralPattern lit:
                 return new IRLiteralPattern(lit.Value, scrutineeType);
             case WildcardPattern:
@@ -247,6 +253,24 @@ public sealed class Lowering
             default:
                 return new IRWildcardPattern();
         }
+    }
+
+    private IRPattern LowerCtorPattern(CtorPattern ctor, CodexType scrutineeType)
+    {
+        SumType? sumType = scrutineeType as SumType;
+        SumConstructorType? sumCtor = sumType?.Constructors
+            .FirstOrDefault(c => c.Name.Value == ctor.Constructor.Value);
+
+        ImmutableArray<IRPattern>.Builder subPatterns = ImmutableArray.CreateBuilder<IRPattern>();
+        for (int i = 0; i < ctor.SubPatterns.Count; i++)
+        {
+            CodexType fieldType = sumCtor is not null && i < sumCtor.Fields.Length
+                ? sumCtor.Fields[i]
+                : ErrorType.s_instance;
+            subPatterns.Add(LowerPattern(ctor.SubPatterns[i], fieldType));
+        }
+
+        return new IRCtorPattern(ctor.Constructor.Value, subPatterns.ToImmutable(), scrutineeType);
     }
 
     private IRExpr LowerList(ListExpr list, CodexType expectedType)
@@ -264,11 +288,10 @@ public sealed class Lowering
         return new IRList(elements.ToImmutable(), elementType);
     }
 
-    private CodexType InferElementType(ListExpr list)
+    private static CodexType InferElementType(ListExpr list)
     {
         if (list.Elements.Count == 0) return ErrorType.s_instance;
-        Expr first = list.Elements[0];
-        return first switch
+        return list.Elements[0] switch
         {
             LiteralExpr lit => lit.Kind switch
             {
@@ -284,11 +307,10 @@ public sealed class Lowering
 
     private CodexType LookupName(string name, CodexType fallback)
     {
-        if (m_localEnv.TryGetValue(name, out CodexType? localType))
-            return localType;
-        if (m_typeMap.TryGetValue(name, out CodexType? type))
-            return type;
-        return fallback;
+        return m_localEnv[name]
+            ?? (m_typeMap.TryGetValue(name, out CodexType? type) ? type : null)
+            ?? m_ctorMap[name]?.ConstructorType
+            ?? fallback;
     }
 
     private static bool IsNumeric(CodexType type) => type is IntegerType or NumberType;

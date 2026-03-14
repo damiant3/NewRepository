@@ -4,22 +4,18 @@ using Codex.Ast;
 
 namespace Codex.Semantics;
 
-// The result of name resolution: the module plus a set of all defined names.
 public sealed record ResolvedModule(
     Module Module,
-    ImmutableHashSet<string> TopLevelNames);
+    ImmutableHashSet<string> TopLevelNames,
+    ImmutableHashSet<string> TypeNames,
+    ImmutableHashSet<string> ConstructorNames);
 
-// Resolves names in a module. Reports errors for undefined references.
-// Does not do type checking — just ensures every name refers to something.
 public sealed class NameResolver
 {
     private readonly DiagnosticBag m_diagnostics;
 
-    // Names that are always available (built-in functions, etc.)
     private static readonly ImmutableHashSet<string> s_builtins = ImmutableHashSet.Create(
-        "show", "negate", "True", "False",
-        // Built-in type names are valid as constructor expressions too
-        "Nothing"
+        "show", "negate", "True", "False", "Nothing"
     );
 
     public NameResolver(DiagnosticBag diagnostics)
@@ -29,7 +25,6 @@ public sealed class NameResolver
 
     public ResolvedModule Resolve(Module module)
     {
-        // Collect all top-level definition names (forward references allowed)
         ImmutableHashSet<string>.Builder topLevel = ImmutableHashSet.CreateBuilder<string>();
         foreach (Definition def in module.Definitions)
         {
@@ -41,17 +36,48 @@ public sealed class NameResolver
             }
         }
 
+        ImmutableHashSet<string>.Builder typeNames = ImmutableHashSet.CreateBuilder<string>();
+        ImmutableHashSet<string>.Builder ctorNames = ImmutableHashSet.CreateBuilder<string>();
+
+        foreach (TypeDef td in module.TypeDefinitions)
+        {
+            if (!typeNames.Add(td.Name.Value))
+            {
+                m_diagnostics.Error("CDX3001",
+                    $"Duplicate type definition: '{td.Name.Value}' is already defined",
+                    td.Span);
+            }
+
+            if (td is VariantTypeDef variant)
+            {
+                foreach (VariantCtorDef ctor in variant.Constructors)
+                {
+                    if (!ctorNames.Add(ctor.Name.Value))
+                    {
+                        m_diagnostics.Error("CDX3001",
+                            $"Duplicate constructor: '{ctor.Name.Value}' is already defined",
+                            ctor.Span);
+                    }
+                }
+            }
+        }
+
         ImmutableHashSet<string> topLevelNames = topLevel.ToImmutable();
+        ImmutableHashSet<string> allCtors = ctorNames.ToImmutable();
+        ImmutableHashSet<string> allTypeNames = typeNames.ToImmutable();
+
+        ImmutableHashSet<string> allKnownNames = topLevelNames
+            .Union(s_builtins)
+            .Union(allCtors);
 
         foreach (Definition def in module.Definitions)
         {
-            ImmutableHashSet<string> scope = topLevelNames
-                .Union(s_builtins)
+            ImmutableHashSet<string> scope = allKnownNames
                 .Union(def.Parameters.Select(p => p.Name.Value));
             ResolveExpr(def.Body, scope);
         }
 
-        return new ResolvedModule(module, topLevelNames);
+        return new ResolvedModule(module, topLevelNames, allTypeNames, allCtors);
     }
 
     private void ResolveExpr(Expr expr, ImmutableHashSet<string> scope)
@@ -155,6 +181,5 @@ public sealed class NameResolver
         }
     }
 
-    // Type names (capitalized) are always allowed as expressions — they may be constructors
     private static bool IsTypeName(Name name) => name.IsTypeName;
 }

@@ -2,12 +2,10 @@ using Codex.Core;
 
 namespace Codex.Ast;
 
-
-// --- Module structure ---
-
 public sealed record Module(
     QualifiedName Name,
     IReadOnlyList<Definition> Definitions,
+    IReadOnlyList<TypeDef> TypeDefinitions,
     SourceSpan Span);
 
 public sealed record Definition(
@@ -18,8 +16,6 @@ public sealed record Definition(
     SourceSpan Span);
 
 public sealed record Parameter(Name Name, TypeExpr? TypeAnnotation, SourceSpan Span);
-
-// --- Expressions ---
 
 public abstract record Expr(SourceSpan Span);
 
@@ -73,8 +69,6 @@ public sealed record FieldAccessExpr(Expr Record, Name FieldName, SourceSpan Spa
 
 public sealed record ErrorExpr(string Message, SourceSpan Span) : Expr(Span);
 
-// --- Patterns ---
-
 public abstract record Pattern(SourceSpan Span);
 
 public sealed record VarPattern(Name Name, SourceSpan Span) : Pattern(Span);
@@ -85,8 +79,6 @@ public sealed record CtorPattern(Name Constructor, IReadOnlyList<Pattern> SubPat
 
 public sealed record WildcardPattern(SourceSpan Span) : Pattern(Span);
 
-// --- Type expressions (surface syntax for types, before resolution) ---
-
 public abstract record TypeExpr(SourceSpan Span);
 
 public sealed record NamedTypeExpr(Name Name, SourceSpan Span) : TypeExpr(Span);
@@ -94,3 +86,28 @@ public sealed record NamedTypeExpr(Name Name, SourceSpan Span) : TypeExpr(Span);
 public sealed record FunctionTypeExpr(TypeExpr Parameter, TypeExpr Return, SourceSpan Span) : TypeExpr(Span);
 
 public sealed record AppliedTypeExpr(TypeExpr Constructor, IReadOnlyList<TypeExpr> Arguments, SourceSpan Span) : TypeExpr(Span);
+
+public abstract record TypeDef(Name Name, IReadOnlyList<Name> TypeParameters, SourceSpan Span);
+
+public sealed record RecordTypeDef(
+    Name Name,
+    IReadOnlyList<Name> TypeParameters,
+    IReadOnlyList<RecordFieldDef> Fields,
+    SourceSpan Span)
+    : TypeDef(Name, TypeParameters, Span);
+
+public sealed record RecordFieldDef(Name FieldName, TypeExpr Type, SourceSpan Span);
+
+public sealed record VariantTypeDef(
+    Name Name,
+    IReadOnlyList<Name> TypeParameters,
+    IReadOnlyList<VariantCtorDef> Constructors,
+    SourceSpan Span)
+    : TypeDef(Name, TypeParameters, Span);
+
+public sealed record VariantCtorDef(
+    Name Name,
+    IReadOnlyList<VariantFieldDef> Fields,
+    SourceSpan Span);
+
+public sealed record VariantFieldDef(Name? FieldName, TypeExpr Type, SourceSpan Span);

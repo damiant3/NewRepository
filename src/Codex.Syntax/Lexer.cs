@@ -348,8 +348,6 @@ public sealed class Lexer
         }
     }
 
-    // --- Indentation handling ---
-
     private void SkipBlankLines()
     {
         while (!IsAtEnd)
@@ -438,8 +436,6 @@ public sealed class Lexer
 
         return new Token(TokenKind.EndOfFile, "", span);
     }
-
-    // --- Character-level helpers ---
 
     private bool IsAtEnd => m_position >= m_text.Length;
 

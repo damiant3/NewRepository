@@ -146,4 +146,67 @@ public class ParserTests
         BinaryExpressionNode mul = (BinaryExpressionNode)body;
         Assert.Equal(TokenKind.Star, mul.Operator.Kind);
     }
+
+    [Fact]
+    public void Parse_record_type_definition()
+    {
+        string source = "Point = record { x : Number, y : Number }";
+        DocumentNode doc = Parse(source);
+        Assert.Single(doc.TypeDefinitions);
+        Assert.Equal("Point", doc.TypeDefinitions[0].Name.Text);
+        Assert.IsType<RecordTypeBody>(doc.TypeDefinitions[0].Body);
+        RecordTypeBody body = (RecordTypeBody)doc.TypeDefinitions[0].Body;
+        Assert.Equal(2, body.Fields.Count);
+        Assert.Equal("x", body.Fields[0].Name.Text);
+        Assert.Equal("y", body.Fields[1].Name.Text);
+    }
+
+    [Fact]
+    public void Parse_variant_type_definition()
+    {
+        string source = "Color =\n  | Red\n  | Green\n  | Blue";
+        DocumentNode doc = Parse(source);
+        Assert.Single(doc.TypeDefinitions);
+        Assert.Equal("Color", doc.TypeDefinitions[0].Name.Text);
+        Assert.IsType<VariantTypeBody>(doc.TypeDefinitions[0].Body);
+        VariantTypeBody body = (VariantTypeBody)doc.TypeDefinitions[0].Body;
+        Assert.Equal(3, body.Constructors.Count);
+        Assert.Equal("Red", body.Constructors[0].Name.Text);
+        Assert.Equal("Green", body.Constructors[1].Name.Text);
+        Assert.Equal("Blue", body.Constructors[2].Name.Text);
+    }
+
+    [Fact]
+    public void Parse_variant_with_fields()
+    {
+        string source = "Shape =\n  | Circle (radius : Number)\n  | Rect (width : Number) (height : Number)";
+        DocumentNode doc = Parse(source);
+        Assert.Single(doc.TypeDefinitions);
+        VariantTypeBody body = (VariantTypeBody)doc.TypeDefinitions[0].Body;
+        Assert.Equal(2, body.Constructors.Count);
+        Assert.Single(body.Constructors[0].Fields);
+        Assert.Equal(2, body.Constructors[1].Fields.Count);
+    }
+
+    [Fact]
+    public void Parse_variant_with_type_parameters()
+    {
+        string source = "Maybe (a) =\n  | Just (value : a)\n  | None";
+        DocumentNode doc = Parse(source);
+        Assert.Single(doc.TypeDefinitions);
+        Assert.Single(doc.TypeDefinitions[0].TypeParameters);
+        Assert.Equal("a", doc.TypeDefinitions[0].TypeParameters[0].Text);
+    }
+
+    [Fact]
+    public void Parse_type_def_and_value_def_together()
+    {
+        string source =
+            "Color =\n  | Red\n  | Green\n  | Blue\n\n" +
+            "favorite : Color\nfavorite = Blue\n";
+        DocumentNode doc = Parse(source);
+        Assert.Single(doc.TypeDefinitions);
+        Assert.Single(doc.Definitions);
+        Assert.Equal("favorite", doc.Definitions[0].Name.Text);
+    }
 }

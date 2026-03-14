@@ -6,7 +6,8 @@ namespace Codex.IR;
 
 public sealed record IRModule(
     QualifiedName Name,
-    ImmutableArray<IRDefinition> Definitions);
+    ImmutableArray<IRDefinition> Definitions,
+    Map<string, CodexType> TypeDefinitions);
 
 public sealed record IRDefinition(
     string Name,
@@ -63,6 +64,8 @@ public abstract record IRPattern;
 public sealed record IRVarPattern(string Name, CodexType Type) : IRPattern;
 
 public sealed record IRLiteralPattern(object Value, CodexType Type) : IRPattern;
+
+public sealed record IRCtorPattern(string Name, ImmutableArray<IRPattern> SubPatterns, CodexType Type) : IRPattern;
 
 public sealed record IRWildcardPattern : IRPattern;
 

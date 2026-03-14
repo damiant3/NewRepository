@@ -7,6 +7,7 @@ public enum SyntaxKind
     // Top-level
     Document,
     Definition,
+    TypeDefinition,
 
     // Prose structure
     Chapter,
@@ -73,18 +74,23 @@ public sealed record TokenNode(Token Token)
 
 public sealed record DocumentNode(
     IReadOnlyList<DefinitionNode> Definitions,
+    IReadOnlyList<TypeDefinitionNode> TypeDefinitions,
     IReadOnlyList<ChapterNode> Chapters,
     SourceSpan Span)
     : SyntaxNode(SyntaxKind.Document, Span)
 {
     public DocumentNode(IReadOnlyList<DefinitionNode> Definitions, SourceSpan Span)
-        : this(Definitions, Array.Empty<ChapterNode>(), Span) { }
+        : this(Definitions, Array.Empty<TypeDefinitionNode>(), Array.Empty<ChapterNode>(), Span) { }
+
+    public DocumentNode(IReadOnlyList<DefinitionNode> Definitions, IReadOnlyList<ChapterNode> Chapters, SourceSpan Span)
+        : this(Definitions, Array.Empty<TypeDefinitionNode>(), Chapters, Span) { }
 
     public override IEnumerable<SyntaxNode> Children
     {
         get
         {
             foreach (ChapterNode ch in Chapters) yield return ch;
+            foreach (TypeDefinitionNode td in TypeDefinitions) yield return td;
             foreach (DefinitionNode def in Definitions) yield return def;
         }
     }
@@ -118,9 +124,13 @@ public sealed record SectionNode(
 
 public sealed record NotationBlockNode(
     IReadOnlyList<DefinitionNode> Definitions,
+    IReadOnlyList<TypeDefinitionNode> TypeDefinitions,
     SourceSpan Span)
     : DocumentMember(SyntaxKind.Definition, Span)
 {
+    public NotationBlockNode(IReadOnlyList<DefinitionNode> Definitions, SourceSpan Span)
+        : this(Definitions, Array.Empty<TypeDefinitionNode>(), Span) { }
+
     public override IEnumerable<SyntaxNode> Children => Definitions;
 }
 
@@ -141,8 +151,6 @@ public sealed record DefinitionNode(
         }
     }
 }
-
-// --- Expression nodes ---
 
 public abstract record ExpressionNode(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
 
@@ -189,7 +197,7 @@ public sealed record LetExpressionNode(IReadOnlyList<LetBinding> Bindings, Expre
     {
         get
         {
-            foreach (var b in Bindings) yield return b.Value;
+            foreach (LetBinding b in Bindings) yield return b.Value;
             yield return Body;
         }
     }
@@ -211,7 +219,7 @@ public sealed record MatchExpressionNode(ExpressionNode Scrutinee, IReadOnlyList
         get
         {
             yield return Scrutinee;
-            foreach (var b in Branches) yield return b;
+            foreach (MatchBranchNode b in Branches) yield return b;
         }
     }
 }
@@ -258,8 +266,6 @@ public sealed record ErrorExpressionNode(Token ErrorToken)
     public override IEnumerable<SyntaxNode> Children => [];
 }
 
-// --- Pattern nodes ---
-
 public abstract record PatternNode(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
 
 public sealed record VariablePatternNode(Token Name)
@@ -286,8 +292,6 @@ public sealed record WildcardPatternNode(Token Underscore)
     public override IEnumerable<SyntaxNode> Children => [];
 }
 
-// --- Type nodes ---
-
 public abstract record TypeNode(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
 
 public sealed record NamedTypeNode(Token Name)
@@ -310,7 +314,7 @@ public sealed record ApplicationTypeNode(TypeNode Constructor, IReadOnlyList<Typ
         get
         {
             yield return Constructor;
-            foreach (var a in Arguments) yield return a;
+            foreach (TypeNode a in Arguments) yield return a;
         }
     }
 }
@@ -323,6 +327,51 @@ public sealed record ParenthesizedTypeNode(TypeNode Inner, SourceSpan Span)
 
 public sealed record TypeAnnotationNode(Token Name, TypeNode Type, SourceSpan Span)
     : SyntaxNode(SyntaxKind.TypeAnnotation, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Type];
+}
+
+public sealed record TypeDefinitionNode(
+    Token Name,
+    IReadOnlyList<Token> TypeParameters,
+    TypeDefinitionBody Body,
+    SourceSpan Span)
+    : SyntaxNode(SyntaxKind.TypeDefinition, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Body];
+}
+
+public abstract record TypeDefinitionBody(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
+
+public sealed record RecordTypeBody(IReadOnlyList<RecordTypeFieldNode> Fields, SourceSpan Span)
+    : TypeDefinitionBody(SyntaxKind.RecordType, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => Fields;
+}
+
+public sealed record RecordTypeFieldNode(Token Name, TypeNode Type, SourceSpan Span)
+    : SyntaxNode(SyntaxKind.RecordTypeField, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Type];
+}
+
+public sealed record VariantTypeBody(IReadOnlyList<VariantConstructorNode> Constructors, SourceSpan Span)
+    : TypeDefinitionBody(SyntaxKind.VariantType, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => Constructors;
+}
+
+public sealed record VariantConstructorNode(
+    Token Name,
+    IReadOnlyList<VariantFieldNode> Fields,
+    SourceSpan Span)
+    : SyntaxNode(SyntaxKind.VariantConstructor, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => Fields;
+}
+
+public sealed record VariantFieldNode(Token? FieldName, TypeNode Type, SourceSpan Span)
+    : SyntaxNode(SyntaxKind.RecordTypeField, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [Type];
 }

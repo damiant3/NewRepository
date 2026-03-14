@@ -3,12 +3,8 @@ using Codex.Core;
 
 namespace Codex.Types;
 
-// The internal type representation used by the type checker.
-// TypeExpr (in Codex.Ast) is the surface syntax; CodexType is what it resolves to.
-
 public abstract record CodexType;
 
-// Primitive types
 public sealed record IntegerType : CodexType
 {
     public static readonly IntegerType s_instance = new();
@@ -45,7 +41,6 @@ public sealed record VoidType : CodexType
     public override string ToString() => "Void";
 }
 
-// Function type: Parameter → Return
 public sealed record FunctionType(CodexType Parameter, CodexType Return) : CodexType
 {
     public override string ToString()
@@ -55,7 +50,6 @@ public sealed record FunctionType(CodexType Parameter, CodexType Return) : Codex
     }
 }
 
-// Type constructor applied to arguments: List Integer, Result Text, etc.
 public sealed record ConstructedType(Name Constructor, ImmutableArray<CodexType> Arguments) : CodexType
 {
     public override string ToString()
@@ -65,25 +59,50 @@ public sealed record ConstructedType(Name Constructor, ImmutableArray<CodexType>
     }
 }
 
-// A type variable, used during inference. Identity is by reference (Id).
 public sealed record TypeVariable(int Id) : CodexType
 {
     public override string ToString() => $"?t{Id}";
 }
 
-// A universally quantified (polymorphic) type: forall a. body
 public sealed record ForAllType(int VariableId, CodexType Body) : CodexType
 {
     public override string ToString() => $"∀t{VariableId}. {Body}";
 }
 
-// List type — so common it gets a shortcut
 public sealed record ListType(CodexType Element) : CodexType
 {
     public override string ToString() => $"List {Element}";
 }
 
-// Error sentinel — produced when type resolution fails, prevents cascading errors
+public sealed record RecordType(Name TypeName, ImmutableArray<RecordFieldType> Fields) : CodexType
+{
+    public override string ToString()
+    {
+        string fieldsStr = string.Join(", ", Fields.Select(f => $"{f.FieldName.Value} : {f.Type}"));
+        return $"{TypeName.Value} {{ {fieldsStr} }}";
+    }
+}
+
+public sealed record RecordFieldType(Name FieldName, CodexType Type);
+
+public sealed record SumType(Name TypeName, ImmutableArray<SumConstructorType> Constructors) : CodexType
+{
+    public override string ToString()
+    {
+        string ctorsStr = string.Join(" | ", Constructors.Select(c => c.ToString()));
+        return $"{TypeName.Value} = {ctorsStr}";
+    }
+}
+
+public sealed record SumConstructorType(Name Name, ImmutableArray<CodexType> Fields)
+{
+    public override string ToString()
+    {
+        if (Fields.IsEmpty) return Name.Value;
+        return $"{Name.Value} {string.Join(" ", Fields.Select(f => f.ToString()))}";
+    }
+}
+
 public sealed record ErrorType : CodexType
 {
     public static readonly ErrorType s_instance = new();

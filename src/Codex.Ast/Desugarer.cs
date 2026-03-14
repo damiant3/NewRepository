@@ -16,7 +16,8 @@ public sealed class Desugarer
     {
         QualifiedName name = QualifiedName.Simple(moduleName);
         List<Definition> definitions = document.Definitions.Select(DesugarDefinition).ToList();
-        return new Module(name, definitions, document.Span);
+        List<TypeDef> typeDefinitions = document.TypeDefinitions.Select(DesugarTypeDefinition).ToList();
+        return new Module(name, definitions, typeDefinitions, document.Span);
     }
 
     private Definition DesugarDefinition(DefinitionNode node)
@@ -149,6 +150,38 @@ public sealed class Desugarer
         ParenthesizedTypeNode p => DesugarType(p.Inner),
         _ => new NamedTypeExpr(new Name("?"), node.Span)
     };
+
+    private TypeDef DesugarTypeDefinition(TypeDefinitionNode node)
+    {
+        Name typeName = new Name(node.Name.Text);
+        List<Name> typeParams = node.TypeParameters.Select(t => new Name(t.Text)).ToList();
+
+        return node.Body switch
+        {
+            RecordTypeBody rec => new RecordTypeDef(
+                typeName,
+                typeParams,
+                rec.Fields.Select(f => new RecordFieldDef(
+                    new Name(f.Name.Text),
+                    DesugarType(f.Type),
+                    f.Span)).ToList(),
+                node.Span),
+
+            VariantTypeBody variant => new VariantTypeDef(
+                typeName,
+                typeParams,
+                variant.Constructors.Select(c => new VariantCtorDef(
+                    new Name(c.Name.Text),
+                    c.Fields.Select(f => new VariantFieldDef(
+                        f.FieldName is not null ? new Name(f.FieldName.Text) : null,
+                        DesugarType(f.Type),
+                        f.Span)).ToList(),
+                    c.Span)).ToList(),
+                node.Span),
+
+            _ => throw new InvalidOperationException($"Unknown type definition body: {node.Body.GetType().Name}")
+        };
+    }
 
     private static BinaryOp DesugarBinaryOp(TokenKind kind) => kind switch
     {

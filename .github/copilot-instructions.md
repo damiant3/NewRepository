@@ -22,6 +22,9 @@ Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
 - **Private instance fields MUST use the `m_` prefix** — e.g. `m_diagnostics`, `m_localEnv`, `m_tokens`. `TreatWarningsAsErrors` is `true`; an unused field is a build failure.
 - **No XML doc comments.** Do not add `///` comments. Code should be self-documenting. Only add a comment if the agent genuinely needs it to avoid re-discovering a non-obvious decision.
 - **No `var` when the type is not obvious** from the right-hand side.
+- **Minimize type information at callsites.** Use `new()` instead of `new TypeName()` when the target type is already specified by the declaration (field, variable, parameter, return type). Example: `Map<string, CodexType> m_map = Map<string, CodexType>.s_empty;` not `... = new Map<string, CodexType>(...)`.
+- **Usings: trial-and-error, compile-and-test.** Do not add `using` directives speculatively. `System`, `System.Collections.Generic`, `System.Linq`, `System.IO`, `System.Net.Http`, `System.Threading`, `System.Threading.Tasks` are implicit. `System.Collections.Immutable` is NOT implicit — add it only when the file uses `ImmutableArray`, `ImmutableDictionary`, etc. When you add a using, check if there are now-redundant fully-qualified type names in the same file and shorten them.
+- **Prefer null-safe abstractions over `TryGetValue`.** Use `Map<K,V>` (in `Codex.Core`) which returns `null` on missing keys instead of `ImmutableDictionary` + `TryGetValue`. If a .NET abstraction has bad null behavior (throws on missing key, requires `out` patterns), clone it null-safe in `Codex.Core` and use that.
 - Explicit accessibility modifiers on all types and members.
 - 4 spaces indentation, UTF-8, max 120 characters per line.
 - `sealed record` for immutable reference types; `readonly record struct` for small value types.

@@ -43,7 +43,7 @@ public class IntegrationTests
         ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
         if (diagnostics.HasErrors) return null;
 
-        Lowering lowering = new Lowering(types, diagnostics);
+        Lowering lowering = new Lowering(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
         IRModule irModule = lowering.Lower(resolved.Module);
         if (diagnostics.HasErrors) return null;
 
@@ -199,5 +199,106 @@ public class IntegrationTests
         Assert.NotNull(cs);
         string beforeClass = cs!.Substring(0, cs.IndexOf("public static class"));
         Assert.Contains("Console.WriteLine", beforeClass);
+    }
+
+    [Fact]
+    public void Sum_type_parses_and_type_checks()
+    {
+        string source =
+            "Color =\n" +
+            "  | Red\n" +
+            "  | Green\n" +
+            "  | Blue\n\n" +
+            "name : Color -> Text\n" +
+            "name (c) =\n" +
+            "  when c\n" +
+            "    if Red -> \"red\"\n" +
+            "    if Green -> \"green\"\n" +
+            "    if Blue -> \"blue\"\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("name"));
+    }
+
+    [Fact]
+    public void Sum_type_with_fields_type_checks()
+    {
+        string source =
+            "Shape =\n" +
+            "  | Circle (radius : Number)\n" +
+            "  | Rect (width : Number) (height : Number)\n\n" +
+            "describe : Shape -> Text\n" +
+            "describe (s) =\n" +
+            "  when s\n" +
+            "    if Circle (r) -> \"circle\"\n" +
+            "    if Rect (w) (h) -> \"rect\"\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("describe"));
+    }
+
+    [Fact]
+    public void Sum_type_compiles_to_csharp()
+    {
+        string source =
+            "Color =\n" +
+            "  | Red\n" +
+            "  | Green\n" +
+            "  | Blue\n\n" +
+            "name : Color -> Text\n" +
+            "name (c) =\n" +
+            "  when c\n" +
+            "    if Red -> \"red\"\n" +
+            "    if Green -> \"green\"\n" +
+            "    if Blue -> \"blue\"\n";
+        string? cs = CompileToCS(source, "colors");
+        Assert.NotNull(cs);
+        Assert.Contains("name", cs);
+        Assert.Contains("Color", cs);
+    }
+
+    [Fact]
+    public void Record_type_parses_and_type_checks()
+    {
+        string source =
+            "Point = record {\n" +
+            "  x : Number,\n" +
+            "  y : Number\n" +
+            "}\n\n" +
+            "origin : Point\n" +
+            "origin = Point { x = 0.0, y = 0.0 }\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("origin"));
+    }
+
+    [Fact]
+    public void Record_field_access_type_checks()
+    {
+        string source =
+            "Point = record {\n" +
+            "  x : Number,\n" +
+            "  y : Number\n" +
+            "}\n\n" +
+            "get-x : Point -> Number\n" +
+            "get-x (p) = p.x\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("get-x"));
+        Assert.Contains("Number", types["get-x"].ToString());
+    }
+
+    [Fact]
+    public void Constructor_as_function_type_checks()
+    {
+        string source =
+            "Maybe =\n" +
+            "  | Just (value : Integer)\n" +
+            "  | None\n\n" +
+            "wrap : Integer -> Maybe\n" +
+            "wrap (x) = Just x\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("wrap"));
     }
 }

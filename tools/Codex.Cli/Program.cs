@@ -144,7 +144,6 @@ public static class Program
             return 1;
         }
 
-        // Name resolution
         NameResolver resolver = new NameResolver(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
 
@@ -154,7 +153,6 @@ public static class Program
             return 1;
         }
 
-        // Type checking
         TypeChecker checker = new TypeChecker(diagnostics);
         ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
 
@@ -205,7 +203,6 @@ public static class Program
         CompilationResult? result = CompileFile(filePath);
         if (result is null) return 1;
 
-        // Write the generated C# to a temp directory and compile+run it
         string tempDir = Path.Combine(Path.GetTempPath(), "codex_run_" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(tempDir);
 
@@ -217,7 +214,6 @@ public static class Program
             string csproj = Path.Combine(tempDir, "CodexOutput.csproj");
             File.WriteAllText(csproj, GenerateCsproj());
 
-            // Build
             System.Diagnostics.ProcessStartInfo buildInfo = new("dotnet", "build --nologo --verbosity quiet")
             {
                 WorkingDirectory = tempDir,
@@ -245,7 +241,6 @@ public static class Program
                 return 1;
             }
 
-            // Run
             System.Diagnostics.ProcessStartInfo runInfo = new("dotnet", "run --no-build --nologo")
             {
                 WorkingDirectory = tempDir,
@@ -312,7 +307,6 @@ public static class Program
             return 1;
         }
 
-        // Render the document as formatted prose
         foreach (ChapterNode chapter in document.Chapters)
         {
             Console.WriteLine($"═══ {chapter.Title} ═══");
@@ -372,35 +366,29 @@ public static class Program
         SourceText source = new SourceText(filePath, content);
         DiagnosticBag diagnostics = new DiagnosticBag();
 
-        // Parse (prose-aware)
         DocumentNode document = ParseSourceFile(source, content, diagnostics);
 
-        // Desugar
         Desugarer desugarer = new Desugarer(diagnostics);
         string moduleName = Path.GetFileNameWithoutExtension(filePath);
         Module module = desugarer.Desugar(document, moduleName);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        // Name resolution
         NameResolver resolver = new NameResolver(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        // Type checking
         TypeChecker checker = new TypeChecker(diagnostics);
         ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        // Lower to IR
-        Lowering lowering = new Lowering(types, diagnostics);
+        Lowering lowering = new Lowering(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
         IRModule irModule = lowering.Lower(resolved.Module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        // Emit C#
         CSharpEmitter emitter = new CSharpEmitter();
         string csharpSource = emitter.Emit(irModule);
 

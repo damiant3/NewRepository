@@ -1,0 +1,10 @@
+Person = record {
+  name : Text,
+  age : Integer
+}
+
+greet : Person -> Text
+greet (p) = "Hello, " ++ p.name ++ "!"
+
+main : Text
+main = greet (Person { name = "Alice", age = 30 })
