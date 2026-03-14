@@ -75,6 +75,9 @@ public sealed class Unifier
             return true;
         }
 
+        if (a is LinearType la2 && b is LinearType lb2)
+            return Unify(la2.Inner, lb2.Inner, span);
+
         if (a is EffectfulType ea && b is EffectfulType eb)
         {
             return Unify(ea.Return, eb.Return, span);
@@ -143,6 +146,7 @@ public sealed class Unifier
                 })]
             },
             EffectfulType eft => eft with { Return = DeepResolve(eft.Return) },
+            LinearType lin => new LinearType(DeepResolve(lin.Inner)),
             _ => type
         };
     }
@@ -160,6 +164,7 @@ public sealed class Unifier
             SumType s => s.Constructors.Any(c => c.Fields.Any(f => OccursIn(varId, f))),
             RecordType r => r.Fields.Any(f => OccursIn(varId, f.Type)),
             EffectfulType eft => OccursIn(varId, eft.Return),
+            LinearType lin => OccursIn(varId, lin.Inner),
             _ => false
         };
     }

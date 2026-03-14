@@ -43,6 +43,23 @@ public sealed class TypeEnvironment
             NothingType.s_instance);
         env = env.Bind("print-line", new FunctionType(TextType.s_instance, consoleNothing));
 
+        LinearType fileHandle = new(new ConstructedType(new Name("FileHandle"),[]));
+
+        EffectfulType fsFileHandle = new(
+            [new EffectType(new Name("FileSystem"))],
+            fileHandle);
+        env = env.Bind("open-file", new FunctionType(TextType.s_instance, fsFileHandle));
+
+        EffectfulType fsTextAndHandle = new(
+            [new EffectType(new Name("FileSystem"))],
+            new ConstructedType(new Name("Pair"), [TextType.s_instance, fileHandle]));
+        env = env.Bind("read-all", new FunctionType(fileHandle, fsTextAndHandle));
+
+        EffectfulType fsNothing = new(
+            [new EffectType(new Name("FileSystem"))],
+            NothingType.s_instance);
+        env = env.Bind("close-file", new FunctionType(fileHandle, fsNothing));
+
         return env;
     }
 }

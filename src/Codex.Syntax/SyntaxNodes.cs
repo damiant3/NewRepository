@@ -46,6 +46,7 @@ public enum SyntaxKind
     EffectfulType,
     ApplicationType,
     ParenthesizedType,
+    LinearType,
     RecordType,
     RecordTypeField,
     VariantType,
@@ -356,6 +357,12 @@ public sealed record EffectfulTypeNode(IReadOnlyList<TypeNode> Effects, TypeNode
             yield return Return;
         }
     }
+}
+
+public sealed record LinearTypeNode(TypeNode Inner, SourceSpan Span)
+    : TypeNode(SyntaxKind.LinearType, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Inner];
 }
 
 public sealed record TypeAnnotationNode(Token Name, TypeNode Type, SourceSpan Span)

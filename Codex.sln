@@ -70,9 +70,20 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
+		samples\arithmetic.codex = samples\arithmetic.codex
 		CONTRIBUTING.md = CONTRIBUTING.md
 		copilot-instructions.md = copilot-instructions.md
+		samples\effectful-hello.codex = samples\effectful-hello.codex
+		samples\effects-demo.codex = samples\effects-demo.codex
+		samples\factorial.codex = samples\factorial.codex
+		samples\fibonacci.codex = samples\fibonacci.codex
+		samples\greeting.codex = samples\greeting.codex
+		samples\hello.codex = samples\hello.codex
+		samples\person.codex = samples\person.codex
+		samples\prose-greeting.codex = samples\prose-greeting.codex
 		README.md = README.md
+		samples\safe-divide.codex = samples\safe-divide.codex
+		samples\shapes.codex = samples\shapes.codex
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Semantics.Tests", "tests\Codex.Semantics.Tests\Codex.Semantics.Tests.csproj", "{7DB102EF-18C6-4A75-80EE-6FC87B944314}"

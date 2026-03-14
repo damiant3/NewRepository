@@ -156,6 +156,13 @@ public static class Program
         TypeChecker checker = new TypeChecker(diagnostics);
         ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
 
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return 1; }
+
+        LinearityChecker linearityChecker = new LinearityChecker(diagnostics, types);
+        linearityChecker.CheckModule(resolved.Module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return 1; }
+
         if (!diagnostics.HasErrors)
         {
             Console.WriteLine($"✓ {module.Name}: {module.Definitions.Count} definition(s), no errors.");
@@ -384,6 +391,11 @@ public static class Program
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
+        LinearityChecker linearityChecker = new LinearityChecker(diagnostics, types);
+        linearityChecker.CheckModule(resolved.Module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
         Lowering lowering = new Lowering(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
         IRModule irModule = lowering.Lower(resolved.Module);
 
@@ -468,6 +480,7 @@ public static class Program
         ApplicationTypeNode a => $"{FormatType(a.Constructor)} {string.Join(" ", a.Arguments.Select(FormatType))}",
         ParenthesizedTypeNode p => $"({FormatType(p.Inner)})",
         EffectfulTypeNode e => $"[{string.Join(", ", e.Effects.Select(FormatType))}] {FormatType(e.Return)}",
+        LinearTypeNode l => $"linear {FormatType(l.Inner)}",
         _ => "?"
     };
 
@@ -477,6 +490,7 @@ public static class Program
         FunctionTypeExpr f => $"{FormatTypeExpr(f.Parameter)} → {FormatTypeExpr(f.Return)}",
         AppliedTypeExpr a => $"{FormatTypeExpr(a.Constructor)} {string.Join(" ", a.Arguments.Select(FormatTypeExpr))}",
         EffectfulTypeExpr e => $"[{string.Join(", ", e.Effects.Select(FormatTypeExpr))}] {FormatTypeExpr(e.Return)}",
+        LinearTypeExpr l => $"linear {FormatTypeExpr(l.Inner)}",
         _ => "?"
     };
 

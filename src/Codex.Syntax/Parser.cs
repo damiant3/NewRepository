@@ -260,6 +260,14 @@ public sealed class Parser
 
     private TypeNode ParseTypeAtom()
     {
+        if (Current.Kind == TokenKind.LinearKeyword)
+        {
+            Token start = Current;
+            Advance();
+            TypeNode inner = ParseTypeAtom();
+            return new LinearTypeNode(inner, start.Span.Through(inner.Span));
+        }
+
         if (Current.Kind == TokenKind.LeftBracket)
         {
             Token start = Current;

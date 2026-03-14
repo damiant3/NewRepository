@@ -43,6 +43,10 @@ public class IntegrationTests
         ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
         if (diagnostics.HasErrors) return null;
 
+        LinearityChecker linearityChecker = new LinearityChecker(diagnostics, types);
+        linearityChecker.CheckModule(resolved.Module);
+        if (diagnostics.HasErrors) return null;
+
         Lowering lowering = new Lowering(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
         IRModule irModule = lowering.Lower(resolved.Module);
         if (diagnostics.HasErrors) return null;
@@ -429,6 +433,31 @@ public class IntegrationTests
         return diagnostics;
     }
 
+    private static DiagnosticBag CheckWithLinearity(string source, string moduleName = "test")
+    {
+        SourceText src = new SourceText("test.codex", source);
+        DiagnosticBag diagnostics = new DiagnosticBag();
+
+        Lexer lexer = new Lexer(src, diagnostics);
+        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+        Parser parser = new Parser(tokens, diagnostics);
+        DocumentNode document = parser.ParseDocument();
+
+        Desugarer desugarer = new Desugarer(diagnostics);
+        Module module = desugarer.Desugar(document, moduleName);
+
+        NameResolver resolver = new NameResolver(diagnostics);
+        ResolvedModule resolved = resolver.Resolve(module);
+
+        TypeChecker checker = new TypeChecker(diagnostics);
+        ImmutableDictionary<string, CodexType> types = checker.CheckModule(resolved.Module);
+
+        LinearityChecker linearityChecker = new LinearityChecker(diagnostics, types);
+        linearityChecker.CheckModule(resolved.Module);
+
+        return diagnostics;
+    }
+
     // --- Effectful programs ---
 
     [Fact]
@@ -596,5 +625,102 @@ public class IntegrationTests
         string? cs = CompileToCS(source, "showval");
         Assert.NotNull(cs);
         Assert.Contains("Convert.ToString", cs!);
+    }
+
+    // --- Linear types (Milestone 6) ---
+
+    [Fact]
+    public void Linear_type_parses()
+    {
+        string source =
+            "consume : linear FileHandle -> [FileSystem] Nothing\n" +
+            "consume (h) = close-file h\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.True(types!.ContainsKey("consume"));
+        CodexType consumeType = types["consume"];
+        Assert.IsType<FunctionType>(consumeType);
+        FunctionType ft = (FunctionType)consumeType;
+        Assert.IsType<LinearType>(ft.Parameter);
+    }
+
+    [Fact]
+    public void Linear_variable_used_once_is_ok()
+    {
+        string source =
+            "consume : linear FileHandle -> [FileSystem] Nothing\n" +
+            "consume (h) = close-file h\n";
+        DiagnosticBag diag = CheckWithLinearity(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d =>
+            d.Code == "CDX2040" || d.Code == "CDX2041");
+    }
+
+    [Fact]
+    public void Linear_variable_used_twice_produces_error()
+    {
+        string source =
+            "use-twice : linear FileHandle -> [FileSystem] Nothing\n" +
+            "use-twice (h) = do\n" +
+            "  close-file h\n" +
+            "  close-file h\n";
+        DiagnosticBag diag = CheckWithLinearity(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX2041");
+    }
+
+    [Fact]
+    public void Linear_variable_unused_produces_error()
+    {
+        string source =
+            "leak : linear FileHandle -> Integer\n" +
+            "leak (h) = 42\n";
+        DiagnosticBag diag = CheckWithLinearity(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX2040");
+    }
+
+    [Fact]
+    public void Linear_file_handle_round_trip_type_checks()
+    {
+        string source =
+            "open-and-close : Text -> [FileSystem] Nothing\n" +
+            "open-and-close (path) = do\n" +
+            "  handle <- open-file path\n" +
+            "  close-file handle\n";
+        ImmutableDictionary<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+    }
+
+    [Fact]
+    public void Linear_file_handle_compiles_to_csharp()
+    {
+        string source =
+            "consume : linear FileHandle -> [FileSystem] Nothing\n" +
+            "consume (h) = close-file h\n";
+        string? cs = CompileToCS(source, "linfile");
+        Assert.NotNull(cs);
+        Assert.Contains(".Dispose()", cs!);
+    }
+
+    [Fact]
+    public void Open_file_compiles_to_csharp()
+    {
+        string source =
+            "open-and-close : Text -> [FileSystem] Nothing\n" +
+            "open-and-close (path) = do\n" +
+            "  h <- open-file path\n" +
+            "  close-file h\n";
+        string? cs = CompileToCS(source, "openclose");
+        Assert.NotNull(cs);
+        Assert.Contains("File.OpenRead", cs!);
+        Assert.Contains(".Dispose()", cs!);
+    }
+
+    [Fact]
+    public void Linear_type_in_format_type()
+    {
+        string source =
+            "consume : linear FileHandle -> [FileSystem] Nothing\n" +
+            "consume (h) = close-file h\n";
+        DiagnosticBag diag = CheckWithLinearity(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
     }
 }

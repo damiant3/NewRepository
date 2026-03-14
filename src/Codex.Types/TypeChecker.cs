@@ -637,6 +637,7 @@ public sealed class TypeChecker
                 ResolveTypeExpr(func.Return)),
             AppliedTypeExpr app => ResolveAppliedType(app),
             EffectfulTypeExpr eff => ResolveEffectfulType(eff),
+            LinearTypeExpr lin => new LinearType(ResolveTypeExpr(lin.Inner)),
             _ => ErrorType.s_instance
         };
     }
@@ -786,6 +787,7 @@ public sealed class TypeChecker
             {
                 Return = SubstituteVar(eft.Return, varId, replacement)
             },
+            LinearType lin => new LinearType(SubstituteVar(lin.Inner, varId, replacement)),
             _ => type
         };
     }

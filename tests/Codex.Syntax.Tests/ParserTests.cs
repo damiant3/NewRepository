@@ -268,4 +268,29 @@ public class ParserTests
         Assert.IsType<NamedTypeNode>(fn.Parameter);
         Assert.IsType<EffectfulTypeNode>(fn.Return);
     }
+
+    [Fact]
+    public void Parse_linear_type_annotation()
+    {
+        DocumentNode doc = Parse("consume : linear FileHandle -> Nothing\nconsume (h) = h");
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        TypeNode typeNode = doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.IsType<FunctionTypeNode>(typeNode);
+        FunctionTypeNode fn = (FunctionTypeNode)typeNode;
+        Assert.IsType<LinearTypeNode>(fn.Parameter);
+        LinearTypeNode lin = (LinearTypeNode)fn.Parameter;
+        Assert.IsType<NamedTypeNode>(lin.Inner);
+    }
+
+    [Fact]
+    public void Parse_linear_type_with_effect()
+    {
+        DocumentNode doc = Parse("f : linear FileHandle -> [FileSystem] Nothing\nf (h) = close-file h");
+        Assert.NotNull(doc.Definitions[0].TypeAnnotation);
+        TypeNode typeNode = doc.Definitions[0].TypeAnnotation!.Type;
+        Assert.IsType<FunctionTypeNode>(typeNode);
+        FunctionTypeNode fn = (FunctionTypeNode)typeNode;
+        Assert.IsType<LinearTypeNode>(fn.Parameter);
+        Assert.IsType<EffectfulTypeNode>(fn.Return);
+    }
 }

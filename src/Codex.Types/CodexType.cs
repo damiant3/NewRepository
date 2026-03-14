@@ -128,3 +128,15 @@ public sealed record EffectfulType(ImmutableArray<EffectType> Effects, CodexType
         return $"[{effectStr}] {Return}";
     }
 }
+
+public enum Usage
+{
+    Unrestricted,
+    Linear,
+    Erased
+}
+
+public sealed record LinearType(CodexType Inner) : CodexType
+{
+    public override string ToString() => $"linear {Inner}";
+}

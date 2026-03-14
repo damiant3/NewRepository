@@ -217,6 +217,23 @@ public sealed class CSharpEmitter : ICodeEmitter
                     EmitExpr(sb, app.Argument, indent);
                     sb.Append(')');
                 }
+                else if (app.Function is IRName fn4 && fn4.Name == "open-file")
+                {
+                    sb.Append("File.OpenRead(");
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(')');
+                }
+                else if (app.Function is IRName fn5 && fn5.Name == "read-all")
+                {
+                    sb.Append("new System.IO.StreamReader(");
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(").ReadToEnd()");
+                }
+                else if (app.Function is IRName fn6 && fn6.Name == "close-file")
+                {
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(".Dispose()");
+                }
                 else
                 {
                     EmitExpr(sb, app.Function, indent);
@@ -547,6 +564,7 @@ public sealed class CSharpEmitter : ICodeEmitter
             NothingType => "object",
             VoidType => "void",
             EffectfulType eft => EmitType(eft.Return),
+            LinearType lin => EmitType(lin.Inner),
             FunctionType ft => $"Func<{EmitType(ft.Parameter)}, {EmitType(ft.Return)}>",
             ListType lt => $"List<{EmitType(lt.Element)}>",
             SumType st => SanitizeIdentifier(st.TypeName.Value),

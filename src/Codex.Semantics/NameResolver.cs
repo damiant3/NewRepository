@@ -16,7 +16,8 @@ public sealed class NameResolver
 
     private static readonly ImmutableHashSet<string> s_builtins = ImmutableHashSet.Create(
         "show", "negate", "True", "False", "Nothing",
-        "print-line", "read-line"
+        "print-line", "read-line",
+        "open-file", "read-all", "close-file"
     );
 
     public NameResolver(DiagnosticBag diagnostics)

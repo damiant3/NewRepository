@@ -97,6 +97,8 @@ public sealed record AppliedTypeExpr(TypeExpr Constructor, IReadOnlyList<TypeExp
 
 public sealed record EffectfulTypeExpr(IReadOnlyList<TypeExpr> Effects, TypeExpr Return, SourceSpan Span) : TypeExpr(Span);
 
+public sealed record LinearTypeExpr(TypeExpr Inner, SourceSpan Span) : TypeExpr(Span);
+
 public abstract record TypeDef(Name Name, IReadOnlyList<Name> TypeParameters, SourceSpan Span);
 
 public sealed record RecordTypeDef(

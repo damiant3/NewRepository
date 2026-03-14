@@ -164,6 +164,9 @@ public sealed class Desugarer
             e.Effects.Select(DesugarType).ToList(),
             DesugarType(e.Return),
             e.Span),
+        LinearTypeNode l => new LinearTypeExpr(
+            DesugarType(l.Inner),
+            l.Span),
         _ => new NamedTypeExpr(new Name("?"), node.Span)
     };
 
