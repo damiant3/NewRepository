@@ -1,115 +1,166 @@
-# Contributing Guidelines for SparseLattice
+# Contributing Guidelines for Codex
 
-This file documents the coding standards, development workflow, testing requirements, and acceptance criteria that all contributors (including automated agents) must follow when working on the `SparseLattice` and `SparseLattice.Test` projects. These rules are strict and intended to preserve the style, architecture and quality exemplified by the locked-down reference projects (e.g. `SpatialDbLib`). Do not change any code in other projects — they are treated as canonical references for style and architecture.
+This file documents the coding standards, development workflow, testing requirements, and acceptance criteria that all contributors (including automated agents) must follow when working on the Codex compiler and tooling. These rules are strict and intended to preserve the style, architecture, and quality of the codebase across iterations.
+
+---
 
 ## Purpose
 
-The `SparseLattice` project is an experiment platform for sparse integer spatial indexing and adapters for embedding models. The goals are reproducibility, testable invariants, deterministic builds, and clear CI enforcement so that future automated agents can safely modify and extend code.
+Codex is a bootstrapped programming language implementation in C# (.NET 8). The goals are correctness, reproducibility, testable invariants, and deterministic builds so that future automated agents can safely extend the compiler and toolchain.
+
+---
 
 ## General Principles
 
-- Follow the existing codebase style (see examples in `SpatialDbLib`). Match naming, field prefixes, and architectural patterns rather than introducing new global style changes.
-- Prefer clarity and correctness over micro-optimizations; micro-optimizations must be covered with benchmarks and justification in PR description.
-- Keep the runtime insertion/build pipeline simple and the query path allocation-free and lock-free after the index is frozen.
-- All experiments must be reproducible with test coverage and deterministic outputs (no randomness without an explicit and test-controlled seed).
+1. **Ship working software at every milestone.** A program goes in, a result comes out. If a milestone doesn't end with a demo, the milestone is wrong.
+2. **Correctness over performance.** The bootstrap compiler does not need to be fast; it needs to be right. Optimization comes after correctness is proven by tests.
+3. **Immutability by default.** AST nodes, IR nodes, types, and facts are immutable. Builders are mutable during construction, then frozen.
+4. **No premature abstraction.** Do not create an interface until you have two implementations. Do not create a base class until three subclasses exist.
+5. **One thing at a time.** Each file does one thing. Each class does one thing. Each method does one thing. Each commit does one thing.
 
-## Branching and PRs
+See [docs/10-PRINCIPLES.md](docs/10-PRINCIPLES.md) for the full set of governing principles.
 
-- Main branch: `master` (protected). All changes must be merged via PR.
-- Feature branches: `feature/<short-desc>`, Bugfix: `fix/<short-desc>`, Chore: `chore/<short-desc>`.
-- PR must include:
-  - Clear description of intent and design rationale.
-  - Reference to related issues and tests added/updated.
-  - Benchmark results (if performance changes) in `SparseLattice.Test/Benchmarks`.
-  - Checklist confirming all CI steps pass locally.
+---
 
-## Commit Messages
+## Branching and Commits
 
+- Main branch: `master`. All changes should be committed with clear messages.
 - Use Conventional Commits style: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `perf:`.
 - Single logical change per commit.
 
+---
+
 ## Code Style
 
-These rules must be enforced by the AI agent when generating or mutating code:
+These rules must be enforced by all contributors and automated agents when generating or modifying code:
 
 - Use 4 spaces for indentation.
 - End files with a single newline.
 - Maximum line length: 120 characters.
 - Encoding: UTF-8.
-- Private instance fields MUST use the `m_` prefix (e.g. `m_root`, `m_firstChild`) to match the reference code.
-- Private readonly fields: `m_` prefix and `readonly` where appropriate.
-- Property and type names use PascalCase; local variables and parameters use camelCase.
-- Constants: PascalCase or ALL_CAPS? Use PascalCase for named constants.
-- Avoid `var` for publicly visible fields or when the type is not obvious; local `var` ok when clear.
-- Favor `readonly struct` for small value types (e.g. `LongVectorN`).
+- **Private instance fields MUST use the `m_` prefix** (e.g. `m_root`, `m_diagnostics`, `m_localEnv`).
+- Private `readonly` fields: `m_` prefix and `readonly` where appropriate.
+- Property and type names: **PascalCase**. Local variables and parameters: **camelCase**.
+- Constants: PascalCase.
+- Avoid `var` when the type is not obvious from the right-hand side.
 - Use explicit accessibility modifiers on all types and members.
-- Prefer immutable data structures where possible for indexes after the freeze phase.
-
-## Testing Requirements
-
-Every change must include tests that validate both functional behavior and invariants. Tests should be deterministic and fast. Use the `SparseLattice.Test` project for unit and integration tests.
-
-Minimum requirements per change:
-
-1. Unit tests that validate the API surface and edge cases (null, empty, single-item, boundary values).
-2. Invariant tests that assert structural guarantees (e.g. node sparsity, no pre-allocated children arrays, leaf capacity limits, monotonic ordering where applicable).
-3. Round-trip tests for serialization/persistence (if implemented) that assert the frozen index round-trips exactly.
-4. Integration tests for correctness against small, hand-crafted datasets where expected nearest neighbors are known.
-5. Benchmark tests (separate folder) when performance changes are made; include before/after and a brief analysis.
-
-Tests must run headlessly and pass in CI.
-
-## CI Expectations
-
-- CI must run:
-  - Build for .NET 8 (SparseLattice) and test runner for test project.
-  - Unit tests with coverage report.
-  - Optional benchmarks run in a separate job.
-- Tests must pass and coverage must not regress for changed modules. Aim for >= 80% coverage for new modules; critical modules should have near 100% invariants coverage.
-
-## API Stability and Invariants
-
-- Respect the following invariants (each must be covered by tests):
-  1. After build/freeze, no mutating operations on the index are allowed — queries must be allocation-free.
-  2. Sparse nodes contain only realized children; no pre-allocated arrays of size 2^N.
-  3. The quantizer/adapter must be reversible within the configured threshold (quantize → dequantize → re-quantize yields same key).
-  4. Distance computations for integer coordinates must be deterministic and overflow-safe.
-  5. Any internal linked lists used for realized children must be convertible to compact arrays during `Freeze()`.
-
-## Performance and Benchmarks
-
-- Use `SparseLattice.Test/Benchmarks` for microbenchmarks. Benchmarks are required for any perf-sensitive change.
-- Benchmarks must include representative workloads (random sparse vectors, clustered vectors, high-sparsity cases).
-
-## Style and Architecture Review
-
-- Do not alter `SpatialDbLib` or other existing projects. Use them as reference for architecture and coding style.
-- AI agents must generate code that compiles and passes all tests locally before opening PRs.
-
-## Documentation
-
-- Every public type and major algorithm must have XML doc comments.
-- High-level design documents, rationale and tradeoffs must live in `SparseLattice/docs/`.
-
-## Security & Licensing
-
-- Respect existing project license. Do not introduce third-party code incompatible with the repository license without explicit approval.
-
-## How AI Agents Should Operate
-
-- Always run `dotnet test` and `dotnet build` locally before proposing code changes.
-- Produce minimal diffs and comprehensive tests.
-- When unsure about a design choice, open an issue and include the design alternatives in the PR.
+- Prefer `readonly record struct` for small value types; `sealed record` for immutable reference types.
+- `TreatWarningsAsErrors` is `true` in `Directory.Build.props`. Do not leave unused variables, fields, or parameters.
 
 ---
 
-Appendix: Quick checklist for PRs
+## Naming Conventions by Layer
 
-- [ ] Build passes: `dotnet build` for solution.
-- [ ] Unit tests pass: `dotnet test`.
-- [ ] New tests added and old tests updated as needed.
-- [ ] Invariant tests added or updated.
-- [ ] Benchmarks added when needed.
-- [ ] XML docs for public surface.
-- [ ] PR description includes rationale and references.
-- [ ] CI config updated if required.
+| Layer | Key Types | Naming Pattern |
+|-------|-----------|----------------|
+| `Codex.Core` | `SourceText`, `Span`, `Diagnostic`, `DiagnosticBag` | Core prefix-free |
+| `Codex.Syntax` | `Token`, `TokenKind`, CST nodes (`DocumentNode`, `DefinitionNode`) | `*Node` for CST |
+| `Codex.Ast` | `Module`, `Definition`, `Expr`, `Desugarer` | No prefix |
+| `Codex.Semantics` | `NameResolver`, `ResolvedModule` | `Resolved*` for outputs |
+| `Codex.Types` | `TypeChecker`, `CodexType` and subclasses | `Codex*` for types |
+| `Codex.IR` | `IRModule`, `IRDefinition`, `IRExpr` subclasses, `Lowering` | `IR*` prefix |
+| `Codex.Emit` | `ICodeEmitter` | `I*` for interfaces |
+| `Codex.Emit.CSharp` | `CSharpEmitter` | Target name prefix |
+| `Codex.Cli` | `Program` | Standard CLI layout |
+
+---
+
+## XML Documentation
+
+Every public type and every public method must have XML doc comments. Example:
+
+```csharp
+/// <summary>
+/// Lowers an AST <see cref="Module"/> to a typed <see cref="IRModule"/>.
+/// All expressions carry resolved <see cref="CodexType"/>s after lowering.
+/// </summary>
+public sealed class Lowering { ... }
+```
+
+---
+
+## Testing Requirements
+
+Every change must include tests. Tests must be deterministic, fast, and run headlessly.
+
+Minimum requirements per compiler phase change:
+
+1. **Positive tests** — programs that should succeed; verify the output is correct.
+2. **Negative tests** — programs that should fail; verify the diagnostic code and message are correct.
+3. **Round-trip tests** — parse → print → parse produces the same result (for syntax changes).
+4. **End-to-end tests** — for pipeline changes, at minimum run `codex check` against a sample file.
+
+Tests live in the corresponding test project under `tests/`:
+
+| Source project | Test project |
+|----------------|-------------|
+| `Codex.Core` | `Codex.Core.Tests` |
+| `Codex.Syntax` | `Codex.Syntax.Tests` |
+| `Codex.Ast` | `Codex.Ast.Tests` |
+| `Codex.Semantics` | `Codex.Semantics.Tests` |
+| `Codex.Types` | `Codex.Types.Tests` |
+
+Use xUnit. Match the style of existing test files in each project.
+
+---
+
+## Build and Test Commands
+
+```sh
+dotnet build Codex.sln          # Build the full solution
+dotnet test Codex.sln           # Run all tests
+dotnet run --project tools/Codex.Cli -- run samples/hello.codex
+dotnet run --project tools/Codex.Cli -- check samples/arithmetic.codex
+```
+
+---
+
+## Architecture Rules
+
+- **Dependency direction is strictly one-way** (upstream → downstream):
+  `Core` → `Syntax` → `Ast` → `Semantics` → `Types` → `IR` → `Emit` → `Emit.CSharp` → `Cli`
+- No downstream project may reference an upstream project in the reverse direction.
+- `Codex.Core` has no project dependencies — it is the root of the graph.
+- `Codex.Cli` references everything; it is the composition root.
+
+---
+
+## Adding a New Backend
+
+To add a new emission target (e.g., Rust, Python):
+
+1. Create `src/Codex.Emit.<Target>/` implementing `ICodeEmitter` from `Codex.Emit`.
+2. Register it in `tools/Codex.Cli/Program.cs` alongside `CSharpEmitter`.
+3. Add tests for representative IR constructs.
+
+---
+
+## How AI Agents Should Operate
+
+- **Always read a file before editing it.**
+- **Run `dotnet build Codex.sln` and `dotnet test Codex.sln`** before concluding a task.
+- **Produce minimal diffs** — do not reformat unrelated code, rename symbols, or restructure files unless that is the explicit task.
+- **Follow the `m_` field prefix rule** without exception — `TreatWarningsAsErrors` is on and an unused field is a build failure.
+- **Do not modify `docs/` planning documents** (`00-OVERVIEW.md` through `10-PRINCIPLES.md`) unless explicitly asked. They are the north-star specification.
+- **When adding a new compiler phase**, update `docs/ITERATION-*-HANDOFF.md` with a brief summary of what was done.
+- See [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for terminal and file-editing discipline rules.
+
+---
+
+## CI Expectations
+
+- Build must pass: `dotnet build Codex.sln` with no warnings (warnings are errors).
+- All tests must pass: `dotnet test Codex.sln`.
+- No new unused fields, variables, or parameters.
+- XML docs on all new public surface.
+
+---
+
+## Quick Checklist for Changes
+
+- [ ] `dotnet build Codex.sln` passes (zero warnings).
+- [ ] `dotnet test Codex.sln` passes (all existing tests + new tests).
+- [ ] New public types and methods have XML doc comments.
+- [ ] Private fields use the `m_` prefix.
+- [ ] No `var` where the type is non-obvious.
+- [ ] Commit message follows Conventional Commits (`feat:`, `fix:`, etc.).
