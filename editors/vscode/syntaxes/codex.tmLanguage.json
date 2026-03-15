@@ -1,15 +1,39 @@
 {
   "scopeName": "source.codex",
   "patterns": [
+    { "include": "#chapter-header" },
+    { "include": "#section-header" },
     { "include": "#comment" },
     { "include": "#string" },
     { "include": "#number" },
+    { "include": "#type-annotation" },
     { "include": "#keyword" },
-    { "include": "#type" },
+    { "include": "#proof-keyword" },
+    { "include": "#boolean" },
+    { "include": "#type-name" },
     { "include": "#operator" },
+    { "include": "#punctuation" },
+    { "include": "#wildcard" },
+    { "include": "#function-def" },
     { "include": "#identifier" }
   ],
   "repository": {
+    "chapter-header": {
+      "match": "^(Chapter)(:)\\s*(.*)",
+      "captures": {
+        "1": { "name": "markup.heading.1.codex keyword.control.codex" },
+        "2": { "name": "punctuation.separator.codex" },
+        "3": { "name": "markup.heading.1.codex entity.name.section.codex" }
+      }
+    },
+    "section-header": {
+      "match": "^(Section)(:)\\s*(.*)",
+      "captures": {
+        "1": { "name": "markup.heading.2.codex keyword.control.codex" },
+        "2": { "name": "punctuation.separator.codex" },
+        "3": { "name": "markup.heading.2.codex entity.name.section.codex" }
+      }
+    },
     "comment": {
       "match": "--.*$",
       "name": "comment.line.double-dash.codex"
@@ -29,17 +53,57 @@
       "match": "\\b\\d[\\d_]*(\\.[\\d_]+)?\\b",
       "name": "constant.numeric.codex"
     },
+    "type-annotation": {
+      "comment": "name : Type -> Type  (type annotation line)",
+      "match": "^(\\s+)([a-z][a-zA-Z0-9_-]*)\\s+(:)\\s+(.+)$",
+      "captures": {
+        "2": { "name": "entity.name.function.codex" },
+        "3": { "name": "keyword.operator.type.codex" },
+        "4": {
+          "patterns": [
+            { "include": "#type-name" },
+            { "include": "#keyword" },
+            { "include": "#operator" },
+            { "include": "#punctuation" },
+            { "include": "#identifier" }
+          ]
+        }
+      }
+    },
     "keyword": {
-      "match": "\\b(if|then|else|let|in|when|do|linear|Chapter|Section|record|True|False)\\b",
+      "match": "\\b(if|then|else|let|in|when|where|do|record|import|export|linear|such-that)\\b",
       "name": "keyword.control.codex"
     },
-    "type": {
+    "proof-keyword": {
+      "match": "\\b(claim|proof|forall|exists|Refl|assume|sym|trans|cong|induction)\\b",
+      "name": "keyword.other.proof.codex"
+    },
+    "boolean": {
+      "match": "\\b(True|False)\\b",
+      "name": "constant.language.boolean.codex"
+    },
+    "type-name": {
       "match": "\\b[A-Z][a-zA-Z0-9]*\\b",
       "name": "entity.name.type.codex"
     },
     "operator": {
-      "match": "->|→|<-|::|\\+\\+|===|==|!=|<=|>=|[=:<>+\\-*/^&|]",
+      "match": "->|→|<-|←|::|\\+\\+|===|==|/=|<=|>=|⊗|⊢|∀|∃|[=:<>+\\-*/^&|]",
       "name": "keyword.operator.codex"
+    },
+    "punctuation": {
+      "match": "[()\\[\\]{}.,]",
+      "name": "punctuation.codex"
+    },
+    "wildcard": {
+      "match": "\\b_\\b",
+      "name": "variable.language.wildcard.codex"
+    },
+    "function-def": {
+      "comment": "name (param) (param) = body",
+      "match": "^(\\s+)([a-z][a-zA-Z0-9_-]*)(?=\\s+\\()",
+      "captures": {
+        "2": { "name": "entity.name.function.codex" }
+      }
     },
     "identifier": {
       "match": "\\b[a-z][a-zA-Z0-9_-]*\\b",
