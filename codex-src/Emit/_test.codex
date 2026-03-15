@@ -1,0 +1,51 @@
+Chapter: Test
+
+Section: Identifier Helpers
+
+    sanitize : Text -> Text
+    sanitize (name) = name
+
+    cs-type : CodexType -> Text
+    cs-type (ty) =
+      when ty
+        if IntegerTy -> "long"
+        if NumberTy -> "decimal"
+        if TextTy -> "string"
+        if BooleanTy -> "bool"
+        if VoidTy -> "void"
+        if NothingTy -> "object"
+        if ErrorTy -> "object"
+        if FunTy (p) (r) -> "Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">"
+        if ListTy (elem) -> "List<" ++ cs-type elem ++ ">"
+        if TypeVar (id) -> "object"
+        if ForAllTy (id) (body) -> cs-type body
+        if SumTy (name) (ctors) -> sanitize name.value
+        if RecordTy (name) (fields) -> sanitize name.value
+        if ConstructedTy (name) (args) -> sanitize name.value
+
+Section: Expression Emission
+
+    emit-expr : IRExpr -> Text
+    emit-expr (e) =
+      when e
+        if IrIntLit (n) -> integer-to-text n
+        if IrNumLit (n) -> integer-to-text n
+        if IrTextLit (s) -> "\"" ++ s ++ "\""
+        if IrBoolLit (b) -> if b then "true" else "false"
+        if IrName (n) (ty) -> sanitize n
+        if IrBinary (op) (l) (r) (ty) -> "(" ++ emit-expr l ++ " + " ++ emit-expr r ++ ")"
+        if IrNegate (operand) -> "(-" ++ emit-expr operand ++ ")"
+        if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c ++ " ? " ++ emit-expr t ++ " : " ++ emit-expr el ++ ")"
+        if IrLet (name) (ty) (val) (body) -> emit-let name ty val body
+        if IrApply (f) (a) (ty) -> emit-expr f ++ "(" ++ emit-expr a ++ ")"
+        if IrLambda (params) (body) (ty) -> "(() => " ++ emit-expr body ++ ")"
+        if IrList (elems) (ty) -> "new List()"
+        if IrMatch (scrut) (branches) (ty) -> "switch"
+        if IrDo (stmts) (ty) -> "do"
+        if IrRecord (name) (fields) (ty) -> "new " ++ sanitize name ++ "()"
+        if IrFieldAccess (rec) (field) (ty) -> emit-expr rec ++ "." ++ sanitize field
+        if IrError (msg) (ty) -> "default"
+
+    emit-let : Text -> CodexType -> IRExpr -> IRExpr -> Text
+    emit-let (name) (ty) (val) (body) =
+      "let " ++ sanitize name

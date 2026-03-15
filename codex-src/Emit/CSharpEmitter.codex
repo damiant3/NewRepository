@@ -1,0 +1,169 @@
+Chapter: CSharp Emitter
+
+  Generates C# source code from the IR module.
+  Uses text concatenation to build the output.
+
+Section: Identifier Helpers
+
+    sanitize : Text -> Text
+    sanitize (name) = text-replace name "-" "_"
+
+    cs-type : CodexType -> Text
+    cs-type (ty) =
+      when ty
+        if IntegerTy -> "long"
+        if NumberTy -> "decimal"
+        if TextTy -> "string"
+        if BooleanTy -> "bool"
+        if VoidTy -> "void"
+        if NothingTy -> "object"
+        if ErrorTy -> "object"
+        if FunTy (p) (r) -> "Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">"
+        if ListTy (elem) -> "List<" ++ cs-type elem ++ ">"
+        if TypeVar (id) -> "object"
+        if ForAllTy (id) (body) -> cs-type body
+        if SumTy (name) (ctors) -> sanitize name.value
+        if RecordTy (name) (fields) -> sanitize name.value
+        if ConstructedTy (name) (args) -> sanitize name.value
+
+Section: Expression Emission
+
+    emit-expr : IRExpr -> Text
+    emit-expr (e) =
+      when e
+        if IrIntLit (n) -> integer-to-text n
+        if IrNumLit (n) -> integer-to-text n
+        if IrTextLit (s) -> "\"" ++ escape-text s ++ "\""
+        if IrBoolLit (b) -> if b then "true" else "false"
+        if IrName (n) (ty) -> sanitize n
+        if IrBinary (op) (l) (r) (ty) -> "(" ++ emit-expr l ++ " " ++ emit-bin-op op ++ " " ++ emit-expr r ++ ")"
+        if IrNegate (operand) -> "(-" ++ emit-expr operand ++ ")"
+        if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c ++ " ? " ++ emit-expr t ++ " : " ++ emit-expr el ++ ")"
+        if IrLet (name) (ty) (val) (body) -> emit-let name ty val body
+        if IrApply (f) (a) (ty) -> emit-expr f ++ "(" ++ emit-expr a ++ ")"
+        if IrLambda (params) (body) (ty) -> emit-lambda params body
+        if IrList (elems) (ty) -> emit-list elems ty
+        if IrMatch (scrut) (branches) (ty) -> emit-match scrut branches ty
+        if IrDo (stmts) (ty) -> emit-do stmts
+        if IrRecord (name) (fields) (ty) -> emit-record name fields
+        if IrFieldAccess (rec) (field) (ty) -> emit-expr rec ++ "." ++ sanitize field
+        if IrError (msg) (ty) -> "/* error: " ++ msg ++ " */ default"
+
+    escape-text : Text -> Text
+    escape-text (s) = text-replace (text-replace s "\\" "\\\\") "\"" "\\\""
+
+    emit-bin-op : IRBinaryOp -> Text
+    emit-bin-op (op) =
+      when op
+        if IrAddInt -> "+"
+        if IrSubInt -> "-"
+        if IrMulInt -> "*"
+        if IrDivInt -> "/"
+        if IrPowInt -> "^"
+        if IrAddNum -> "+"
+        if IrSubNum -> "-"
+        if IrMulNum -> "*"
+        if IrDivNum -> "/"
+        if IrEq -> "=="
+        if IrNotEq -> "!="
+        if IrLt -> "<"
+        if IrGt -> ">"
+        if IrLtEq -> "<="
+        if IrGtEq -> ">="
+        if IrAnd -> "&&"
+        if IrOr -> "||"
+        if IrAppendText -> "+"
+        if IrAppendList -> "+"
+        if IrConsList -> "+"
+
+    emit-let : Text -> CodexType -> IRExpr -> IRExpr -> Text
+    emit-let (name) (ty) (val) (body) =
+      "((" ++ cs-type ty ++ " " ++ sanitize name ++ " = " ++ emit-expr val ++ ") is var _ ? " ++ emit-expr body ++ " : default)"
+
+    emit-lambda : List IRParam -> IRExpr -> Text
+    emit-lambda (params) (body) =
+      if list-length params == 0 then "(() => " ++ emit-expr body ++ ")"
+      else if list-length params == 1
+        then let p = list-at params 0
+          in "((" ++ cs-type p.type-val ++ " " ++ sanitize p.name ++ ") => " ++ emit-expr body ++ ")"
+        else "(() => " ++ emit-expr body ++ ")"
+
+    emit-list : List IRExpr -> CodexType -> Text
+    emit-list (elems) (ty) =
+      if list-length elems == 0 then "new List<" ++ cs-type ty ++ ">()"
+      else "new List<" ++ cs-type ty ++ "> { " ++ emit-list-elems elems 0 ++ " }"
+
+    emit-list-elems : List IRExpr -> Integer -> Text
+    emit-list-elems (elems) (i) =
+      if i == list-length elems then ""
+      else if i == list-length elems - 1 then emit-expr (list-at elems i)
+        else emit-expr (list-at elems i) ++ ", " ++ emit-list-elems elems (i + 1)
+
+    emit-match : IRExpr -> List IRBranch -> CodexType -> Text
+    emit-match (scrut) (branches) (ty) =
+      emit-expr scrut ++ " switch { " ++ emit-match-arms branches 0 ++ " }"
+
+    emit-match-arms : List IRBranch -> Integer -> Text
+    emit-match-arms (branches) (i) =
+      if i == list-length branches then ""
+      else let arm = list-at branches i
+        in emit-pattern arm.pattern ++ " => " ++ emit-expr arm.body ++ ", " ++ emit-match-arms branches (i + 1)
+
+    emit-pattern : IRPat -> Text
+    emit-pattern (p) =
+      when p
+        if IrVarPat (name) (ty) -> cs-type ty ++ " " ++ sanitize name
+        if IrLitPat (text) (ty) -> text
+        if IrCtorPat (name) (subs) (ty) -> sanitize name ++ " { }"
+        if IrWildPat -> "_"
+
+    emit-do : List IRDoStmt -> Text
+    emit-do (stmts) = "{ " ++ emit-do-stmts stmts 0 ++ " }"
+
+    emit-do-stmts : List IRDoStmt -> Integer -> Text
+    emit-do-stmts (stmts) (i) =
+      if i == list-length stmts then ""
+      else let s = list-at stmts i
+        in emit-do-stmt s ++ " " ++ emit-do-stmts stmts (i + 1)
+
+    emit-do-stmt : IRDoStmt -> Text
+    emit-do-stmt (s) =
+      when s
+        if IrDoBind (name) (ty) (val) -> "var " ++ sanitize name ++ " = " ++ emit-expr val ++ ";"
+        if IrDoExec (e) -> emit-expr e ++ ";"
+
+    emit-record : Text -> List IRFieldVal -> Text
+    emit-record (name) (fields) =
+      "new " ++ sanitize name ++ "(" ++ emit-record-fields fields 0 ++ ")"
+
+    emit-record-fields : List IRFieldVal -> Integer -> Text
+    emit-record-fields (fields) (i) =
+      if i == list-length fields then ""
+      else let f = list-at fields i
+        in sanitize f.name ++ ": " ++ emit-expr f.value ++ (if i < list-length fields - 1 then ", " else "") ++ emit-record-fields fields (i + 1)
+
+Section: Definition Emission
+
+    emit-def : IRDef -> Text
+    emit-def (d) =
+      "    public static " ++ cs-type d.type-val ++ " " ++ sanitize d.name ++ "(" ++ emit-def-params d.params 0 ++ ") => " ++ emit-expr d.body ++ ";\n"
+
+    emit-def-params : List IRParam -> Integer -> Text
+    emit-def-params (params) (i) =
+      if i == list-length params then ""
+      else let p = list-at params i
+        in cs-type p.type-val ++ " " ++ sanitize p.name ++ (if i < list-length params - 1 then ", " else "") ++ emit-def-params params (i + 1)
+
+Section: Module Emission
+
+    emit-module : IRModule -> Text
+    emit-module (m) =
+      "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n"
+      ++ "public static class Codex_" ++ sanitize m.name.value ++ "\n{\n"
+      ++ emit-defs m.defs 0
+      ++ "}\n"
+
+    emit-defs : List IRDef -> Integer -> Text
+    emit-defs (defs) (i) =
+      if i == list-length defs then ""
+      else emit-def (list-at defs i) ++ "\n" ++ emit-defs defs (i + 1)

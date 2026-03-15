@@ -22,24 +22,38 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
         Map<string, CodexType> topLevelTypes = Map<string, CodexType>.s_empty;
         foreach (Definition def in module.Definitions)
         {
+            Map<string, CodexType> savedTypeParams = m_typeParamEnv;
+            m_typeParamEnv = Map<string, CodexType>.s_empty;
             CodexType declaredType = def.DeclaredType is not null
                 ? ResolveTypeExpr(def.DeclaredType)
                 : m_unifier.FreshVar();
+            m_typeParamEnv = savedTypeParams;
+
+            CodexType envType = def.DeclaredType is not null
+                ? Generalize(declaredType)
+                : declaredType;
             topLevelTypes = topLevelTypes.Set(def.Name.Value, declaredType);
-            m_env = m_env.Bind(def.Name, declaredType);
+            m_env = m_env.Bind(def.Name, envType);
         }
 
         foreach (Definition def in module.Definitions)
         {
             CodexType expectedType = topLevelTypes[def.Name.Value]!;
-            CodexType bodyType = InferDefinition(def, expectedType);
-            m_unifier.Unify(expectedType, bodyType, def.Span);
+            CodexType envType = m_env.Lookup(def.Name)!;
+            CodexType checkType = envType is ForAllType
+                ? Instantiate(envType)
+                : expectedType;
+            CodexType bodyType = InferDefinition(def, checkType);
+            m_unifier.Unify(checkType, bodyType, def.Span);
         }
 
         Map<string, CodexType> result = Map<string, CodexType>.s_empty;
         foreach (KeyValuePair<string, CodexType> kv in topLevelTypes)
         {
-            result = result.Set(kv.Key, m_unifier.DeepResolve(kv.Value));
+            CodexType t = m_unifier.DeepResolve(kv.Value);
+            while (t is ForAllType fa)
+                t = fa.Body;
+            result = result.Set(kv.Key, t);
         }
 
         return result;
@@ -704,6 +718,13 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
         if (userDef is not null)
             return userDef;
 
+        if (name.IsValueName)
+        {
+            TypeVariable tv = m_unifier.FreshVar();
+            m_typeParamEnv = m_typeParamEnv.Set(name.Value, tv);
+            return tv;
+        }
+
         return new ConstructedType(name, []);
     }
 
@@ -791,6 +812,52 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             type = SubstituteVar(forAll.Body, forAll.VariableId, fresh);
         }
         return type;
+    }
+
+    static CodexType Generalize(CodexType type)
+    {
+        HashSet<int> freeVars = [];
+        CollectFreeTypeVars(type, freeVars);
+        CodexType result = type;
+        foreach (int varId in freeVars)
+        {
+            result = new ForAllType(varId, result);
+        }
+        return result;
+    }
+
+    static void CollectFreeTypeVars(CodexType type, HashSet<int> vars)
+    {
+        switch (type)
+        {
+            case TypeVariable tv:
+                vars.Add(tv.Id);
+                break;
+            case FunctionType ft:
+                CollectFreeTypeVars(ft.Parameter, vars);
+                CollectFreeTypeVars(ft.Return, vars);
+                break;
+            case ListType lt:
+                CollectFreeTypeVars(lt.Element, vars);
+                break;
+            case ForAllType fa:
+                CollectFreeTypeVars(fa.Body, vars);
+                vars.Remove(fa.VariableId);
+                break;
+            case ConstructedType ct:
+                foreach (CodexType arg in ct.Arguments)
+                    CollectFreeTypeVars(arg, vars);
+                break;
+            case EffectfulType eft:
+                foreach (EffectType e in eft.Effects)
+                    CollectFreeTypeVars(e, vars);
+                CollectFreeTypeVars(eft.Return, vars);
+                break;
+            case DependentFunctionType dep:
+                CollectFreeTypeVars(dep.ParamType, vars);
+                CollectFreeTypeVars(dep.Body, vars);
+                break;
+        }
     }
 
     CodexType ResolveDependentType(DependentTypeExpr dep)

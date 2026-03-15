@@ -138,3 +138,22 @@ The emitter needs StringBuilder-like text accumulation.
 | Phase 5 | TypeChecker + IR + Emitter | 2-3 |
 | Phase 6 | Bootstrap verification | 1 |
 | **Total** | | **7-9 sessions** |
+
+
+Root Cause Found: Stage 0 Parser Greedy Branch Consumption
+The Stage 0 ParseMatchExpression (in src/Codex.Syntax/Parser.cs) parses match branches with while (Current.Kind == TokenKind.IfKeyword) — it greedily consumes ALL if branches regardless of indentation. When a when expression is nested inside a branch body of an outer when, the inner match steals all subsequent if branches from the outer match. This caused type errors in multi-file compilation where TokenKind branches were being swallowed by inner ParseTypeResult or ParseExprResult matches.
+Parser.codex Rewrite
+Completely rewrote codex-src/Syntax/Parser.codex with a strict rule: no when expression may contain another when in a non-final branch body. The techniques used:
+1.	unwrap-X-ok functions — Dedicated single-branch when unwrappers (unwrap-expr-ok, unwrap-type-ok, unwrap-pat-ok, unwrap-pat-for-expr) that deconstruct result types and pass components to a continuation function. Since these have only one if branch, they never steal from an outer match.
+2.	if/then/else + predicate helpers — All multi-way dispatch on TokenKind uses chains of if is-X (current-kind st) then ... else ... instead of when current-kind st. ~25 TokenKind → Boolean predicates were grouped into their own section.
+3.	Continuation-passing — Complex parse functions are decomposed into small steps connected by continuations, e.g., parse-if-expr → parse-if-then → parse-if-else → finish-if.
+Files Changed
+File	Change
+codex-src/Syntax/Parser.codex	Complete rewrite avoiding nested when
+codex-src/Syntax/SyntaxNodes.codex	New file — CST node types (Expr, Pat, TypeExpr, Def, TypeDef, Document)
+src/Codex.Types/Unifier.cs	Removed temporary debug output
+Verification
+•	dotnet build Codex.sln — zero warnings
+•	dotnet test Codex.sln — 246/246 tests pass
+•	codex build codex-src/Syntax — compiles all 5 files (TokenKind + Token + Lexer + SyntaxNodes + Parser)
+•	codex build codex-src — compiles all 8 files (Core + Syntax)
