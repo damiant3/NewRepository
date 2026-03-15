@@ -158,10 +158,11 @@ Section: Module Emission
 
     emit-module : IRModule -> Text
     emit-module (m) =
-      "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n"
-      ++ "public static class Codex_" ++ sanitize m.name.value ++ "\n{\n"
-      ++ emit-defs m.defs 0
-      ++ "}\n"
+      emit-module-header m.name.value ++ emit-defs m.defs 0 ++ "}\n"
+
+    emit-module-header : Text -> Text
+    emit-module-header (name) =
+      "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\npublic static class Codex_" ++ sanitize name ++ "\n{\n"
 
     emit-defs : List IRDef -> Integer -> Text
     emit-defs (defs) (i) =

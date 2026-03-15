@@ -120,6 +120,28 @@ takes a token list + position, returns a (node, new-position) pair.
 The most complex pieces. The type checker needs Map for type environments.
 The emitter needs StringBuilder-like text accumulation.
 
+### Phase 5 Progress
+
+**Completed**: IR node types (`IRModule.codex`), Lowering (`Lowering.codex`),
+CodexType representations (`CodexType.codex`), and C# Emitter (`CSharpEmitter.codex`).
+
+The type checker is NOT written in Codex — it requires mutable environments and
+unification state that would need monadic threading. The Stage 0 type checker
+handles all codex-src code. The Lowering and Emitter in Codex produce simplified
+output (no full type propagation; uses `ErrorTy` placeholders for types not
+available without a Codex-side type checker).
+
+**Stage 0 compiler changes for Phase 5**:
+- **Let-generalization** (`TypeChecker.cs`): After type-checking a definition with
+  a type annotation, the declared type is immediately generalized (free type vars
+  wrapped in `ForAllType`). At each call site, `Instantiate` creates fresh copies.
+  This enables polymorphic reuse of functions like `map-list`.
+- **Implicit type parameters** (`TypeChecker.cs`): Lowercase type names that don't
+  resolve to any known type are treated as implicit type variables (fresh `TypeVariable`
+  bound in `m_typeParamEnv`, scoped per definition).
+- **New built-ins**: `integer-to-text`, `text-replace` added to NameResolver,
+  TypeEnvironment, Lowering built-in maps, and CSharpEmitter emission.
+
 ## Phase 6: Bootstrap Verification
 
 1. Stage 0 compiles `codex-src/` → `stage1.cs`
@@ -131,29 +153,47 @@ The emitter needs StringBuilder-like text accumulation.
 
 | Phase | Scope | Sessions |
 |-------|-------|----------|
-| Phase 1 | Core types in Codex | 1 |
-| Phase 2 | String/list primitives | 1 |
-| Phase 3 | Lexer in Codex | 1 |
-| Phase 4 | Parser + AST | 1-2 |
-| Phase 5 | TypeChecker + IR + Emitter | 2-3 |
-| Phase 6 | Bootstrap verification | 1 |
-| **Total** | | **7-9 sessions** |
+| Phase 1 | Core types in Codex | ✅ 1 |
+| Phase 2 | String/list primitives | ✅ 1 |
+| Phase 3 | Lexer in Codex | ✅ 1 |
+| Phase 4 | Parser + AST + Desugarer | ✅ 2 |
+| Phase 5 | IR + Lowering + Emitter | ✅ 1 |
+| Phase 6 | Bootstrap verification | ⏳ next |
+| **Total** | | **6 sessions so far** |
 
+---
+
+## Session Log
+
+### Session 5 — Phase 4 completion + Phase 5 (AST, Desugarer, IR, Emitter)
+
+**New codex-src files (6)**:
+- `codex-src/Core/Collections.codex` — `map-list`, `fold-list` using accumulator loops
+- `codex-src/Ast/AstNodes.codex` — AST node types (AExpr, APat, ATypeExpr, ADef, ATypeDef, AModule)
+- `codex-src/Ast/Desugarer.codex` — CST → AST transformation (all match branches on single lines)
+- `codex-src/Types/CodexType.codex` — Type representation sum type
+- `codex-src/IR/IRModule.codex` — IR node types
+- `codex-src/IR/Lowering.codex` — AST → IR transformation
+- `codex-src/Emit/CSharpEmitter.codex` — IR → C# text emission
+- `codex-src/Main.codex` — `compile` pipeline entry point
+
+**Stage 0 compiler changes**:
+1. **Let-generalization** (`src/Codex.Types/TypeChecker.cs`):
+   - Annotated definitions are generalized immediately in pass 1 (free type vars → `ForAllType`)
+   - `Instantiate` at call sites creates fresh copies of type vars
+   - Result map strips `ForAllType` for external consumers
+2. **Implicit type parameters** (`src/Codex.Types/TypeChecker.cs`):
+   - `ResolveNamedType` treats lowercase names not found in any env as fresh type vars
+   - `m_typeParamEnv` scoped per definition so `a` in different definitions → different vars
+3. **New built-ins**: `integer-to-text` (Integer → Text), `text-replace` (Text → Text → Text → Text)
+   - Added to: `NameResolver.cs`, `TypeEnvironment.cs`, `Lowering.cs`, `CSharpEmitter.cs`
+4. **Sub-parser continuation line fix**: `++` at start of continuation lines is not supported
+   by the notation-block sub-parser. Multi-line `++` chains must use helper functions.
+
+**Verification**:
+- `dotnet build Codex.sln` — zero warnings
+- `dotnet test Codex.sln` — 246/246 tests pass
+- `codex build codex-src` — compiles all 16 files (Core 4 + Syntax 5 + Ast 2 + Types 1 + IR 2 + Emit 1 + Main 1)
+- Generated `codex-src/output.cs` — 94KB of C# code
 
 Root Cause Found: Stage 0 Parser Greedy Branch Consumption
-The Stage 0 ParseMatchExpression (in src/Codex.Syntax/Parser.cs) parses match branches with while (Current.Kind == TokenKind.IfKeyword) — it greedily consumes ALL if branches regardless of indentation. When a when expression is nested inside a branch body of an outer when, the inner match steals all subsequent if branches from the outer match. This caused type errors in multi-file compilation where TokenKind branches were being swallowed by inner ParseTypeResult or ParseExprResult matches.
-Parser.codex Rewrite
-Completely rewrote codex-src/Syntax/Parser.codex with a strict rule: no when expression may contain another when in a non-final branch body. The techniques used:
-1.	unwrap-X-ok functions — Dedicated single-branch when unwrappers (unwrap-expr-ok, unwrap-type-ok, unwrap-pat-ok, unwrap-pat-for-expr) that deconstruct result types and pass components to a continuation function. Since these have only one if branch, they never steal from an outer match.
-2.	if/then/else + predicate helpers — All multi-way dispatch on TokenKind uses chains of if is-X (current-kind st) then ... else ... instead of when current-kind st. ~25 TokenKind → Boolean predicates were grouped into their own section.
-3.	Continuation-passing — Complex parse functions are decomposed into small steps connected by continuations, e.g., parse-if-expr → parse-if-then → parse-if-else → finish-if.
-Files Changed
-File	Change
-codex-src/Syntax/Parser.codex	Complete rewrite avoiding nested when
-codex-src/Syntax/SyntaxNodes.codex	New file — CST node types (Expr, Pat, TypeExpr, Def, TypeDef, Document)
-src/Codex.Types/Unifier.cs	Removed temporary debug output
-Verification
-•	dotnet build Codex.sln — zero warnings
-•	dotnet test Codex.sln — 246/246 tests pass
-•	codex build codex-src/Syntax — compiles all 5 files (TokenKind + Token + Lexer + SyntaxNodes + Parser)
-•	codex build codex-src — compiles all 8 files (Core + Syntax)

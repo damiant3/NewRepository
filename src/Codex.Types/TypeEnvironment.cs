@@ -69,6 +69,10 @@ public sealed class TypeEnvironment
         env = env.Bind("is-digit", new FunctionType(TextType.s_instance, BooleanType.s_instance));
         env = env.Bind("is-whitespace", new FunctionType(TextType.s_instance, BooleanType.s_instance));
         env = env.Bind("text-to-integer", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        env = env.Bind("integer-to-text", new FunctionType(IntegerType.s_instance, TextType.s_instance));
+        env = env.Bind("text-replace", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance,
+                new FunctionType(TextType.s_instance, TextType.s_instance))));
         env = env.Bind("char-code", new FunctionType(TextType.s_instance, IntegerType.s_instance));
         env = env.Bind("code-to-char", new FunctionType(IntegerType.s_instance, TextType.s_instance));
 

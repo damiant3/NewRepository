@@ -478,6 +478,10 @@ public sealed class Lowering(
         map = map.Set("is-digit", new FunctionType(TextType.s_instance, BooleanType.s_instance));
         map = map.Set("is-whitespace", new FunctionType(TextType.s_instance, BooleanType.s_instance));
         map = map.Set("text-to-integer", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        map = map.Set("integer-to-text", new FunctionType(IntegerType.s_instance, TextType.s_instance));
+        map = map.Set("text-replace", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance,
+                new FunctionType(TextType.s_instance, TextType.s_instance))));
         map = map.Set("char-code", new FunctionType(TextType.s_instance, IntegerType.s_instance));
         map = map.Set("code-to-char", new FunctionType(IntegerType.s_instance, TextType.s_instance));
 

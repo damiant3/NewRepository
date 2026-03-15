@@ -297,6 +297,12 @@ public sealed class CSharpEmitter : ICodeEmitter
                     EmitExpr(sb, app.Argument, indent);
                     sb.Append(')');
                 }
+                else if (app.Function is IRName fn11b && fn11b.Name == "integer-to-text")
+                {
+                    sb.Append('(');
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(").ToString()");
+                }
                 else if (app.Function is IRName fn12 && fn12.Name == "char-code")
                 {
                     sb.Append("((long)");
@@ -451,7 +457,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         args.Add(app.Argument);
     }
 
-    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at");
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at", "text-replace");
 
     static string? FindBuiltinRoot(IRApply app)
     {
@@ -494,6 +500,15 @@ public sealed class CSharpEmitter : ICodeEmitter
                 sb.Append("[(int)");
                 EmitExpr(sb, args[1], indent);
                 sb.Append(']');
+                return true;
+
+            case "text-replace" when args.Count == 3:
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".Replace(");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(", ");
+                EmitExpr(sb, args[2], indent);
+                sb.Append(')');
                 return true;
 
             default:
