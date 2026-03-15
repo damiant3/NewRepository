@@ -324,3 +324,5 @@ The index is derived from facts and can be rebuilt from scratch. It is not autho
 4. **Offline experience** — how much of the repository experience works offline? All of it (local store), with sync when connected? Or is online access required for some operations?
 
 5. **Migration from Git** — can existing Git repositories be imported into the Codex fact store? What is lost in translation? This matters for adoption.
+
+6. Damian asks: what if a required stakeholder is unable to vote possibly ever again? Do we allow timeouts? Proxy voting? Or is the proposal resubmitted?

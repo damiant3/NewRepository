@@ -191,18 +191,34 @@ public static partial class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("Usage: codex build <file.codex>");
+            Console.Error.WriteLine("Usage: codex build <file.codex> [--target cs|js|rust]");
             return 1;
         }
 
         string filePath = args[0];
-        CompilationResult? result = CompileFile(filePath);
-        if (result is null) return 1;
+        string target = "cs";
+        for (int i = 1; i < args.Length; i++)
+        {
+            if (args[i] == "--target" && i + 1 < args.Length)
+                target = args[++i].ToLowerInvariant();
+        }
 
-        string outputPath = Path.ChangeExtension(filePath, ".cs");
-        File.WriteAllText(outputPath, result.CSharpSource);
-        Console.WriteLine($"✓ Compiled to {outputPath}");
-        foreach (KeyValuePair<string, CodexType> kv in result.Types)
+        IRCompilationResult? irResult = CompileToIR(filePath);
+        if (irResult is null) return 1;
+
+        Codex.Emit.ICodeEmitter emitter = target switch
+        {
+            "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
+            "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
+            _ => new CSharpEmitter()
+        };
+
+        string output = emitter.Emit(irResult.Module);
+        string outputPath = Path.ChangeExtension(filePath, emitter.FileExtension);
+        File.WriteAllText(outputPath, output);
+
+        Console.WriteLine($"✓ Compiled to {outputPath} ({emitter.TargetName})");
+        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
         {
             Console.WriteLine($"  {kv.Key} : {kv.Value}");
         }
@@ -374,6 +390,16 @@ public static partial class Program
 
     static CompilationResult? CompileFile(string filePath)
     {
+        IRCompilationResult? irResult = CompileToIR(filePath);
+        if (irResult is null) return null;
+
+        CSharpEmitter emitter = new();
+        string csharpSource = emitter.Emit(irResult.Module);
+        return new CompilationResult(csharpSource, irResult.Types);
+    }
+
+    static IRCompilationResult? CompileToIR(string filePath)
+    {
         if (!File.Exists(filePath))
         {
             Console.Error.WriteLine($"File not found: {filePath}");
@@ -417,10 +443,7 @@ public static partial class Program
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        CSharpEmitter emitter = new();
-        string csharpSource = emitter.Emit(irModule);
-
-        return new CompilationResult(csharpSource, types);
+        return new IRCompilationResult(irModule, types);
     }
 
     static string GenerateCsproj()
@@ -601,7 +624,7 @@ public static partial class Program
         Console.WriteLine("Commands:");
         Console.WriteLine("  parse <file>      Lex, parse, and display the structure of a Codex file");
         Console.WriteLine("  check <file>      Parse and type-check a Codex file");
-        Console.WriteLine("  build <file>      Compile a Codex file to C#");
+        Console.WriteLine("  build <file>      Compile a Codex file (--target cs|js|rust)");
         Console.WriteLine("  run <file>        Compile and execute a Codex file");
         Console.WriteLine("  read <file>       Display a prose-mode document as formatted text");
         Console.WriteLine("  init [dir]        Initialize a Codex repository in the given directory");
@@ -661,6 +684,10 @@ public static partial class Program
 
     sealed record CompilationResult(
         string CSharpSource,
+        Map<string, CodexType> Types);
+
+    sealed record IRCompilationResult(
+        IRModule Module,
         Map<string, CodexType> Types);
 
     static DocumentNode ParseSourceFile(SourceText source, string content, DiagnosticBag diagnostics)
