@@ -348,4 +348,85 @@ public class ParserTests
         DependentTypeNode inner = (DependentTypeNode)outer.Body;
         Assert.Equal("n", inner.ParamName.Text);
     }
+
+    // --- Claims and Proofs (Milestone 10) ---
+
+    [Fact]
+    public void Parse_simple_claim()
+    {
+        DocumentNode doc = Parse("claim zero-eq : 0 === 0\nproof zero-eq = Refl");
+        Assert.Single(doc.Claims);
+        Assert.Equal("zero-eq", doc.Claims[0].Name.Text);
+        Assert.IsType<IntegerTypeNode>(doc.Claims[0].Left);
+        Assert.IsType<IntegerTypeNode>(doc.Claims[0].Right);
+    }
+
+    [Fact]
+    public void Parse_claim_with_parameters()
+    {
+        DocumentNode doc = Parse("claim eq (x) (y) : x === y\nproof eq (x) (y) = assume");
+        Assert.Single(doc.Claims);
+        Assert.Equal(2, doc.Claims[0].Parameters.Count);
+        Assert.Equal("x", doc.Claims[0].Parameters[0].Text);
+        Assert.Equal("y", doc.Claims[0].Parameters[1].Text);
+    }
+
+    [Fact]
+    public void Parse_proof_with_refl()
+    {
+        DocumentNode doc = Parse("claim a : 1 === 1\nproof a = Refl");
+        Assert.Single(doc.Proofs);
+        Assert.Equal("a", doc.Proofs[0].Name.Text);
+        Assert.IsType<ReflNode>(doc.Proofs[0].Body);
+    }
+
+    [Fact]
+    public void Parse_proof_with_assume()
+    {
+        DocumentNode doc = Parse("claim a : 1 === 2\nproof a = assume");
+        Assert.Single(doc.Proofs);
+        Assert.IsType<AssumeNode>(doc.Proofs[0].Body);
+    }
+
+    [Fact]
+    public void Parse_proof_with_sym()
+    {
+        DocumentNode doc = Parse("claim a : 1 === 1\nproof a = Refl\nclaim b : 1 === 1\nproof b = sym a");
+        Assert.Equal(2, doc.Proofs.Count);
+        Assert.IsType<SymNode>(doc.Proofs[1].Body);
+    }
+
+    [Fact]
+    public void Parse_proof_with_induction()
+    {
+        string source = "claim id (xs) : xs === xs\n" +
+                         "proof id (xs) =\n" +
+                         "  induction xs\n" +
+                         "    if Nil -> Refl\n" +
+                         "    if Cons (h) (t) -> Refl\n";
+        DocumentNode doc = Parse(source);
+        Assert.Single(doc.Proofs);
+        InductionNode ind = Assert.IsType<InductionNode>(doc.Proofs[0].Body);
+        Assert.Equal("xs", ind.Variable.Text);
+        Assert.Equal(2, ind.Cases.Count);
+    }
+
+    [Fact]
+    public void Parse_proof_with_cong()
+    {
+        string source = "claim a : 1 === 1\nproof a = Refl\n" +
+                         "claim b : List 1 === List 1\nproof b = cong List a";
+        DocumentNode doc = Parse(source);
+        CongNode cong = Assert.IsType<CongNode>(doc.Proofs[1].Body);
+        Assert.Equal("List", cong.FunctionName.Text);
+    }
+
+    [Fact]
+    public void Parse_proof_with_trans()
+    {
+        string source = "claim a : 1 === 1\nproof a = Refl\n" +
+                         "claim b : 1 === 1\nproof b = trans a a";
+        DocumentNode doc = Parse(source);
+        Assert.IsType<TransNode>(doc.Proofs[1].Body);
+    }
 }

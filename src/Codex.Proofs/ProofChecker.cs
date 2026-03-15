@@ -9,6 +9,7 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
 {
     readonly DiagnosticBag m_diagnostics = diagnostics;
     Map<string, EqualityType> m_claimMap = Map<string, EqualityType>.s_empty;
+    Map<string, IReadOnlyList<string>> m_claimParamsMap = Map<string, IReadOnlyList<string>>.s_empty;
     Map<string, CodexType> m_typeMap = Map<string, CodexType>.s_empty;
 
     public void CheckModule(Module module, Map<string, CodexType> typeMap)
@@ -31,6 +32,8 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
             CodexType right = ResolveClaimSide(claim.Right);
             EqualityType eqType = new(left, right);
             m_claimMap = m_claimMap.Set(claim.Name.Value, eqType);
+            List<string> paramNames = claim.Parameters.Select(p => p.Name.Value).ToList();
+            m_claimParamsMap = m_claimParamsMap.Set(claim.Name.Value, paramNames);
         }
     }
 
@@ -125,6 +128,9 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
                     expr.Span);
                 return null;
 
+            case AssumeProofExpr:
+                return goal;
+
             case SymProofExpr sym:
             {
                 EqualityType flipped = new(goal.Right, goal.Left);
@@ -134,17 +140,30 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
 
             case TransProofExpr trans:
             {
-                TypeLevelVar mid = new("_mid_" + expr.Span.Start.Offset);
-                EqualityType leftGoal = new(goal.Left, mid);
-                EqualityType rightGoal = new(mid, goal.Right);
+                EqualityType? leftResult = InferProofExpr(trans.Left, env);
+                if (leftResult is null)
+                {
+                    leftResult = CheckProofExpr(trans.Left, goal, env);
+                    if (leftResult is null) return null;
+                }
 
-                EqualityType? leftResult = CheckProofExpr(trans.Left, leftGoal, env);
-                if (leftResult is null) return null;
+                EqualityType? rightResult = InferProofExpr(trans.Right, env);
+                if (rightResult is null)
+                {
+                    EqualityType rightGoal = new(leftResult.Right, goal.Right);
+                    rightResult = CheckProofExpr(trans.Right, rightGoal, env);
+                    if (rightResult is null) return null;
+                }
 
-                CodexType midResolved = leftResult.Right;
-                EqualityType rightGoalResolved = new(midResolved, goal.Right);
-                EqualityType? rightResult = CheckProofExpr(trans.Right, rightGoalResolved, env);
-                return rightResult is not null ? goal : null;
+                if (TypesEqual(leftResult.Left, goal.Left, env)
+                    && TypesEqual(leftResult.Right, rightResult.Left, env)
+                    && TypesEqual(rightResult.Right, goal.Right, env))
+                    return goal;
+
+                m_diagnostics.Error("CDX4014",
+                    $"Trans: chain {leftResult.Left} ≡ {leftResult.Right} ≡ {rightResult.Right} does not match goal {goal}",
+                    expr.Span);
+                return null;
             }
 
             case CongProofExpr cong:
@@ -275,12 +294,39 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
             return null;
         }
 
-        if (TypesEqual(lemma.Left, goal.Left, env)
-            && TypesEqual(lemma.Right, goal.Right, env))
+        IReadOnlyList<string>? paramNames = m_claimParamsMap[apply.LemmaName.Value];
+        EqualityType instantiated = lemma;
+        if (paramNames is not null && paramNames.Count == apply.Arguments.Count)
+        {
+            CodexType left = lemma.Left;
+            CodexType right = lemma.Right;
+            for (int i = 0; i < paramNames.Count; i++)
+            {
+                CodexType argType = ExprToType(apply.Arguments[i]);
+                left = SubstituteVar(left, paramNames[i], argType);
+                right = SubstituteVar(right, paramNames[i], argType);
+            }
+            instantiated = new EqualityType(
+                NormalizeTypeLevelExpr(left), NormalizeTypeLevelExpr(right));
+        }
+        else if (paramNames is not null && paramNames.Count > 0 && apply.Arguments.Count == 0)
+        {
+            // No args — use claim as-is (for named reference without instantiation)
+        }
+        else if (paramNames is not null)
+        {
+            m_diagnostics.Error("CDX4015",
+                $"Lemma '{apply.LemmaName.Value}' expects {paramNames.Count} arguments, got {apply.Arguments.Count}",
+                apply.Span);
+            return null;
+        }
+
+        if (TypesEqual(instantiated.Left, goal.Left, env)
+            && TypesEqual(instantiated.Right, goal.Right, env))
             return goal;
 
         m_diagnostics.Error("CDX4013",
-            $"Lemma '{apply.LemmaName.Value}' does not match goal {goal}",
+            $"Lemma '{apply.LemmaName.Value}' proves {instantiated.Left} ≡ {instantiated.Right}, but goal is {goal.Left} ≡ {goal.Right}",
             apply.Span);
         return null;
     }
@@ -289,7 +335,9 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
     {
         return pattern switch
         {
-            CtorPattern ctor => new TypeLevelVar(ctor.Constructor.Value),
+            CtorPattern ctor => new ConstructedType(
+                ctor.Constructor,
+                [.. ctor.SubPatterns.Select(p => PatternToType(p, inductionVar, env))]),
             VarPattern v => new TypeLevelVar(v.Name.Value),
             LiteralPattern lit when lit.Kind == LiteralKind.Integer =>
                 new TypeLevelValue(Convert.ToInt64(lit.Value)),
@@ -303,11 +351,9 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
         return type switch
         {
             TypeLevelVar tv when tv.Name == varName => replacement,
-            ConstructedType c => c with
-            {
-                Arguments = [.. c.Arguments.Select(
-                    a => SubstituteVar(a, varName, replacement))]
-            },
+            ConstructedType c => new ConstructedType(
+                c.Constructor,
+                [.. c.Arguments.Select(a => SubstituteVar(a, varName, replacement))]),
             FunctionType f => new FunctionType(
                 SubstituteVar(f.Parameter, varName, replacement),
                 SubstituteVar(f.Return, varName, replacement)),
@@ -337,6 +383,10 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
         {
             (TypeLevelValue va, TypeLevelValue vb) => va.Value == vb.Value,
             (TypeLevelVar va, TypeLevelVar vb) => va.Name == vb.Name,
+            (TypeLevelVar va, ConstructedType cb) when cb.Arguments.IsEmpty =>
+                va.Name == cb.Constructor.Value,
+            (ConstructedType ca, TypeLevelVar vb) when ca.Arguments.IsEmpty =>
+                ca.Constructor.Value == vb.Name,
             (IntegerType, IntegerType) => true,
             (TextType, TextType) => true,
             (BooleanType, BooleanType) => true,
@@ -396,5 +446,16 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
         }
 
         return type;
+    }
+
+    static CodexType ExprToType(Expr expr)
+    {
+        return expr switch
+        {
+            NameExpr n => new TypeLevelVar(n.Name.Value),
+            LiteralExpr lit when lit.Kind == LiteralKind.Integer =>
+                new TypeLevelValue(Convert.ToInt64(lit.Value)),
+            _ => new TypeLevelVar("_")
+        };
     }
 }

@@ -931,4 +931,99 @@ public class IntegrationTests
         DiagnosticBag diag = CheckWithProofs(source);
         Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
     }
+
+    [Fact]
+    public void Induction_base_case_with_refl()
+    {
+        string source =
+            "claim id-nil : Nil === Nil\n" +
+            "proof id-nil = Refl\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Induction_on_list_with_base_case()
+    {
+        string source =
+            "claim list-id (xs) : xs === xs\n" +
+            "proof list-id (xs) =\n" +
+            "  induction xs\n" +
+            "    if Nil -> Refl\n" +
+            "    if Cons (head) (tail) -> Refl\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Trans_proof_chains_equalities()
+    {
+        string source =
+            "claim step-one : 3 === 3\n" +
+            "proof step-one = Refl\n\n" +
+            "claim step-two : 3 === 3\n" +
+            "proof step-two = trans step-one step-one\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Reverse_reverse_nil_base_case()
+    {
+        string source =
+            "claim rev-nil : reverse (reverse Nil) === Nil\n" +
+            "proof rev-nil = assume\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Reverse_reverse_claim_with_induction()
+    {
+        string source =
+            "claim rev-rev (xs) : reverse (reverse xs) === xs\n\n" +
+            "claim rev-nil : reverse (reverse Nil) === Nil\n" +
+            "proof rev-nil = assume\n\n" +
+            "claim rev-cons (head) (tail) : reverse (reverse (Cons head tail)) === Cons head tail\n" +
+            "proof rev-cons (head) (tail) = assume\n\n" +
+            "proof rev-rev (xs) =\n" +
+            "  induction xs\n" +
+            "    if Nil -> rev-nil\n" +
+            "    if Cons (head) (tail) -> rev-cons head tail\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Parameterized_claim_referenced_as_name()
+    {
+        string source =
+            "claim eq-cons (head) (tail) : Cons head tail === Cons head tail\n" +
+            "proof eq-cons (head) (tail) = Refl\n\n" +
+            "claim use-eq (h) (t) : Cons h t === Cons h t\n" +
+            "proof use-eq (h) (t) = eq-cons h t\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Assume_proof_accepts_any_claim()
+    {
+        string source =
+            "claim anything : 1 === 2\n" +
+            "proof anything = assume\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Induction_missing_cases_fails()
+    {
+        string source =
+            "claim bad-induction (xs) : xs === xs\n" +
+            "proof bad-induction (xs) =\n" +
+            "  induction xs\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX4020");
+    }
 }

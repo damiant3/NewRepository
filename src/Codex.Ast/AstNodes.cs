@@ -142,6 +142,8 @@ public abstract record ProofExpr(SourceSpan Span);
 
 public sealed record ReflProofExpr(SourceSpan Span) : ProofExpr(Span);
 
+public sealed record AssumeProofExpr(SourceSpan Span) : ProofExpr(Span);
+
 public sealed record SymProofExpr(ProofExpr Inner, SourceSpan Span) : ProofExpr(Span);
 
 public sealed record TransProofExpr(ProofExpr Left, ProofExpr Right, SourceSpan Span) : ProofExpr(Span);

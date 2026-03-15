@@ -378,9 +378,10 @@ public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostic
                    && Current.Kind != TokenKind.Newline
                    && Current.Kind != TokenKind.Equals
                    && Current.Kind != TokenKind.RightParen
-                   && Current.Kind != TokenKind.Comma)
+                   && Current.Kind != TokenKind.Comma
+                   && Current.Kind != TokenKind.TripleEquals)
             {
-                args.Add(ParseTypeAtom());
+                args.Add(ParseTypeAtomSimple());
             }
 
             if (args.Count > 0)
@@ -389,6 +390,45 @@ public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostic
             }
 
             return baseType;
+        }
+
+        m_diagnostics.Error("CDX1010", $"Expected a type, found {Current.Kind}", Current.Span);
+        Token errToken = Current;
+        Advance();
+        return new NamedTypeNode(errToken);
+    }
+
+    TypeNode ParseTypeAtomSimple()
+    {
+        if (Current.Kind == TokenKind.LeftParen)
+        {
+            Token start = Current;
+            Advance();
+            TypeNode inner = ParseType();
+            if (Current.Kind is TokenKind.Plus or TokenKind.Minus or TokenKind.Star)
+            {
+                Token op = Current;
+                Advance();
+                TypeNode right = ParseType();
+                Expect(TokenKind.RightParen);
+                return new BinaryTypeNode(inner, op, right, start.Span.Through(Previous.Span));
+            }
+            Expect(TokenKind.RightParen);
+            return new ParenthesizedTypeNode(inner, start.Span.Through(Previous.Span));
+        }
+
+        if (Current.Kind == TokenKind.IntegerLiteral)
+        {
+            Token lit = Current;
+            Advance();
+            return new IntegerTypeNode(lit, lit.Span);
+        }
+
+        if (Current.Kind is TokenKind.TypeIdentifier or TokenKind.Identifier)
+        {
+            Token nameToken = Current;
+            Advance();
+            return new NamedTypeNode(nameToken);
         }
 
         m_diagnostics.Error("CDX1010", $"Expected a type, found {Current.Kind}", Current.Span);
@@ -918,6 +958,13 @@ public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostic
             return new ReflNode(t.Span);
         }
 
+        if (Current.Kind == TokenKind.Identifier && Current.Text == "assume")
+        {
+            Token t = Current;
+            Advance();
+            return new AssumeNode(t.Span);
+        }
+
         if (Current.Kind == TokenKind.Identifier && Current.Text == "sym")
         {
             Token t = Current;
@@ -930,8 +977,8 @@ public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostic
         {
             Token t = Current;
             Advance();
-            ProofExprNode left = ParseProofAtom();
-            ProofExprNode right = ParseProofAtom();
+            ProofExprNode left = ParseProofSimpleAtom();
+            ProofExprNode right = ParseProofSimpleAtom();
             return new TransNode(left, right, t.Span.Through(right.Span));
         }
 
@@ -983,6 +1030,13 @@ public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostic
             return new ReflNode(t.Span);
         }
 
+        if (Current.Kind == TokenKind.Identifier && Current.Text == "assume")
+        {
+            Token t = Current;
+            Advance();
+            return new AssumeNode(t.Span);
+        }
+
         if (Current.Kind == TokenKind.LeftParen)
         {
             Advance();
@@ -1017,6 +1071,43 @@ public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostic
             if (args.Count > 0)
                 return new ProofApplyNode(name, args, name.Span.Through(args[^1].Span));
 
+            return new ProofNameNode(name, name.Span);
+        }
+
+        m_diagnostics.Error("CDX1020", $"Expected a proof expression, found {Current.Kind}", Current.Span);
+        Token err = Current;
+        Advance();
+        return new ReflNode(err.Span);
+    }
+
+    ProofExprNode ParseProofSimpleAtom()
+    {
+        if (Current.Kind == TokenKind.TypeIdentifier && Current.Text == "Refl")
+        {
+            Token t = Current;
+            Advance();
+            return new ReflNode(t.Span);
+        }
+
+        if (Current.Kind == TokenKind.Identifier && Current.Text == "assume")
+        {
+            Token t = Current;
+            Advance();
+            return new AssumeNode(t.Span);
+        }
+
+        if (Current.Kind == TokenKind.LeftParen)
+        {
+            Advance();
+            ProofExprNode inner = ParseProofExpr();
+            Expect(TokenKind.RightParen);
+            return inner;
+        }
+
+        if (Current.Kind is TokenKind.Identifier or TokenKind.TypeIdentifier)
+        {
+            Token name = Current;
+            Advance();
             return new ProofNameNode(name, name.Span);
         }
 

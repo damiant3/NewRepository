@@ -260,6 +260,7 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
     ProofExpr DesugarProofExpr(ProofExprNode node) => node switch
     {
         ReflNode r => new ReflProofExpr(r.Span),
+        AssumeNode a => new AssumeProofExpr(a.Span),
         SymNode s => new SymProofExpr(DesugarProofExpr(s.Inner), s.Span),
         TransNode t => new TransProofExpr(
             DesugarProofExpr(t.Left), DesugarProofExpr(t.Right), t.Span),

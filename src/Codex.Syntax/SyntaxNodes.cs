@@ -63,6 +63,7 @@ public enum SyntaxKind
     ClaimDefinition,
     ProofDefinition,
     ProofRefl,
+    ProofAssume,
     ProofSym,
     ProofTrans,
     ProofCong,
@@ -488,6 +489,12 @@ public abstract record ProofExprNode(SyntaxKind Kind, SourceSpan Span)
 
 public sealed record ReflNode(SourceSpan Span)
     : ProofExprNode(SyntaxKind.ProofRefl, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [];
+}
+
+public sealed record AssumeNode(SourceSpan Span)
+    : ProofExprNode(SyntaxKind.ProofAssume, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [];
 }
