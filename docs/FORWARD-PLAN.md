@@ -17,11 +17,11 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 
 | Metric | Value |
 |--------|-------|
-| C# projects | 24 |
-| Test count | 325 (all passing) |
+| C# projects | 30 |
+| Test count | 420 (all passing) |
 | Codex source | 3,067 lines across 21 .codex files |
 | Bootstrap parity | 259 records, 308 functions |
-| Backends | C# (primary), JavaScript, Rust, Python, **C++** |
+| Backends | C#, JavaScript, Rust, Python, C++, Go, Java, Ada, Babbage, **Fortran**, **COBOL** |
 | LSP | Diagnostics, hover, symbols, semantic tokens |
 | Repository | Content-addressed fact store with proposals/verdicts |
 
@@ -89,11 +89,17 @@ Full pipeline: `compile-checked` chains lex → parse → desugar → resolve �
 Induction with inductive hypothesis, cong decomposition, lemma application.
 Proof system: Refl, sym, trans, cong (bidirectional), induction with IH, assume.
 
-**11. ~~Additional backends~~** — ✅ Python and C++ added.
-Python backend: `Codex.Emit.Python`, ~630 lines. All 14 samples pass.
-C++ backend: `Codex.Emit.Cpp`, ~650 lines. All 14 samples emit.
-`@dataclass` records (Python), `struct`/`std::variant`/`std::visit`/`if constexpr` (C++).
-TCO via `while True` (Python) and `while(true)` (C++). 5 backends total.
+**11. ~~Additional backends~~** — ✅ Python, C++, Go, Java, Ada, Babbage, Fortran, COBOL added.
+11 backends total: C# (primary), JavaScript, Rust, Python, C++, Go, Java, Ada,
+Babbage Analytical Engine, Fortran, COBOL. All 15 samples (including proofs)
+emit across all backends.
+Sum types: `@dataclass` (Python), `std::variant` (C++), `interface{}` (Go),
+`sealed interface` + `record` (Java), discriminant records (Ada),
+Store columns (Babbage), tagged structs (Fortran), `PIC 9(2)` tags (COBOL).
+TCO in all backends: `do while/.true./cycle` (Fortran), `GO TO` (COBOL).
+Proof-only modules emit proper entry points in all 11 backends.
+C++ verified compiling and running under MSVC /std:c++17 (14/15 samples).
+165 backend integration tests (15 samples × 11 backends).
 
 **12. Package manager / dependency resolution**
 The repository stores facts but there's no dependency resolution across

@@ -37,6 +37,8 @@ public sealed class CppEmitter : ICodeEmitter
         sb.AppendLine("#include <sstream>");
         sb.AppendLine("#include <fstream>");
         sb.AppendLine();
+        sb.AppendLine("namespace codex {");
+        sb.AppendLine();
 
         EmitForwardDeclarations(sb, module);
         EmitTypeDefinitions(sb, module);
@@ -52,14 +54,16 @@ public sealed class CppEmitter : ICodeEmitter
             sb.AppendLine();
         }
 
+        sb.AppendLine("} // namespace codex");
+        sb.AppendLine();
+
         if (mainDef is not null)
         {
             sb.AppendLine("int main() {");
+            sb.AppendLine("    using namespace codex;");
             if (IsEffectfulDefinition(mainDef))
             {
-                sb.Append("    ");
                 EmitStatement(sb, mainDef.Body, 1);
-                sb.AppendLine();
             }
             else
             {
@@ -67,6 +71,16 @@ public sealed class CppEmitter : ICodeEmitter
                 EmitExpr(sb, mainDef.Body, 1);
                 sb.AppendLine(" << std::endl;");
             }
+            sb.AppendLine("    return 0;");
+            sb.AppendLine("}");
+        }
+        else
+        {
+            sb.AppendLine("int main() {");
+            if (module.Definitions.Length == 0)
+                sb.AppendLine("    std::cout << \"All proofs verified at compile time.\" << std::endl;");
+            else
+                sb.AppendLine("    std::cout << \"Module loaded.\" << std::endl;");
             sb.AppendLine("    return 0;");
             sb.AppendLine("}");
         }
@@ -110,9 +124,18 @@ public sealed class CppEmitter : ICodeEmitter
 
     void EmitSumType(StringBuilder sb, SumType sum)
     {
+        SortedSet<int> sumTvars = new();
+        foreach (SumConstructorType ctor in sum.Constructors)
+            foreach (CodexType f in ctor.Fields)
+                CollectTypeVars(f, sumTvars);
+
+        string templatePrefix = EmitTemplatePrefix(sumTvars);
+
         foreach (SumConstructorType ctor in sum.Constructors)
         {
             string name = Sanitize(ctor.Name.Value);
+            if (templatePrefix.Length > 0)
+                sb.AppendLine(templatePrefix);
             sb.AppendLine($"struct {name} {{");
             for (int i = 0; i < ctor.Fields.Length; i++)
                 sb.AppendLine($"    {EmitType(ctor.Fields[i])} field{i};");
@@ -121,11 +144,29 @@ public sealed class CppEmitter : ICodeEmitter
         }
 
         string baseName = Sanitize(sum.TypeName.Value);
+        if (templatePrefix.Length > 0)
+            sb.AppendLine(templatePrefix);
         sb.Append($"using {baseName} = std::variant<");
         for (int i = 0; i < sum.Constructors.Length; i++)
         {
             if (i > 0) sb.Append(", ");
-            sb.Append(Sanitize(sum.Constructors[i].Name.Value));
+            string ctorName = Sanitize(sum.Constructors[i].Name.Value);
+            if (sumTvars.Count > 0)
+            {
+                sb.Append($"{ctorName}<");
+                bool first = true;
+                foreach (int tv in sumTvars)
+                {
+                    if (!first) sb.Append(", ");
+                    first = false;
+                    sb.Append($"T{tv}");
+                }
+                sb.Append('>');
+            }
+            else
+            {
+                sb.Append(ctorName);
+            }
         }
         sb.AppendLine(">;");
         sb.AppendLine();
@@ -133,7 +174,14 @@ public sealed class CppEmitter : ICodeEmitter
 
     static void EmitRecordType(StringBuilder sb, RecordType rec)
     {
+        SortedSet<int> tvars = new();
+        foreach (RecordFieldType f in rec.Fields)
+            CollectTypeVars(f.Type, tvars);
+
         string name = Sanitize(rec.TypeName.Value);
+        string templatePrefix = EmitTemplatePrefix(tvars);
+        if (templatePrefix.Length > 0)
+            sb.AppendLine(templatePrefix);
         sb.AppendLine($"struct {name} {{");
         for (int i = 0; i < rec.Fields.Length; i++)
         {
@@ -152,8 +200,15 @@ public sealed class CppEmitter : ICodeEmitter
             return;
         }
 
+        SortedSet<int> tvars = new();
+        CollectTypeVars(def.Type, tvars);
+        string templatePrefix = EmitTemplatePrefix(tvars);
+
         string returnType = EmitReturnType(def);
         string name = Sanitize(def.Name);
+
+        if (templatePrefix.Length > 0)
+            sb.AppendLine(templatePrefix);
 
         if (def.Parameters.Length == 0 && !IsEffectfulDefinition(def))
         {
@@ -188,9 +243,15 @@ public sealed class CppEmitter : ICodeEmitter
 
     void EmitTailCallDefinition(StringBuilder sb, IRDefinition def)
     {
+        SortedSet<int> tvars = new();
+        CollectTypeVars(def.Type, tvars);
+        string templatePrefix = EmitTemplatePrefix(tvars);
+
         string returnType = EmitReturnType(def);
         string name = Sanitize(def.Name);
 
+        if (templatePrefix.Length > 0)
+            sb.AppendLine(templatePrefix);
         sb.Append($"{returnType} {name}(");
         for (int i = 0; i < def.Parameters.Length; i++)
         {
@@ -910,7 +971,10 @@ public sealed class CppEmitter : ICodeEmitter
             LinearType lin => EmitType(lin.Inner),
             ListType lt => $"std::vector<{EmitType(lt.Element)}>",
             FunctionType ft => $"std::function<{EmitType(ft.Return)}({EmitType(ft.Parameter)})>",
-            TypeVariable tv => $"auto",
+            ForAllType fa => EmitType(fa.Body),
+            RecordType rt => Sanitize(rt.TypeName.Value),
+            SumType st => Sanitize(st.TypeName.Value),
+            TypeVariable tv => $"T{tv.Id}",
             ErrorType => "auto",
             _ => "auto"
         };
@@ -977,8 +1041,7 @@ public sealed class CppEmitter : ICodeEmitter
     static string? FindBuiltinRoot(IRApply app)
     {
         IRExpr current = app.Function;
-        while (current is IRApply inner)
-            current = inner.Function;
+        while (current is IRApply inner) current = inner.Function;
         if (current is IRName name && s_multiArgBuiltins.Contains(name.Name))
             return name.Name;
         return null;
@@ -1051,6 +1114,53 @@ public sealed class CppEmitter : ICodeEmitter
         return type is EffectfulType;
     }
 
+    static void CollectTypeVars(CodexType type, SortedSet<int> vars)
+    {
+        switch (type)
+        {
+            case TypeVariable tv:
+                vars.Add(tv.Id);
+                break;
+            case FunctionType ft:
+                CollectTypeVars(ft.Parameter, vars);
+                CollectTypeVars(ft.Return, vars);
+                break;
+            case DependentFunctionType dep:
+                CollectTypeVars(dep.ParamType, vars);
+                CollectTypeVars(dep.Body, vars);
+                break;
+            case ListType lt:
+                CollectTypeVars(lt.Element, vars);
+                break;
+            case EffectfulType eft:
+                CollectTypeVars(eft.Return, vars);
+                break;
+            case LinearType lin:
+                CollectTypeVars(lin.Inner, vars);
+                break;
+            case ForAllType fa:
+                vars.Add(fa.VariableId);
+                CollectTypeVars(fa.Body, vars);
+                break;
+        }
+    }
+
+    static string EmitTemplatePrefix(SortedSet<int> tvars)
+    {
+        if (tvars.Count == 0) return "";
+        StringBuilder tb = new();
+        tb.Append("template<");
+        bool first = true;
+        foreach (int id in tvars)
+        {
+            if (!first) tb.Append(", ");
+            first = false;
+            tb.Append($"typename T{id}");
+        }
+        tb.Append('>');
+        return tb.ToString();
+    }
+
     static string Sanitize(string name)
     {
         string sanitized = name.Replace('-', '_');
@@ -1064,6 +1174,10 @@ public sealed class CppEmitter : ICodeEmitter
             or "protected" or "friend" or "operator" or "delete" or "default"
             or "throw" or "try" or "catch" or "inline" or "extern" or "register"
             or "volatile" or "mutable" or "explicit" or "export" or "typedef"
+            or "double" or "float" or "char" or "short" or "bool" or "unsigned"
+            or "signed" or "sizeof" or "alignof" or "decltype" or "constexpr"
+            or "noexcept" or "nullptr" or "string" or "vector" or "map" or "set"
+            or "abs" or "max" or "min" or "swap" or "move" or "sort" or "main"
                 => $"_{sanitized}",
             _ => sanitized
         };

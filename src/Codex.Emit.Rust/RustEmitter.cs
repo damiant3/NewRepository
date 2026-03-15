@@ -52,6 +52,15 @@ public sealed class RustEmitter : ICodeEmitter
             }
             sb.AppendLine("}");
         }
+        else
+        {
+            sb.AppendLine("fn main() {");
+            if (module.Definitions.Length == 0)
+                sb.AppendLine("    println!(\"All proofs verified at compile time.\");");
+            else
+                sb.AppendLine("    println!(\"Module loaded.\");");
+            sb.AppendLine("}");
+        }
 
         return sb.ToString();
     }

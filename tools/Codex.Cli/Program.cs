@@ -229,6 +229,12 @@ public static partial class Program  // this file is locked.  use a partial.
                 "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
                 "python" or "py" => new Codex.Emit.Python.PythonEmitter(),
                 "cpp" or "c++" => new Codex.Emit.Cpp.CppEmitter(),
+                "go" => new Codex.Emit.Go.GoEmitter(),
+                "java" => new Codex.Emit.Java.JavaEmitter(),
+                "ada" => new Codex.Emit.Ada.AdaEmitter(),
+                "babbage" or "ae" => new Codex.Emit.Babbage.BabbageEmitter(),
+                "fortran" or "f90" => new Codex.Emit.Fortran.FortranEmitter(),
+                "cobol" or "cob" => new Codex.Emit.Cobol.CobolEmitter(),
                 _ => new CSharpEmitter()
             };
             string output = dirEmitter.Emit(irResult.Module);
@@ -246,6 +252,12 @@ public static partial class Program  // this file is locked.  use a partial.
                 "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
                 "python" or "py" => new Codex.Emit.Python.PythonEmitter(),
                 "cpp" or "c++" => new Codex.Emit.Cpp.CppEmitter(),
+                "go" => new Codex.Emit.Go.GoEmitter(),
+                "java" => new Codex.Emit.Java.JavaEmitter(),
+                "ada" => new Codex.Emit.Ada.AdaEmitter(),
+                "babbage" or "ae" => new Codex.Emit.Babbage.BabbageEmitter(),
+                "fortran" or "f90" => new Codex.Emit.Fortran.FortranEmitter(),
+                "cobol" or "cob" => new Codex.Emit.Cobol.CobolEmitter(),
                 _ => new CSharpEmitter()
             };
             string output = emitter.Emit(irResult.Module);

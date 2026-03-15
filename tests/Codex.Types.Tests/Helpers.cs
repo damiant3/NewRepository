@@ -108,6 +108,36 @@ namespace Codex.Types.Tests
             return CompileToTarget(source, moduleName, new Codex.Emit.Cpp.CppEmitter());
         }
 
+        public static string? CompileToGo(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Go.GoEmitter());
+        }
+
+        public static string? CompileToJava(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Java.JavaEmitter());
+        }
+
+        public static string? CompileToAda(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Ada.AdaEmitter());
+        }
+
+        public static string? CompileToBabbage(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Babbage.BabbageEmitter());
+        }
+
+        public static string? CompileToFortran(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Fortran.FortranEmitter());
+        }
+
+        public static string? CompileToCobol(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Cobol.CobolEmitter());
+        }
+
         static string? CompileToTarget(string source, string moduleName, Codex.Emit.ICodeEmitter emitter)
         {
             SourceText src = new("test.codex", source);

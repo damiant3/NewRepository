@@ -48,6 +48,10 @@ public sealed class JavaScriptEmitter : ICodeEmitter
                 sb.AppendLine($"console.log({Sanitize("main")}());");
             }
         }
+        else if (module.Definitions.Length == 0)
+        {
+            sb.AppendLine("console.log(\"All proofs verified at compile time.\");");
+        }
 
         return sb.ToString();
     }
