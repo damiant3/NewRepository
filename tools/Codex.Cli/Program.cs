@@ -9,7 +9,7 @@ using Codex.Repository;
 
 namespace Codex.Cli;
 
-public static class Program
+public static partial class Program
 {
     public static int Main(string[] args)
     {
@@ -607,6 +607,11 @@ public static class Program
         Console.WriteLine("  init [dir]        Initialize a Codex repository in the given directory");
         Console.WriteLine("  publish <file>    Publish a .codex file to the local repository");
         Console.WriteLine("  history <name>    Show the history of a published definition");
+        Console.WriteLine("  propose <file>    Propose a new definition or change");
+        Console.WriteLine("  verdict <hash> <decision>  Post a verdict on a proposal");
+        Console.WriteLine("  proposals         List all proposals");
+        Console.WriteLine("  vouch <hash> <degree>  Vouch for a fact (trust)");
+        Console.WriteLine("  sync <path>       Sync facts with another repository");
         Console.WriteLine("  version           Display the Codex version");
         Console.WriteLine("  --help, -h        Display this help message");
     }

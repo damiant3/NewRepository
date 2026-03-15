@@ -1,3 +1,4 @@
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -54,6 +55,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{02EA681E-C
 		docs\DECISIONS.md = docs\DECISIONS.md
 		docs\GLOSSARY.md = docs\GLOSSARY.md
 		docs\ITERATION-10-HANDOFF.md = docs\ITERATION-10-HANDOFF.md
+		docs\ITERATION-11-HANDOFF.md = docs\ITERATION-11-HANDOFF.md
 		docs\ITERATION-3-HANDOFF.md = docs\ITERATION-3-HANDOFF.md
 		docs\ITERATION-4-HANDOFF.md = docs\ITERATION-4-HANDOFF.md
 		docs\ITERATION-5-HANDOFF.md = docs\ITERATION-5-HANDOFF.md
@@ -99,6 +101,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Lsp.Tests", "tests\Codex.Lsp.Tests\Codex.Lsp.Tests.csproj", "{0EE1DF46-B772-4374-84EE-859DAE4DF5C3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Lsp", "src\Codex.Lsp\Codex.Lsp.csproj", "{C3ECBBE5-05ED-4BCA-42B2-ABE8B28A368F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Repository.Tests", "tests\Codex.Repository.Tests\Codex.Repository.Tests.csproj", "{176BA98E-C341-4503-B743-1982DB4236C4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -338,6 +342,18 @@ Global
 		{C3ECBBE5-05ED-4BCA-42B2-ABE8B28A368F}.Release|x64.Build.0 = Release|Any CPU
 		{C3ECBBE5-05ED-4BCA-42B2-ABE8B28A368F}.Release|x86.ActiveCfg = Release|Any CPU
 		{C3ECBBE5-05ED-4BCA-42B2-ABE8B28A368F}.Release|x86.Build.0 = Release|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Debug|x64.Build.0 = Debug|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Debug|x86.Build.0 = Debug|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|x64.ActiveCfg = Release|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|x64.Build.0 = Release|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|x86.ActiveCfg = Release|Any CPU
+		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -363,6 +379,7 @@ Global
 		{8AA30FCE-8396-4A86-B82C-D9B9A894DEE6} = {A0000000-0000-0000-0000-000000000002}
 		{0EE1DF46-B772-4374-84EE-859DAE4DF5C3} = {A0000000-0000-0000-0000-000000000002}
 		{C3ECBBE5-05ED-4BCA-42B2-ABE8B28A368F} = {A0000000-0000-0000-0000-000000000001}
+		{176BA98E-C341-4503-B743-1982DB4236C4} = {A0000000-0000-0000-0000-000000000002}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}

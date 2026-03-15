@@ -9,7 +9,26 @@ public enum FactKind
 {
     Definition,
     Supersession,
-    Deprecation
+    Deprecation,
+    Proposal,
+    Verdict,
+    Trust
+}
+
+public enum VerdictDecision
+{
+    Accept,
+    Reject,
+    Amend,
+    Abstain
+}
+
+public enum TrustDegree
+{
+    Reviewed,
+    Tested,
+    Verified,
+    Critical
 }
 
 public sealed record Fact(
@@ -35,6 +54,53 @@ public sealed record Fact(
         ContentHash hash = ContentHash.Of(content);
         return new Fact(hash, FactKind.Supersession, content, author, DateTime.UtcNow,
             justification, [newDefinition, supersedes]);
+    }
+
+    public static Fact CreateProposal(
+        ContentHash definition,
+        string author,
+        string justification,
+        ImmutableArray<string> stakeholders,
+        ContentHash? supersedes = null)
+    {
+        string supersededPart = supersedes is not null ? $"\nsupersedes:{supersedes.Value.ToHex()}" : "";
+        string stakeholderList = string.Join(",", stakeholders);
+        string content = $"definition:{definition.ToHex()}{supersededPart}\nstakeholders:{stakeholderList}";
+        ContentHash hash = ContentHash.Of(content + $"\nauthor:{author}\ntime:{DateTime.UtcNow:O}");
+        ImmutableArray<ContentHash> refs = supersedes is not null
+            ? [definition, supersedes.Value]
+            : [definition];
+        return new Fact(hash, FactKind.Proposal, content, author, DateTime.UtcNow,
+            justification, refs);
+    }
+
+    public static Fact CreateVerdict(
+        ContentHash proposal,
+        VerdictDecision decision,
+        string author,
+        string reasoning,
+        ContentHash? amendment = null)
+    {
+        string amendPart = amendment is not null ? $"\namendment:{amendment.Value.ToHex()}" : "";
+        string content = $"proposal:{proposal.ToHex()}\ndecision:{decision}{amendPart}";
+        ContentHash hash = ContentHash.Of(content + $"\nauthor:{author}\ntime:{DateTime.UtcNow:O}");
+        ImmutableArray<ContentHash> refs = amendment is not null
+            ? [proposal, amendment.Value]
+            : [proposal];
+        return new Fact(hash, FactKind.Verdict, content, author, DateTime.UtcNow,
+            reasoning, refs);
+    }
+
+    public static Fact CreateTrust(
+        ContentHash target,
+        TrustDegree degree,
+        string author,
+        string reasoning)
+    {
+        string content = $"target:{target.ToHex()}\ndegree:{degree}";
+        ContentHash hash = ContentHash.Of(content + $"\nauthor:{author}\ntime:{DateTime.UtcNow:O}");
+        return new Fact(hash, FactKind.Trust, content, author, DateTime.UtcNow,
+            reasoning, [target]);
     }
 }
 
@@ -199,14 +265,7 @@ public sealed class FactStore(string rootPath)
                 FactDto? dto = JsonSerializer.Deserialize<FactDto>(json, s_jsonOptions);
                 if (dto?.Kind == "Supersession" && dto.References.Contains(newHash.ToHex()))
                 {
-                    return new Fact(
-                        ContentHash.FromHex(dto.Hash),
-                        FactKind.Supersession,
-                        dto.Content,
-                        dto.Author,
-                        dto.Timestamp,
-                        dto.Justification,
-                        [.. dto.References.Select(ContentHash.FromHex)]);
+                    return DtoToFact(dto);
                 }
             }
         }
@@ -214,6 +273,236 @@ public sealed class FactStore(string rootPath)
     }
 
     public bool IsInitialized => Directory.Exists(Path.Combine(m_rootPath, ".codex"));
+
+    public IReadOnlyList<Fact> GetFactsByKind(FactKind kind)
+    {
+        List<Fact> results = [];
+        if (!Directory.Exists(m_factsPath))
+            return results;
+
+        foreach (string subDir in Directory.GetDirectories(m_factsPath))
+        {
+            foreach (string file in Directory.GetFiles(subDir, "*.json"))
+            {
+                string json = File.ReadAllText(file);
+                FactDto? dto = JsonSerializer.Deserialize<FactDto>(json, s_jsonOptions);
+                if (dto is null || dto.Kind != kind.ToString())
+                    continue;
+
+                Fact fact = DtoToFact(dto);
+                results.Add(fact);
+            }
+        }
+        return results;
+    }
+
+    public IReadOnlyList<Fact> GetProposals()
+    {
+        return GetFactsByKind(FactKind.Proposal);
+    }
+
+    public IReadOnlyList<Fact> GetVerdicts(ContentHash proposalHash)
+    {
+        List<Fact> results = [];
+        IReadOnlyList<Fact> allVerdicts = GetFactsByKind(FactKind.Verdict);
+        string proposalHex = proposalHash.ToHex();
+        foreach (Fact verdict in allVerdicts)
+        {
+            if (verdict.Content.Contains($"proposal:{proposalHex}"))
+            {
+                results.Add(verdict);
+            }
+        }
+        return results;
+    }
+
+    public static ImmutableArray<string> ParseStakeholders(Fact proposal)
+    {
+        foreach (string line in proposal.Content.Split('\n'))
+        {
+            if (line.StartsWith("stakeholders:", StringComparison.Ordinal))
+            {
+                string value = line["stakeholders:".Length..];
+                if (string.IsNullOrWhiteSpace(value))
+                    return [];
+                return [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+            }
+        }
+        return [];
+    }
+
+    public static ContentHash? ParseDefinitionHash(Fact proposal)
+    {
+        foreach (string line in proposal.Content.Split('\n'))
+        {
+            if (line.StartsWith("definition:", StringComparison.Ordinal))
+            {
+                string hex = line["definition:".Length..].Trim();
+                return ContentHash.FromHex(hex);
+            }
+        }
+        return null;
+    }
+
+    public static VerdictDecision? ParseVerdictDecision(Fact verdict)
+    {
+        foreach (string line in verdict.Content.Split('\n'))
+        {
+            if (line.StartsWith("decision:", StringComparison.Ordinal))
+            {
+                string value = line["decision:".Length..].Trim();
+                if (Enum.TryParse<VerdictDecision>(value, out VerdictDecision decision))
+                    return decision;
+            }
+        }
+        return null;
+    }
+
+    public bool CheckConsensus(ContentHash proposalHash)
+    {
+        Fact? proposal = Load(proposalHash);
+        if (proposal is null || proposal.Kind != FactKind.Proposal)
+            return false;
+
+        ImmutableArray<string> stakeholders = ParseStakeholders(proposal);
+        if (stakeholders.Length == 0)
+            return true;
+
+        IReadOnlyList<Fact> verdicts = GetVerdicts(proposalHash);
+        Set<string> accepted = Set<string>.s_empty;
+
+        foreach (Fact verdict in verdicts)
+        {
+            VerdictDecision? decision = ParseVerdictDecision(verdict);
+            if (decision is VerdictDecision.Reject)
+                return false;
+            if (decision is VerdictDecision.Accept or VerdictDecision.Abstain)
+            {
+                accepted = accepted.Add(verdict.Author);
+            }
+        }
+
+        foreach (string stakeholder in stakeholders)
+        {
+            if (!accepted.Contains(stakeholder))
+                return false;
+        }
+        return true;
+    }
+
+    public bool AcceptProposal(ContentHash proposalHash, string viewName)
+    {
+        if (!CheckConsensus(proposalHash))
+            return false;
+
+        Fact? proposal = Load(proposalHash);
+        if (proposal is null)
+            return false;
+
+        ContentHash? definitionHash = ParseDefinitionHash(proposal);
+        if (definitionHash is null)
+            return false;
+
+        UpdateView(viewName, definitionHash.Value);
+        return true;
+    }
+
+    public IReadOnlyList<Fact> GetTrustFacts(ContentHash targetHash)
+    {
+        List<Fact> results = [];
+        IReadOnlyList<Fact> allTrust = GetFactsByKind(FactKind.Trust);
+        string targetHex = targetHash.ToHex();
+        foreach (Fact trust in allTrust)
+        {
+            if (trust.Content.Contains($"target:{targetHex}"))
+            {
+                results.Add(trust);
+            }
+        }
+        return results;
+    }
+
+    public static TrustDegree? ParseTrustDegree(Fact trust)
+    {
+        foreach (string line in trust.Content.Split('\n'))
+        {
+            if (line.StartsWith("degree:", StringComparison.Ordinal))
+            {
+                string value = line["degree:".Length..].Trim();
+                if (Enum.TryParse<TrustDegree>(value, out TrustDegree degree))
+                    return degree;
+            }
+        }
+        return null;
+    }
+
+    public SyncResult Sync(FactStore other)
+    {
+        int sent = 0;
+        int received = 0;
+
+        Set<string> localHashes = CollectAllHashes();
+        Set<string> remoteHashes = other.CollectAllHashes();
+
+        foreach (string hex in remoteHashes)
+        {
+            if (!localHashes.Contains(hex))
+            {
+                ContentHash hash = ContentHash.FromHex(hex);
+                Fact? fact = other.Load(hash);
+                if (fact is not null)
+                {
+                    Store(fact);
+                    received++;
+                }
+            }
+        }
+
+        foreach (string hex in localHashes)
+        {
+            if (!remoteHashes.Contains(hex))
+            {
+                ContentHash hash = ContentHash.FromHex(hex);
+                Fact? fact = Load(hash);
+                if (fact is not null)
+                {
+                    other.Store(fact);
+                    sent++;
+                }
+            }
+        }
+
+        return new SyncResult(sent, received);
+    }
+
+    Set<string> CollectAllHashes()
+    {
+        Set<string> hashes = Set<string>.s_empty;
+        if (!Directory.Exists(m_factsPath))
+            return hashes;
+
+        foreach (string subDir in Directory.GetDirectories(m_factsPath))
+        {
+            foreach (string file in Directory.GetFiles(subDir, "*.json"))
+            {
+                string fileName = Path.GetFileNameWithoutExtension(file);
+                hashes = hashes.Add(fileName);
+            }
+        }
+        return hashes;
+    }
+
+    Fact DtoToFact(FactDto dto)
+    {
+        return new Fact(
+            ContentHash.FromHex(dto.Hash),
+            Enum.Parse<FactKind>(dto.Kind),
+            dto.Content,
+            dto.Author,
+            dto.Timestamp,
+            dto.Justification,
+            [.. dto.References.Select(ContentHash.FromHex)]);
+    }
 
     Map<string, string> LoadViewMap()
     {
@@ -257,3 +546,5 @@ public sealed class FactStore(string rootPath)
         public List<string> References { get; set; } = [];
     }
 }
+
+public readonly record struct SyncResult(int Sent, int Received);
