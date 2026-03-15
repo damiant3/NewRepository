@@ -157,6 +157,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.Fortran", "src\C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.Cobol", "src\Codex.Emit.Cobol\Codex.Emit.Cobol.csproj", "{8B16F91F-D010-433A-AF36-D740B3192D71}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.VsExtension", "tools\Codex.VsExtension\Codex.VsExtension.csproj", "{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -527,6 +529,18 @@ Global
 		{8B16F91F-D010-433A-AF36-D740B3192D71}.Release|x64.Build.0 = Release|Any CPU
 		{8B16F91F-D010-433A-AF36-D740B3192D71}.Release|x86.ActiveCfg = Release|Any CPU
 		{8B16F91F-D010-433A-AF36-D740B3192D71}.Release|x86.Build.0 = Release|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|x64.Build.0 = Debug|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|x86.Build.0 = Debug|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|x64.ActiveCfg = Release|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|x64.Build.0 = Release|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|x86.ActiveCfg = Release|Any CPU
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -565,6 +579,7 @@ Global
 		{8CA893FC-F8E3-458B-972A-52B93169EB77} = {A0000000-0000-0000-0000-000000000001}
 		{EDD661B4-6ECC-44A7-8C72-3FADB30ADEE5} = {A0000000-0000-0000-0000-000000000001}
 		{8B16F91F-D010-433A-AF36-D740B3192D71} = {A0000000-0000-0000-0000-000000000001}
+		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30} = {A0000000-0000-0000-0000-000000000003}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}

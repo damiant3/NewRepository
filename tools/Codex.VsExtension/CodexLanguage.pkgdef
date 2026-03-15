@@ -1,0 +1,22 @@
+// Codex Language Registration for Visual Studio 2022
+// This pkgdef registers .codex files with the TextMate grammar engine.
+
+// Register the .codex file extension
+[$RootKey$\Languages\File Extensions\.codex]
+@="Codex"
+
+// Register the Codex language service
+[$RootKey$\Languages\Language Services\Codex]
+@="Codex"
+"Package"="{1b05e2b4-7c21-4f63-943e-5f5b3b0e5c5a}"
+"RequestStockColors"=dword:00000001
+"ShowSmartIndent"=dword:00000001
+"ShowBraceCompletion"=dword:00000001
+
+// Associate the TextMate grammar
+[$RootKey$\TextMate\Repositories]
+"codex"="$PackageFolder$"
+
+// Map .codex extension to the grammar scope
+[$RootKey$\TextMate\LanguageMapping\.codex]
+@="source.codex"

@@ -196,82 +196,131 @@ public static partial class Program  // this file is locked.  use a partial.
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("Usage: codex build <file.codex|directory> [--target cs|js|rust]");
+            // If no args, check for codex.project.json in current directory
+            if (File.Exists("codex.project.json"))
+            {
+                return RunBuildProject(".", null);
+            }
+            Console.Error.WriteLine("Usage: codex build <file.codex|directory> [--target cs|js|rust|py|cpp|go|java|ada|fortran|cobol|babbage]");
             return 1;
         }
 
         string filePath = args[0];
-        string target = "cs";
+        string? targetOverride = null;
         for (int i = 1; i < args.Length; i++)
         {
             if (args[i] == "--target" && i + 1 < args.Length)
-                target = args[++i].ToLowerInvariant();
+                targetOverride = args[++i].ToLowerInvariant();
         }
 
-        IRCompilationResult? irResult;
-        string outputPath;
+        if (filePath == "." || filePath == "./" || filePath == ".\\"
+            || (Directory.Exists(filePath) && File.Exists(Path.Combine(filePath, "codex.project.json"))))
+        {
+            return RunBuildProject(filePath, targetOverride);
+        }
 
         if (Directory.Exists(filePath))
         {
-            string[] files = Directory.GetFiles(filePath, "*.codex", SearchOption.AllDirectories);
-            if (files.Length == 0)
-            {
-                Console.Error.WriteLine($"No .codex files found in {filePath}");
-                return 1;
-            }
-            Array.Sort(files, StringComparer.Ordinal);
-            irResult = CompileMultipleToIR(files, Path.GetFileName(Path.GetFullPath(filePath)));
-            if (irResult is null) return 1;
-
-            Codex.Emit.ICodeEmitter dirEmitter = target switch
-            {
-                "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
-                "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
-                "python" or "py" => new Codex.Emit.Python.PythonEmitter(),
-                "cpp" or "c++" => new Codex.Emit.Cpp.CppEmitter(),
-                "go" => new Codex.Emit.Go.GoEmitter(),
-                "java" => new Codex.Emit.Java.JavaEmitter(),
-                "ada" => new Codex.Emit.Ada.AdaEmitter(),
-                "babbage" or "ae" => new Codex.Emit.Babbage.BabbageEmitter(),
-                "fortran" or "f90" => new Codex.Emit.Fortran.FortranEmitter(),
-                "cobol" or "cob" => new Codex.Emit.Cobol.CobolEmitter(),
-                _ => new CSharpEmitter()
-            };
-            string output = dirEmitter.Emit(irResult.Module);
-            outputPath = Path.Combine(filePath, "output" + dirEmitter.FileExtension);
-            File.WriteAllText(outputPath, output);
+            return RunBuildDirectory(filePath, targetOverride ?? "cs");
         }
-        else
+
+        return RunBuildFile(filePath, targetOverride ?? "cs");
+    }
+
+    static int RunBuildProject(string directory, string? targetOverride)
+    {
+        CodexProject? project = LoadProjectFile(directory);
+        if (project is null)
         {
-            irResult = CompileToIR(filePath);
-            if (irResult is null) return 1;
-
-            Codex.Emit.ICodeEmitter emitter = target switch
-            {
-                "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
-                "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
-                "python" or "py" => new Codex.Emit.Python.PythonEmitter(),
-                "cpp" or "c++" => new Codex.Emit.Cpp.CppEmitter(),
-                "go" => new Codex.Emit.Go.GoEmitter(),
-                "java" => new Codex.Emit.Java.JavaEmitter(),
-                "ada" => new Codex.Emit.Ada.AdaEmitter(),
-                "babbage" or "ae" => new Codex.Emit.Babbage.BabbageEmitter(),
-                "fortran" or "f90" => new Codex.Emit.Fortran.FortranEmitter(),
-                "cobol" or "cob" => new Codex.Emit.Cobol.CobolEmitter(),
-                _ => new CSharpEmitter()
-            };
-            string output = emitter.Emit(irResult.Module);
-            outputPath = Path.ChangeExtension(filePath, emitter.FileExtension);
-            File.WriteAllText(outputPath, output);
+            Console.Error.WriteLine($"No codex.project.json found in {Path.GetFullPath(directory)}");
+            return 1;
         }
+
+        Console.WriteLine($"Building project: {project.Name} v{project.Version}");
+
+        string target = targetOverride ?? project.Target;
+        string[] files = ResolveProjectSources(directory, project);
+        if (files.Length == 0)
+        {
+            Console.Error.WriteLine("No .codex source files matched by project sources.");
+            return 1;
+        }
+
+        Console.WriteLine($"  Sources: {files.Length} file(s)");
+        Console.WriteLine($"  Target:  {target}");
+
+        IRCompilationResult? irResult = CompileMultipleToIR(files, project.Name);
+        if (irResult is null) return 1;
+
+        Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
+        string output = emitter.Emit(irResult.Module);
+
+        string outputDir = Path.GetFullPath(Path.Combine(directory, project.Output));
+        if (!Directory.Exists(outputDir))
+            Directory.CreateDirectory(outputDir);
+
+        string outputPath = Path.Combine(outputDir, project.Name + emitter.FileExtension);
+        File.WriteAllText(outputPath, output);
 
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
         foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
-        {
             Console.WriteLine($"  {kv.Key} : {kv.Value}");
-        }
         return 0;
     }
+
+    static int RunBuildDirectory(string directory, string target)
+    {
+        string[] files = Directory.GetFiles(directory, "*.codex", SearchOption.AllDirectories);
+        if (files.Length == 0)
+        {
+            Console.Error.WriteLine($"No .codex files found in {directory}");
+            return 1;
+        }
+        Array.Sort(files, StringComparer.Ordinal);
+        IRCompilationResult? irResult = CompileMultipleToIR(files, Path.GetFileName(Path.GetFullPath(directory)));
+        if (irResult is null) return 1;
+
+        Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
+        string output = emitter.Emit(irResult.Module);
+        string outputPath = Path.Combine(directory, "output" + emitter.FileExtension);
+        File.WriteAllText(outputPath, output);
+
+        Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
+        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
+            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        return 0;
+    }
+
+    static int RunBuildFile(string filePath, string target)
+    {
+        IRCompilationResult? irResult = CompileToIR(filePath);
+        if (irResult is null) return 1;
+
+        Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
+        string output = emitter.Emit(irResult.Module);
+        string outputPath = Path.ChangeExtension(filePath, emitter.FileExtension);
+        File.WriteAllText(outputPath, output);
+
+        Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
+        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
+            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        return 0;
+    }
+
+    static Codex.Emit.ICodeEmitter CreateEmitter(string target) => target switch
+    {
+        "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
+        "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
+        "python" or "py" => new Codex.Emit.Python.PythonEmitter(),
+        "cpp" or "c++" => new Codex.Emit.Cpp.CppEmitter(),
+        "go" => new Codex.Emit.Go.GoEmitter(),
+        "java" => new Codex.Emit.Java.JavaEmitter(),
+        "ada" => new Codex.Emit.Ada.AdaEmitter(),
+        "babbage" or "ae" => new Codex.Emit.Babbage.BabbageEmitter(),
+        "fortran" or "f90" => new Codex.Emit.Fortran.FortranEmitter(),
+        "cobol" or "cob" => new Codex.Emit.Cobol.CobolEmitter(),
+        _ => new CSharpEmitter()
+    };
 
     static int RunRun(string[] args)
     {
@@ -607,7 +656,41 @@ public static partial class Program  // this file is locked.  use a partial.
         }
 
         FactStore store = FactStore.Init(dir);
-        Console.WriteLine($"✓ Initialized Codex repository in {Path.GetFullPath(dir)}");
+
+        string projectPath = Path.Combine(dir, "codex.project.json");
+        if (!File.Exists(projectPath))
+        {
+            string projectName = Path.GetFileName(Path.GetFullPath(dir));
+            string projectJson = $$"""
+                {
+                  "name": "{{projectName}}",
+                  "version": "0.1.0",
+                  "sources": ["**/*.codex"],
+                  "target": "csharp",
+                  "output": "out/"
+                }
+                """;
+            File.WriteAllText(projectPath, projectJson);
+            Console.WriteLine($"✓ Created codex.project.json");
+        }
+
+        string mainPath = Path.Combine(dir, "main.codex");
+        if (!File.Exists(mainPath))
+        {
+            File.WriteAllText(mainPath, """
+                greeting : Text -> Text
+                greeting (name) = "Hello, " ++ name ++ "!"
+
+                main : Text
+                main = greeting "World"
+                """);
+            Console.WriteLine($"✓ Created main.codex");
+        }
+
+        Console.WriteLine($"✓ Initialized Codex project in {Path.GetFullPath(dir)}");
+        Console.WriteLine();
+        Console.WriteLine("  codex build .     Build the project");
+        Console.WriteLine("  codex check .     Type-check all sources");
         return 0;
     }
 

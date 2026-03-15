@@ -1,0 +1,42 @@
+{
+  "name": "codex-language",
+  "displayName": "Codex Language Support",
+  "description": "Syntax highlighting and language support for the Codex programming language",
+  "version": "0.1.0",
+  "publisher": "codex-lang",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "codex",
+        "aliases": ["Codex", "codex"],
+        "extensions": [".codex"],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./codex-icon.png",
+          "dark": "./codex-icon.png"
+        }
+      },
+      {
+        "id": "json",
+        "filenames": ["codex.project.json"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "codex",
+        "scopeName": "source.codex",
+        "path": "./codex.tmLanguage.json"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "codex.project.json",
+        "url": "./codex.project.schema.json"
+      }
+    ]
+  }
+}
