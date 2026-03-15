@@ -106,7 +106,8 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
             return new TypeDefinitionNode(nameToken, typeParams, body, span);
         }
 
-        if (Current.Kind == TokenKind.Pipe)
+        if (Current.Kind == TokenKind.Pipe
+            || (Current.Kind == TokenKind.TypeIdentifier && LooksLikeVariantBody()))
         {
             VariantTypeBody body = ParseVariantTypeBody();
             SourceSpan span = nameToken.Span.Through(body.Span);
@@ -115,6 +116,19 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
 
         m_position = savedPos;
         return null;
+    }
+
+    bool LooksLikeVariantBody()
+    {
+        int lookahead = m_position;
+        while (lookahead < m_tokens.Count)
+        {
+            TokenKind kind = m_tokens[lookahead].Kind;
+            if (kind == TokenKind.Pipe) return true;
+            if (kind is TokenKind.Newline or TokenKind.EndOfFile) return false;
+            lookahead++;
+        }
+        return false;
     }
 
     RecordTypeBody ParseRecordTypeBody()
@@ -148,9 +162,13 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
         SourceSpan startSpan = Current.Span;
         List<VariantConstructorNode> constructors = [];
 
-        while (Current.Kind == TokenKind.Pipe)
+        bool firstCtor = Current.Kind == TokenKind.TypeIdentifier;
+
+        while (Current.Kind == TokenKind.Pipe || firstCtor)
         {
-            Advance();
+            if (Current.Kind == TokenKind.Pipe)
+                Advance();
+            firstCtor = false;
             SkipNewlines();
 
             Token ctorName = Expect(TokenKind.TypeIdentifier);

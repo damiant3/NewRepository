@@ -1,3 +1,4 @@
+using Codex.Ast;
 using Codex.Types;
 using Xunit;
 
@@ -123,5 +124,46 @@ public class LspHelpersTests
         string text = "x = 1";
         Assert.Null(LspHelpers.GetWordAt(text, 5, 0));
         Assert.Null(LspHelpers.GetWordAt(text, 0, 100));
+    }
+}
+
+public class DefinitionLookupTests
+{
+    [Fact]
+    public void Definition_finds_function_by_name()
+    {
+        string source = "square : Integer -> Integer\nsquare (x) = x * x";
+        AnalysisResult result = Analyzer.Analyze("test.codex", source);
+        Assert.Single(result.Definitions);
+        Assert.Equal("square", result.Definitions[0].Name.Value);
+    }
+
+    [Fact]
+    public void Definition_finds_variant_type()
+    {
+        string source = "Shape = Circle (Integer) | Rectangle (Integer) (Integer)\n\nmain = 1";
+        AnalysisResult result = Analyzer.Analyze("test.codex", source);
+        Assert.NotEmpty(result.TypeDefinitions);
+        Assert.Equal("Shape", result.TypeDefinitions[0].Name.Value);
+    }
+
+    [Fact]
+    public void Definition_finds_variant_constructors()
+    {
+        string source = "Shape = Circle (Integer) | Rectangle (Integer) (Integer)\nmain = 1";
+        AnalysisResult result = Analyzer.Analyze("test.codex", source);
+        VariantTypeDef variant = Assert.IsType<VariantTypeDef>(result.TypeDefinitions[0]);
+        Assert.Equal(2, variant.Constructors.Count);
+        Assert.Equal("Circle", variant.Constructors[0].Name.Value);
+        Assert.Equal("Rectangle", variant.Constructors[1].Name.Value);
+    }
+
+    [Fact]
+    public void Definition_finds_record_type()
+    {
+        string source = "Person = record { name : Text, age : Integer }\nmain = 1";
+        AnalysisResult result = Analyzer.Analyze("test.codex", source);
+        Assert.Single(result.TypeDefinitions);
+        Assert.Equal("Person", result.TypeDefinitions[0].Name.Value);
     }
 }

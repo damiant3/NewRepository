@@ -20,6 +20,10 @@ internal sealed class CompletionHandler : CompletionHandlerBase
     [
         "show", "negate", "print-line", "read-line",
         "open-file", "read-all", "close-file",
+        "text-length", "char-at", "substring", "text-replace",
+        "integer-to-text", "char-code", "code-to-char",
+        "is-letter", "is-digit", "is-whitespace",
+        "list-at", "list-length", "map", "filter", "fold",
     ];
 
     static readonly string[] s_typeNames =
@@ -51,6 +55,29 @@ internal sealed class CompletionHandler : CompletionHandlerBase
                     Kind = type is FunctionType ? CompletionItemKind.Function : CompletionItemKind.Variable,
                     Detail = type?.ToString(),
                 });
+            }
+
+            foreach (TypeDef typeDef in result.TypeDefinitions)
+            {
+                items.Add(new CompletionItem
+                {
+                    Label = typeDef.Name.Value,
+                    Kind = CompletionItemKind.Struct,
+                    Detail = "(type)",
+                });
+
+                if (typeDef is VariantTypeDef variant)
+                {
+                    foreach (VariantCtorDef ctor in variant.Constructors)
+                    {
+                        items.Add(new CompletionItem
+                        {
+                            Label = ctor.Name.Value,
+                            Kind = CompletionItemKind.EnumMember,
+                            Detail = $"({variant.Name.Value} constructor)",
+                        });
+                    }
+                }
             }
         }
 

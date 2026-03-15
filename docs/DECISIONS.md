@@ -160,9 +160,20 @@ Significant design and engineering decisions are recorded here in chronological 
 **Rationale**: This is the standard approach in proof assistants (Coq, Lean, Agda). The IH is scoped to the case — saved and restored after checking.
 **Consequences**: Induction proofs can now reference the IH. Structural induction on lists works. Arithmetic induction requires Peano encoding (deferred). The `assume` escape hatch remains for steps that require function reduction.
 
+---
+
 ## Decision: Cong Goal Decomposition
 **Date**: 2026-03 (M10)
 **Context**: `cong f proof` tried to infer the inner proof's type, which fails for `Refl` (no type to infer). `cong List Refl` for the goal `List Nil ≡ List Nil` failed.
 **Decision**: When inference fails, decompose the goal: extract `A` from `f(A) ≡ f(B)` and check the inner proof against `A ≡ B`.
 **Rationale**: Bidirectional — try inference first, fall back to checking. Matches the bidirectional pattern used in the type checker.
 **Consequences**: `cong List Refl` now works. `cong f (lemma args)` works when inference succeeds or when the goal is decomposable.
+
+---
+
+## Decision: Variant Type Syntax Without Leading Pipe
+**Date**: 2026-03
+**Context**: `Shape = Circle (Integer) | Rectangle (Integer)` didn't parse — the parser required a leading `|` before the first constructor: `Shape = | Circle (Integer) | Rectangle (Integer)`.
+**Decision**: Accept both forms. If the token after `=` is a `TypeIdentifier` and a `|` appears later on the same line, parse as a variant type.
+**Rationale**: The no-leading-pipe form is more natural and matches Haskell/ML convention. The leading-pipe form remains valid.
+**Consequences**: Both `Shape = Circle | Rectangle` and `Shape = | Circle | Rectangle` now parse correctly.

@@ -33,26 +33,43 @@ internal sealed class DefinitionHandler : DefinitionHandlerBase
         if (word is null)
             return Task.FromResult<LocationOrLocationLinks?>(null);
 
-        Definition? target = null;
-        foreach (Definition def in result.Definitions)
-        {
-            if (def.Name.Value == word)
-            {
-                target = def;
-                break;
-            }
-        }
-
-        if (target is null)
+        SourceSpan? targetSpan = FindDefinitionSpan(result, word);
+        if (targetSpan is null)
             return Task.FromResult<LocationOrLocationLinks?>(null);
 
         Location location = new()
         {
             Uri = DocumentUri.Parse(uri),
-            Range = TextDocumentSyncHandler.SpanToRange(target.Span),
+            Range = TextDocumentSyncHandler.SpanToRange(targetSpan.Value),
         };
 
         return Task.FromResult<LocationOrLocationLinks?>(new LocationOrLocationLinks(location));
+    }
+
+    static SourceSpan? FindDefinitionSpan(AnalysisResult result, string name)
+    {
+        foreach (Definition def in result.Definitions)
+        {
+            if (def.Name.Value == name)
+                return def.Span;
+        }
+
+        foreach (TypeDef typeDef in result.TypeDefinitions)
+        {
+            if (typeDef.Name.Value == name)
+                return typeDef.Span;
+
+            if (typeDef is VariantTypeDef variant)
+            {
+                foreach (VariantCtorDef ctor in variant.Constructors)
+                {
+                    if (ctor.Name.Value == name)
+                        return ctor.Span;
+                }
+            }
+        }
+
+        return null;
     }
 
     protected override DefinitionRegistrationOptions CreateRegistrationOptions(

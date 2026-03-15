@@ -12,6 +12,7 @@ internal sealed class AnalysisResult
     public required ImmutableArray<Diagnostic> Diagnostics { get; init; }
     public required Map<string, CodexType> Types { get; init; }
     public required IReadOnlyList<Definition> Definitions { get; init; }
+    public required IReadOnlyList<TypeDef> TypeDefinitions { get; init; }
     public required IReadOnlyList<Token> Tokens { get; init; }
 }
 
@@ -49,6 +50,7 @@ internal static class Analyzer
                 Diagnostics = bag.ToImmutable(),
                 Types = Map<string, CodexType>.s_empty,
                 Definitions = module.Definitions,
+                TypeDefinitions = module.TypeDefinitions,
                 Tokens = tokens,
             };
         }
@@ -63,6 +65,7 @@ internal static class Analyzer
                 Diagnostics = bag.ToImmutable(),
                 Types = Map<string, CodexType>.s_empty,
                 Definitions = module.Definitions,
+                TypeDefinitions = module.TypeDefinitions,
                 Tokens = tokens,
             };
         }
@@ -81,6 +84,7 @@ internal static class Analyzer
             Diagnostics = bag.ToImmutable(),
             Types = types,
             Definitions = resolved.Module.Definitions,
+            TypeDefinitions = resolved.Module.TypeDefinitions,
             Tokens = tokens,
         };
     }

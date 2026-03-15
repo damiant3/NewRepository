@@ -275,14 +275,14 @@ Very large. This is the hardest type system feature.
 ### Deliverables
 - [x] `Codex.Lsp`: Language Server Protocol implementation
 - [x] Diagnostics (errors/warnings pushed to editor)
-- [ ] Completion (type-aware)
-- [x] Hover (Narrator: type + prose)
-- [ ] Go to definition
+- [x] Completion (definitions, constructors, type names, builtins, keywords)
+- [x] Hover (type info for functions, type definitions, constructors)
+- [x] Go to definition (functions, type definitions, constructors)
 - [x] Document symbols (outline)
 - [x] Semantic tokens (syntax highlighting)
 - [x] VS Code extension (thin wrapper)
 
-### Status: ⚠️ Mostly complete — LSP server runs, diagnostics, hover, document symbols, and semantic tokens work. Completion and go-to-definition not yet implemented.
+### Status: ✅ Complete — all major LSP features implemented. Completion includes user-defined types and constructors. Go-to-definition navigates to function definitions, type definitions (record/variant), and individual constructors. Hover shows type signatures, record fields, and variant constructors.
 
 ---
 

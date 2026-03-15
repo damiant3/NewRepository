@@ -1,3 +1,4 @@
+using Codex.Ast;
 using Codex.Core;
 using Codex.Types;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
@@ -30,11 +31,10 @@ internal sealed class HoverHandler : HoverHandlerBase
         if (word is null)
             return Task.FromResult<Hover?>(null);
 
-        CodexType? type = result.Types[word];
-        if (type is null)
+        string? content = GetHoverContent(result, word);
+        if (content is null)
             return Task.FromResult<Hover?>(null);
 
-        string content = $"**{word}** : `{type}`";
         return Task.FromResult<Hover?>(new Hover
         {
             Contents = new MarkedStringsOrMarkupContent(new MarkupContent
@@ -43,6 +43,54 @@ internal sealed class HoverHandler : HoverHandlerBase
                 Value = content,
             }),
         });
+    }
+
+    static string? GetHoverContent(AnalysisResult result, string word)
+    {
+        CodexType? type = result.Types[word];
+        if (type is not null)
+            return $"**{word}** : `{type}`";
+
+        foreach (TypeDef typeDef in result.TypeDefinitions)
+        {
+            if (typeDef.Name.Value == word)
+                return FormatTypeDef(typeDef);
+
+            if (typeDef is VariantTypeDef variant)
+            {
+                foreach (VariantCtorDef ctor in variant.Constructors)
+                {
+                    if (ctor.Name.Value == word)
+                        return FormatConstructor(variant, ctor);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    static string FormatTypeDef(TypeDef typeDef)
+    {
+        if (typeDef is RecordTypeDef rec)
+        {
+            string fields = string.Join(", ", rec.Fields.Select(f => $"{f.FieldName.Value} : {f.Type}"));
+            return $"**{rec.Name.Value}** (record)\n\nFields: `{fields}`";
+        }
+        if (typeDef is VariantTypeDef variant)
+        {
+            string ctors = string.Join(" | ", variant.Constructors.Select(c => c.Name.Value));
+            return $"**{variant.Name.Value}** (type)\n\nConstructors: `{ctors}`";
+        }
+        return $"**{typeDef.Name.Value}** (type)";
+    }
+
+    static string FormatConstructor(VariantTypeDef variant, VariantCtorDef ctor)
+    {
+        if (ctor.Fields.Count == 0)
+            return $"**{ctor.Name.Value}** : `{variant.Name.Value}`";
+        string fields = string.Join(", ", ctor.Fields.Select(f =>
+            f.FieldName is not null ? $"{f.FieldName.Value} : {f.Type}" : $"{f.Type}"));
+        return $"**{ctor.Name.Value}** ({fields}) : `{variant.Name.Value}`";
     }
 
     protected override HoverRegistrationOptions CreateRegistrationOptions(

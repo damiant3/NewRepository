@@ -18,7 +18,7 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 | Metric | Value |
 |--------|-------|
 | C# projects | 22 |
-| Test count | 285 (all passing) |
+| Test count | 294 (all passing) |
 | Codex source | ~2,500 lines across 14 .codex files |
 | Bootstrap parity | 264/264 records, 0 missing functions |
 | Backends | C# (primary), JavaScript, Rust |
@@ -36,10 +36,10 @@ These are low-risk, high-value tasks that strengthen the foundation.
 **1. ~~Backend integration tests~~** — ✅ Done.
 39 integration tests across 13 samples × 3 backends. Plus 3 TCO-specific tests.
 
-**2. LSP completion and go-to-definition**
-The LSP server has diagnostics, hover, and symbols but no completion or
-go-to-definition. These are the two most impactful editor features for
-daily use. Estimated: medium.
+**2. ~~LSP completion and go-to-definition~~** — ✅ Done.
+Completion includes user types, constructors, builtins, keywords. Go-to-definition
+finds functions, type definitions, and constructors. Hover shows type signatures,
+record fields, variant constructors.
 
 **3. Stage 2 verification**
 Run the Stage 1 binary on `codex-src/` and verify it produces output identical
