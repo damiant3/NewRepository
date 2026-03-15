@@ -19,7 +19,8 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
         "open-file", "read-all", "close-file",
         "char-at", "text-length", "substring",
         "is-letter", "is-digit", "is-whitespace",
-        "text-to-integer", "char-code", "code-to-char"
+        "text-to-integer", "char-code", "code-to-char",
+        "list-length", "list-at"
     );
 
     public ResolvedModule Resolve(Module module)

@@ -1,0 +1,162 @@
+using Codex.Ast;
+using Codex.Core;
+using Codex.Emit.CSharp;
+using Codex.IR;
+using Codex.Semantics;
+using Codex.Syntax;
+
+namespace Codex.Types.Tests
+{
+    public static class Helpers
+    {
+        public static DiagnosticBag CheckWithProofs(string source, string moduleName = "test")
+        {
+            SourceText src = new("test.codex", source);
+            DiagnosticBag diagnostics = new();
+
+            Lexer lexer = new(src, diagnostics);
+            IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+            Parser parser = new(tokens, diagnostics);
+            DocumentNode document = parser.ParseDocument();
+
+            Desugarer desugarer = new(diagnostics);
+            Module module = desugarer.Desugar(document, moduleName);
+            if (diagnostics.HasErrors) return diagnostics;
+
+            NameResolver resolver = new(diagnostics);
+            ResolvedModule resolved = resolver.Resolve(module);
+            if (diagnostics.HasErrors) return diagnostics;
+
+            TypeChecker checker = new(diagnostics);
+            Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+            if (diagnostics.HasErrors) return diagnostics;
+
+            Codex.Proofs.ProofChecker proofChecker = new(diagnostics);
+            proofChecker.CheckModule(resolved.Module, types);
+            return diagnostics;
+        }
+
+        public static DiagnosticBag CheckWithLinearity(string source, string moduleName = "test")
+        {
+            SourceText src = new("test.codex", source);
+            DiagnosticBag diagnostics = new();
+
+            Lexer lexer = new(src, diagnostics);
+            IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+            Parser parser = new(tokens, diagnostics);
+            DocumentNode document = parser.ParseDocument();
+
+            Desugarer desugarer = new(diagnostics);
+            Module module = desugarer.Desugar(document, moduleName);
+
+            NameResolver resolver = new(diagnostics);
+            ResolvedModule resolved = resolver.Resolve(module);
+
+            TypeChecker checker = new(diagnostics);
+            Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+
+            LinearityChecker linearityChecker = new(diagnostics, types);
+            linearityChecker.CheckModule(resolved.Module);
+
+            return diagnostics;
+        }
+
+        public static DiagnosticBag TypeCheckWithDiagnostics(string source, string moduleName = "test")
+        {
+            SourceText src = new("test.codex", source);
+            DiagnosticBag diagnostics = new();
+
+            Lexer lexer = new(src, diagnostics);
+            IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+            Parser parser = new(tokens, diagnostics);
+            DocumentNode document = parser.ParseDocument();
+
+            Desugarer desugarer = new(diagnostics);
+            Module module = desugarer.Desugar(document, moduleName);
+
+            NameResolver resolver = new(diagnostics);
+            ResolvedModule resolved = resolver.Resolve(module);
+
+            TypeChecker checker = new(diagnostics);
+            checker.CheckModule(resolved.Module);
+            return diagnostics;
+        }
+
+
+        public static string? CompileToCS(string source, string moduleName = "test")
+        {
+            SourceText src = new("test.codex", source);
+            DiagnosticBag diagnostics = new();
+
+            DocumentNode document;
+            if (ProseParser.IsProseDocument(source))
+            {
+                ProseParser proseParser = new(src, diagnostics);
+                document = proseParser.ParseDocument();
+            }
+            else
+            {
+                Lexer lexer = new(src, diagnostics);
+                IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+                Parser parser = new(tokens, diagnostics);
+                document = parser.ParseDocument();
+            }
+
+            Desugarer desugarer = new(diagnostics);
+            Module module = desugarer.Desugar(document, moduleName);
+            if (diagnostics.HasErrors) return null;
+
+            NameResolver resolver = new(diagnostics);
+            ResolvedModule resolved = resolver.Resolve(module);
+            if (diagnostics.HasErrors) return null;
+
+            TypeChecker checker = new(diagnostics);
+            Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            LinearityChecker linearityChecker = new(diagnostics, types);
+            linearityChecker.CheckModule(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            Lowering lowering = new(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
+            IRModule irModule = lowering.Lower(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            CSharpEmitter emitter = new();
+            return emitter.Emit(irModule);
+        }
+
+        public static Map<string, CodexType>? TypeCheck(
+            string source, string moduleName = "test")
+        {
+            SourceText src = new("test.codex", source);
+            DiagnosticBag diagnostics = new();
+
+            DocumentNode document;
+            if (ProseParser.IsProseDocument(source))
+            {
+                ProseParser proseParser = new(src, diagnostics);
+                document = proseParser.ParseDocument();
+            }
+            else
+            {
+                Lexer lexer = new(src, diagnostics);
+                IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+                Parser parser = new(tokens, diagnostics);
+                document = parser.ParseDocument();
+            }
+
+            Desugarer desugarer = new(diagnostics);
+            Module module = desugarer.Desugar(document, moduleName);
+            if (diagnostics.HasErrors) return null;
+
+            NameResolver resolver = new(diagnostics);
+            ResolvedModule resolved = resolver.Resolve(module);
+            if (diagnostics.HasErrors) return null;
+
+            TypeChecker checker = new(diagnostics);
+            Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+            return diagnostics.HasErrors ? null : types;
+        }
+    }
+}

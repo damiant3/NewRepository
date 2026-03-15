@@ -66,7 +66,7 @@ public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostic
 
         SourceSpan endSpan = Previous.Span;
         return new DocumentNode(definitions, typeDefinitions, claims, proofs,
-            Array.Empty<ChapterNode>(), startSpan.Through(endSpan));
+            [], startSpan.Through(endSpan));
     }
 
     TypeDefinitionNode? TryParseTypeDefinition()
@@ -545,7 +545,14 @@ public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostic
                     return ParseRecordExpression(token);
                 }
 
-                return new NameExpressionNode(token);
+                ExpressionNode node = new NameExpressionNode(token);
+                while (Current.Kind == TokenKind.Dot)
+                {
+                    Advance();
+                    Token field = Expect(TokenKind.Identifier);
+                    node = new FieldAccessExpressionNode(node, field, node.Span.Through(field.Span));
+                }
+                return node;
             }
 
             case TokenKind.LeftParen:

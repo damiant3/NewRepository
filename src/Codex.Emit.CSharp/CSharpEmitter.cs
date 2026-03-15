@@ -309,6 +309,12 @@ public sealed class CSharpEmitter : ICodeEmitter
                     EmitExpr(sb, app.Argument, indent);
                     sb.Append(").ToString()");
                 }
+                else if (app.Function is IRName fn14 && fn14.Name == "list-length")
+                {
+                    sb.Append("((long)");
+                    EmitExpr(sb, app.Argument, indent);
+                    sb.Append(".Count)");
+                }
                 else if (TryEmitMultiArgBuiltin(sb, app, indent))
                 {
                 }
@@ -445,7 +451,7 @@ public sealed class CSharpEmitter : ICodeEmitter
         args.Add(app.Argument);
     }
 
-    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring");
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at");
 
     static string? FindBuiltinRoot(IRApply app)
     {
@@ -481,6 +487,13 @@ public sealed class CSharpEmitter : ICodeEmitter
                 sb.Append(", (int)");
                 EmitExpr(sb, args[2], indent);
                 sb.Append(')');
+                return true;
+
+            case "list-at" when args.Count == 2:
+                EmitExpr(sb, args[0], indent);
+                sb.Append("[(int)");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(']');
                 return true;
 
             default:

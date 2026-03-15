@@ -353,6 +353,11 @@ public sealed class RustEmitter : ICodeEmitter
             EmitExpr(sb, app.Argument, indent);
             sb.Append(" as u32).unwrap())");
         }
+        else if (app.Function is IRName fn14 && fn14.Name == "list-length")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".len() as i64");
+        }
         else if (TryEmitMultiArgBuiltin(sb, app, indent))
         {
         }
@@ -669,7 +674,7 @@ public sealed class RustEmitter : ICodeEmitter
         args.Add(app.Argument);
     }
 
-    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring");
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at");
 
     static string? FindBuiltinRoot(IRApply app)
     {
@@ -706,6 +711,13 @@ public sealed class RustEmitter : ICodeEmitter
                 sb.Append(" as usize).take(");
                 EmitExpr(sb, args[2], indent);
                 sb.Append(" as usize).collect::<String>() }");
+                return true;
+
+            case "list-at" when args.Count == 2:
+                EmitExpr(sb, args[0], indent);
+                sb.Append("[");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(" as usize].clone()");
                 return true;
 
             default:

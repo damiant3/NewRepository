@@ -5,28 +5,19 @@ using Codex.Types;
 
 namespace Codex.IR;
 
-public sealed class Lowering
+public sealed class Lowering(
+    Map<string, CodexType> typeMap,
+    Map<string, CtorInfo> ctorMap,
+    Map<string, CodexType> typeDefMap,
+    DiagnosticBag diagnostics)
 {
-    readonly Map<string, CodexType> m_typeMap;
-    readonly Map<string, CtorInfo> m_ctorMap;
-    readonly Map<string, CodexType> m_typeDefMap;
-    readonly DiagnosticBag m_diagnostics;
-    Map<string, CodexType> m_localEnv;
+    readonly Map<string, CodexType> m_typeMap = typeMap;
+    readonly Map<string, CtorInfo> m_ctorMap = ctorMap;
+    readonly Map<string, CodexType> m_typeDefMap = typeDefMap;
+    readonly DiagnosticBag m_diagnostics = diagnostics;
+    Map<string, CodexType> m_localEnv = Map<string, CodexType>.s_empty;
 
     static readonly Map<string, CodexType> s_builtinTypes = BuildBuiltinTypes();
-
-    public Lowering(
-        Map<string, CodexType> typeMap,
-        Map<string, CtorInfo> ctorMap,
-        Map<string, CodexType> typeDefMap,
-        DiagnosticBag diagnostics)
-    {
-        m_typeMap = typeMap;
-        m_ctorMap = ctorMap;
-        m_typeDefMap = typeDefMap;
-        m_diagnostics = diagnostics;
-        m_localEnv = Map<string, CodexType>.s_empty;
-    }
 
     public IRModule Lower(Module module)
     {
@@ -197,7 +188,7 @@ public sealed class Lowering
     {
         Map<string, CodexType> savedEnv = m_localEnv;
 
-        List<(string Name, IRExpr Value)> loweredBindings = new();
+        List<(string Name, IRExpr Value)> loweredBindings = [];
         foreach (LetBinding binding in let.Bindings)
         {
             IRExpr value = LowerExpr(binding.Value, ErrorType.s_instance);
@@ -490,10 +481,17 @@ public sealed class Lowering
         map = map.Set("char-code", new FunctionType(TextType.s_instance, IntegerType.s_instance));
         map = map.Set("code-to-char", new FunctionType(IntegerType.s_instance, TextType.s_instance));
 
+        map = map.Set("list-length", new ForAllType(0,
+            new FunctionType(new ListType(new TypeVariable(0)), IntegerType.s_instance)));
+        map = map.Set("list-at", new ForAllType(0,
+            new FunctionType(new ListType(new TypeVariable(0)),
+                new FunctionType(IntegerType.s_instance, new TypeVariable(0)))));
         return map;
     }
 
-    static bool IsNumeric(CodexType type) => type is IntegerType or NumberType;
     static bool IsInteger(CodexType type) => type is IntegerType;
+
+    static bool IsNumeric(CodexType type) => type is IntegerType or NumberType;
+
     static bool IsText(CodexType type) => type is TextType;
 }
