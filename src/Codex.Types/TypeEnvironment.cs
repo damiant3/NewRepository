@@ -82,6 +82,22 @@ public sealed class TypeEnvironment
             new FunctionType(new ListType(new TypeVariable(0)),
                 new FunctionType(IntegerType.s_instance, new TypeVariable(0)))));
         
+        // map : (a → [e] b) → List a → [e] List b
+        // ForAll e. ForAll a. ForAll b. ...
+        // e (id=100) is an EffectRowVariable, a (id=101) and b (id=102) are TypeVariables
+        EffectRowVariable mapRowVar = new(100);
+        TypeVariable mapA = new(101);
+        TypeVariable mapB = new(102);
+        EffectfulType mapFnReturn = new([], mapB, mapRowVar);
+        FunctionType mapFn = new(mapA, mapFnReturn);
+        EffectfulType mapReturn = new([], new ListType(mapB), mapRowVar);
+        CodexType mapType = new ForAllType(100,
+            new ForAllType(101,
+                new ForAllType(102,
+                    new FunctionType(mapFn,
+                        new FunctionType(new ListType(mapA), mapReturn)))));
+        env = env.Bind("map", mapType);
+
         return env;
     }
 }

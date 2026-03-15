@@ -336,21 +336,6 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
         return Current;
     }
 
-    Token ExpectOrSync(TokenKind kind)
-    {
-        if (Current.Kind == kind)
-        {
-            Token token = Current;
-            Advance();
-            return token;
-        }
-
-        m_diagnostics.Error("CDX1000", $"Expected {kind}, found {Current.Kind}", Current.Span);
-        Token errorToken = Current;
-        Synchronize();
-        return errorToken;
-    }
-
     void SkipNewlines()
     {
         while (Current.Kind is TokenKind.Newline or TokenKind.Indent or TokenKind.Dedent)

@@ -120,11 +120,24 @@ public sealed record EffectType(Name EffectName) : CodexType
     public override string ToString() => EffectName.Value;
 }
 
-public sealed record EffectfulType(ImmutableArray<EffectType> Effects, CodexType Return) : CodexType
+public sealed record EffectRowVariable(int Id) : CodexType
+{
+    public override string ToString() => $"?e{Id}";
+}
+
+public sealed record EffectfulType(
+    ImmutableArray<EffectType> Effects,
+    CodexType Return,
+    EffectRowVariable? RowVariable = null) : CodexType
 {
     public override string ToString()
     {
         string effectStr = string.Join(", ", Effects.Select(e => e.EffectName.Value));
+        if (RowVariable is not null)
+        {
+            string rowStr = RowVariable.ToString();
+            effectStr = effectStr.Length > 0 ? $"{effectStr}, {rowStr}" : rowStr;
+        }
         return $"[{effectStr}] {Return}";
     }
 }

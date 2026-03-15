@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Codex.Core;
 
 namespace Codex.Types;
@@ -9,6 +10,8 @@ public sealed class Unifier(DiagnosticBag diagnostics)
     int m_nextId;
 
     public TypeVariable FreshVar() => new(m_nextId++);
+
+    public EffectRowVariable FreshEffectVar() => new(m_nextId++);
 
     public bool Unify(CodexType a, CodexType b, SourceSpan span)
     {
@@ -75,6 +78,7 @@ public sealed class Unifier(DiagnosticBag diagnostics)
 
         if (a is EffectfulType ea && b is EffectfulType eb)
         {
+            UnifyEffectRows(ea, eb, span);
             return Unify(ea.Return, eb.Return, span);
         }
 
@@ -117,15 +121,11 @@ public sealed class Unifier(DiagnosticBag diagnostics)
 
         if (a is ListType la3 && b is ConstructedType cv && cv.Constructor.Value == "Vector"
             && cv.Arguments.Length == 2)
-        {
             return Unify(la3.Element, cv.Arguments[1], span);
-        }
 
         if (a is ConstructedType cv2 && cv2.Constructor.Value == "Vector"
             && cv2.Arguments.Length == 2 && b is ListType lb3)
-        {
             return Unify(cv2.Arguments[1], lb3.Element, span);
-        }
 
         if (a is DependentFunctionType da && b is DependentFunctionType db)
         {
@@ -188,7 +188,20 @@ public sealed class Unifier(DiagnosticBag diagnostics)
         {
             type = resolved;
         }
+        while (type is EffectRowVariable erv && m_substitutions.TryGet(erv.Id, out CodexType? resolved2))
+        {
+            type = resolved2;
+        }
         return type;
+    }
+
+    public ImmutableArray<EffectType> ResolveEffectRow(EffectRowVariable? rowVar)
+    {
+        if (rowVar is null) return [];
+        CodexType resolved = Resolve(rowVar);
+        if (resolved is EffectfulType eft)
+            return eft.Effects;
+        return [];
     }
 
     public CodexType DeepResolve(CodexType type)
@@ -217,7 +230,7 @@ public sealed class Unifier(DiagnosticBag diagnostics)
                     Type = DeepResolve(f.Type)
                 })]
             },
-            EffectfulType eft => eft with { Return = DeepResolve(eft.Return) },
+            EffectfulType eft => DeepResolveEffectful(eft),
             LinearType lin => new LinearType(DeepResolve(lin.Inner)),
             DependentFunctionType dep => new DependentFunctionType(
                 dep.ParamName, DeepResolve(dep.ParamType), DeepResolve(dep.Body)),
@@ -227,6 +240,45 @@ public sealed class Unifier(DiagnosticBag diagnostics)
             LessThanClaim lt => new LessThanClaim(DeepResolve(lt.Left), DeepResolve(lt.Right)),
             _ => type
         };
+    }
+
+    EffectfulType DeepResolveEffectful(EffectfulType eft)
+    {
+        ImmutableArray<EffectType> extraEffects = ResolveEffectRow(eft.RowVariable);
+        ImmutableArray<EffectType>.Builder merged = ImmutableArray.CreateBuilder<EffectType>();
+        HashSet<string> seen = [];
+        foreach (EffectType e in eft.Effects)
+        {
+            if (seen.Add(e.EffectName.Value))
+                merged.Add(e);
+        }
+        foreach (EffectType e in extraEffects)
+        {
+            if (seen.Add(e.EffectName.Value))
+                merged.Add(e);
+        }
+        return new EffectfulType(merged.ToImmutable(), DeepResolve(eft.Return));
+    }
+
+    void UnifyEffectRows(EffectfulType a, EffectfulType b, SourceSpan span)
+    {
+        if (a.RowVariable is not null && b.RowVariable is null)
+        {
+            EffectfulType binding = new(b.Effects, NothingType.s_instance);
+            m_substitutions = m_substitutions.Set(a.RowVariable.Id, binding);
+        }
+        else if (a.RowVariable is null && b.RowVariable is not null)
+        {
+            EffectfulType binding = new(a.Effects, NothingType.s_instance);
+            m_substitutions = m_substitutions.Set(b.RowVariable.Id, binding);
+        }
+        else if (a.RowVariable is not null && b.RowVariable is not null)
+        {
+            m_substitutions = m_substitutions.Set(a.RowVariable.Id,
+                new EffectfulType(b.Effects, NothingType.s_instance));
+            m_substitutions = m_substitutions.Set(b.RowVariable.Id,
+                new EffectfulType(a.Effects, NothingType.s_instance));
+        }
     }
 
     bool OccursIn(int varId, CodexType type)
