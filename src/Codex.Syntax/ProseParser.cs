@@ -48,7 +48,6 @@ public sealed class ProseParser
                 SkipBlankLines();
                 if (m_lineIndex < m_lines.Length)
                 {
-                    // Non-chapter content at top level — skip with warning
                     m_diagnostics.Warning("CDX1100",
                         "Expected a Chapter: header in a prose-mode document",
                         MakeLineSpan(m_lineIndex));
@@ -57,7 +56,6 @@ public sealed class ProseParser
             }
         }
 
-        // Collect all definitions from all notation blocks
         List<DefinitionNode> allDefs = [];
         List<TypeDefinitionNode> allTypeDefs = [];
         foreach (ChapterNode chapter in chapters)
@@ -88,11 +86,9 @@ public sealed class ProseParser
                 continue;
             }
 
-            // Another chapter starts — stop
             if (trimmed.StartsWith("Chapter:", StringComparison.Ordinal))
                 break;
 
-            // Section header
             if (trimmed.StartsWith("Section:", StringComparison.Ordinal))
             {
                 members.Add(ParseSection());
@@ -101,14 +97,12 @@ public sealed class ProseParser
 
             int indent = MeasureIndent(m_lines[m_lineIndex]);
 
-            // Notation block: indented 4+ spaces (or deeper than prose)
             if (indent >= 4 && LooksLikeNotation(trimmed))
             {
                 members.Add(ParseNotationBlock());
                 continue;
             }
 
-            // Prose block
             members.Add(ParseProseBlock());
         }
 
@@ -138,7 +132,6 @@ public sealed class ProseParser
                 continue;
             }
 
-            // Chapter or Section header ends this section
             if (trimmed.StartsWith("Chapter:", StringComparison.Ordinal) ||
                 trimmed.StartsWith("Section:", StringComparison.Ordinal))
                 break;
@@ -169,20 +162,17 @@ public sealed class ProseParser
         while (m_lineIndex < m_lines.Length)
         {
             string line = m_lines[m_lineIndex];
-            string trimmed = line.TrimStart();
+            string trimmed = line.Trim();
 
-            // Stop at blank line
             if (trimmed.Length == 0)
                 break;
 
-            // Stop at structural headers
             if (trimmed.StartsWith("Chapter:", StringComparison.Ordinal) ||
                 trimmed.StartsWith("Section:", StringComparison.Ordinal))
                 break;
 
             int indent = MeasureIndent(line);
 
-            // Stop at notation block (deeper indentation with code-like content)
             if (indent >= 4 && LooksLikeNotation(trimmed))
                 break;
 
@@ -202,21 +192,18 @@ public sealed class ProseParser
     {
         int startOffset = LineOffset(m_lineIndex);
 
-        // Collect all notation lines (indented 4+)
         List<string> notationLines = [];
         int baseIndent = MeasureIndent(m_lines[m_lineIndex]);
 
         while (m_lineIndex < m_lines.Length)
         {
             string line = m_lines[m_lineIndex];
-            string trimmed = line.TrimStart();
+            string trimmed = line.Trim();
 
-            // Blank lines within notation are kept
             if (trimmed.Length == 0)
             {
-                // Check if the next non-blank line is still notation
                 int peekIdx = m_lineIndex + 1;
-                while (peekIdx < m_lines.Length && m_lines[peekIdx].TrimStart().Length == 0)
+                while (peekIdx < m_lines.Length && m_lines[peekIdx].Trim().Length == 0)
                     peekIdx++;
 
                 if (peekIdx < m_lines.Length && MeasureIndent(m_lines[peekIdx]) >= baseIndent)
@@ -232,18 +219,15 @@ public sealed class ProseParser
             if (indent < baseIndent)
                 break;
 
-            // Structural headers break out
             if (trimmed.StartsWith("Chapter:", StringComparison.Ordinal) ||
                 trimmed.StartsWith("Section:", StringComparison.Ordinal))
                 break;
 
-            // Dedent the notation to be relative (remove the base indent)
-            string dedented = indent >= baseIndent ? line[baseIndent..] : trimmed;
+            string dedented = indent >= baseIndent ? line[baseIndent..].TrimEnd('\r') : trimmed;
             notationLines.Add(dedented);
             m_lineIndex++;
         }
 
-        // Now parse the notation block using the standard Lexer + Parser pipeline
         string notationSource = string.Join("\n", notationLines);
         SourceText notationText = new(m_source.FileName, notationSource);
         DiagnosticBag notationDiag = new();
@@ -252,7 +236,6 @@ public sealed class ProseParser
         Parser parser = new(tokens, notationDiag);
         DocumentNode notationDoc = parser.ParseDocument();
 
-        // Propagate diagnostics
         foreach (Diagnostic diag in notationDiag.ToImmutable())
         {
             m_diagnostics.Add(diag);
@@ -268,14 +251,13 @@ public sealed class ProseParser
     static bool LooksLikeNotation(string trimmed)
     {
         if (trimmed.Length == 0) return false;
-
-        // Starts with a Codex identifier (lowercase or uppercase)
+        if (trimmed[0] == '|') return true;
         if (char.IsLetter(trimmed[0]))
         {
-            // Look for type annotation pattern: "name : Type"
-            // or definition pattern: "name (param) = ..." or "name = ..."
-            if (trimmed.Contains(" : ") || trimmed.Contains(" = ") || trimmed.Contains('('))
-                return true;
+            if (trimmed.Contains(" : ")) return true;
+            if (trimmed.Contains(" = ")) return true;
+            if (trimmed.EndsWith(" =") || trimmed.EndsWith("=")) return true;
+            if (trimmed.Contains('(')) return true;
         }
 
         return false;
@@ -299,12 +281,12 @@ public sealed class ProseParser
 
     string CurrentTrimmed()
     {
-        return m_lineIndex < m_lines.Length ? m_lines[m_lineIndex].TrimStart() : "";
+        return m_lineIndex < m_lines.Length ? m_lines[m_lineIndex].Trim() : "";
     }
 
     void SkipBlankLines()
     {
-        while (m_lineIndex < m_lines.Length && m_lines[m_lineIndex].TrimStart().Length == 0)
+        while (m_lineIndex < m_lines.Length && m_lines[m_lineIndex].Trim().Length == 0)
         {
             m_lineIndex++;
         }

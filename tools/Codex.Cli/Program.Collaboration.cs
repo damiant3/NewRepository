@@ -6,7 +6,7 @@ namespace Codex.Cli;
 
 public static partial class Program
 {
-    static int RunPropose(string[] args)
+    public static int RunPropose(string[] args)
     {
         if (args.Length == 0)
         {
@@ -87,7 +87,7 @@ public static partial class Program
         return 0;
     }
 
-    static int RunVerdict(string[] args)
+    public static int RunVerdict(string[] args)
     {
         if (args.Length < 2)
         {
@@ -147,7 +147,7 @@ public static partial class Program
         return 0;
     }
 
-    static int RunProposals(string[] args)
+    public static int RunProposals(string[] args)
     {
         string repoDir = FindRepositoryRoot(Directory.GetCurrentDirectory());
         if (repoDir == "")
@@ -193,7 +193,7 @@ public static partial class Program
         return 0;
     }
 
-    static int RunVouch(string[] args)
+    public static int RunVouch(string[] args)
     {
         if (args.Length < 2)
         {
@@ -246,7 +246,7 @@ public static partial class Program
         return 0;
     }
 
-    static int RunSync(string[] args)
+    public static int RunSync(string[] args)
     {
         if (args.Length == 0)
         {

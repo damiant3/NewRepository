@@ -52,81 +52,98 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             switch (td)
             {
                 case RecordTypeDef rec:
-                {
-                    Map<string, CodexType> typeParamEnv = Map<string, CodexType>.s_empty;
-                    ImmutableArray<int>.Builder paramIds = ImmutableArray.CreateBuilder<int>();
-                    foreach (Name tp in rec.TypeParameters)
-                    {
-                        TypeVariable tv = m_unifier.FreshVar();
-                        typeParamEnv = typeParamEnv.Set(tp.Value, tv);
-                        paramIds.Add(tv.Id);
-                    }
-
-                    Map<string, CodexType> savedTypeParams = m_typeParamEnv;
-                    m_typeParamEnv = typeParamEnv;
-
-                    ImmutableArray<RecordFieldType>.Builder fields =
-                        ImmutableArray.CreateBuilder<RecordFieldType>();
-                    foreach (RecordFieldDef f in rec.Fields)
-                    {
-                        fields.Add(new(f.FieldName, ResolveTypeExpr(f.Type)));
-                    }
-                    RecordType recordType = new(rec.Name, paramIds.ToImmutable(), fields.ToImmutable());
-                    m_typeDefMap = m_typeDefMap.Set(rec.Name.Value, recordType);
-
-                    m_typeParamEnv = savedTypeParams;
+                    m_typeDefMap = m_typeDefMap.Set(rec.Name.Value, new ConstructedType(rec.Name, []));
                     break;
-                }
-
                 case VariantTypeDef variant:
-                {
-                    Map<string, CodexType> typeParamEnv = Map<string, CodexType>.s_empty;
-                    ImmutableArray<int>.Builder paramIds = ImmutableArray.CreateBuilder<int>();
-                    foreach (Name tp in variant.TypeParameters)
-                    {
-                        TypeVariable tv = m_unifier.FreshVar();
-                        typeParamEnv = typeParamEnv.Set(tp.Value, tv);
-                        paramIds.Add(tv.Id);
-                    }
-
-                    Map<string, CodexType> savedTypeParams = m_typeParamEnv;
-                    m_typeParamEnv = typeParamEnv;
-
-                    ImmutableArray<SumConstructorType>.Builder ctors =
-                        ImmutableArray.CreateBuilder<SumConstructorType>();
-                    foreach (VariantCtorDef c in variant.Constructors)
-                    {
-                        ImmutableArray<CodexType>.Builder ctorFields =
-                            ImmutableArray.CreateBuilder<CodexType>();
-                        foreach (VariantFieldDef f in c.Fields)
-                        {
-                            ctorFields.Add(ResolveTypeExpr(f.Type));
-                        }
-                        ctors.Add(new(c.Name, ctorFields.ToImmutable()));
-                    }
-                    SumType sumType = new(variant.Name, paramIds.ToImmutable(), ctors.ToImmutable());
-                    m_typeDefMap = m_typeDefMap.Set(variant.Name.Value, sumType);
-
-                    foreach (SumConstructorType ctor in sumType.Constructors)
-                    {
-                        CodexType ctorType = sumType;
-                        for (int i = ctor.Fields.Length - 1; i >= 0; i--)
-                        {
-                            ctorType = new FunctionType(ctor.Fields[i], ctorType);
-                        }
-                        for (int i = paramIds.Count - 1; i >= 0; i--)
-                        {
-                            ctorType = new ForAllType(paramIds[i], ctorType);
-                        }
-                        m_ctorMap = m_ctorMap.Set(ctor.Name.Value, new(ctorType, sumType));
-                        m_env = m_env.Bind(ctor.Name, ctorType);
-                    }
-
-                    m_typeParamEnv = savedTypeParams;
+                    m_typeDefMap = m_typeDefMap.Set(variant.Name.Value, new ConstructedType(variant.Name, []));
                     break;
-                }
             }
         }
+
+        foreach (TypeDef td in typeDefs)
+        {
+            if (td is RecordTypeDef rec)
+                RegisterRecord(rec);
+        }
+
+        foreach (TypeDef td in typeDefs)
+        {
+            if (td is VariantTypeDef variant)
+                RegisterVariant(variant);
+        }
+    }
+
+    void RegisterRecord(RecordTypeDef rec)
+    {
+        Map<string, CodexType> typeParamEnv = Map<string, CodexType>.s_empty;
+        ImmutableArray<int>.Builder paramIds = ImmutableArray.CreateBuilder<int>();
+        foreach (Name tp in rec.TypeParameters)
+        {
+            TypeVariable tv = m_unifier.FreshVar();
+            typeParamEnv = typeParamEnv.Set(tp.Value, tv);
+            paramIds.Add(tv.Id);
+        }
+
+        Map<string, CodexType> savedTypeParams = m_typeParamEnv;
+        m_typeParamEnv = typeParamEnv;
+
+        ImmutableArray<RecordFieldType>.Builder fields =
+            ImmutableArray.CreateBuilder<RecordFieldType>();
+        foreach (RecordFieldDef f in rec.Fields)
+        {
+            fields.Add(new(f.FieldName, ResolveTypeExpr(f.Type)));
+        }
+        RecordType recordType = new(rec.Name, paramIds.ToImmutable(), fields.ToImmutable());
+        m_typeDefMap = m_typeDefMap.Set(rec.Name.Value, recordType);
+
+        m_typeParamEnv = savedTypeParams;
+    }
+
+    void RegisterVariant(VariantTypeDef variant)
+    {
+        Map<string, CodexType> typeParamEnv = Map<string, CodexType>.s_empty;
+        ImmutableArray<int>.Builder paramIds = ImmutableArray.CreateBuilder<int>();
+        foreach (Name tp in variant.TypeParameters)
+        {
+            TypeVariable tv = m_unifier.FreshVar();
+            typeParamEnv = typeParamEnv.Set(tp.Value, tv);
+            paramIds.Add(tv.Id);
+        }
+
+        Map<string, CodexType> savedTypeParams = m_typeParamEnv;
+        m_typeParamEnv = typeParamEnv;
+
+        ImmutableArray<SumConstructorType>.Builder ctors =
+            ImmutableArray.CreateBuilder<SumConstructorType>();
+        foreach (VariantCtorDef c in variant.Constructors)
+        {
+            ImmutableArray<CodexType>.Builder ctorFields =
+                ImmutableArray.CreateBuilder<CodexType>();
+            foreach (VariantFieldDef f in c.Fields)
+            {
+                ctorFields.Add(ResolveTypeExpr(f.Type));
+            }
+            ctors.Add(new(c.Name, ctorFields.ToImmutable()));
+        }
+        SumType sumType = new(variant.Name, paramIds.ToImmutable(), ctors.ToImmutable());
+        m_typeDefMap = m_typeDefMap.Set(variant.Name.Value, sumType);
+
+        foreach (SumConstructorType ctor in sumType.Constructors)
+        {
+            CodexType ctorType = sumType;
+            for (int i = ctor.Fields.Length - 1; i >= 0; i--)
+            {
+                ctorType = new FunctionType(ctor.Fields[i], ctorType);
+            }
+            for (int i = paramIds.Count - 1; i >= 0; i--)
+            {
+                ctorType = new ForAllType(paramIds[i], ctorType);
+            }
+            m_ctorMap = m_ctorMap.Set(ctor.Name.Value, new(ctorType, sumType));
+            m_env = m_env.Bind(ctor.Name, ctorType);
+        }
+
+        m_typeParamEnv = savedTypeParams;
     }
 
     public Map<string, CodexType> TypeDefMap => m_typeDefMap;

@@ -53,11 +53,11 @@ public sealed class Unifier(DiagnosticBag diagnostics)
             if (sa.Constructors.Length != sb.Constructors.Length) return true;
             for (int i = 0; i < sa.Constructors.Length; i++)
             {
-                SumConstructorType ca2 = sa.Constructors[i];
-                SumConstructorType cb2 = sb.Constructors[i];
-                int fieldCount = Math.Min(ca2.Fields.Length, cb2.Fields.Length);
+                SumConstructorType sca = sa.Constructors[i];
+                SumConstructorType scb = sb.Constructors[i];
+                int fieldCount = Math.Min(sca.Fields.Length, scb.Fields.Length);
                 for (int j = 0; j < fieldCount; j++)
-                    Unify(ca2.Fields[j], cb2.Fields[j], span);
+                    Unify(sca.Fields[j], scb.Fields[j], span);
             }
             return true;
         }
@@ -98,6 +98,22 @@ public sealed class Unifier(DiagnosticBag diagnostics)
             }
             return true;
         }
+
+        if (a is ConstructedType ca2 && b is SumType sb2 && ca2.Constructor == sb2.TypeName
+            && ca2.Arguments.Length == 0)
+            return true;
+
+        if (a is SumType sa3 && b is ConstructedType cb3 && sa3.TypeName == cb3.Constructor
+            && cb3.Arguments.Length == 0)
+            return true;
+
+        if (a is ConstructedType ca3 && b is RecordType rb3 && ca3.Constructor == rb3.TypeName
+            && ca3.Arguments.Length == 0)
+            return true;
+
+        if (a is RecordType ra3 && b is ConstructedType cb4 && ra3.TypeName == cb4.Constructor
+            && cb4.Arguments.Length == 0)
+            return true;
 
         if (a is ListType la3 && b is ConstructedType cv && cv.Constructor.Value == "Vector"
             && cv.Arguments.Length == 2)

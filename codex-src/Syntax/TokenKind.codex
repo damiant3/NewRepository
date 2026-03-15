@@ -16,8 +16,8 @@ Chapter: Token Kinds
       | TextLiteral
       | TrueKeyword
       | FalseKeyword
-      | Ident
-      | TypeIdent
+      | Identifier
+      | TypeIdentifier
       | ProseText
       | ChapterHeader
       | SectionHeader
@@ -38,7 +38,7 @@ Chapter: Token Kinds
       | ForAllKeyword
       | ThereExistsKeyword
       | LinearKeyword
-      | EqualsSign
+      | Equals
       | Colon
       | Arrow
       | LeftArrow
@@ -73,72 +73,3 @@ Chapter: Token Kinds
       | DashGreater
       | Underscore
       | ErrorToken
-
-token-kind-name : TokenKind -> Text
-token-kind-name (k) = when k
-  if EndOfFile -> "end-of-file"
-  if Newline -> "newline"
-  if Indent -> "indent"
-  if Dedent -> "dedent"
-  if IntegerLiteral -> "integer"
-  if NumberLiteral -> "number"
-  if TextLiteral -> "text"
-  if TrueKeyword -> "true"
-  if FalseKeyword -> "false"
-  if Ident -> "identifier"
-  if TypeIdent -> "type-identifier"
-  if ProseText -> "prose-text"
-  if ChapterHeader -> "chapter-header"
-  if SectionHeader -> "section-header"
-  if LetKeyword -> "let"
-  if InKeyword -> "in"
-  if IfKeyword -> "if"
-  if ThenKeyword -> "then"
-  if ElseKeyword -> "else"
-  if WhenKeyword -> "when"
-  if WhereKeyword -> "where"
-  if SuchThatKeyword -> "such-that"
-  if DoKeyword -> "do"
-  if RecordKeyword -> "record"
-  if ImportKeyword -> "import"
-  if ExportKeyword -> "export"
-  if ClaimKeyword -> "claim"
-  if ProofKeyword -> "proof"
-  if ForAllKeyword -> "forall"
-  if ThereExistsKeyword -> "there-exists"
-  if LinearKeyword -> "linear"
-  if EqualsSign -> "="
-  if Colon -> ":")
-  if Arrow -> "->"
-  if LeftArrow -> "<-"
-  if Pipe -> "|"
-  if Ampersand -> "&"
-  if Plus -> "+"
-  if Minus -> "-"
-  if Star -> "*"
-  if Slash -> "/"
-  if Caret -> "^"
-  if PlusPlus -> "++"
-  if ColonColon -> "::"
-  if DoubleEquals -> "=="
-  if NotEquals -> "/="
-  if LessThan -> "<"
-  if GreaterThan -> ">"
-  if LessOrEqual -> "<="
-  if GreaterOrEqual -> ">="
-  if TripleEquals -> "==="
-  if Turnstile -> "|-"
-  if LinearProduct -> "(**)"
-  if ForAllSymbol -> "forall-symbol"
-  if ExistsSymbol -> "exists-symbol"
-  if LeftParen -> "("
-  if RightParen -> ")"
-  if LeftBracket -> "[("
-  if RightBracket -> "]"
-  if LeftBrace -> "{"
-  if RightBrace -> "}"
-  if Comma -> ","
-  if Dot -> "."
-  if DashGreater -> "->"
-  if Underscore -> "_"
-  if ErrorToken -> "error"

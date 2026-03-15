@@ -9,7 +9,7 @@ using Codex.Repository;
 
 namespace Codex.Cli;
 
-public static partial class Program
+public static partial class Program  // this file is locked.  use a partial.
 {
     public static int Main(string[] args)
     {
@@ -30,6 +30,11 @@ public static partial class Program
             "init" => RunInit(args.Skip(1).ToArray()),
             "publish" => RunPublish(args.Skip(1).ToArray()),
             "history" => RunHistory(args.Skip(1).ToArray()),
+            "propose" => RunPropose(args.Skip(1).ToArray()),
+            "verdict" => RunVerdict(args.Skip(1).ToArray()),
+            "proposals" => RunProposals(args.Skip(1).ToArray()),
+            "vouch" => RunVouch(args.Skip(1).ToArray()),
+            "sync" => RunSync(args.Skip(1).ToArray()),
             "version" => RunVersion(),
             "--help" or "-h" => RunHelp(),
             _ => UnknownCommand(command)
@@ -191,7 +196,7 @@ public static partial class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("Usage: codex build <file.codex> [--target cs|js|rust]");
+            Console.Error.WriteLine("Usage: codex build <file.codex|directory> [--target cs|js|rust]");
             return 1;
         }
 
@@ -203,21 +208,48 @@ public static partial class Program
                 target = args[++i].ToLowerInvariant();
         }
 
-        IRCompilationResult? irResult = CompileToIR(filePath);
-        if (irResult is null) return 1;
+        IRCompilationResult? irResult;
+        string outputPath;
 
-        Codex.Emit.ICodeEmitter emitter = target switch
+        if (Directory.Exists(filePath))
         {
-            "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
-            "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
-            _ => new CSharpEmitter()
-        };
+            string[] files = Directory.GetFiles(filePath, "*.codex", SearchOption.AllDirectories);
+            if (files.Length == 0)
+            {
+                Console.Error.WriteLine($"No .codex files found in {filePath}");
+                return 1;
+            }
+            Array.Sort(files, StringComparer.Ordinal);
+            irResult = CompileMultipleToIR(files, Path.GetFileName(Path.GetFullPath(filePath)));
+            if (irResult is null) return 1;
 
-        string output = emitter.Emit(irResult.Module);
-        string outputPath = Path.ChangeExtension(filePath, emitter.FileExtension);
-        File.WriteAllText(outputPath, output);
+            Codex.Emit.ICodeEmitter dirEmitter = target switch
+            {
+                "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
+                "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
+                _ => new CSharpEmitter()
+            };
+            string output = dirEmitter.Emit(irResult.Module);
+            outputPath = Path.Combine(filePath, "output" + dirEmitter.FileExtension);
+            File.WriteAllText(outputPath, output);
+        }
+        else
+        {
+            irResult = CompileToIR(filePath);
+            if (irResult is null) return 1;
 
-        Console.WriteLine($"✓ Compiled to {outputPath} ({emitter.TargetName})");
+            Codex.Emit.ICodeEmitter emitter = target switch
+            {
+                "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
+                "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
+                _ => new CSharpEmitter()
+            };
+            string output = emitter.Emit(irResult.Module);
+            outputPath = Path.ChangeExtension(filePath, emitter.FileExtension);
+            File.WriteAllText(outputPath, output);
+        }
+
+        Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
         foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
         {
             Console.WriteLine($"  {kv.Key} : {kv.Value}");
@@ -420,6 +452,76 @@ public static partial class Program
 
         NameResolver resolver = new(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        TypeChecker checker = new(diagnostics);
+        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        LinearityChecker linearityChecker = new(diagnostics, types);
+        linearityChecker.CheckModule(resolved.Module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        Codex.Proofs.ProofChecker proofChecker = new(diagnostics);
+        proofChecker.CheckModule(resolved.Module, types);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        Lowering lowering = new(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
+        IRModule irModule = lowering.Lower(resolved.Module);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        return new IRCompilationResult(irModule, types);
+    }
+
+    static IRCompilationResult? CompileMultipleToIR(string[] filePaths, string moduleName)
+    {
+        DiagnosticBag diagnostics = new();
+        Desugarer desugarer = new(diagnostics);
+        List<Definition> allDefinitions = [];
+        List<TypeDef> allTypeDefinitions = [];
+        List<ClaimDef> allClaims = [];
+        List<ProofDef> allProofs = [];
+
+        foreach (string filePath in filePaths)
+        {
+            if (!File.Exists(filePath))
+            {
+                Console.Error.WriteLine($"File not found: {filePath}");
+                return null;
+            }
+
+            string content = File.ReadAllText(filePath);
+            SourceText source = new(filePath, content);
+            DocumentNode document = ParseSourceFile(source, content, diagnostics);
+            string fileModule = Path.GetFileNameWithoutExtension(filePath);
+            Module module = desugarer.Desugar(document, fileModule);
+
+            allDefinitions.AddRange(module.Definitions);
+            allTypeDefinitions.AddRange(module.TypeDefinitions);
+            allClaims.AddRange(module.Claims);
+            allProofs.AddRange(module.Proofs);
+        }
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
+
+        SourceSpan combinedSpan = allDefinitions.Count > 0
+            ? allDefinitions[0].Span
+            : SourceSpan.Single(0, 1, 1);
+        Module combined = new(
+            QualifiedName.Simple(moduleName),
+            allDefinitions,
+            allTypeDefinitions,
+            allClaims,
+            allProofs,
+            combinedSpan);
+
+        NameResolver resolver = new(diagnostics);
+        ResolvedModule resolved = resolver.Resolve(combined);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 

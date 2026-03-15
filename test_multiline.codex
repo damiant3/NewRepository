@@ -1,6 +1,0 @@
-add : Integer -> Integer -> Integer
-add (x) (y) =
-  x + y
-
-main : Integer
-main = add 3 4
