@@ -10,6 +10,7 @@ public static partial class Program
         public string Version { get; set; } = "0.1.0";
         public string[] Sources { get; set; } = ["**/*.codex"];
         public string Target { get; set; } = "cs";
+        public string[] Targets { get; set; } = [];
         public string Output { get; set; } = "out/";
     }
 

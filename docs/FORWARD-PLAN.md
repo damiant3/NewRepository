@@ -17,13 +17,15 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 
 | Metric | Value |
 |--------|-------|
-| C# projects | 30 |
+| C# projects | 31 |
 | Test count | 420 (all passing) |
 | Codex source | 3,067 lines across 21 .codex files |
 | Bootstrap parity | 259 records, 308 functions |
 | Backends | C#, JavaScript, Rust, Python, C++, Go, Java, Ada, Babbage, **Fortran**, **COBOL** |
 | LSP | Diagnostics, hover, symbols, semantic tokens |
 | Repository | Content-addressed fact store with proposals/verdicts |
+| IDE support | TextMate grammar for VS 2022 + VS Code |
+| Build system | Incremental builds, parallel front-end, parallel multi-target emission |
 
 ---
 
@@ -100,6 +102,24 @@ TCO in all backends: `do while/.true./cycle` (Fortran), `GO TO` (COBOL).
 Proof-only modules emit proper entry points in all 11 backends.
 C++ verified compiling and running under MSVC /std:c++17 (14/15 samples).
 165 backend integration tests (15 samples × 11 backends).
+
+**11b. ~~IDE / syntax highlighting~~** — ✅ Done.
+TextMate grammar (`codex.tmLanguage.json`) for both VS 2022 and VS Code.
+Highlights: keywords, proof keywords, type identifiers, strings, numbers,
+operators (including Unicode `→` `≡` `∀` `∃`), effect brackets `[Console]`,
+annotations `@name`, prose headers `Chapter:` / `Section:`, function definitions.
+Language configuration: bracket matching, auto-close, smart indentation.
+VS 2022 support: `.pkgdef` registration, `install-vs.ps1`, `build-vsix.ps1`.
+Project file: `codex.project.json` with schema validation, sources glob, target(s), output.
+`codex init` creates project scaffold.
+
+**11c. ~~Incremental / parallel builds~~** — ✅ Done.
+`--incremental` flag skips unchanged files (SHA256 content hash + timestamp).
+Build manifest stored in `.codex-build/manifest.json`.
+Parallel front-end: `Parallel.ForEach` over source files (lex + parse + desugar).
+Sequential middle: name resolution → type check → linearity → proofs → lowering.
+Parallel emission: `--targets cs,js,py,...` emits all backends concurrently.
+`codex.project.json` `targets` array for declarative multi-target builds.
 
 **12. Package manager / dependency resolution**
 The repository stores facts but there's no dependency resolution across

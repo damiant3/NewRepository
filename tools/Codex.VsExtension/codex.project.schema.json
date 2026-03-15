@@ -24,7 +24,7 @@
     },
     "target": {
       "type": "string",
-      "description": "Default compilation target",
+      "description": "Default compilation target (used when a single target is needed)",
       "enum": [
         "csharp", "cs",
         "javascript", "js",
@@ -39,6 +39,26 @@
         "babbage", "ae"
       ],
       "default": "csharp"
+    },
+    "targets": {
+      "type": "array",
+      "description": "Multiple compilation targets — emitted in parallel",
+      "items": {
+        "type": "string",
+        "enum": [
+          "csharp", "cs",
+          "javascript", "js",
+          "rust", "rs",
+          "python", "py",
+          "cpp", "c++",
+          "go",
+          "java",
+          "ada",
+          "fortran", "f90",
+          "cobol", "cob",
+          "babbage", "ae"
+        ]
+      }
     },
     "output": {
       "type": "string",
