@@ -21,7 +21,7 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 | Metric | Value |
 |--------|-------|
 | C# projects | 31 |
-| Test count | 451 (all passing) |
+| Test count | 628 (all passing) |
 | Codex source | ~2,600 lines across 21 .codex files |
 | Bootstrap parity | ~286 records, ~310 functions in output.cs |
 | Backends | C#, JavaScript, Rust, Python, C++, Go, Java, Ada, Babbage, Fortran, COBOL (11 total) |
@@ -30,6 +30,7 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 | IDE support | TextMate grammar for VS 2022 + VS Code |
 | Build system | Incremental builds, parallel front-end, parallel multi-target emission |
 | Prose | Chapter/Section structure, prose templates (record & variant from bullet lists) |
+| Parser | Error recovery: partial definitions, partial types, bad fields/constructors skipped |
 
 ---
 
@@ -61,7 +62,7 @@ All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliv
 | M7 | Repository | Fact store, content hashing, CLI commands, `import` resolution from store via `IModuleLoader` | Views (single-user views, view consistency checking) |
 | M8 | Dependent Types | Dependent function types, type-level arithmetic, proof obligations | Full `Vector` type with `append` end-to-end |
 | M10 | Proofs | Induction, cong, lemma application, IH registration, 9 proofs in sample | Type-level function reduction (needed for non-trivial inductive steps), arithmetic induction with Peano encoding |
-| M11 | Tests | Property-based tests, integration tests (451 total) | Fuzz testing, CI configuration |
+| M11 | Tests | Property-based tests, integration tests (628 total), corpus emission (165 per-sample-per-backend) | Fuzz testing, CI configuration |
 
 ---
 
@@ -69,32 +70,35 @@ All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliv
 
 ### Tier 1: Solidify What Exists
 
-**1. Error recovery in parser**
-The parser currently stops at the first error. For IDE use, it should skip to
-the next definition and continue. The CST has `ErrorNode` support; the parser
-just needs synchronization points. Estimated: medium.
+**1. Error recovery in parser** — ✅ Done.
+Parser now recovers from errors at all levels: type definitions produce
+`ErrorTypeBody` instead of backtracking, definitions with missing `=`
+produce partial `DefinitionNode` with `ErrorExpressionNode`, record bodies
+skip bad fields, variant bodies skip bad constructors. Multiple definitions
+after errors are parsed correctly. 11 new tests. New diagnostic codes:
+CDX1050 (bad type body), CDX1051 (bad record field), CDX1052 (bad variant ctor).
 
 ### Tier 2: Complete Partial Milestones
 
-**2. Effect handlers (M5)**
+**1. Effect handlers (M5)**
 `run-state` and user-defined effect handlers. The effect system already has
 row variables for polymorphism — handlers need to eliminate effects from
 the row. See [DECISIONS.md](DECISIONS.md): "Direct I/O for Effects."
 Estimated: medium-large.
 
-**3. Views (M7)**
+**2. Views (M7)**
 The repository stores facts and resolves imports, but there's no view layer.
 A View maps names to definitions such that all definitions are mutually
 consistent. Single-user views first, then multi-user consensus.
 Estimated: medium.
 
-**4. The Reader (M4)**
+**3. The Reader (M4)**
 `codex read <file>` renders a prose-mode document to the terminal with
 formatted prose, highlighted notation blocks, and structured layout.
 `Codex.Narration` is the project for this — currently empty.
 Estimated: small-medium.
 
-**5. Type-level function reduction (M10)**
+**4. Type-level function reduction (M10)**
 Proof steps that require unfolding function definitions currently use
 `assume`. The proof checker needs to normalize type-level expressions
 by inlining function bodies. Arithmetic induction with Peano encoding
@@ -102,13 +106,13 @@ also depends on this. Estimated: medium.
 
 ### Tier 3: New Capabilities
 
-**6. Package manager / dependency resolution**
+**5. Package manager / dependency resolution**
 The repository stores facts but there's no transitive dependency resolution
 across modules. `import` currently resolves one level deep — it needs to
 resolve transitively, handle version conflicts, and support views.
 Estimated: large.
 
-**7. Full `Vector` type (M8)**
+**6. Full `Vector` type (M8)**
 The dependent type infrastructure works. Wire it up end-to-end: `Vector n a`
 with `append : Vector m a → Vector n a → Vector (m + n) a`, compile and run.
 Estimated: medium.
@@ -158,7 +162,7 @@ These were open questions. Damian answered them; decisions are recorded in
 
 10. **Test preservation** → **Policy enforced.** Sample `.codex` files go in
     `samples/`, integration tests call the compiler on them. Every sample is
-    a permanent regression test. Currently 451 tests across 7 test projects.
+    a permanent regression test. Currently 628 tests across 7 test projects.
 
 ---
 

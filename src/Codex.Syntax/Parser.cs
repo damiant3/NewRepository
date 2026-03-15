@@ -126,8 +126,13 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
             return new TypeDefinitionNode(nameToken, typeParams, body, span);
         }
 
-        m_position = savedPos;
-        return null;
+        m_diagnostics.Error("CDX1050",
+            $"Expected 'record', a variant body, or constructors after '=', found {Current.Kind}",
+            Current.Span);
+        SkipToNextDefinition();
+        ErrorTypeBody errorBody = new(nameToken.Span.Through(Previous.Span));
+        return new TypeDefinitionNode(nameToken, typeParams, errorBody,
+            nameToken.Span.Through(errorBody.Span));
     }
 
     bool LooksLikeVariantBody()
@@ -160,13 +165,25 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
         SkipNewlines();
 
         List<RecordTypeFieldNode> fields = [];
-        while (Current.Kind == TokenKind.Identifier && !IsAtEnd)
+        while (Current.Kind != TokenKind.RightBrace && !IsAtEnd)
         {
-            Token fieldName = Current;
-            Advance();
-            Expect(TokenKind.Colon);
-            TypeNode fieldType = ParseType();
-            fields.Add(new RecordTypeFieldNode(fieldName, fieldType, fieldName.Span.Through(fieldType.Span)));
+            if (Current.Kind == TokenKind.Identifier)
+            {
+                Token fieldName = Current;
+                Advance();
+                Expect(TokenKind.Colon);
+                TypeNode fieldType = ParseType();
+                fields.Add(new RecordTypeFieldNode(fieldName, fieldType,
+                    fieldName.Span.Through(fieldType.Span)));
+            }
+            else
+            {
+                m_diagnostics.Error("CDX1051",
+                    $"Expected field name in record body, found {Current.Kind}",
+                    Current.Span);
+                Advance();
+            }
+
             SkipNewlines();
             if (Current.Kind == TokenKind.Comma)
             {
@@ -192,6 +209,21 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
                 Advance();
             firstCtor = false;
             SkipNewlines();
+
+            if (Current.Kind != TokenKind.TypeIdentifier)
+            {
+                m_diagnostics.Error("CDX1052",
+                    $"Expected constructor name after '|', found {Current.Kind}",
+                    Current.Span);
+                while (!IsAtEnd
+                    && Current.Kind is not (TokenKind.Pipe or TokenKind.Newline
+                        or TokenKind.EndOfFile))
+                {
+                    Advance();
+                }
+                SkipNewlines();
+                continue;
+            }
 
             Token ctorName = Expect(TokenKind.TypeIdentifier);
             List<VariantFieldNode> fields = [];
@@ -283,7 +315,15 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
             Advance();
         }
 
-        Expect(TokenKind.Equals);
+        Token equalsToken = Expect(TokenKind.Equals);
+
+        if (equalsToken.Kind != TokenKind.Equals)
+        {
+            SkipToNextDefinition();
+            SourceSpan errSpan = (annotation?.Span ?? nameToken.Span).Through(Previous.Span);
+            return new DefinitionNode(nameToken, parameters, annotation,
+                new ErrorExpressionNode(equalsToken), errSpan);
+        }
 
         SkipNewlines();
         ExpressionNode body = ParseExpression();

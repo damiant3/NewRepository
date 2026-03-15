@@ -138,7 +138,7 @@ namespace Codex.Types.Tests
             return CompileToTarget(source, moduleName, new Codex.Emit.Cobol.CobolEmitter());
         }
 
-        static string? CompileToTarget(string source, string moduleName, Codex.Emit.ICodeEmitter emitter)
+        public static string? CompileToTarget(string source, string moduleName, Codex.Emit.ICodeEmitter emitter)
         {
             SourceText src = new("test.codex", source);
             DiagnosticBag diagnostics = new();

@@ -1,0 +1,131 @@
+using Codex.Emit;
+using Codex.Emit.CSharp;
+using Xunit;
+
+namespace Codex.Types.Tests;
+
+public class CorpusEmissionTests
+{
+    static readonly string s_samplesDir = FindSamplesDir();
+    static readonly string s_outputDir = FindOutputDir();
+
+    static readonly ICodeEmitter[] s_emitters =
+    [
+        new CSharpEmitter(),
+        new Emit.JavaScript.JavaScriptEmitter(),
+        new Emit.Rust.RustEmitter(),
+        new Emit.Python.PythonEmitter(),
+        new Emit.Cpp.CppEmitter(),
+        new Emit.Go.GoEmitter(),
+        new Emit.Java.JavaEmitter(),
+        new Emit.Ada.AdaEmitter(),
+        new Emit.Babbage.BabbageEmitter(),
+        new Emit.Fortran.FortranEmitter(),
+        new Emit.Cobol.CobolEmitter(),
+    ];
+
+    static string FindSamplesDir()
+    {
+        string dir = AppContext.BaseDirectory;
+        while (dir is not null)
+        {
+            string candidate = Path.Combine(dir, "samples");
+            if (Directory.Exists(candidate))
+                return candidate;
+            dir = Path.GetDirectoryName(dir)!;
+        }
+        throw new DirectoryNotFoundException("Cannot find samples/ directory");
+    }
+
+    static string FindOutputDir()
+    {
+        string dir = AppContext.BaseDirectory;
+        while (dir is not null)
+        {
+            string candidate = Path.Combine(dir, "samples");
+            if (Directory.Exists(candidate))
+                return Path.Combine(dir, "generated-output");
+            dir = Path.GetDirectoryName(dir)!;
+        }
+        throw new DirectoryNotFoundException("Cannot find repo root");
+    }
+
+    static string LanguageDirName(ICodeEmitter emitter) => emitter.TargetName switch
+    {
+        "C#" => "csharp",
+        "C++" => "cpp",
+        "Babbage Analytical Engine" => "babbage",
+        string name => name.ToLowerInvariant(),
+    };
+
+    public static IEnumerable<object[]> AllSamples()
+    {
+        foreach (string file in Directory.GetFiles(FindSamplesDir(), "*.codex").OrderBy(f => f))
+        {
+            yield return [Path.GetFileName(file)];
+        }
+    }
+
+    public static IEnumerable<object[]> AllSamplesAndBackends()
+    {
+        string[] samples = Directory.GetFiles(FindSamplesDir(), "*.codex").OrderBy(f => f).ToArray();
+        foreach (string file in samples)
+        {
+            foreach (ICodeEmitter emitter in s_emitters)
+            {
+                yield return [Path.GetFileName(file), emitter.TargetName];
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(AllSamplesAndBackends))]
+    public void Sample_compiles_to_backend(string sampleFile, string targetName)
+    {
+        string filePath = Path.Combine(s_samplesDir, sampleFile);
+        string source = File.ReadAllText(filePath);
+        string moduleName = Path.GetFileNameWithoutExtension(sampleFile).Replace("-", "_");
+
+        ICodeEmitter emitter = s_emitters.First(e => e.TargetName == targetName);
+        string? output = Helpers.CompileToTarget(source, moduleName, emitter);
+
+        Assert.True(output is not null,
+            $"Failed to compile {sampleFile} to {targetName}");
+        Assert.True(output!.Length > 0,
+            $"Empty output for {sampleFile} to {targetName}");
+    }
+
+    [Fact]
+    public void Emit_full_corpus_to_generated_output()
+    {
+        string[] sampleFiles = Directory.GetFiles(s_samplesDir, "*.codex").OrderBy(f => f).ToArray();
+        List<string> failures = [];
+
+        foreach (ICodeEmitter emitter in s_emitters)
+        {
+            string langDir = Path.Combine(s_outputDir, LanguageDirName(emitter));
+            Directory.CreateDirectory(langDir);
+
+            foreach (string filePath in sampleFiles)
+            {
+                string sampleName = Path.GetFileNameWithoutExtension(filePath);
+                string moduleName = sampleName.Replace("-", "_");
+                string source = File.ReadAllText(filePath);
+
+                string? output = Helpers.CompileToTarget(source, moduleName, emitter);
+                if (output is null)
+                {
+                    failures.Add($"{sampleName} → {emitter.TargetName}");
+                    continue;
+                }
+
+                string outputFileName = sampleName + emitter.FileExtension;
+                string outputPath = Path.Combine(langDir, outputFileName);
+                File.WriteAllText(outputPath, output);
+            }
+        }
+
+        Assert.True(failures.Count == 0,
+            $"Failed to compile:\n  {string.Join("\n  ", failures)}");
+    }
+}

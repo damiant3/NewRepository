@@ -216,6 +216,12 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
                     c.Span)).ToList(),
                 node.Span),
 
+            ErrorTypeBody => new RecordTypeDef(
+                typeName,
+                typeParams,
+                [],
+                node.Span),
+
             _ => throw new InvalidOperationException($"Unknown type definition body: {node.Body.GetType().Name}")
         };
     }

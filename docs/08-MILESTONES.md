@@ -305,7 +305,9 @@ Sample: `samples/proofs.codex` (9 claims, 9 proofs, 0 errors).
 ### Deliverables
 - [x] Property-based testing framework
 - [x] Integration test cases for each milestone (end-to-end)
-- [x] 451 tests across 7 test projects (all passing)
+- [x] 628 tests across 7 test projects (all passing)
+- [x] **Corpus emission tests** — 15 samples × 11 backends = 165 theory tests + 1 full emission test
+- [x] **Generated output checked in** — `generated-output/` with 11 language subdirectories, 165 files
 - [ ] **Fuzz testing** for robustness
 - [ ] **CI configuration** for automated testing
 
@@ -314,16 +316,17 @@ Sample: `samples/proofs.codex` (9 claims, 9 proofs, 0 errors).
 | Project | Tests |
 |---------|-------|
 | `Codex.Core.Tests` | 16 |
-| `Codex.Syntax.Tests` | 77 |
+| `Codex.Syntax.Tests` | 88 |
 | `Codex.Ast.Tests` | 11 |
 | `Codex.Semantics.Tests` | 15 |
-| `Codex.Types.Tests` | 291 |
+| `Codex.Types.Tests` | 457 |
 | `Codex.Lsp.Tests` | 18 |
 | `Codex.Repository.Tests` | 23 |
-| **Total** | **451** |
+| **Total** | **628** |
 
 ### Status
-Integration tests cover all milestones. Fuzz testing and CI deferred.
+Integration tests cover all milestones. Corpus emission tests compile every sample through every
+backend and write the output to `generated-output/` (checked in for git history). Fuzz testing and CI deferred.
 See [DECISIONS.md](DECISIONS.md) re: CI pipeline — deferred until there are users or funding.
 
 ---

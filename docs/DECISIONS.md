@@ -204,3 +204,13 @@ Significant design and engineering decisions are recorded here in chronological 
 **Decision**: Emit `TypeVariable(id)` as `T{id}`. Polymorphic functions become C# generic methods: `public static T1 map_list<T0, T1>(Func<T0, T1> f, List<T0> xs)`. C# infers type arguments at callsites.
 **Rationale**: The boxing argument against generics is a false economy — nobody building a compiler is CPU-bound on type dispatch. Generics eliminate an entire class of emitter bugs and make the generated C# natural.
 **Consequences**: Zero `object` erasure. All 105 CS1503 type mismatch errors eliminated. Stage 1 compiles with zero errors. The emitter is simpler (no coercion logic needed).
+
+---
+
+## Decision: Parser Error Recovery — Commit-Then-Recover
+**Date**: 2026-06
+**Context**: The parser stopped at the first error in most cases. `TryParseTypeDefinition` backtracked to `savedPos` on any failure after `=`, losing the type name entirely. `TryParseDefinition` similarly lost partial results. The LSP got nothing for definitions with syntax errors — no hover, no completion, no go-to-def.
+**Decision**: Once the parser has consumed enough tokens to commit (e.g., `TypeId =` for type defs, `name (params) =` for defs), it must produce a partial node rather than backtrack. New node: `ErrorTypeBody` for type definitions. Definitions with missing `=` produce `DefinitionNode` with `ErrorExpressionNode` body. Record/variant bodies skip bad fields/constructors and continue.
+**Rationale**: The Roslyn approach — the parser always produces a tree, even for broken code. Every definition gets a node. The desugarer maps `ErrorTypeBody` to an empty `RecordTypeDef` so the type name is visible to downstream passes. The key insight: once we've seen `TypeId =`, that IS a type definition — the question is only what the body looks like.
+**Implementation**: Three new diagnostic codes: CDX1050 (bad type body after `=`), CDX1051 (bad field in record body), CDX1052 (bad constructor in variant body). 11 new tests. `SkipToNextDefinition` used as the recovery strategy at the definition level.
+**Consequences**: LSP can now show type names, definition names, and partial type annotations even in files with syntax errors. Multiple definitions after an error are all parsed. The parser never backtracks after committing to a definition shape.

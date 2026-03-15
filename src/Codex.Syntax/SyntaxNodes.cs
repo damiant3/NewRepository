@@ -475,6 +475,12 @@ public sealed record VariantFieldNode(Token? FieldName, TypeNode Type, SourceSpa
     public override IEnumerable<SyntaxNode> Children => [Type];
 }
 
+public sealed record ErrorTypeBody(SourceSpan Span)
+    : TypeDefinitionBody(SyntaxKind.ErrorNode, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [];
+}
+
 public sealed record ClaimNode(
     Token Name,
     IReadOnlyList<Token> Parameters,

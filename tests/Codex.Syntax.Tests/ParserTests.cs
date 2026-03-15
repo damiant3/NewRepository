@@ -496,4 +496,125 @@ public class ParserTests
         int errorCount = diags.ToImmutable().Count(d => d.Code == "CDX1021");
         Assert.True(errorCount >= 2);
     }
+
+    // --- Enhanced error recovery tests ---
+
+    [Fact]
+    public void Recovery_type_def_bad_body_produces_error_type_body()
+    {
+        string source = "Color = !! bad\na = 1";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Single(doc.TypeDefinitions);
+        Assert.Equal("Color", doc.TypeDefinitions[0].Name.Text);
+        Assert.IsType<ErrorTypeBody>(doc.TypeDefinitions[0].Body);
+        Assert.True(doc.Definitions.Count >= 1);
+    }
+
+    [Fact]
+    public void Recovery_type_def_preserves_name_for_subsequent_defs()
+    {
+        string source = "Shape = oops\nb = 42\nc = 99";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Single(doc.TypeDefinitions);
+        Assert.Equal("Shape", doc.TypeDefinitions[0].Name.Text);
+        Assert.True(doc.Definitions.Count >= 1);
+        Assert.Contains(doc.Definitions, d => d.Name.Text == "b" || d.Name.Text == "c");
+    }
+
+    [Fact]
+    public void Recovery_definition_missing_equals_produces_partial_def()
+    {
+        string source = "f (x) oops\ng = 42";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Contains(doc.Definitions, d => d.Name.Text == "g");
+    }
+
+    [Fact]
+    public void Recovery_three_defs_middle_has_error()
+    {
+        string source = "a = 1\nb = @#$\nc = 3";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Contains(doc.Definitions, d => d.Name.Text == "a");
+        Assert.Contains(doc.Definitions, d => d.Name.Text == "c");
+    }
+
+    [Fact]
+    public void Recovery_variant_bad_constructor_continues()
+    {
+        string source = "Shape =\n  | Circle (Integer)\n  | 123\n  | Square (Integer)";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Single(doc.TypeDefinitions);
+        VariantTypeBody body = Assert.IsType<VariantTypeBody>(doc.TypeDefinitions[0].Body);
+        Assert.True(body.Constructors.Count >= 1);
+        Assert.Contains(body.Constructors, c => c.Name.Text == "Circle");
+    }
+
+    [Fact]
+    public void Recovery_record_bad_field_continues()
+    {
+        string source = "Point = record { x : Integer, !! bad, y : Integer }";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Single(doc.TypeDefinitions);
+        RecordTypeBody body = Assert.IsType<RecordTypeBody>(doc.TypeDefinitions[0].Body);
+        Assert.True(body.Fields.Count >= 1);
+    }
+
+    [Fact]
+    public void Recovery_do_expression_continues_after_bad_statement()
+    {
+        string source = "f = do\n  @#$ bad\n  print-line \"hello\"";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Single(doc.Definitions);
+    }
+
+    [Fact]
+    public void Recovery_interleaved_types_and_defs_with_errors()
+    {
+        string source =
+            "Color =\n  | Red\n  | Green\n\n" +
+            "f = @#$\n\n" +
+            "Point = record { x : Integer, y : Integer }\n\n" +
+            "g = 42";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Contains(doc.TypeDefinitions, td => td.Name.Text == "Color");
+        Assert.Contains(doc.TypeDefinitions, td => td.Name.Text == "Point");
+        Assert.Contains(doc.Definitions, d => d.Name.Text == "g");
+    }
+
+    [Fact]
+    public void Recovery_error_count_limited_no_infinite_loop()
+    {
+        DocumentNode doc = Parse("!! bad\n!! bad\n!! bad\na = 1");
+        (DocumentNode _, DiagnosticBag diags) = ParseWithDiags("!! bad\n!! bad\n!! bad\na = 1");
+        Assert.True(diags.HasErrors);
+        Assert.True(diags.ToImmutable().Length < 100);
+        Assert.Contains(doc.Definitions, d => d.Name.Text == "a");
+    }
+
+    [Fact]
+    public void Recovery_claim_after_bad_definition()
+    {
+        string source = "f = @#$\nclaim eq : 1 == 1";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.True(doc.Claims.Count >= 1);
+    }
+
+    [Fact]
+    public void Recovery_import_after_bad_definition()
+    {
+        string source = "import Math\nf = @#$\ng = 42";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Single(doc.Imports);
+        Assert.Contains(doc.Definitions, d => d.Name.Text == "g");
+    }
 }
