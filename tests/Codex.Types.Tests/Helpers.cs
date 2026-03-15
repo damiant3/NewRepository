@@ -85,6 +85,21 @@ namespace Codex.Types.Tests
 
         public static string? CompileToCS(string source, string moduleName = "test")
         {
+            return CompileToTarget(source, moduleName, new CSharpEmitter());
+        }
+
+        public static string? CompileToJS(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.JavaScript.JavaScriptEmitter());
+        }
+
+        public static string? CompileToRust(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Rust.RustEmitter());
+        }
+
+        static string? CompileToTarget(string source, string moduleName, Codex.Emit.ICodeEmitter emitter)
+        {
             SourceText src = new("test.codex", source);
             DiagnosticBag diagnostics = new();
 
@@ -122,9 +137,9 @@ namespace Codex.Types.Tests
             IRModule irModule = lowering.Lower(resolved.Module);
             if (diagnostics.HasErrors) return null;
 
-            CSharpEmitter emitter = new();
             return emitter.Emit(irModule);
         }
+
 
         public static Map<string, CodexType>? TypeCheck(
             string source, string moduleName = "test")

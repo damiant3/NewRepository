@@ -168,28 +168,16 @@ public sealed partial class CSharpEmitter : ICodeEmitter
 
     void EmitDefinition(StringBuilder sb, IRDefinition def)
     {
-        HashSet<int> typeVarIds = [];
-        CollectTypeVarIds(def.Type, typeVarIds);
+        if (HasSelfTailCall(def))
+        {
+            EmitTailCallDefinition(sb, def);
+            return;
+        }
 
         string returnType = EmitType(GetReturnType(def));
         string name = SanitizeIdentifier(def.Name);
 
-        sb.Append($"    public static {returnType} {name}");
-
-        if (typeVarIds.Count > 0)
-        {
-            sb.Append('<');
-            bool first = true;
-            foreach (int id in typeVarIds.Order())
-            {
-                if (!first) sb.Append(", ");
-                sb.Append($"T{id}");
-                first = false;
-            }
-            sb.Append('>');
-        }
-
-        sb.Append('(');
+        sb.Append($"    public static {returnType} {name}(");
 
         for (int i = 0; i < def.Parameters.Length; i++)
         {

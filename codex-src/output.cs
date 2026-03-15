@@ -2,32 +2,84 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public sealed record ADef(Name name, List<AParam> @params, List<ATypeExpr> declared_type, AExpr body);
+public abstract record TypeBody;
 
-public abstract record IRBinaryOp;
+public sealed record RecordBody(List<RecordFieldDef> Field0) : TypeBody;
+public sealed record VariantBody(List<VariantCtorDef> Field0) : TypeBody;
 
-public sealed record IrAddInt : IRBinaryOp;
-public sealed record IrSubInt : IRBinaryOp;
-public sealed record IrMulInt : IRBinaryOp;
-public sealed record IrDivInt : IRBinaryOp;
-public sealed record IrPowInt : IRBinaryOp;
-public sealed record IrAddNum : IRBinaryOp;
-public sealed record IrSubNum : IRBinaryOp;
-public sealed record IrMulNum : IRBinaryOp;
-public sealed record IrDivNum : IRBinaryOp;
-public sealed record IrEq : IRBinaryOp;
-public sealed record IrNotEq : IRBinaryOp;
-public sealed record IrLt : IRBinaryOp;
-public sealed record IrGt : IRBinaryOp;
-public sealed record IrLtEq : IRBinaryOp;
-public sealed record IrGtEq : IRBinaryOp;
-public sealed record IrAnd : IRBinaryOp;
-public sealed record IrOr : IRBinaryOp;
-public sealed record IrAppendText : IRBinaryOp;
-public sealed record IrAppendList : IRBinaryOp;
-public sealed record IrConsList : IRBinaryOp;
+public abstract record LexResult;
 
-public sealed record IRModule(Name name, List<IRDef> defs);
+public sealed record LexToken(Token Field0, LexState Field1) : LexResult;
+public sealed record LexEnd : LexResult;
+
+public sealed record SourcePosition(long line, long column, long offset);
+
+public sealed record IRParam(string name, CodexType type_val);
+
+public abstract record ADoStmt;
+
+public sealed record ADoBindStmt(Name Field0, AExpr Field1) : ADoStmt;
+public sealed record ADoExprStmt(AExpr Field0) : ADoStmt;
+
+public abstract record BinaryOp;
+
+public sealed record OpAdd : BinaryOp;
+public sealed record OpSub : BinaryOp;
+public sealed record OpMul : BinaryOp;
+public sealed record OpDiv : BinaryOp;
+public sealed record OpPow : BinaryOp;
+public sealed record OpEq : BinaryOp;
+public sealed record OpNotEq : BinaryOp;
+public sealed record OpLt : BinaryOp;
+public sealed record OpGt : BinaryOp;
+public sealed record OpLtEq : BinaryOp;
+public sealed record OpGtEq : BinaryOp;
+public sealed record OpDefEq : BinaryOp;
+public sealed record OpAppend : BinaryOp;
+public sealed record OpCons : BinaryOp;
+public sealed record OpAnd : BinaryOp;
+public sealed record OpOr : BinaryOp;
+
+public abstract record IRDoStmt;
+
+public sealed record IrDoBind(string Field0, CodexType Field1, IRExpr Field2) : IRDoStmt;
+public sealed record IrDoExec(IRExpr Field0) : IRDoStmt;
+
+public abstract record ParseExprResult;
+
+public sealed record ExprOk(Expr Field0, ParseState Field1) : ParseExprResult;
+
+public sealed record RecordField(Name name, CodexType type_val);
+
+public sealed record ARecordFieldDef(Name name, ATypeExpr type_expr);
+
+public sealed record LexState(string source, long offset, long line, long column);
+
+public abstract record Expr;
+
+public sealed record LitExpr(Token Field0) : Expr;
+public sealed record NameExpr(Token Field0) : Expr;
+public sealed record AppExpr(Expr Field0, Expr Field1) : Expr;
+public sealed record BinExpr(Expr Field0, Token Field1, Expr Field2) : Expr;
+public sealed record UnaryExpr(Token Field0, Expr Field1) : Expr;
+public sealed record IfExpr(Expr Field0, Expr Field1, Expr Field2) : Expr;
+public sealed record LetExpr(List<LetBind> Field0, Expr Field1) : Expr;
+public sealed record MatchExpr(Expr Field0, List<MatchArm> Field1) : Expr;
+public sealed record ListExpr(List<Expr> Field0) : Expr;
+public sealed record RecordExpr(Token Field0, List<RecordFieldExpr> Field1) : Expr;
+public sealed record FieldExpr(Expr Field0, Token Field1) : Expr;
+public sealed record ParenExpr(Expr Field0) : Expr;
+public sealed record DoExpr(List<DoStmt> Field0) : Expr;
+public sealed record ErrExpr(Token Field0) : Expr;
+
+public sealed record Document(List<Def> defs, List<TypeDef> type_defs);
+
+public abstract record Pat;
+
+public sealed record VarPat(Token Field0) : Pat;
+public sealed record LitPat(Token Field0) : Pat;
+public sealed record CtorPat(Token Field0, List<Pat> Field1) : Pat;
+public sealed record WildPat(Token Field0) : Pat;
 
 public abstract record DoStmt;
 
@@ -39,38 +91,20 @@ public abstract record ParseDefResult;
 public sealed record DefOk(Def Field0, ParseState Field1) : ParseDefResult;
 public sealed record DefNone(ParseState Field0) : ParseDefResult;
 
-public abstract record AExpr;
+public sealed record RecordFieldDef(Token name, TypeExpr type_expr);
 
-public sealed record ALitExpr(string Field0, LiteralKind Field1) : AExpr;
-public sealed record ANameExpr(Name Field0) : AExpr;
-public sealed record AApplyExpr(AExpr Field0, AExpr Field1) : AExpr;
-public sealed record ABinaryExpr(AExpr Field0, BinaryOp Field1, AExpr Field2) : AExpr;
-public sealed record AUnaryExpr(AExpr Field0) : AExpr;
-public sealed record AIfExpr(AExpr Field0, AExpr Field1, AExpr Field2) : AExpr;
-public sealed record ALetExpr(List<ALetBind> Field0, AExpr Field1) : AExpr;
-public sealed record ALambdaExpr(List<Name> Field0, AExpr Field1) : AExpr;
-public sealed record AMatchExpr(AExpr Field0, List<AMatchArm> Field1) : AExpr;
-public sealed record AListExpr(List<AExpr> Field0) : AExpr;
-public sealed record ARecordExpr(Name Field0, List<AFieldExpr> Field1) : AExpr;
-public sealed record AFieldAccess(AExpr Field0, Name Field1) : AExpr;
-public sealed record ADoExpr(List<ADoStmt> Field0) : AExpr;
-public sealed record AErrorExpr(string Field0) : AExpr;
+public sealed record SumCtor(Name name, List<CodexType> fields);
 
-public sealed record ALetBind(Name name, AExpr value);
+public abstract record LiteralKind;
 
-public abstract record TypeBody;
+public sealed record IntLit : LiteralKind;
+public sealed record NumLit : LiteralKind;
+public sealed record TextLit : LiteralKind;
+public sealed record BoolLit : LiteralKind;
 
-public sealed record RecordBody(List<RecordFieldDef> Field0) : TypeBody;
-public sealed record VariantBody(List<VariantCtorDef> Field0) : TypeBody;
+public sealed record TypeDef(Token name, List<Token> type_params, TypeBody body);
 
-public abstract record Pat;
-
-public sealed record VarPat(Token Field0) : Pat;
-public sealed record LitPat(Token Field0) : Pat;
-public sealed record CtorPat(Token Field0, List<Pat> Field1) : Pat;
-public sealed record WildPat(Token Field0) : Pat;
-
-public sealed record AMatchArm(APat pattern, AExpr body);
+public sealed record LetBind(Token name, Expr value);
 
 public abstract record TypeExpr;
 
@@ -81,9 +115,17 @@ public sealed record ParenType(TypeExpr Field0) : TypeExpr;
 public sealed record ListType(TypeExpr Field0) : TypeExpr;
 public sealed record LinearTypeExpr(TypeExpr Field0) : TypeExpr;
 
+public abstract record DiagnosticSeverity;
+
+public sealed record Error : DiagnosticSeverity;
+public sealed record Warning : DiagnosticSeverity;
+public sealed record Info : DiagnosticSeverity;
+
 public sealed record RecordFieldExpr(Token name, Expr value);
 
-public sealed record RecordField(Name name, CodexType type_val);
+public sealed record IRDef(string name, List<IRParam> @params, CodexType type_val, IRExpr body);
+
+public sealed record ALetBind(Name name, AExpr value);
 
 public abstract record TokenKind;
 
@@ -154,42 +196,87 @@ public sealed record DashGreater : TokenKind;
 public sealed record Underscore : TokenKind;
 public sealed record ErrorToken : TokenKind;
 
-public sealed record IRDef(string name, List<IRParam> @params, CodexType type_val, IRExpr body);
-
-public sealed record SourcePosition(long line, long column, long offset);
+public sealed record AMatchArm(APat pattern, AExpr body);
 
 public abstract record ParseTypeDefResult;
 
 public sealed record TypeDefOk(TypeDef Field0, ParseState Field1) : ParseTypeDefResult;
 public sealed record TypeDefNone(ParseState Field0) : ParseTypeDefResult;
 
-public sealed record AModule(Name name, List<ADef> defs, List<ATypeDef> type_defs);
+public sealed record AVariantCtorDef(Name name, List<ATypeExpr> fields);
 
-public sealed record IRFieldVal(string name, IRExpr value);
-
-public abstract record ParseTypeResult;
-
-public sealed record TypeOk(TypeExpr Field0, ParseState Field1) : ParseTypeResult;
-
-public sealed record Token(TokenKind kind, string text, long offset, long line, long column);
+public sealed record IRModule(Name name, List<IRDef> defs);
 
 public sealed record ParseState(List<Token> tokens, long pos);
 
-public sealed record TypeDef(Token name, List<Token> type_params, TypeBody body);
+public sealed record Token(TokenKind kind, string text, long offset, long line, long column);
 
-public sealed record Def(Token name, List<Token> @params, List<TypeAnn> ann, Expr body);
+public abstract record ParsePatResult;
+
+public sealed record PatOk(Pat Field0, ParseState Field1) : ParsePatResult;
+
+public sealed record ADef(Name name, List<AParam> @params, List<ATypeExpr> declared_type, AExpr body);
+
+public sealed record MatchArm(Pat pattern, Expr body);
+
+public abstract record IRBinaryOp;
+
+public sealed record IrAddInt : IRBinaryOp;
+public sealed record IrSubInt : IRBinaryOp;
+public sealed record IrMulInt : IRBinaryOp;
+public sealed record IrDivInt : IRBinaryOp;
+public sealed record IrPowInt : IRBinaryOp;
+public sealed record IrAddNum : IRBinaryOp;
+public sealed record IrSubNum : IRBinaryOp;
+public sealed record IrMulNum : IRBinaryOp;
+public sealed record IrDivNum : IRBinaryOp;
+public sealed record IrEq : IRBinaryOp;
+public sealed record IrNotEq : IRBinaryOp;
+public sealed record IrLt : IRBinaryOp;
+public sealed record IrGt : IRBinaryOp;
+public sealed record IrLtEq : IRBinaryOp;
+public sealed record IrGtEq : IRBinaryOp;
+public sealed record IrAnd : IRBinaryOp;
+public sealed record IrOr : IRBinaryOp;
+public sealed record IrAppendText : IRBinaryOp;
+public sealed record IrAppendList : IRBinaryOp;
+public sealed record IrConsList : IRBinaryOp;
+
+public sealed record IRFieldVal(string name, IRExpr value);
 
 public sealed record AParam(Name name);
 
-public sealed record LetBind(Token name, Expr value);
+public abstract record AExpr;
 
-public abstract record ParseExprResult;
+public sealed record ALitExpr(string Field0, LiteralKind Field1) : AExpr;
+public sealed record ANameExpr(Name Field0) : AExpr;
+public sealed record AApplyExpr(AExpr Field0, AExpr Field1) : AExpr;
+public sealed record ABinaryExpr(AExpr Field0, BinaryOp Field1, AExpr Field2) : AExpr;
+public sealed record AUnaryExpr(AExpr Field0) : AExpr;
+public sealed record AIfExpr(AExpr Field0, AExpr Field1, AExpr Field2) : AExpr;
+public sealed record ALetExpr(List<ALetBind> Field0, AExpr Field1) : AExpr;
+public sealed record ALambdaExpr(List<Name> Field0, AExpr Field1) : AExpr;
+public sealed record AMatchExpr(AExpr Field0, List<AMatchArm> Field1) : AExpr;
+public sealed record AListExpr(List<AExpr> Field0) : AExpr;
+public sealed record ARecordExpr(Name Field0, List<AFieldExpr> Field1) : AExpr;
+public sealed record AFieldAccess(AExpr Field0, Name Field1) : AExpr;
+public sealed record ADoExpr(List<ADoStmt> Field0) : AExpr;
+public sealed record AErrorExpr(string Field0) : AExpr;
 
-public sealed record ExprOk(Expr Field0, ParseState Field1) : ParseExprResult;
+public sealed record IRBranch(IRPat pattern, IRExpr body);
 
-public sealed record RecordFieldDef(Token name, TypeExpr type_expr);
+public abstract record ATypeDef;
 
-public sealed record Document(List<Def> defs, List<TypeDef> type_defs);
+public sealed record ARecordTypeDef(Name Field0, List<Name> Field1, List<ARecordFieldDef> Field2) : ATypeDef;
+public sealed record AVariantTypeDef(Name Field0, List<Name> Field1, List<AVariantCtorDef> Field2) : ATypeDef;
+
+public sealed record Name(string value);
+
+public sealed record AModule(Name name, List<ADef> defs, List<ATypeDef> type_defs);
+
+public sealed record TypeAnn(Token name, TypeExpr type_expr);
+
+public sealed record SourceSpan(SourcePosition start, SourcePosition end, string file);
 
 public abstract record APat;
 
@@ -197,6 +284,44 @@ public sealed record AVarPat(Name Field0) : APat;
 public sealed record ALitPat(string Field0, LiteralKind Field1) : APat;
 public sealed record ACtorPat(Name Field0, List<APat> Field1) : APat;
 public sealed record AWildPat : APat;
+
+public abstract record IRPat;
+
+public sealed record IrVarPat(string Field0, CodexType Field1) : IRPat;
+public sealed record IrLitPat(string Field0, CodexType Field1) : IRPat;
+public sealed record IrCtorPat(string Field0, List<IRPat> Field1, CodexType Field2) : IRPat;
+public sealed record IrWildPat : IRPat;
+
+public abstract record ParseTypeResult;
+
+public sealed record TypeOk(TypeExpr Field0, ParseState Field1) : ParseTypeResult;
+
+public sealed record AFieldExpr(Name name, AExpr value);
+
+public sealed record Diagnostic(string code, string message, DiagnosticSeverity severity);
+
+public abstract record ATypeExpr;
+
+public sealed record ANamedType(Name Field0) : ATypeExpr;
+public sealed record AFunType(ATypeExpr Field0, ATypeExpr Field1) : ATypeExpr;
+public sealed record AAppType(ATypeExpr Field0, List<ATypeExpr> Field1) : ATypeExpr;
+
+public abstract record CodexType;
+
+public sealed record IntegerTy : CodexType;
+public sealed record NumberTy : CodexType;
+public sealed record TextTy : CodexType;
+public sealed record BooleanTy : CodexType;
+public sealed record VoidTy : CodexType;
+public sealed record NothingTy : CodexType;
+public sealed record ErrorTy : CodexType;
+public sealed record FunTy(CodexType Field0, CodexType Field1) : CodexType;
+public sealed record ListTy(CodexType Field0) : CodexType;
+public sealed record TypeVar(long Field0) : CodexType;
+public sealed record ForAllTy(long Field0, CodexType Field1) : CodexType;
+public sealed record SumTy(Name Field0, List<SumCtor> Field1) : CodexType;
+public sealed record RecordTy(Name Field0, List<RecordField> Field1) : CodexType;
+public sealed record ConstructedTy(Name Field0, List<CodexType> Field1) : CodexType;
 
 public abstract record IRExpr;
 
@@ -218,140 +343,100 @@ public sealed record IrRecord(string Field0, List<IRFieldVal> Field1, CodexType 
 public sealed record IrFieldAccess(IRExpr Field0, string Field1, CodexType Field2) : IRExpr;
 public sealed record IrError(string Field0, CodexType Field1) : IRExpr;
 
-public abstract record ATypeExpr;
-
-public sealed record ANamedType(Name Field0) : ATypeExpr;
-public sealed record AFunType(ATypeExpr Field0, ATypeExpr Field1) : ATypeExpr;
-public sealed record AAppType(ATypeExpr Field0, List<ATypeExpr> Field1) : ATypeExpr;
-
-public sealed record ARecordFieldDef(Name name, ATypeExpr type_expr);
+public sealed record Def(Token name, List<Token> @params, List<TypeAnn> ann, Expr body);
 
 public sealed record VariantCtorDef(Token name, List<TypeExpr> fields);
-
-public abstract record Expr;
-
-public sealed record LitExpr(Token Field0) : Expr;
-public sealed record NameExpr(Token Field0) : Expr;
-public sealed record AppExpr(Expr Field0, Expr Field1) : Expr;
-public sealed record BinExpr(Expr Field0, Token Field1, Expr Field2) : Expr;
-public sealed record UnaryExpr(Token Field0, Expr Field1) : Expr;
-public sealed record IfExpr(Expr Field0, Expr Field1, Expr Field2) : Expr;
-public sealed record LetExpr(List<LetBind> Field0, Expr Field1) : Expr;
-public sealed record MatchExpr(Expr Field0, List<MatchArm> Field1) : Expr;
-public sealed record ListExpr(List<Expr> Field0) : Expr;
-public sealed record RecordExpr(Token Field0, List<RecordFieldExpr> Field1) : Expr;
-public sealed record FieldExpr(Expr Field0, Token Field1) : Expr;
-public sealed record ParenExpr(Expr Field0) : Expr;
-public sealed record DoExpr(List<DoStmt> Field0) : Expr;
-public sealed record ErrExpr(Token Field0) : Expr;
-
-public sealed record MatchArm(Pat pattern, Expr body);
-
-public sealed record IRParam(string name, CodexType type_val);
-
-public sealed record SumCtor(Name name, List<CodexType> fields);
-
-public abstract record CodexType;
-
-public sealed record IntegerTy : CodexType;
-public sealed record NumberTy : CodexType;
-public sealed record TextTy : CodexType;
-public sealed record BooleanTy : CodexType;
-public sealed record VoidTy : CodexType;
-public sealed record NothingTy : CodexType;
-public sealed record ErrorTy : CodexType;
-public sealed record FunTy(CodexType Field0, CodexType Field1) : CodexType;
-public sealed record ListTy(CodexType Field0) : CodexType;
-public sealed record TypeVar(long Field0) : CodexType;
-public sealed record ForAllTy(long Field0, CodexType Field1) : CodexType;
-public sealed record SumTy(Name Field0, List<SumCtor> Field1) : CodexType;
-public sealed record RecordTy(Name Field0, List<RecordField> Field1) : CodexType;
-public sealed record ConstructedTy(Name Field0, List<CodexType> Field1) : CodexType;
-
-public sealed record IRBranch(IRPat pattern, IRExpr body);
-
-public sealed record AFieldExpr(Name name, AExpr value);
-
-public abstract record DiagnosticSeverity;
-
-public sealed record Error : DiagnosticSeverity;
-public sealed record Warning : DiagnosticSeverity;
-public sealed record Info : DiagnosticSeverity;
-
-public abstract record ADoStmt;
-
-public sealed record ADoBindStmt(Name Field0, AExpr Field1) : ADoStmt;
-public sealed record ADoExprStmt(AExpr Field0) : ADoStmt;
-
-public abstract record IRDoStmt;
-
-public sealed record IrDoBind(string Field0, CodexType Field1, IRExpr Field2) : IRDoStmt;
-public sealed record IrDoExec(IRExpr Field0) : IRDoStmt;
-
-public sealed record AVariantCtorDef(Name name, List<ATypeExpr> fields);
-
-public abstract record LexResult;
-
-public sealed record LexToken(Token Field0, LexState Field1) : LexResult;
-public sealed record LexEnd : LexResult;
-
-public sealed record SourceSpan(SourcePosition start, SourcePosition end, string file);
-
-public sealed record LexState(string source, long offset, long line, long column);
-
-public sealed record Diagnostic(string code, string message, DiagnosticSeverity severity);
-
-public abstract record ATypeDef;
-
-public sealed record ARecordTypeDef(Name Field0, List<Name> Field1, List<ARecordFieldDef> Field2) : ATypeDef;
-public sealed record AVariantTypeDef(Name Field0, List<Name> Field1, List<AVariantCtorDef> Field2) : ATypeDef;
-
-public sealed record Name(string value);
-
-public abstract record IRPat;
-
-public sealed record IrVarPat(string Field0, CodexType Field1) : IRPat;
-public sealed record IrLitPat(string Field0, CodexType Field1) : IRPat;
-public sealed record IrCtorPat(string Field0, List<IRPat> Field1, CodexType Field2) : IRPat;
-public sealed record IrWildPat : IRPat;
-
-public sealed record TypeAnn(Token name, TypeExpr type_expr);
-
-public abstract record LiteralKind;
-
-public sealed record IntLit : LiteralKind;
-public sealed record NumLit : LiteralKind;
-public sealed record TextLit : LiteralKind;
-public sealed record BoolLit : LiteralKind;
-
-public abstract record ParsePatResult;
-
-public sealed record PatOk(Pat Field0, ParseState Field1) : ParsePatResult;
-
-public abstract record BinaryOp;
-
-public sealed record OpAdd : BinaryOp;
-public sealed record OpSub : BinaryOp;
-public sealed record OpMul : BinaryOp;
-public sealed record OpDiv : BinaryOp;
-public sealed record OpPow : BinaryOp;
-public sealed record OpEq : BinaryOp;
-public sealed record OpNotEq : BinaryOp;
-public sealed record OpLt : BinaryOp;
-public sealed record OpGt : BinaryOp;
-public sealed record OpLtEq : BinaryOp;
-public sealed record OpGtEq : BinaryOp;
-public sealed record OpDefEq : BinaryOp;
-public sealed record OpAppend : BinaryOp;
-public sealed record OpCons : BinaryOp;
-public sealed record OpAnd : BinaryOp;
-public sealed record OpOr : BinaryOp;
 
 public static class Codex_codex_src
 {
     public static AExpr desugar_expr(Expr node)
     {
-        return ((Func<Expr, AExpr>)((_scrutinee_) => (_scrutinee_ is LitExpr _mLitExpr_ ? ((Func<Token, AExpr>)((tok) => desugar_literal(tok)))((Token)_mLitExpr_.Field0) : (_scrutinee_ is NameExpr _mNameExpr_ ? ((Func<Token, AExpr>)((tok) => new ANameExpr(make_name(tok.text))))((Token)_mNameExpr_.Field0) : (_scrutinee_ is AppExpr _mAppExpr_ ? ((Func<Expr, AExpr>)((a) => ((Func<Expr, AExpr>)((f) => new AApplyExpr(desugar_expr(f), desugar_expr(a))))((Expr)_mAppExpr_.Field0)))((Expr)_mAppExpr_.Field1) : (_scrutinee_ is BinExpr _mBinExpr_ ? ((Func<Expr, AExpr>)((r) => ((Func<Token, AExpr>)((op) => ((Func<Expr, AExpr>)((l) => new ABinaryExpr(desugar_expr(l), desugar_bin_op(op.kind), desugar_expr(r))))((Expr)_mBinExpr_.Field0)))((Token)_mBinExpr_.Field1)))((Expr)_mBinExpr_.Field2) : (_scrutinee_ is UnaryExpr _mUnaryExpr_ ? ((Func<Expr, AExpr>)((operand) => ((Func<Token, AExpr>)((op) => new AUnaryExpr(desugar_expr(operand))))((Token)_mUnaryExpr_.Field0)))((Expr)_mUnaryExpr_.Field1) : (_scrutinee_ is IfExpr _mIfExpr_ ? ((Func<Expr, AExpr>)((e) => ((Func<Expr, AExpr>)((t) => ((Func<Expr, AExpr>)((c) => new AIfExpr(desugar_expr(c), desugar_expr(t), desugar_expr(e))))((Expr)_mIfExpr_.Field0)))((Expr)_mIfExpr_.Field1)))((Expr)_mIfExpr_.Field2) : (_scrutinee_ is LetExpr _mLetExpr_ ? ((Func<Expr, AExpr>)((body) => ((Func<List<LetBind>, AExpr>)((bindings) => new ALetExpr(map_list(new Func<LetBind, ALetBind>(desugar_let_bind), bindings), desugar_expr(body))))((List<LetBind>)_mLetExpr_.Field0)))((Expr)_mLetExpr_.Field1) : (_scrutinee_ is MatchExpr _mMatchExpr_ ? ((Func<List<MatchArm>, AExpr>)((arms) => ((Func<Expr, AExpr>)((scrut) => new AMatchExpr(desugar_expr(scrut), map_list(new Func<MatchArm, AMatchArm>(desugar_match_arm), arms))))((Expr)_mMatchExpr_.Field0)))((List<MatchArm>)_mMatchExpr_.Field1) : (_scrutinee_ is ListExpr _mListExpr_ ? ((Func<List<Expr>, AExpr>)((elems) => new AListExpr(map_list(new Func<Expr, AExpr>(desugar_expr), elems))))((List<Expr>)_mListExpr_.Field0) : (_scrutinee_ is RecordExpr _mRecordExpr_ ? ((Func<List<RecordFieldExpr>, AExpr>)((fields) => ((Func<Token, AExpr>)((type_tok) => new ARecordExpr(make_name(type_tok.text), map_list(new Func<RecordFieldExpr, AFieldExpr>(desugar_field_expr), fields))))((Token)_mRecordExpr_.Field0)))((List<RecordFieldExpr>)_mRecordExpr_.Field1) : (_scrutinee_ is FieldExpr _mFieldExpr_ ? ((Func<Token, AExpr>)((field_tok) => ((Func<Expr, AExpr>)((rec) => new AFieldAccess(desugar_expr(rec), make_name(field_tok.text))))((Expr)_mFieldExpr_.Field0)))((Token)_mFieldExpr_.Field1) : (_scrutinee_ is ParenExpr _mParenExpr_ ? ((Func<Expr, AExpr>)((inner) => desugar_expr(inner)))((Expr)_mParenExpr_.Field0) : (_scrutinee_ is DoExpr _mDoExpr_ ? ((Func<List<DoStmt>, AExpr>)((stmts) => new ADoExpr(map_list(new Func<DoStmt, ADoStmt>(desugar_do_stmt), stmts))))((List<DoStmt>)_mDoExpr_.Field0) : (_scrutinee_ is ErrExpr _mErrExpr_ ? ((Func<Token, AExpr>)((tok) => new AErrorExpr(tok.text)))((Token)_mErrExpr_.Field0) : throw new InvalidOperationException("Non-exhaustive match")))))))))))))))))(node);
+        while (true)
+        {
+            var _tco_s = node;
+            if (_tco_s is LitExpr _tco_m)
+            {
+                var tok = _tco_m.Field0;
+                return desugar_literal(tok);
+            }
+            else if (_tco_s is NameExpr _tco_m)
+            {
+                var tok = _tco_m.Field0;
+                return new ANameExpr(make_name(tok.text));
+            }
+            else if (_tco_s is AppExpr _tco_m)
+            {
+                var f = _tco_m.Field0;
+                var a = _tco_m.Field1;
+                return new AApplyExpr(desugar_expr(f), desugar_expr(a));
+            }
+            else if (_tco_s is BinExpr _tco_m)
+            {
+                var l = _tco_m.Field0;
+                var op = _tco_m.Field1;
+                var r = _tco_m.Field2;
+                return new ABinaryExpr(desugar_expr(l), desugar_bin_op(op.kind), desugar_expr(r));
+            }
+            else if (_tco_s is UnaryExpr _tco_m)
+            {
+                var op = _tco_m.Field0;
+                var operand = _tco_m.Field1;
+                return new AUnaryExpr(desugar_expr(operand));
+            }
+            else if (_tco_s is IfExpr _tco_m)
+            {
+                var c = _tco_m.Field0;
+                var t = _tco_m.Field1;
+                var e = _tco_m.Field2;
+                return new AIfExpr(desugar_expr(c), desugar_expr(t), desugar_expr(e));
+            }
+            else if (_tco_s is LetExpr _tco_m)
+            {
+                var bindings = _tco_m.Field0;
+                var body = _tco_m.Field1;
+                return new ALetExpr(map_list(new Func<LetBind, ALetBind>(desugar_let_bind), bindings), desugar_expr(body));
+            }
+            else if (_tco_s is MatchExpr _tco_m)
+            {
+                var scrut = _tco_m.Field0;
+                var arms = _tco_m.Field1;
+                return new AMatchExpr(desugar_expr(scrut), map_list(new Func<MatchArm, AMatchArm>(desugar_match_arm), arms));
+            }
+            else if (_tco_s is ListExpr _tco_m)
+            {
+                var elems = _tco_m.Field0;
+                return new AListExpr(map_list(new Func<Expr, AExpr>(desugar_expr), elems));
+            }
+            else if (_tco_s is RecordExpr _tco_m)
+            {
+                var type_tok = _tco_m.Field0;
+                var fields = _tco_m.Field1;
+                return new ARecordExpr(make_name(type_tok.text), map_list(new Func<RecordFieldExpr, AFieldExpr>(desugar_field_expr), fields));
+            }
+            else if (_tco_s is FieldExpr _tco_m)
+            {
+                var rec = _tco_m.Field0;
+                var field_tok = _tco_m.Field1;
+                return new AFieldAccess(desugar_expr(rec), make_name(field_tok.text));
+            }
+            else if (_tco_s is ParenExpr _tco_m)
+            {
+                var inner = _tco_m.Field0;
+                var _tco_0 = inner;
+                node = _tco_0;
+                continue;
+            }
+            else if (_tco_s is DoExpr _tco_m)
+            {
+                var stmts = _tco_m.Field0;
+                return new ADoExpr(map_list(new Func<DoStmt, ADoStmt>(desugar_do_stmt), stmts));
+            }
+            else if (_tco_s is ErrExpr _tco_m)
+            {
+                var tok = _tco_m.Field0;
+                return new AErrorExpr(tok.text);
+            }
+        }
     }
 
     public static AExpr desugar_literal(Token tok)
@@ -396,7 +481,46 @@ public static class Codex_codex_src
 
     public static ATypeExpr desugar_type_expr(TypeExpr t)
     {
-        return ((Func<TypeExpr, ATypeExpr>)((_scrutinee_) => (_scrutinee_ is NamedType _mNamedType_ ? ((Func<Token, ATypeExpr>)((tok) => new ANamedType(make_name(tok.text))))((Token)_mNamedType_.Field0) : (_scrutinee_ is FunType _mFunType_ ? ((Func<TypeExpr, ATypeExpr>)((ret) => ((Func<TypeExpr, ATypeExpr>)((param) => new AFunType(desugar_type_expr(param), desugar_type_expr(ret))))((TypeExpr)_mFunType_.Field0)))((TypeExpr)_mFunType_.Field1) : (_scrutinee_ is AppType _mAppType_ ? ((Func<List<TypeExpr>, ATypeExpr>)((args) => ((Func<TypeExpr, ATypeExpr>)((ctor) => new AAppType(desugar_type_expr(ctor), map_list(new Func<TypeExpr, ATypeExpr>(desugar_type_expr), args))))((TypeExpr)_mAppType_.Field0)))((List<TypeExpr>)_mAppType_.Field1) : (_scrutinee_ is ParenType _mParenType_ ? ((Func<TypeExpr, ATypeExpr>)((inner) => desugar_type_expr(inner)))((TypeExpr)_mParenType_.Field0) : (_scrutinee_ is ListType _mListType_ ? ((Func<TypeExpr, ATypeExpr>)((elem) => new AAppType(new ANamedType(make_name("List")), new List<ATypeExpr>() { desugar_type_expr(elem) })))((TypeExpr)_mListType_.Field0) : (_scrutinee_ is LinearTypeExpr _mLinearTypeExpr_ ? ((Func<TypeExpr, ATypeExpr>)((inner) => desugar_type_expr(inner)))((TypeExpr)_mLinearTypeExpr_.Field0) : throw new InvalidOperationException("Non-exhaustive match")))))))))(t);
+        while (true)
+        {
+            var _tco_s = t;
+            if (_tco_s is NamedType _tco_m)
+            {
+                var tok = _tco_m.Field0;
+                return new ANamedType(make_name(tok.text));
+            }
+            else if (_tco_s is FunType _tco_m)
+            {
+                var param = _tco_m.Field0;
+                var ret = _tco_m.Field1;
+                return new AFunType(desugar_type_expr(param), desugar_type_expr(ret));
+            }
+            else if (_tco_s is AppType _tco_m)
+            {
+                var ctor = _tco_m.Field0;
+                var args = _tco_m.Field1;
+                return new AAppType(desugar_type_expr(ctor), map_list(new Func<TypeExpr, ATypeExpr>(desugar_type_expr), args));
+            }
+            else if (_tco_s is ParenType _tco_m)
+            {
+                var inner = _tco_m.Field0;
+                var _tco_0 = inner;
+                t = _tco_0;
+                continue;
+            }
+            else if (_tco_s is ListType _tco_m)
+            {
+                var elem = _tco_m.Field0;
+                return new AAppType(new ANamedType(make_name("List")), new List<ATypeExpr>() { desugar_type_expr(elem) });
+            }
+            else if (_tco_s is LinearTypeExpr _tco_m)
+            {
+                var inner = _tco_m.Field0;
+                var _tco_0 = inner;
+                t = _tco_0;
+                continue;
+            }
+        }
     }
 
     public static ADef desugar_def(Def d)
@@ -434,24 +558,64 @@ public static class Codex_codex_src
         return new AModule(make_name(module_name), map_list(new Func<Def, ADef>(desugar_def), doc.defs), map_list(new Func<TypeDef, ATypeDef>(desugar_type_def), doc.type_defs));
     }
 
-    public static List<T1> map_list<T0, T1>(Func<T0, T1> f, List<T0> xs)
+    public static List<object> map_list(Func<object, object> f, List<object> xs)
     {
-        return map_list_loop(f, xs, 0L, ((long)xs.Count), new List<T1>());
+        return map_list_loop(f, xs, 0L, ((long)xs.Count), new List<object>());
     }
 
-    public static List<T3> map_list_loop<T2, T3>(Func<T2, T3> f, List<T2> xs, long i, long len, List<T3> acc)
+    public static List<object> map_list_loop(Func<object, object> f, List<object> xs, long i, long len, List<object> acc)
     {
-        return ((i == len) ? acc : map_list_loop(f, xs, (i + 1L), len, Enumerable.Concat(acc, new List<T3>() { f(xs[(int)i]) }).ToList()));
+        while (true)
+        {
+            if ((i == len))
+            {
+                return acc;
+            }
+            else
+            {
+                var _tco_0 = f;
+                var _tco_1 = xs;
+                var _tco_2 = (i + 1L);
+                var _tco_3 = len;
+                var _tco_4 = Enumerable.Concat(acc, new List<object>() { f(xs[(int)i]) }).ToList();
+                f = _tco_0;
+                xs = _tco_1;
+                i = _tco_2;
+                len = _tco_3;
+                acc = _tco_4;
+                continue;
+            }
+        }
     }
 
-    public static T4 fold_list<T4, T5>(Func<T4, Func<T5, T4>> f, T4 z, List<T5> xs)
+    public static object fold_list(Func<object, Func<object, object>> f, object z, List<object> xs)
     {
         return fold_list_loop(f, z, xs, 0L, ((long)xs.Count));
     }
 
-    public static T6 fold_list_loop<T6, T7>(Func<T6, Func<T7, T6>> f, T6 z, List<T7> xs, long i, long len)
+    public static object fold_list_loop(Func<object, Func<object, object>> f, object z, List<object> xs, long i, long len)
     {
-        return ((i == len) ? z : fold_list_loop(f, f(z)(xs[(int)i]), xs, (i + 1L), len));
+        while (true)
+        {
+            if ((i == len))
+            {
+                return z;
+            }
+            else
+            {
+                var _tco_0 = f;
+                var _tco_1 = f(z)(xs[(int)i]);
+                var _tco_2 = xs;
+                var _tco_3 = (i + 1L);
+                var _tco_4 = len;
+                f = _tco_0;
+                z = _tco_1;
+                xs = _tco_2;
+                i = _tco_3;
+                len = _tco_4;
+                continue;
+            }
+        }
     }
 
     public static Diagnostic make_error(string code, string msg)
@@ -506,7 +670,80 @@ public static class Codex_codex_src
 
     public static string cs_type(CodexType ty)
     {
-        return ((Func<CodexType, string>)((_scrutinee_) => (_scrutinee_ is IntegerTy _mIntegerTy_ ? "long" : (_scrutinee_ is NumberTy _mNumberTy_ ? "decimal" : (_scrutinee_ is TextTy _mTextTy_ ? "string" : (_scrutinee_ is BooleanTy _mBooleanTy_ ? "bool" : (_scrutinee_ is VoidTy _mVoidTy_ ? "void" : (_scrutinee_ is NothingTy _mNothingTy_ ? "object" : (_scrutinee_ is ErrorTy _mErrorTy_ ? "object" : (_scrutinee_ is FunTy _mFunTy_ ? ((Func<CodexType, string>)((r) => ((Func<CodexType, string>)((p) => string.Concat("Func<", string.Concat(cs_type(p), string.Concat(", ", string.Concat(cs_type(r), ">"))))))((CodexType)_mFunTy_.Field0)))((CodexType)_mFunTy_.Field1) : (_scrutinee_ is ListTy _mListTy_ ? ((Func<CodexType, string>)((elem) => string.Concat("List<", string.Concat(cs_type(elem), ">"))))((CodexType)_mListTy_.Field0) : (_scrutinee_ is TypeVar _mTypeVar_ ? ((Func<long, string>)((id) => "object"))((long)_mTypeVar_.Field0) : (_scrutinee_ is ForAllTy _mForAllTy_ ? ((Func<CodexType, string>)((body) => ((Func<long, string>)((id) => cs_type(body)))((long)_mForAllTy_.Field0)))((CodexType)_mForAllTy_.Field1) : (_scrutinee_ is SumTy _mSumTy_ ? ((Func<List<SumCtor>, string>)((ctors) => ((Func<Name, string>)((name) => sanitize(name.value)))((Name)_mSumTy_.Field0)))((List<SumCtor>)_mSumTy_.Field1) : (_scrutinee_ is RecordTy _mRecordTy_ ? ((Func<List<RecordField>, string>)((fields) => ((Func<Name, string>)((name) => sanitize(name.value)))((Name)_mRecordTy_.Field0)))((List<RecordField>)_mRecordTy_.Field1) : (_scrutinee_ is ConstructedTy _mConstructedTy_ ? ((Func<List<CodexType>, string>)((args) => ((Func<Name, string>)((name) => sanitize(name.value)))((Name)_mConstructedTy_.Field0)))((List<CodexType>)_mConstructedTy_.Field1) : throw new InvalidOperationException("Non-exhaustive match")))))))))))))))))(ty);
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is IntegerTy _tco_m)
+            {
+                return "long";
+            }
+            else if (_tco_s is NumberTy _tco_m)
+            {
+                return "decimal";
+            }
+            else if (_tco_s is TextTy _tco_m)
+            {
+                return "string";
+            }
+            else if (_tco_s is BooleanTy _tco_m)
+            {
+                return "bool";
+            }
+            else if (_tco_s is VoidTy _tco_m)
+            {
+                return "void";
+            }
+            else if (_tco_s is NothingTy _tco_m)
+            {
+                return "object";
+            }
+            else if (_tco_s is ErrorTy _tco_m)
+            {
+                return "object";
+            }
+            else if (_tco_s is FunTy _tco_m)
+            {
+                var p = _tco_m.Field0;
+                var r = _tco_m.Field1;
+                return string.Concat("Func<", string.Concat(cs_type(p), string.Concat(", ", string.Concat(cs_type(r), ">"))));
+            }
+            else if (_tco_s is ListTy _tco_m)
+            {
+                var elem = _tco_m.Field0;
+                return string.Concat("List<", string.Concat(cs_type(elem), ">"));
+            }
+            else if (_tco_s is TypeVar _tco_m)
+            {
+                var id = _tco_m.Field0;
+                return "object";
+            }
+            else if (_tco_s is ForAllTy _tco_m)
+            {
+                var id = _tco_m.Field0;
+                var body = _tco_m.Field1;
+                var _tco_0 = body;
+                ty = _tco_0;
+                continue;
+            }
+            else if (_tco_s is SumTy _tco_m)
+            {
+                var name = _tco_m.Field0;
+                var ctors = _tco_m.Field1;
+                return sanitize(name.value);
+            }
+            else if (_tco_s is RecordTy _tco_m)
+            {
+                var name = _tco_m.Field0;
+                var fields = _tco_m.Field1;
+                return sanitize(name.value);
+            }
+            else if (_tco_s is ConstructedTy _tco_m)
+            {
+                var name = _tco_m.Field0;
+                var args = _tco_m.Field1;
+                return sanitize(name.value);
+            }
+        }
     }
 
     public static string emit_expr(IRExpr e)
@@ -796,22 +1033,168 @@ public static class Codex_codex_src
 
     public static LexState skip_spaces(LexState st)
     {
-        return (is_at_end(st) ? st : ((peek_char(st) == " ") ? skip_spaces(advance_char(st)) : st));
+        while (true)
+        {
+            if (is_at_end(st))
+            {
+                return st;
+            }
+            else
+            {
+                if ((peek_char(st) == " "))
+                {
+                    var _tco_0 = advance_char(st);
+                    st = _tco_0;
+                    continue;
+                }
+                else
+                {
+                    return st;
+                }
+            }
+        }
     }
 
     public static LexState scan_ident_rest(LexState st)
     {
-        return (is_at_end(st) ? st : ((Func<string, LexState>)((ch) => ((ch.Length > 0 && char.IsLetter(ch[0])) ? scan_ident_rest(advance_char(st)) : ((ch.Length > 0 && char.IsDigit(ch[0])) ? scan_ident_rest(advance_char(st)) : ((ch == "_") ? scan_ident_rest(advance_char(st)) : ((ch == "-") ? ((Func<LexState, LexState>)((next) => (is_at_end(next) ? st : ((peek_char(next).Length > 0 && char.IsLetter(peek_char(next)[0])) ? scan_ident_rest(next) : st))))(advance_char(st)) : st))))))(peek_char(st)));
+        while (true)
+        {
+            if (is_at_end(st))
+            {
+                return st;
+            }
+            else
+            {
+                var ch = peek_char(st);
+                if ((ch.Length > 0 && char.IsLetter(ch[0])))
+                {
+                    var _tco_0 = advance_char(st);
+                    st = _tco_0;
+                    continue;
+                }
+                else
+                {
+                    if ((ch.Length > 0 && char.IsDigit(ch[0])))
+                    {
+                        var _tco_0 = advance_char(st);
+                        st = _tco_0;
+                        continue;
+                    }
+                    else
+                    {
+                        if ((ch == "_"))
+                        {
+                            var _tco_0 = advance_char(st);
+                            st = _tco_0;
+                            continue;
+                        }
+                        else
+                        {
+                            if ((ch == "-"))
+                            {
+                                var next = advance_char(st);
+                                if (is_at_end(next))
+                                {
+                                    return st;
+                                }
+                                else
+                                {
+                                    if ((peek_char(next).Length > 0 && char.IsLetter(peek_char(next)[0])))
+                                    {
+                                        var _tco_0 = next;
+                                        st = _tco_0;
+                                        continue;
+                                    }
+                                    else
+                                    {
+                                        return st;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                return st;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public static LexState scan_digits(LexState st)
     {
-        return (is_at_end(st) ? st : ((Func<string, LexState>)((ch) => ((ch.Length > 0 && char.IsDigit(ch[0])) ? scan_digits(advance_char(st)) : ((ch == "_") ? scan_digits(advance_char(st)) : st))))(peek_char(st)));
+        while (true)
+        {
+            if (is_at_end(st))
+            {
+                return st;
+            }
+            else
+            {
+                var ch = peek_char(st);
+                if ((ch.Length > 0 && char.IsDigit(ch[0])))
+                {
+                    var _tco_0 = advance_char(st);
+                    st = _tco_0;
+                    continue;
+                }
+                else
+                {
+                    if ((ch == "_"))
+                    {
+                        var _tco_0 = advance_char(st);
+                        st = _tco_0;
+                        continue;
+                    }
+                    else
+                    {
+                        return st;
+                    }
+                }
+            }
+        }
     }
 
     public static LexState scan_string_body(LexState st)
     {
-        return (is_at_end(st) ? st : ((Func<string, LexState>)((ch) => ((ch == "\"") ? advance_char(st) : ((ch == "\n") ? st : ((ch == "\\") ? scan_string_body(advance_char(advance_char(st))) : scan_string_body(advance_char(st)))))))(peek_char(st)));
+        while (true)
+        {
+            if (is_at_end(st))
+            {
+                return st;
+            }
+            else
+            {
+                var ch = peek_char(st);
+                if ((ch == "\""))
+                {
+                    return advance_char(st);
+                }
+                else
+                {
+                    if ((ch == "\n"))
+                    {
+                        return st;
+                    }
+                    else
+                    {
+                        if ((ch == "\\"))
+                        {
+                            var _tco_0 = advance_char(advance_char(st));
+                            st = _tco_0;
+                            continue;
+                        }
+                        else
+                        {
+                            var _tco_0 = advance_char(st);
+                            st = _tco_0;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public static TokenKind classify_word(string w)
@@ -846,7 +1229,31 @@ public static class Codex_codex_src
 
     public static List<Token> tokenize_loop(LexState st, List<Token> acc)
     {
-        return ((Func<LexResult, List<Token>>)((_scrutinee_) => (_scrutinee_ is LexToken _mLexToken_ ? ((Func<LexState, List<Token>>)((next) => ((Func<Token, List<Token>>)((tok) => ((tok.kind == new EndOfFile()) ? Enumerable.Concat(acc, new List<Token>() { tok }).ToList() : tokenize_loop(next, Enumerable.Concat(acc, new List<Token>() { tok }).ToList()))))((Token)_mLexToken_.Field0)))((LexState)_mLexToken_.Field1) : (_scrutinee_ is LexEnd _mLexEnd_ ? Enumerable.Concat(acc, new List<Token>() { make_token(new EndOfFile(), "", st) }).ToList() : throw new InvalidOperationException("Non-exhaustive match")))))(scan_token(st));
+        while (true)
+        {
+            var _tco_s = scan_token(st);
+            if (_tco_s is LexToken _tco_m)
+            {
+                var tok = _tco_m.Field0;
+                var next = _tco_m.Field1;
+                if ((tok.kind == new EndOfFile()))
+                {
+                    return Enumerable.Concat(acc, new List<Token>() { tok }).ToList();
+                }
+                else
+                {
+                    var _tco_0 = next;
+                    var _tco_1 = Enumerable.Concat(acc, new List<Token>() { tok }).ToList();
+                    st = _tco_0;
+                    acc = _tco_1;
+                    continue;
+                }
+            }
+            else if (_tco_s is LexEnd _tco_m)
+            {
+                return Enumerable.Concat(acc, new List<Token>() { make_token(new EndOfFile(), "", st) }).ToList();
+            }
+        }
     }
 
     public static List<Token> tokenize(string src)
@@ -1031,7 +1438,39 @@ public static class Codex_codex_src
 
     public static ParseState skip_newlines(ParseState st)
     {
-        return (is_done(st) ? st : ((Func<TokenKind, ParseState>)((_scrutinee_) => (_scrutinee_ is Newline _mNewline_ ? skip_newlines(advance(st)) : (_scrutinee_ is Indent _mIndent_ ? skip_newlines(advance(st)) : (_scrutinee_ is Dedent _mDedent_ ? skip_newlines(advance(st)) : ((Func<TokenKind, ParseState>)((_) => st))(_scrutinee_))))))(current_kind(st)));
+        while (true)
+        {
+            if (is_done(st))
+            {
+                return st;
+            }
+            else
+            {
+                var _tco_s = current_kind(st);
+                if (_tco_s is Newline _tco_m)
+                {
+                    var _tco_0 = advance(st);
+                    st = _tco_0;
+                    continue;
+                }
+                else if (_tco_s is Indent _tco_m)
+                {
+                    var _tco_0 = advance(st);
+                    st = _tco_0;
+                    continue;
+                }
+                else if (_tco_s is Dedent _tco_m)
+                {
+                    var _tco_0 = advance(st);
+                    st = _tco_0;
+                    continue;
+                }
+                {
+                    var _ = _tco_s;
+                    return st;
+                }
+            }
+        }
     }
 
     public static ParseTypeResult parse_type(ParseState st)
@@ -1166,7 +1605,24 @@ public static class Codex_codex_src
 
     public static ParseExprResult parse_field_access(Expr node, ParseState st)
     {
-        return (is_dot(current_kind(st)) ? ((Func<ParseState, ParseExprResult>)((st2) => ((Func<Token, ParseExprResult>)((field) => ((Func<ParseState, ParseExprResult>)((st3) => parse_field_access(new FieldExpr(node, field), st3)))(advance(st2))))(current(st2))))(advance(st)) : new ExprOk(node, st));
+        while (true)
+        {
+            if (is_dot(current_kind(st)))
+            {
+                var st2 = advance(st);
+                var field = current(st2);
+                var st3 = advance(st2);
+                var _tco_0 = new FieldExpr(node, field);
+                var _tco_1 = st3;
+                node = _tco_0;
+                st = _tco_1;
+                continue;
+            }
+            else
+            {
+                return new ExprOk(node, st);
+            }
+        }
     }
 
     public static ParseExprResult parse_atom_type_ident(ParseState st)
@@ -1361,7 +1817,36 @@ public static class Codex_codex_src
 
     public static ParseDefResult parse_def_params_then(List<TypeAnn> ann, Token name_tok, List<Token> acc, ParseState st)
     {
-        return (is_left_paren(current_kind(st)) ? ((Func<ParseState, ParseDefResult>)((st2) => (is_ident(current_kind(st2)) ? ((Func<Token, ParseDefResult>)((param) => ((Func<ParseState, ParseDefResult>)((st3) => ((Func<ParseState, ParseDefResult>)((st4) => parse_def_params_then(ann, name_tok, Enumerable.Concat(acc, new List<Token>() { param }).ToList(), st4)))(expect(new RightParen(), st3))))(advance(st2))))(current(st2)) : finish_def(ann, name_tok, acc, st))))(advance(st)) : finish_def(ann, name_tok, acc, st));
+        while (true)
+        {
+            if (is_left_paren(current_kind(st)))
+            {
+                var st2 = advance(st);
+                if (is_ident(current_kind(st2)))
+                {
+                    var param = current(st2);
+                    var st3 = advance(st2);
+                    var st4 = expect(new RightParen(), st3);
+                    var _tco_0 = ann;
+                    var _tco_1 = name_tok;
+                    var _tco_2 = Enumerable.Concat(acc, new List<Token>() { param }).ToList();
+                    var _tco_3 = st4;
+                    ann = _tco_0;
+                    name_tok = _tco_1;
+                    acc = _tco_2;
+                    st = _tco_3;
+                    continue;
+                }
+                else
+                {
+                    return finish_def(ann, name_tok, acc, st);
+                }
+            }
+            else
+            {
+                return finish_def(ann, name_tok, acc, st);
+            }
+        }
     }
 
     public static ParseDefResult finish_def(List<TypeAnn> ann, Token name_tok, List<Token> @params, ParseState st)

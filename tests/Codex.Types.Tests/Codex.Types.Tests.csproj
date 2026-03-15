@@ -21,6 +21,8 @@
     <ProjectReference Include="..\..\src\Codex.IR\Codex.IR.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit\Codex.Emit.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.CSharp\Codex.Emit.CSharp.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Emit.JavaScript\Codex.Emit.JavaScript.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Emit.Rust\Codex.Emit.Rust.csproj" />
     <ProjectReference Include="..\..\src\Codex.Proofs\Codex.Proofs.csproj" />
   </ItemGroup>
 </Project>

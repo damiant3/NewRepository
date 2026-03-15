@@ -27,10 +27,22 @@ public sealed partial class CSharpEmitter
             TypeLevelVar => "long",
             TypeLevelBinary => "long",
             ProofType => "object",
-            TypeVariable tv => $"T{tv.Id}",
+            TypeVariable => "object",
             ErrorType => "object",
             _ => "object"
         };
+    }
+
+    static string EmitSumTypeName(SumType st)
+    {
+        string baseName = SanitizeIdentifier(st.TypeName.Value);
+        HashSet<int> ids = [];
+        foreach (SumConstructorType ctor in st.Constructors)
+            foreach (CodexType field in ctor.Fields)
+                CollectTypeVarIds(field, ids);
+        if (ids.Count == 0)
+            return baseName;
+        return baseName + "<" + string.Join(", ", ids.Order().Select(id => $"T{id}")) + ">";
     }
 
     static CodexType GetReturnType(IRDefinition def)
