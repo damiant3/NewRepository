@@ -4,7 +4,15 @@
 
 The Codex Environment is a unified application that replaces the editor, terminal, compiler, debugger, package manager, and repository browser. It is not a plugin for VS Code. It is not an IDE with a bolt-on terminal. It is a single coherent tool designed from scratch for reading, writing, verifying, and exploring Codex programs.
 
-The bootstrap implementation will be more modest — an LSP server that works with existing editors, plus a CLI. The full environment is a later milestone. But the design is here because it shapes decisions in every other layer.
+The bootstrap implementation is more modest — an LSP server that works with existing editors, plus a CLI. The full environment is a later milestone. But the design is here because it shapes decisions in every other layer.
+
+> **Current status (March pi++ 2026)**: The bootstrap environment is operational:
+> - **CLI** (`tools/Codex.Cli`): `codex run`, `codex build` (C#/JS/Rust), `codex check`, `codex parse`, `codex version`, plus repository commands (`init`, `publish`, `propose`, `verdict`, `vouch`, `history`)
+> - **LSP server** (`src/Codex.Lsp`): diagnostics, hover (type + prose), document symbols, semantic tokens
+> - **VS Code extension** (`editors/vscode`): syntax highlighting (TextMate grammar with Chapter/Section, keyword, type, operator, prose scoping), bracket matching, auto-indent, LSP client
+> - **Three compilation backends**: C# (primary, self-hosting), JavaScript (Node.js), Rust
+>
+> The full custom environment (Reader, Writer, Verifier, Explorer as one app) remains aspirational.
 
 ---
 

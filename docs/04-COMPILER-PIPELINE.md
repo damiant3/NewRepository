@@ -69,51 +69,38 @@ Each phase also feeds into the **Diagnostic System** — errors, warnings, and s
 Raw UTF-8 source text.
 
 ### Output
-A stream of `Token` values, each with:
-- `TokenKind` (enum: Identifier, Keyword, Operator, IntLiteral, TextLiteral, etc.)
-- `Span` (start offset, end offset, line, column)
-- `LeadingTrivia` (whitespace, newlines before the token)
-- `TrailingTrivia` (whitespace, newlines after the token)
+A flat list of `Token` values, each with:
+- `Kind` : `TokenKind` (75+ variants: identifiers, keywords, operators, literals, structural tokens)
+- `Value` : the text of the token
+- `Span` : `SourceSpan` (start/end position, file path)
 
 ### Key Design Decisions
 
 **Hand-written lexer**, not a generator (Flex, ANTLR, etc.). Reasons:
 1. The prose/notation mode switching requires context-sensitive tokenization
-2. We need perfect trivia tracking for round-trip fidelity (the CST must reproduce the source exactly)
-3. Error recovery in the lexer is critical for IDE support — a generated lexer gives up too easily
+2. Error recovery in the lexer is critical for IDE support — a generated lexer gives up too easily
+3. The Codex-in-Codex lexer is also hand-written (functional, character-by-character)
 
-**Indentation tracking**: The lexer tracks indentation depth and emits synthetic `Indent` / `Dedent` / `Newline` tokens (Python-style). These are used by the parser to determine block structure.
+**Prose-aware tokenization**: The `ProseParser` in `Codex.Syntax` handles mode switching:
+- `ChapterHeader` / `SectionHeader` tokens for prose structure
+- `ProseText` tokens for prose content
+- Notation blocks (indented ≥ 4 spaces) are tokenized as formal notation
 
-**Mode switching**: The lexer maintains a mode stack:
-- `ProseMode`: tokenizes natural language, recognizes transition phrases
-- `NotationMode`: tokenizes formal notation (identifiers, operators, keywords)
-- `StringMode`: inside a text literal
-- `InterpolationMode`: inside `${ ... }` in an interpolated string
+**No trivia tracking**: The current lexer does not preserve whitespace or comments as trivia. Tokens carry spans but not leading/trailing trivia. Round-trip fidelity relies on the source text, not the token stream.
 
-Mode transitions:
-- `ProseMode → NotationMode`: when indentation increases after a prose line
-- `NotationMode → ProseMode`: when indentation returns to prose level
-- Any mode → `StringMode`: when `"` is encountered
-- `StringMode → InterpolationMode`: when `${` is encountered
+> **Original design** envisioned explicit `LeadingTrivia`/`TrailingTrivia` on tokens, a mode stack (`ProseMode`, `NotationMode`, `StringMode`, `InterpolationMode`), and `Indent`/`Dedent` tokens. The implementation uses a simpler approach: `Newline` tokens for line breaks, space-skipping in the lexer, and indentation handled by the prose parser. The simpler design proved sufficient for the bootstrap.
 
-### Implementation Notes
+### Implementation
 
 ```csharp
-public class Lexer
+// Actual API — Codex.Syntax/Lexer.cs
+public sealed class Lexer(SourceText source)
 {
-    private readonly SourceText _source;
-    private int _position;
-    private int _line;
-    private int _column;
-    private readonly Stack<LexerMode> _modeStack;
-    private readonly Stack<int> _indentStack;
-    
-    public Token NextToken();
-    public IEnumerable<Token> TokenizeAll();
+    public IReadOnlyList<Token> Tokenize();
 }
 ```
 
-The lexer is a pull-based iterator. The parser calls `NextToken()` on demand.
+The lexer produces the complete token list eagerly (not pull-based). The parser indexes into it by position.
 
 ---
 
@@ -308,76 +295,69 @@ This requires tracking dependencies between definitions at the type-checking lev
 ## Phase 6: Lowering (AST → IR)
 
 ### Input
-Elaborated AST.
+Type-checked AST with resolved names and inferred types.
 
 ### Output
-Codex IR — a typed, lower-level representation suitable for optimization and code generation.
+`IRModule` — a typed intermediate representation suitable for code generation.
 
 ### IR Design
 
-The IR is a **typed A-normal form** (ANF). Every intermediate computation is named. No nested expressions.
+The IR is **not** in A-normal form. Expressions nest freely:
 
 ```
 // AST: f (g x) + h y
-// IR:
-let t1 = call g x
-let t2 = call f t1
-let t3 = call h y
-let t4 = add t2 t3
-return t4
+// IR: IRBinary(AddInt, IRApply(f, IRApply(g, x)), IRApply(h, y))
 ```
 
-IR nodes:
-- `IRLet (name, value, body)` — let binding
-- `IRCall (function, args)` — function application
-- `IRMatch (scrutinee, branches)` — pattern match
-- `IRLiteral (value)` — literal value
-- `IRLambda (params, body)` — lambda (closures)
-- `IRReturn (value)` — return from function
-- `IREffect (effect, operation, args)` — effect operation
+This simplifies the lowering pass and makes each backend responsible for its
+own linearization needs. See `07-TRANSPILATION.md` for the full IR node catalog.
 
-Each IR node carries:
-- Its type (fully resolved)
-- Its effect row
-- Its linearity annotation
-- Source span (for debugging and error reporting)
+### Lowering Rules
+
+| AST Node | IR Node |
+|----------|---------|
+| Integer literal | `IRIntegerLit` |
+| Text literal | `IRTextLit` |
+| Boolean `True`/`False` | `IRBoolLit` |
+| Variable reference | `IRName` |
+| Binary operator | `IRBinary` (with typed op: `AddInt` vs `AddNum` etc.) |
+| Function application | `IRApply` (curried: one argument per apply) |
+| If-then-else | `IRIf` |
+| Let-in | `IRLet` |
+| Pattern match | `IRMatch` with `IRPattern` branches |
+| Do-notation | `IRDo` with `IRDoBind` / `IRDoExec` statements |
+| Lambda | `IRLambda` |
+| Record construction | `IRRecord` |
+| Field access | `IRFieldAccess` |
+| List literal | `IRList` |
+| Constructor application | `IRApply` (constructors are functions) |
+
+The lowering pass also resolves binary operators to typed variants (e.g.,
+`+` on integers becomes `IRBinaryOp.AddInt`, on numbers becomes `AddNum`,
+on text becomes `AppendText`).
 
 ---
 
 ## Phase 7: Optimization
 
-### Input
-Unoptimized IR.
+**Status**: Not yet implemented. The IR is emitted directly without optimization passes.
 
-### Output
-Optimized IR.
-
-### Optimization Passes
-
-Passes are run in a fixed order. Each pass transforms the IR and must preserve types (the IR can be re-type-checked after each pass as a sanity check).
-
-| Pass | What It Does |
-|------|-------------|
-| Dead code elimination | Remove unreachable definitions and unused let-bindings |
-| Constant folding | Evaluate expressions with known values at compile time |
-| Inlining | Inline small functions at their call sites |
-| Common subexpression elimination | Share identical computations |
-| Effect erasure | Remove effect annotations for pure sub-expressions |
-| Monomorphization | Specialize generic functions for concrete types (needed for some backends) |
-| Lambda lifting | Convert closures to top-level functions with explicit environments |
-| Tail call optimization | Convert tail-recursive calls to loops |
-
-Phase 1 implementation: only dead code elimination and constant folding. The rest are added as needed.
+Planned passes (to be implemented as needed):
+- Dead code elimination
+- Constant folding
+- Inlining of small functions
+- Tail call optimization
+- Monomorphization (for backends that need it)
 
 ---
 
 ## Phase 8: Code Emission
 
 ### Input
-Optimized IR.
+IR module (unoptimized).
 
 ### Output
-Target language source code (or binary, for WASM/LLVM).
+Target language source code.
 
 ### Emitter Interface
 
@@ -385,93 +365,20 @@ Target language source code (or binary, for WASM/LLVM).
 public interface ICodeEmitter
 {
     string TargetName { get; }
-    TargetCapabilities Capabilities { get; }
-    EmitResult Emit(IRModule module, EmitOptions options);
+    string FileExtension { get; }
+    string Emit(IRModule module);
 }
-
-public record TargetCapabilities(
-    bool SupportsDependentTypes,
-    bool SupportsLinearTypes,
-    bool SupportsEffectTypes,
-    bool SupportsHigherKindedTypes,
-    bool SupportsTailCalls,
-    bool SupportsArbitraryPrecision
-);
 ```
 
-Each backend implements `ICodeEmitter`. The emission framework:
-1. Checks that the IR only uses features the target supports
-2. For unsupported features, inserts runtime checks or rejects with an explanation
-3. Emits target code
+### Implemented Backends
 
-### Backend Priority
+| Backend | Project | Extension | Status |
+|---------|---------|-----------|--------|
+| **C#** | `Codex.Emit.CSharp` | `.cs` | ✅ Primary — used for bootstrap |
+| **JavaScript** | `Codex.Emit.JavaScript` | `.js` | ✅ All samples run under Node.js |
+| **Rust** | `Codex.Emit.Rust` | `.rs` | ✅ All samples produce valid Rust |
 
-| Backend | Priority | Rationale |
-|---------|----------|-----------|
-| C# | **First** | Bootstrap target — Codex compiles to .NET, runs on .NET |
-| JavaScript | Second | Browser target, widest deployment |
-| Rust | Third | Full-fidelity target, proves the type system maps cleanly |
-| Python | Fourth | Data science / scripting use case |
-| WASM | Fifth | Universal binary target |
-| LLVM IR | Sixth | Native compilation |
+Each backend handles the full IR: literals, binary ops, if/let/match/do/lambda/apply,
+records, field access, lists, sum types, and 20+ built-in functions.
 
-The C# backend is the only one needed for bootstrap. All others are post-bootstrap.
-
----
-
-## Diagnostic System
-
-All phases feed into a unified diagnostic system.
-
-```csharp
-public record Diagnostic(
-    DiagnosticSeverity Severity,   // Error, Warning, Info, Hint
-    string Code,                    // e.g., "CDX0042"
-    string Message,                 // Human-readable description
-    SourceSpan Location,            // Where in the source
-    ImmutableArray<SourceSpan> RelatedLocations,  // Other relevant spans
-    ImmutableArray<CodeFix> SuggestedFixes        // Automated fix suggestions
-);
-```
-
-Diagnostics are:
-- **Accumulated**, not thrown. Compilation continues past errors when possible.
-- **Rich**: they include related locations and suggested fixes.
-- **Unique**: each diagnostic has a code (e.g., `CDX0042`) for filtering and documentation.
-
-### Diagnostic Categories
-
-| Range | Category |
-|-------|----------|
-| CDX0001–CDX0999 | Lexer errors |
-| CDX1000–CDX1999 | Parser errors |
-| CDX2000–CDX2999 | Name resolution errors |
-| CDX3000–CDX3999 | Type errors |
-| CDX4000–CDX4999 | Linearity errors |
-| CDX5000–CDX5999 | Effect errors |
-| CDX6000–CDX6999 | Proof errors |
-| CDX7000–CDX7999 | IR lowering errors |
-| CDX8000–CDX8999 | Emission errors / target limitations |
-| CDX9000–CDX9999 | Repository errors |
-
----
-
-## Compilation Modes
-
-| Mode | Behavior |
-|------|----------|
-| **Full** | All phases, produce output. Errors stop compilation at the failing phase. |
-| **Check** | Phases 1–5 only (lex, parse, resolve, type-check). No IR, no emission. Fast. |
-| **IDE** | Incremental, error-tolerant, produces partial results. Used by LSP. |
-| **REPL** | Single expression/definition at a time, evaluated immediately. |
-
----
-
-## Performance Considerations
-
-The compiler must be fast enough for interactive use:
-- **Target**: < 100ms for re-checking a single definition change in IDE mode
-- **Target**: < 5s for full compilation of a 10,000-line Codex program
-- **Strategy**: incremental checking, parallel type checking of independent definitions, lazy IR generation
-
-These are aspirational targets. We measure early and often.
+See `07-TRANSPILATION.md` for backend encoding strategies and the built-in function table.

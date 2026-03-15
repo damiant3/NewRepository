@@ -12,78 +12,73 @@ This document defines the IR, the emission framework, and the design of each bac
 
 ### Design Principles
 
-1. **Typed**: every IR node carries its full type, including effects and linearity
-2. **A-Normal Form**: all intermediate values are named (no nested expressions)
-3. **Explicit closures**: lambda captures are made explicit
-4. **Explicit effects**: effect operations are IR nodes, not implicit side effects
-5. **Target-agnostic**: no target-specific constructs in the IR
-6. **Optimizable**: the IR is the input to optimization passes
+1. **Typed**: every IR node carries its `CodexType`
+2. **Curried**: function application is single-argument (`IRApply` takes one arg)
+3. **Explicit closures**: `IRLambda` captures are implicit (closed-over by .NET runtime)
+4. **Target-agnostic**: no target-specific constructs in the IR
+5. **Minimal**: no optimization passes yet — the IR is a direct lowering of the AST
 
-### IR Node Types
+### Actual IR Node Types (as implemented in `Codex.IR/IRModule.cs`)
 
 ```
 IRModule
-├── name       : QualifiedName
-├── definitions : IRDefinition[]
-└── dependencies : QualifiedName[]
+├── Name           : QualifiedName
+├── Definitions    : IRDefinition[]
+└── TypeDefinitions: Map<string, CodexType>
 
 IRDefinition
-├── name       : QualifiedName
-├── type       : IRType
-├── params     : IRParam[]
-├── body       : IRExpr
-├── attributes : IRAttribute[] (inline hints, export markers, etc.)
-└── sourceSpan : SourceSpan
+├── Name       : string
+├── Parameters : IRParameter[]   (name + type)
+├── Type       : CodexType       (full function type)
+└── Body       : IRExpr
 
 IRExpr =
-  | IRLet        (name, type, value : IRExpr, body : IRExpr)
-  | IRLetRec     (bindings : (name, type, IRExpr)[], body : IRExpr)
-  | IRVar        (name, type)
-  | IRLiteral    (value : Literal, type)
-  | IRApply      (function : IRExpr, args : IRExpr[], type)
-  | IRLambda     (params : IRParam[], captures : IRCapture[], body : IRExpr, type)
-  | IRMatch      (scrutinee : IRExpr, branches : IRBranch[], type)
-  | IRIf         (condition : IRExpr, then : IRExpr, else : IRExpr, type)
-  | IRRecord     (fields : (name, IRExpr)[], type)
-  | IRFieldAccess(record : IRExpr, field : name, type)
-  | IRRecordWith (base : IRExpr, updates : (name, IRExpr)[], type)
-  | IRConstruct  (constructor : QualifiedName, args : IRExpr[], type)
-  | IREffectOp   (effect : EffectLabel, operation : name, args : IRExpr[], type)
-  | IRHandle     (body : IRExpr, handlers : IRHandler[], type)
-  | IRReturn     (value : IRExpr, type)
-  | IRUnreachable(type)  -- provably unreachable code (after exhaustive match)
-
-IRBranch
-├── pattern : IRPattern
-└── body    : IRExpr
+  | IRIntegerLit  (Value : long)
+  | IRNumberLit   (Value : decimal)
+  | IRTextLit     (Value : string)
+  | IRBoolLit     (Value : bool)
+  | IRName        (Name : string, Type)
+  | IRBinary      (Op : IRBinaryOp, Left : IRExpr, Right : IRExpr, Type)
+  | IRNegate      (Operand : IRExpr)
+  | IRIf          (Condition : IRExpr, Then : IRExpr, Else : IRExpr, Type)
+  | IRLet         (Name, NameType, Value : IRExpr, Body : IRExpr)
+  | IRApply       (Function : IRExpr, Argument : IRExpr, Type)
+  | IRLambda      (Parameters : IRParameter[], Body : IRExpr, Type)
+  | IRList        (Elements : IRExpr[], ElementType)
+  | IRMatch       (Scrutinee : IRExpr, Branches : IRMatchBranch[], Type)
+  | IRDo          (Statements : IRDoStatement[], Type)
+  | IRRecord      (TypeName, Fields : (FieldName, Value)[], Type)
+  | IRFieldAccess (Record : IRExpr, FieldName, Type)
+  | IRError       (Message, Type)
 
 IRPattern =
-  | IRPatternVar       (name, type)
-  | IRPatternLiteral   (value : Literal)
-  | IRPatternConstructor(constructor : QualifiedName, subPatterns : IRPattern[])
-  | IRPatternWildcard
+  | IRVarPattern     (Name, Type)
+  | IRLiteralPattern (Value, Type)
+  | IRCtorPattern    (Name, SubPatterns : IRPattern[], Type)
+  | IRWildcardPattern
 
-IRType =
-  | IRPrimitive   (PrimitiveKind)  -- Text, Number, Integer, Boolean, Nothing, Void
-  | IRFunction    (params : IRType[], effects : EffectRow, result : IRType)
-  | IRRecord      (fields : (name, IRType)[])
-  | IRVariant     (constructors : (name, IRType[])[])
-  | IRGeneric     (name, kind)
-  | IRApplied     (constructor : IRType, args : IRType[])
-  | IRLinear      (inner : IRType)
+IRDoStatement =
+  | IRDoBind  (Name, NameType, Value : IRExpr)
+  | IRDoExec  (Expression : IRExpr)
+
+IRBinaryOp =
+  AddInt | SubInt | MulInt | DivInt | PowInt
+  AddNum | SubNum | MulNum | DivNum
+  Eq | NotEq | Lt | Gt | LtEq | GtEq
+  And | Or | AppendText | AppendList | ConsList
 ```
 
-### Type Erasure Levels
+Notable differences from the original spec:
+- **No A-Normal Form**: expressions nest freely (e.g., `IRApply(IRApply(f, x), y)`)
+- **No `IRLetRec`**: mutual recursion not yet supported in IR
+- **No `IREffectOp` / `IRHandle`**: effects use direct I/O, not algebraic effect handlers
+- **No `IRRecordWith`**: record update syntax not yet lowered
+- **Curried application**: `IRApply` takes a single argument; multi-arg calls are nested applies
+- **Type definitions stored separately**: `TypeDefinitions` map on `IRModule`, not IR nodes
 
-Different backends need different levels of type information:
-
-| Level | What's Kept | Used By |
-|-------|-------------|---------|
-| **Full** | All types, effects, linearity | Rust, Haskell backends |
-| **Simple** | Types without dependent/linear | C#, TypeScript backends |
-| **Erased** | No types at runtime | Python, LLVM backends |
-
-The IR carries full type information. Each backend's emitter decides what to keep.
+The IR carries full `CodexType` information on every node. Each backend decides
+what to keep: C# uses the types for parameter and return type annotations, JS
+erases everything to dynamic, Rust emits full type signatures.
 
 ---
 
@@ -91,37 +86,24 @@ The IR carries full type information. Each backend's emitter decides what to kee
 
 ### The Emitter Interface
 
+The actual interface is minimal by design:
+
 ```csharp
 public interface ICodeEmitter
 {
     string TargetName { get; }
     string FileExtension { get; }
-    TargetCapabilities Capabilities { get; }
-    
-    EmitResult Emit(IRModule module, EmitOptions options);
-    
-    // Can this emitter handle the given IR?
-    // Returns diagnostics for unsupported features.
-    ImmutableArray<Diagnostic> ValidateCapabilities(IRModule module);
-}
-
-[Flags]
-public enum TargetCapabilities
-{
-    None                    = 0,
-    DependentTypes          = 1 << 0,   // Types can depend on values
-    LinearTypes             = 1 << 1,   // Linear resource tracking
-    EffectTypes             = 1 << 2,   // Effect rows in types
-    HigherKindedTypes       = 1 << 3,   // Type constructors as arguments
-    TailCallOptimization    = 1 << 4,   // Guaranteed TCO
-    ArbitraryPrecision      = 1 << 5,   // Big integers / rationals natively
-    PatternMatching         = 1 << 6,   // Native pattern matching
-    AlgebraicDataTypes      = 1 << 7,   // Native sum types
-    Closures                = 1 << 8,   // First-class functions with capture
-    GarbageCollection       = 1 << 9,   // Automatic memory management
-    ManualMemory            = 1 << 10,  // Manual memory / ownership
+    string Emit(IRModule module);
 }
 ```
+
+Three backends implement this: `CSharpEmitter` (.cs), `JavaScriptEmitter` (.js),
+and `RustEmitter` (.rs). The CLI selects a backend with `--target cs|js|rust`.
+
+The original design envisioned a `TargetCapabilities` flags enum and a
+`ValidateCapabilities` method. In practice, each emitter handles unsupported
+features by emitting runtime checks or `Box<dyn Any>` / `object` fallbacks
+rather than refusing to emit. This keeps all backends usable for all programs.
 
 ### Capability Degradation Strategy
 
@@ -137,170 +119,127 @@ The user is always informed. Safety is never silently lost.
 
 ## Backend Designs
 
-### C# Backend (Priority: First — Bootstrap Target)
+### C# Backend (Bootstrap Target) — `Codex.Emit.CSharp`
 
-**Capabilities**: Simple types, closures, GC, pattern matching (via switch expressions), no dependent/linear/effect types at the type level.
-
-**Encoding strategy**:
+**Status**: ✅ Complete. Primary backend. Used for self-hosting bootstrap.
 
 | Codex Feature | C# Encoding |
 |--------------|-------------|
 | `Text` | `string` |
-| `Number` | `decimal` (or `BigRational` for arbitrary precision) |
-| `Integer` | `BigInteger` |
+| `Number` | `double` |
+| `Integer` | `long` |
 | `Boolean` | `bool` |
-| `Nothing` | `Unit` (custom struct) |
-| `List (a)` | `ImmutableList<T>` |
-| `Maybe (a)` | Custom `Maybe<T>` discriminated union |
-| `Result (a)` | Custom `Result<T>` discriminated union |
-| Sum types | Abstract record + derived records (C# discriminated unions pattern) |
-| Record types | C# `record` types |
-| Pattern matching | C# switch expressions with pattern matching |
+| `Nothing` | `void` |
+| `List a` | `List<T>` |
+| Sum types | `abstract record` + `sealed record` subtypes |
+| Record types | C# `record` with positional parameters |
+| Pattern matching | C# `switch` expressions with type patterns |
 | Pure functions | Static methods |
-| Effectful functions | Methods that take/return effect contexts (or just use IO directly) |
-| Linear types | Runtime checks (`Debug.Assert` for use-once) |
-| Dependent types | Runtime assertions for constraints |
-| Higher-kinded types | Interface-based encoding |
-
-**Output structure**:
-```
-output/
-├── Codex.Runtime/          # Runtime support library
-│   ├── Unit.cs
-│   ├── Maybe.cs
-│   ├── Result.cs
-│   ├── CodexList.cs
-│   └── Effects.cs
-├── ModuleName/
-│   ├── ModuleName.cs       # Generated module
-│   └── ...
-└── ModuleName.csproj       # Generated project file
-```
-
-### JavaScript/TypeScript Backend (Priority: Second)
-
-**Capabilities**: Closures, GC, no static types (JS) or simple types (TS). No dependent, linear, or effect types.
-
-| Codex Feature | JS/TS Encoding |
-|--------------|----------------|
-| Sum types | Tagged objects: `{ tag: "Success", value: ... }` |
-| Records | Plain objects with TypeScript interfaces |
-| Pattern matching | Switch on tag field |
-| Effects | Ignored at type level; documented in JSDoc |
-| Linear types | Not enforced; documented |
+| Effectful functions | Direct I/O (Console, File) |
+| Linear types | Runtime checks |
 | Dependent types | Runtime assertions |
-| `Number` | `bigint` for Integer, `number` for Number (lossy!) |
 
-### Rust Backend (Priority: Third)
+### JavaScript Backend — `Codex.Emit.JavaScript`
 
-**Capabilities**: Full fidelity. Linear types map to ownership. Effects map to trait bounds. Pattern matching and algebraic types are native.
+**Status**: ✅ Complete. All samples compile and execute under Node.js.
+
+| Codex Feature | JS Encoding |
+|--------------|-------------|
+| `Text` | `string` |
+| `Number` | `number` |
+| `Integer` | `BigInt` (`42n`) |
+| `Boolean` | `boolean` |
+| `Nothing` | `undefined` |
+| `List a` | `Array` |
+| Sum types | `Object.freeze({ tag: "Name", field0: ..., field1: ... })` |
+| Record types | `Object.freeze({ fieldName: value, ... })` |
+| Pattern matching | Nested ternary with `_s.tag === "Name"` checks |
+| Pure functions | `function` declarations |
+| Effectful functions | Direct I/O (`console.log`, `require('readline-sync')`, `require('fs')`) |
+| Linear types | Not enforced |
+| Dependent types | Not enforced |
+
+### Rust Backend — `Codex.Emit.Rust`
+
+**Status**: ✅ Complete. All samples compile to valid Rust with typed signatures.
 
 | Codex Feature | Rust Encoding |
 |--------------|---------------|
-| Sum types | `enum` |
-| Records | `struct` |
-| Linear types | Ownership (move semantics) — natural fit |
-| Effects | Trait bounds on generic parameters |
-| Pattern matching | Native `match` |
-| `Number` | `num::BigRational` |
-| `Integer` | `num::BigInt` |
-| Dependent types | Runtime assertions (Rust cannot express dependent types) |
+| `Text` | `String` |
+| `Number` | `f64` |
+| `Integer` | `i64` |
+| `Boolean` | `bool` |
+| `Nothing` | `()` |
+| `List a` | `Vec<T>` |
+| Sum types | `enum` with `#[derive(Debug, Clone, PartialEq)]` |
+| Record types | `struct` with `#[derive(Debug, Clone, PartialEq)]` |
+| Pattern matching | Native `match` with `Enum::Variant(bindings)` |
+| Pure functions | `fn` declarations with full type signatures |
+| Effectful functions | Direct I/O (`println!`, `stdin().read_line`, `fs::File::open`) |
+| Linear types | Ownership semantics (natural fit, but no explicit move analysis yet) |
+| Dependent types | Runtime assertions (`panic!`) |
+| Polymorphic types | `Box<dyn std::any::Any>` fallback |
 
-### Python Backend (Priority: Fourth)
+### Future Backends (Not Yet Implemented)
 
-**Capabilities**: Minimal. Dynamic typing. No compile-time guarantees beyond syntax.
+| Backend | Strategy |
+|---------|----------|
+| **Python** | Dataclasses + `match` statement (Python 3.10+). Types as PEP 484 hints. |
+| **WASM** | Compile through C/LLVM or emit WASM text format directly. |
+| **LLVM IR** | Emit LLVM IR text for native binaries. Full control, maximum performance. |
 
-| Codex Feature | Python Encoding |
-|--------------|-----------------|
-| Types | Type hints (PEP 484) — documentation only |
-| Sum types | Dataclasses with a `tag` field |
-| Records | Dataclasses |
-| Pattern matching | `match` statement (Python 3.10+) |
-| Everything else | Runtime assertions |
+## Built-in Functions
 
-### WASM Backend (Priority: Fifth)
+All three backends implement the same set of built-in functions:
 
-**Capabilities**: Low-level execution. Types erased at runtime. Good performance.
-
-Strategy: Compile Codex IR → a C-like representation → compile with a WASM toolchain (Emscripten or wasm-ld). Alternatively, emit WASM text format directly.
-
-### LLVM IR Backend (Priority: Sixth)
-
-**Capabilities**: Full control over code generation. Types erased. Maximum performance.
-
-Strategy: Emit LLVM IR text format. Use LLVM toolchain to produce native binaries. This is the path to native Codex executables with no runtime dependency.
+| Built-in | C# | JavaScript | Rust |
+|----------|-----|-----------|------|
+| `print-line` | `Console.WriteLine` | `console.log` | `println!` |
+| `read-line` | `Console.ReadLine()` | `require('readline-sync').question('')` | `stdin().read_line()` |
+| `show` | `.ToString()` | `String()` | `format!("{}", x)` |
+| `text-length` | `.Length` | `.length` | `.len() as i64` |
+| `char-at` | `[i].ToString()` | `[i]` | `.chars().nth(i).to_string()` |
+| `substring` | `.Substring(i, n)` | `.substring(i, i+n)` | `.chars().skip(i).take(n).collect()` |
+| `text-replace` | `.Replace(a, b)` | `.replaceAll(a, b)` | `.replace(&a, &b)` |
+| `text-to-integer` | `long.Parse()` | `parseInt(x, 10)` | `.parse::<i64>().unwrap()` |
+| `integer-to-text` | `.ToString()` | `String(x)` | `.to_string()` |
+| `is-letter` | `char.IsLetter` | `/^[a-zA-Z]/.test()` | `.is_alphabetic()` |
+| `is-digit` | `char.IsDigit` | `/^[0-9]/.test()` | `.is_ascii_digit()` |
+| `is-whitespace` | `char.IsWhiteSpace` | `/^\s/.test()` | `.is_whitespace()` |
+| `char-code` | `(long)s[0]` | `.charCodeAt(0)` | `.chars().next() as i64` |
+| `code-to-char` | `((char)n).ToString()` | `String.fromCharCode(n)` | `char::from_u32(n)` |
+| `list-length` | `.Count` | `.length` | `.len() as i64` |
+| `list-at` | `[i]` | `[i]` | `[i as usize].clone()` |
+| `open-file` | `File.OpenRead` | `require('fs').readFileSync` | `File::open().unwrap()` |
+| `read-all` | `StreamReader.ReadToEnd` | `.toString()` | `.read_to_string()` |
+| `close-file` | `.Dispose()` | (no-op) | `drop()` |
+| `negate` | `-(x)` | `-(x)` | `-(x)` |
 
 ---
 
-## Runtime Library
+## Self-Hosting
 
-Each backend has a **runtime library** that provides:
+**Status**: ✅ Structural parity achieved (March 2026).
 
-1. **Codex primitive types** (where the target doesn't have them natively)
-2. **Effect system runtime** (effect handlers, effect stack)
-3. **Pattern matching infrastructure** (where not native)
-4. **Standard library bindings** (Codex stdlib functions implemented in the target language)
-
-The runtime library is written by hand in each target language. It is small — most logic lives in the generated code.
-
----
-
-## Self-Hosting Path
-
-The ultimate goal is **self-hosting**: the Codex compiler is written in Codex and compiles itself.
+The Codex compiler is written in Codex (`codex-src/`, ~2,500 lines across 14 files)
+and compiles itself through the C# backend:
 
 ```
-Stage 0: C# compiler (this project) compiles Codex source
-Stage 1: Stage 0 compiles the Codex compiler written in Codex → produces a new compiler
-Stage 2: Stage 1 compiler compiles itself → produces a compiler that should be identical to Stage 1
+Stage 0: C# compiler (src/) compiles codex-src/ → output.cs (105KB, 264 records, 222 defs)
+Stage 1: output.cs compiled with dotnet → Stage 1 binary
+Stage 1: compiles codex-src/ → stage1-output.cs (69KB, 264 records, 220 defs)
 ```
 
-When Stage 1 output = Stage 2 output, we have achieved self-hosting. The C# bootstrap becomes historical.
+264/264 type definitions, 0 missing functions. Stage 1 uses `object` types
+(no Codex-side type checker) which accounts for the size difference.
 
-The self-hosting milestone is gated on:
-- The language being expressive enough to write a compiler
-- The C# backend being complete enough to compile the compiler
-- The standard library being rich enough for compiler needs (string handling, file I/O, data structures)
+See [M13-BOOTSTRAP-PLAN.md](M13-BOOTSTRAP-PLAN.md) for details.
 
 ---
 
-## Open Questions
+## Resolved Design Questions
 
-1. **C# runtime library scope** — how much do we implement by hand vs. generate? The more we generate, the less maintenance burden; but the runtime needs to exist before the generator does.
-
-2. **Number representation** — `decimal` is convenient but limited to 28-29 significant digits. `BigRational` from a NuGet package gives arbitrary precision but has performance implications. Decision: start with `decimal`, add `BigRational` when needed.
-
-3. **Effect encoding in C#** — effects can be encoded as:
-   - Reader/Writer monad pattern (verbose, pure)
-   - Interface injection (familiar to .NET developers)
-   - Ambient context (global state, impure but simple)
-   - We need to pick one for the bootstrap and stick with it.
-
-4. **WASM strategy** — direct WASM emission vs. compiling through C/LLVM. Direct emission gives more control but is much more work. Going through LLVM gives us WASM + native for one backend investment.
-
-5. **Source maps** — for the JS and WASM backends, we need source maps that map generated code back to Codex source. This requires carrying source spans through the entire pipeline.
-
-
-Summary of JS & Rust emitter fixes post-bootstrap:
-JavaScript (JavaScriptEmitter.cs)
-Fix	Before	After
-Match paren balance	(((_s) => ... — extra unmatched (	((_s) => ... — balanced
-Ctor pattern binding	Nested IIFEs with reversed binding order	Single IIFE with const bindings
-integer-to-text	Missing	String(x)
-text-replace	Missing	.replaceAll(old, new)
-Rust (RustEmitter.cs)
-Fix	Before	After
-fn main collision	Skipped main def, generated recursive fn main() calling main()	Emits codex_main(), Rust fn main() calls it
-DependentFunctionType brace	{EmitType(dep.Body)}}> — extra }	{EmitType(dep.Body)}> — correct interpolation
-integer-to-text	Missing	.to_string()
-text-replace	Missing	.replace(&old, &new)
-Both
-Sample	JS	Rust
-hello.codex	✅ 25n	✅ compiles
-factorial.codex	✅ 3628800n	✅ compiles
-fibonacci.codex	✅ 6765n	✅ compiles
-greeting.codex	✅ Hello, World!	✅ compiles
-shapes.codex	✅ 78.5	✅ compiles
-person.codex	✅ Hello, Alice!	✅ compiles
-string-ops.codex	✅ 10n	✅ compiles
-effectful-hello.codex	✅ compiles	✅ compiles
+1. **Number representation** — `double` for Number, `long` for Integer. Arbitrary precision deferred.
+2. **Effect encoding in C#** — Direct I/O (Console, File). No monadic encoding. Simple and working.
+3. **Runtime library** — No separate runtime library. Built-in functions are emitted inline by each backend.
+4. **Source maps** — Not yet implemented. Source spans are carried through the pipeline but not emitted.
