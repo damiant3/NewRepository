@@ -177,3 +177,13 @@ Significant design and engineering decisions are recorded here in chronological 
 **Decision**: Accept both forms. If the token after `=` is a `TypeIdentifier` and a `|` appears later on the same line, parse as a variant type.
 **Rationale**: The no-leading-pipe form is more natural and matches Haskell/ML convention. The leading-pipe form remains valid.
 **Consequences**: Both `Shape = Circle | Rectangle` and `Shape = | Circle | Rectangle` now parse correctly.
+
+---
+
+## Decision: Codex-Side Type Checker — Threaded UnificationState
+**Date**: 2026-03 (M13)
+**Context**: The type checker requires mutable state for type variable substitutions (the unifier). Codex is purely functional — no mutable references.
+**Decision**: Model the unifier as a `UnificationState` record threaded through all functions. Every inference function takes state as input and returns updated state as output. Named `UnificationState` (not `MutableRef`) per the named-purpose mutability principle.
+**Rationale**: This is the standard purely functional approach (used in Haskell, ML). The name `UnificationState` answers "why is this changing?" — because we're accumulating unification knowledge. The alternative (effect system with State effect) requires the Codex effect system to be more mature.
+**Implementation**: `UnificationState` holds `substitutions : List SubstEntry`, `next-id : Integer`, `errors : List Diagnostic`. All type checking functions return `CheckResult { inferred-type, state }` or `UnifyResult { success, state }`.
+**Consequences**: Every function signature is longer (extra state parameter). But the data flow is explicit, debuggable, and the code is self-documenting about what mutates and why.

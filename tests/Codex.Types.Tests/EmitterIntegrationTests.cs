@@ -423,4 +423,34 @@ public class EmitterIntegrationTests
         Assert.Contains("mut", rs);
         Assert.Contains("continue;", rs);
     }
+
+    // ── type-checker-test.codex ───────────────────────────────
+
+    [Fact]
+    public void TypeCheckerTest_emits_csharp()
+    {
+        string source = ReadSample("type-checker-test.codex");
+        string? cs = Helpers.CompileToCS(source, "type_checker_test");
+        Assert.NotNull(cs);
+        Assert.Contains("apply_twice", cs);
+        Assert.Contains("add_one", cs);
+    }
+
+    [Fact]
+    public void TypeCheckerTest_emits_javascript()
+    {
+        string source = ReadSample("type-checker-test.codex");
+        string? js = Helpers.CompileToJS(source, "type_checker_test");
+        Assert.NotNull(js);
+        Assert.Contains("function apply_twice", js);
+    }
+
+    [Fact]
+    public void TypeCheckerTest_emits_rust()
+    {
+        string source = ReadSample("type-checker-test.codex");
+        string? rs = Helpers.CompileToRust(source, "type_checker_test");
+        Assert.NotNull(rs);
+        Assert.Contains("fn apply_twice", rs);
+    }
 }

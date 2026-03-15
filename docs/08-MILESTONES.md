@@ -342,3 +342,22 @@ Where `hello.codex` is the `square 5` program, and it actually executes in all b
 Large. Each backend is a significant lift, but sharing the emitter infrastructure helps.
 
 ---
+
+## Milestone 13: Self-Hosting
+**Goal**: The Codex compiler is written in Codex and compiles itself.
+
+### Deliverables
+- [x] Codex compiler source in Codex (lexer, parser, desugarer, lowering, emitter)
+- [x] Stage 0 (C# compiler) compiles Stage 1 (Codex compiler)
+- [x] **Codex-side type checker** (Unifier, TypeEnvironment, TypeChecker)
+- [ ] Stage 1 compiles itself to produce Stage 2
+- [ ] Stage 1 output = Stage 2 output (bootstrap verified)
+
+### Status: ⚠️ Major progress — the Codex-side type checker is now written in Codex:
+- `codex-src/Types/Unifier.codex`: UnificationState (threaded state), fresh variables, substitution, occurs check, structural unification, deep resolve
+- `codex-src/Types/TypeEnv.codex`: immutable type environment with lookup/bind, built-in types
+- `codex-src/Types/TypeChecker.codex`: bidirectional inference — literals, names, binary ops, if/let/lambda/match/do/list/application, type annotation resolution, module-level two-pass checking
+
+The type checker follows the "named-purpose mutability" principle: `UnificationState` is explicitly threaded through every function. No hidden state. 253/253 records match between Stage 0 and Stage 1, 281 vs 279 functions (2-function delta from emission differences).
+
+Remaining for full fixed-point: the Codex-side type checker must pass its own tests when compiled and executed via Stage 1.

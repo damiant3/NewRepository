@@ -18,8 +18,8 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 | Metric | Value |
 |--------|-------|
 | C# projects | 22 |
-| Test count | 294 (all passing) |
-| Codex source | ~2,500 lines across 14 .codex files |
+| Test count | 297 (all passing) |
+| Codex source | ~3,000 lines across 17 .codex files |
 | Bootstrap parity | 264/264 records, 0 missing functions |
 | Backends | C# (primary), JavaScript, Rust |
 | LSP | Diagnostics, hover, symbols, semantic tokens |
