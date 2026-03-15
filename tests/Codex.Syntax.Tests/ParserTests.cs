@@ -429,4 +429,71 @@ public class ParserTests
         DocumentNode doc = Parse(source);
         Assert.IsType<TransNode>(doc.Proofs[1].Body);
     }
+
+    // --- Error recovery tests ---
+
+    [Fact]
+    public void Recovery_continues_after_bad_definition()
+    {
+        string source = "!! bad\na = 1\nb = 2";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.True(doc.Definitions.Count >= 1);
+    }
+
+    [Fact]
+    public void Recovery_if_missing_then()
+    {
+        string source = "x = if True 1 else 0";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Contains(diags.ToImmutable(), d => d.Code == "CDX1021");
+    }
+
+    [Fact]
+    public void Recovery_if_missing_else()
+    {
+        string source = "x = if True then 1";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Contains(diags.ToImmutable(), d => d.Code == "CDX1022");
+    }
+
+    [Fact]
+    public void Recovery_let_missing_in()
+    {
+        string source = "x = let a = 1 a + 2";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Contains(diags.ToImmutable(), d => d.Code == "CDX1023");
+    }
+
+    [Fact]
+    public void Recovery_match_missing_arrow()
+    {
+        string source = "x = when y if True 1 if False 0";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        Assert.Contains(diags.ToImmutable(), d => d.Code == "CDX1032");
+    }
+
+    [Fact]
+    public void Recovery_second_definition_parsed_after_error()
+    {
+        string source = "a = @#$\nb = 42";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        bool found42 = doc.Definitions.Any(d => d.Name.Text == "b");
+        Assert.True(found42);
+    }
+
+    [Fact]
+    public void Recovery_multiple_errors_reported()
+    {
+        string source = "a = if True 1 else 0\nb = if False 2 else 3";
+        (DocumentNode doc, DiagnosticBag diags) = ParseWithDiags(source);
+        Assert.True(diags.HasErrors);
+        int errorCount = diags.ToImmutable().Count(d => d.Code == "CDX1021");
+        Assert.True(errorCount >= 2);
+    }
 }

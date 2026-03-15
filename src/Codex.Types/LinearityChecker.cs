@@ -99,15 +99,11 @@ public sealed class LinearityChecker(DiagnosticBag diagnostics, Map<string, Code
                 break;
 
             case LetExpr let:
-                foreach (LetBinding binding in let.Bindings)
-                {
-                    CheckExpr(binding.Value);
-                }
-                CheckExpr(let.Body);
+                CheckLetExpr(let);
                 break;
 
             case LambdaExpr lam:
-                CheckExpr(lam.Body);
+                CheckLambdaExpr(lam);
                 break;
 
             case MatchExpr match:
@@ -130,23 +126,124 @@ public sealed class LinearityChecker(DiagnosticBag diagnostics, Map<string, Code
                 break;
 
             case DoExpr doExpr:
-                foreach (DoStatement stmt in doExpr.Statements)
-                {
-                    switch (stmt)
-                    {
-                        case DoBindStatement bind:
-                            CheckExpr(bind.Value);
-                            break;
-                        case DoExprStatement exprStmt:
-                            CheckExpr(exprStmt.Expression);
-                            break;
-                    }
-                }
+                CheckDoExpr(doExpr);
                 break;
 
             case ErrorExpr:
                 break;
         }
+    }
+
+    void CheckLetExpr(LetExpr let)
+    {
+        Map<string, CodexType> savedLinear = m_linearBindings;
+
+        foreach (LetBinding binding in let.Bindings)
+        {
+            if (IsLinearForward(binding.Value))
+            {
+                string sourceName = ((NameExpr)binding.Value).Name.Value;
+                CodexType? sourceType = m_linearBindings[sourceName];
+                if (sourceType is not null)
+                {
+                    RecordUsage(sourceName, binding.Value.Span);
+                    m_linearBindings = m_linearBindings.Set(
+                        binding.Name.Value, sourceType);
+                    m_usageCounts = m_usageCounts.Set(binding.Name.Value, 0);
+                    continue;
+                }
+            }
+
+            CheckExpr(binding.Value);
+        }
+
+        CheckExpr(let.Body);
+
+        ReportUnusedLetLinearBindings(let.Span, savedLinear);
+        m_linearBindings = savedLinear;
+    }
+
+    bool IsLinearForward(Expr value)
+    {
+        return value is NameExpr name
+            && m_linearBindings[name.Name.Value] is not null;
+    }
+
+    void ReportUnusedLetLinearBindings(SourceSpan span, Map<string, CodexType> outerLinear)
+    {
+        foreach (KeyValuePair<string, CodexType> kv in m_linearBindings)
+        {
+            if (outerLinear[kv.Key] is not null)
+                continue;
+
+            int count = m_usageCounts[kv.Key] ?? 0;
+            if (count == 0)
+            {
+                m_diagnostics.Error("CDX2040",
+                    $"Linear variable '{kv.Key}' is never used " +
+                    "(linear resources must be consumed)",
+                    span);
+            }
+        }
+    }
+
+    void CheckLambdaExpr(LambdaExpr lam)
+    {
+        Map<string, CodexType> savedLinear = m_linearBindings;
+        ValueMap<string, int> savedCounts = m_usageCounts;
+
+        foreach (Parameter param in lam.Parameters)
+        {
+            if (param.TypeAnnotation is LinearTypeExpr)
+            {
+                LinearType linType = new(ErrorType.s_instance);
+                m_linearBindings = m_linearBindings.Set(
+                    param.Name.Value, linType);
+                m_usageCounts = m_usageCounts.Set(param.Name.Value, 0);
+            }
+        }
+
+        CheckExpr(lam.Body);
+
+        foreach (Parameter param in lam.Parameters)
+        {
+            if (m_linearBindings[param.Name.Value] is not null
+                && !savedLinear.ContainsKey(param.Name.Value))
+            {
+                int count = m_usageCounts[param.Name.Value] ?? 0;
+                if (count == 0)
+                {
+                    m_diagnostics.Error("CDX2040",
+                        $"Linear variable '{param.Name.Value}' is never used " +
+                        "(linear resources must be consumed)",
+                        lam.Span);
+                }
+            }
+        }
+
+        m_linearBindings = savedLinear;
+        m_usageCounts = savedCounts;
+    }
+
+    void CheckDoExpr(DoExpr doExpr)
+    {
+        Map<string, CodexType> savedLinear = m_linearBindings;
+
+        foreach (DoStatement stmt in doExpr.Statements)
+        {
+            switch (stmt)
+            {
+                case DoBindStatement bind:
+                    CheckExpr(bind.Value);
+                    break;
+                case DoExprStatement exprStmt:
+                    CheckExpr(exprStmt.Expression);
+                    break;
+            }
+        }
+
+        ReportUnusedLetLinearBindings(doExpr.Span, savedLinear);
+        m_linearBindings = savedLinear;
     }
 
     void CheckMatchBranches(MatchExpr match)
@@ -218,7 +315,8 @@ public sealed class LinearityChecker(DiagnosticBag diagnostics, Map<string, Code
             if (count == 0)
             {
                 m_diagnostics.Error("CDX2040",
-                    $"Linear variable '{kv.Key}' is never used (linear resources must be consumed)",
+                    $"Linear variable '{kv.Key}' is never used " +
+                    "(linear resources must be consumed)",
                     span);
             }
         }

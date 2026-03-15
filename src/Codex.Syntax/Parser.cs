@@ -336,6 +336,21 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
         return Current;
     }
 
+    Token ExpectOrSync(TokenKind kind)
+    {
+        if (Current.Kind == kind)
+        {
+            Token token = Current;
+            Advance();
+            return token;
+        }
+
+        m_diagnostics.Error("CDX1000", $"Expected {kind}, found {Current.Kind}", Current.Span);
+        Token errorToken = Current;
+        Synchronize();
+        return errorToken;
+    }
+
     void SkipNewlines()
     {
         while (Current.Kind is TokenKind.Newline or TokenKind.Indent or TokenKind.Dedent)
@@ -370,6 +385,26 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
             {
                 Advance();
             }
+        }
+    }
+
+    void Synchronize()
+    {
+        while (!IsAtEnd)
+        {
+            if (Current.Kind is TokenKind.Newline or TokenKind.Dedent)
+                return;
+
+            if (Current.Kind is TokenKind.ThenKeyword or TokenKind.ElseKeyword
+                or TokenKind.InKeyword or TokenKind.IfKeyword
+                or TokenKind.WhenKeyword or TokenKind.DoKeyword
+                or TokenKind.LetKeyword
+                or TokenKind.RightParen or TokenKind.RightBracket or TokenKind.RightBrace)
+            {
+                return;
+            }
+
+            Advance();
         }
     }
 }

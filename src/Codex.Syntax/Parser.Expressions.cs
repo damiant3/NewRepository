@@ -167,10 +167,23 @@ public sealed partial class Parser
         List<RecordFieldNode> fields = [];
         while (Current.Kind != TokenKind.RightBrace && !IsAtEnd)
         {
-            Token fieldName = Expect(TokenKind.Identifier);
+            if (Current.Kind != TokenKind.Identifier)
+            {
+                m_diagnostics.Error("CDX1024",
+                    $"Expected field name, found {Current.Kind}", Current.Span);
+                Synchronize();
+                if (Current.Kind == TokenKind.RightBrace)
+                    break;
+                SkipNewlines();
+                continue;
+            }
+
+            Token fieldName = Current;
+            Advance();
             Expect(TokenKind.Equals);
             ExpressionNode fieldValue = ParseExpression();
-            fields.Add(new RecordFieldNode(fieldName, fieldValue, fieldName.Span.Through(fieldValue.Span)));
+            fields.Add(new RecordFieldNode(fieldName, fieldValue,
+                fieldName.Span.Through(fieldValue.Span)));
 
             SkipNewlines();
             if (Current.Kind == TokenKind.Comma)
@@ -193,6 +206,13 @@ public sealed partial class Parser
         List<ExpressionNode> elements = [];
         while (Current.Kind != TokenKind.RightBracket && !IsAtEnd)
         {
+            if (Current.Kind is TokenKind.Newline or TokenKind.Dedent)
+            {
+                SkipNewlines();
+                if (Current.Kind == TokenKind.RightBracket)
+                    break;
+            }
+
             elements.Add(ParseExpression());
             SkipNewlines();
             if (Current.Kind == TokenKind.Comma)
@@ -200,6 +220,13 @@ public sealed partial class Parser
                 Advance();
                 SkipNewlines();
             }
+        }
+
+        if (Current.Kind != TokenKind.RightBracket)
+        {
+            m_diagnostics.Error("CDX1025",
+                "Unterminated list literal — expected ']'", start.Span);
+            return new ListExpressionNode(elements, start.Span.Through(Previous.Span));
         }
 
         Expect(TokenKind.RightBracket);
@@ -213,14 +240,46 @@ public sealed partial class Parser
         SkipNewlines();
         ExpressionNode condition = ParseExpression();
         SkipNewlines();
-        Expect(TokenKind.ThenKeyword);
+
+        if (Current.Kind != TokenKind.ThenKeyword)
+        {
+            m_diagnostics.Error("CDX1021",
+                $"Expected 'then' after condition, found {Current.Kind}", Current.Span);
+            Synchronize();
+            if (Current.Kind == TokenKind.ThenKeyword)
+                Advance();
+            else
+                return new ErrorExpressionNode(start);
+        }
+        else
+        {
+            Advance();
+        }
+
         SkipNewlines();
         ExpressionNode thenExpr = ParseExpression();
         SkipNewlines();
-        Expect(TokenKind.ElseKeyword);
+
+        if (Current.Kind != TokenKind.ElseKeyword)
+        {
+            m_diagnostics.Error("CDX1022",
+                $"Expected 'else' after 'then' branch, found {Current.Kind}", Current.Span);
+            Synchronize();
+            if (Current.Kind == TokenKind.ElseKeyword)
+                Advance();
+            else
+                return new IfExpressionNode(condition, thenExpr,
+                    new ErrorExpressionNode(Current), start.Span.Through(thenExpr.Span));
+        }
+        else
+        {
+            Advance();
+        }
+
         SkipNewlines();
         ExpressionNode elseExpr = ParseExpression();
-        return new IfExpressionNode(condition, thenExpr, elseExpr, start.Span.Through(elseExpr.Span));
+        return new IfExpressionNode(condition, thenExpr, elseExpr,
+            start.Span.Through(elseExpr.Span));
     }
 
     ExpressionNode ParseLetExpression()
@@ -246,7 +305,27 @@ public sealed partial class Parser
             }
         }
 
-        Expect(TokenKind.InKeyword);
+        if (Current.Kind != TokenKind.InKeyword)
+        {
+            m_diagnostics.Error("CDX1023",
+                $"Expected 'in' after let bindings, found {Current.Kind}", Current.Span);
+            Synchronize();
+            if (Current.Kind == TokenKind.InKeyword)
+            {
+                Advance();
+            }
+            else
+            {
+                ExpressionNode errBody = new ErrorExpressionNode(Current);
+                return new LetExpressionNode(bindings, errBody,
+                    start.Span.Through(errBody.Span));
+            }
+        }
+        else
+        {
+            Advance();
+        }
+
         SkipNewlines();
         ExpressionNode body = ParseExpression();
         return new LetExpressionNode(bindings, body, start.Span.Through(body.Span));
@@ -264,20 +343,41 @@ public sealed partial class Parser
         {
             Advance();
             PatternNode pattern = ParsePattern();
-            Expect(TokenKind.Arrow);
+
+            if (Current.Kind != TokenKind.Arrow)
+            {
+                m_diagnostics.Error("CDX1032",
+                    $"Expected '->' after pattern, found {Current.Kind}", Current.Span);
+                Synchronize();
+                if (Current.Kind == TokenKind.Arrow)
+                    Advance();
+                else
+                {
+                    SkipNewlines();
+                    continue;
+                }
+            }
+            else
+            {
+                Advance();
+            }
+
             SkipNewlines();
             ExpressionNode body = ParseExpression();
-            branches.Add(new MatchBranchNode(pattern, body, pattern.Span.Through(body.Span)));
+            branches.Add(new MatchBranchNode(pattern, body,
+                pattern.Span.Through(body.Span)));
             SkipNewlines();
         }
 
         if (branches.Count == 0)
         {
-            m_diagnostics.Error("CDX1030", "Match expression requires at least one branch", start.Span);
+            m_diagnostics.Error("CDX1030",
+                "Match expression requires at least one branch", start.Span);
         }
 
         SourceSpan endSpan = branches.Count > 0 ? branches[^1].Span : scrutinee.Span;
-        return new MatchExpressionNode(scrutinee, branches, start.Span.Through(endSpan));
+        return new MatchExpressionNode(scrutinee, branches,
+            start.Span.Through(endSpan));
     }
 
     ExpressionNode ParseDoExpression()
