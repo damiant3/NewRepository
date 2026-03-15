@@ -122,3 +122,31 @@ Significant design and engineering decisions are recorded here in chronological 
 **Decision**: Emit the Codex `main` as `codex_main`, and generate a Rust `fn main()` that calls it.
 **Rationale**: Simple, no namespace pollution, clear separation between Codex semantics and Rust entry point convention.
 **Consequences**: Rust output always has a `codex_main` function.
+
+---
+
+## Decision: Tail Call Optimization via Loop Conversion
+**Date**: 2026-03
+**Context**: Codex uses recursion for all iteration. Deep recursion causes `StackOverflowException` on .NET and Node.js. Rust may or may not optimize tail calls.
+**Decision**: All three emitters detect self-recursive tail calls and convert them to `while(true)` (C#/JS) or `loop {}` (Rust) with parameter reassignment.
+**Rationale**: Simple, reliable, no runtime dependency. The detection is conservative — only self-calls in tail position of if/let/match branches are converted. Non-tail calls remain as recursion. This eliminates the most common SO risk (accumulator-style recursion).
+**Implementation**: `HasSelfTailCall` walks the IR expression tree. `EmitTailCallDefinition` emits the loop. Tested with 1,000,000-deep recursion (`tco-stress.codex`).
+**Consequences**: Recursive functions with tail calls are now stack-safe in all three backends.
+
+---
+
+## Decision: TypeVariable Emits as `object` in C#, Not Generic `T<N>`
+**Date**: 2026-03
+**Context**: Polymorphic sum types (e.g., `Result (a) = Success (a) | Failure Text`) emitted `T0` as a C# type name, but no generic parameter was declared. This caused `CS0246: T0 not found`.
+**Decision**: Emit `TypeVariable` as `object` in C#. Use casts at usage sites. No C# generics on emitted code.
+**Rationale**: The Codex type system handles polymorphism at the source level. The C# output is cast-based — simpler, working, and consistent with how the bootstrap (`output.cs`) already operates. C# generics can be revisited when the type system can monomorphize.
+**Consequences**: Polymorphic values are boxed. Cast errors are possible at runtime but prevented by the Codex type checker.
+
+---
+
+## Decision: No String Interpolation Syntax
+**Date**: 2026-03 (Damian's answer to Q4)
+**Context**: The lexer was designed with `${ }` interpolation in mind.
+**Decision**: No string interpolation. Use `++` for concatenation and named functions like `integer-to-text` for conversion.
+**Rationale**: `${}` is visual noise that reduces readability — contrary to Codex's prose-first philosophy. Named functions are clearer: "convert this integer to text" vs "embed this integer in a string template." The language should not add special syntax to make string building easier when function composition already works.
+**Consequences**: No lexer/parser changes needed. The `InterpolationMode` from the original lexer design is permanently deferred.

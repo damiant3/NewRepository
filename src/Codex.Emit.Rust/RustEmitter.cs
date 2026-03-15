@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using Codex.Core;
 using Codex.IR;
@@ -106,6 +107,7 @@ public sealed class RustEmitter : ICodeEmitter
         foreach (RecordFieldType field in rec.Fields)
         {
             sb.AppendLine($"    {Sanitize(field.FieldName.Value)}: {EmitType(field.Type)},");
+
         }
         sb.AppendLine("}");
         sb.AppendLine();
@@ -114,6 +116,13 @@ public sealed class RustEmitter : ICodeEmitter
     void EmitDefinition(StringBuilder sb, IRDefinition def)
     {
         string name = def.Name == "main" ? "codex_main" : Sanitize(def.Name);
+
+        if (HasSelfTailCall(def))
+        {
+            EmitTailCallDefinition(sb, def, name);
+            return;
+        }
+
         string returnType = EmitType(GetReturnType(def));
 
         sb.Append($"fn {name}(");
@@ -139,6 +148,103 @@ public sealed class RustEmitter : ICodeEmitter
         }
 
         sb.AppendLine("}");
+    }
+
+    static bool HasSelfTailCall(IRDefinition def)
+    {
+        if (def.Parameters.Length == 0)
+            return false;
+        return ExprHasTailCall(def.Body, def.Name);
+    }
+
+    static bool ExprHasTailCall(IRExpr expr, string funcName)
+    {
+        return expr switch
+        {
+            IRIf iff => ExprHasTailCall(iff.Then, funcName)
+                     || ExprHasTailCall(iff.Else, funcName),
+            IRLet let => ExprHasTailCall(let.Body, funcName),
+            IRMatch match => match.Branches.Any(b => ExprHasTailCall(b.Body, funcName)),
+            IRApply app => IsSelfCall(app, funcName),
+            _ => false
+        };
+    }
+
+    static bool IsSelfCall(IRApply app, string funcName)
+    {
+        IRExpr root = app.Function;
+        while (root is IRApply inner)
+            root = inner.Function;
+        return root is IRName name && name.Name == funcName;
+    }
+
+    void EmitTailCallDefinition(StringBuilder sb, IRDefinition def, string name)
+    {
+        string returnType = EmitType(GetReturnType(def));
+
+        sb.Append($"fn {name}(");
+        for (int i = 0; i < def.Parameters.Length; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            IRParameter param = def.Parameters[i];
+            sb.Append($"mut {Sanitize(param.Name)}: {EmitType(param.Type)}");
+        }
+        sb.AppendLine($") -> {returnType} {{");
+        sb.AppendLine("    loop {");
+
+        EmitTailCallBody(sb, def.Body, def.Name, def.Parameters, 2);
+
+        sb.AppendLine("    }");
+        sb.AppendLine("}");
+    }
+
+    void EmitTailCallBody(
+        StringBuilder sb, IRExpr expr, string funcName,
+        ImmutableArray<IRParameter> parameters, int indent)
+    {
+        string pad = new(' ', indent * 4);
+
+        switch (expr)
+        {
+            case IRIf iff:
+                sb.Append($"{pad}if ");
+                EmitExpr(sb, iff.Condition, indent);
+                sb.AppendLine(" {");
+                EmitTailCallBody(sb, iff.Then, funcName, parameters, indent + 1);
+                sb.AppendLine($"{pad}}} else {{");
+                EmitTailCallBody(sb, iff.Else, funcName, parameters, indent + 1);
+                sb.AppendLine($"{pad}}}");
+                break;
+
+            case IRLet let:
+                sb.Append($"{pad}let {Sanitize(let.Name)} = ");
+                EmitExpr(sb, let.Value, indent);
+                sb.AppendLine(";");
+                EmitTailCallBody(sb, let.Body, funcName, parameters, indent);
+                break;
+
+            case IRApply app when IsSelfCall(app, funcName):
+            {
+                List<IRExpr> args = [];
+                CollectApplyArgs(app, args);
+                for (int i = 0; i < args.Count && i < parameters.Length; i++)
+                {
+                    sb.Append($"{pad}let _tco_{i} = ");
+                    EmitExpr(sb, args[i], indent);
+                    sb.AppendLine(";");
+                }
+                for (int i = 0; i < args.Count && i < parameters.Length; i++)
+                    sb.AppendLine($"{pad}{Sanitize(parameters[i].Name)} = _tco_{i};");
+                sb.AppendLine($"{pad}continue;");
+                break;
+            }
+
+            default:
+                sb.Append($"{pad}return ");
+                EmitExpr(sb, expr, indent);
+                sb.AppendLine(";");
+                break;
+        }
     }
 
     void EmitExpr(StringBuilder sb, IRExpr expr, int indent)
@@ -234,6 +340,7 @@ public sealed class RustEmitter : ICodeEmitter
 
             case IRList list:
                 sb.Append("vec![");
+
                 for (int i = 0; i < list.Elements.Length; i++)
                 {
                     if (i > 0) sb.Append(", ");

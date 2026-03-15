@@ -330,4 +330,97 @@ public class EmitterIntegrationTests
         Assert.NotNull(rs);
         Assert.Contains("println!", rs);
     }
+
+    // ── arithmetic.codex ───────────────────────────────────────
+
+    [Fact]
+    public void Arithmetic_emits_csharp()
+    {
+        string source = ReadSample("arithmetic.codex");
+        string? cs = Helpers.CompileToCS(source, "arithmetic");
+        Assert.NotNull(cs);
+        Assert.Contains("max", cs);
+        Assert.Contains("clamp", cs);
+    }
+
+    [Fact]
+    public void Arithmetic_emits_javascript()
+    {
+        string source = ReadSample("arithmetic.codex");
+        string? js = Helpers.CompileToJS(source, "arithmetic");
+        Assert.NotNull(js);
+        Assert.Contains("function max", js);
+    }
+
+    [Fact]
+    public void Arithmetic_emits_rust()
+    {
+        string source = ReadSample("arithmetic.codex");
+        string? rs = Helpers.CompileToRust(source, "arithmetic");
+        Assert.NotNull(rs);
+        Assert.Contains("fn max", rs);
+    }
+
+    // ── effects-demo.codex ─────────────────────────────────────
+
+    [Fact]
+    public void EffectsDemo_emits_csharp()
+    {
+        string source = ReadSample("effects-demo.codex");
+        string? cs = Helpers.CompileToCS(source, "effects_demo");
+        Assert.NotNull(cs);
+        Assert.Contains("greet", cs);
+        Assert.Contains("Console.WriteLine", cs);
+    }
+
+    [Fact]
+    public void EffectsDemo_emits_javascript()
+    {
+        string source = ReadSample("effects-demo.codex");
+        string? js = Helpers.CompileToJS(source, "effects_demo");
+        Assert.NotNull(js);
+        Assert.Contains("console.log", js);
+    }
+
+    [Fact]
+    public void EffectsDemo_emits_rust()
+    {
+        string source = ReadSample("effects-demo.codex");
+        string? rs = Helpers.CompileToRust(source, "effects_demo");
+        Assert.NotNull(rs);
+        Assert.Contains("println!", rs);
+    }
+
+    // ── tco-stress.codex ──────────────────────────────────────
+
+    [Fact]
+    public void TcoStress_emits_csharp_with_loop()
+    {
+        string source = ReadSample("tco-stress.codex");
+        string? cs = Helpers.CompileToCS(source, "tco_stress");
+        Assert.NotNull(cs);
+        Assert.Contains("while (true)", cs);
+        Assert.Contains("continue;", cs);
+    }
+
+    [Fact]
+    public void TcoStress_emits_javascript_with_loop()
+    {
+        string source = ReadSample("tco-stress.codex");
+        string? js = Helpers.CompileToJS(source, "tco_stress");
+        Assert.NotNull(js);
+        Assert.Contains("while (true)", js);
+        Assert.Contains("continue;", js);
+    }
+
+    [Fact]
+    public void TcoStress_emits_rust_with_loop()
+    {
+        string source = ReadSample("tco-stress.codex");
+        string? rs = Helpers.CompileToRust(source, "tco_stress");
+        Assert.NotNull(rs);
+        Assert.Contains("loop {", rs);
+        Assert.Contains("mut", rs);
+        Assert.Contains("continue;", rs);
+    }
 }
