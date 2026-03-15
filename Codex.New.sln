@@ -142,6 +142,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.JavaScript", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.Rust", "src\Codex.Emit.Rust\Codex.Emit.Rust.csproj", "{211CDEBC-186E-4D14-9DA4-648F7C95AEE6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.Python", "src\Codex.Emit.Python\Codex.Emit.Python.csproj", "{F6344070-A3A5-CFB3-D176-318235074405}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -416,6 +418,18 @@ Global
 		{211CDEBC-186E-4D14-9DA4-648F7C95AEE6}.Release|x64.Build.0 = Release|Any CPU
 		{211CDEBC-186E-4D14-9DA4-648F7C95AEE6}.Release|x86.ActiveCfg = Release|Any CPU
 		{211CDEBC-186E-4D14-9DA4-648F7C95AEE6}.Release|x86.Build.0 = Release|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Debug|x64.Build.0 = Debug|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Debug|x86.Build.0 = Debug|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Release|x64.ActiveCfg = Release|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Release|x64.Build.0 = Release|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Release|x86.ActiveCfg = Release|Any CPU
+		{F6344070-A3A5-CFB3-D176-318235074405}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -446,6 +460,7 @@ Global
 		{176BA98E-C341-4503-B743-1982DB4236C4} = {A0000000-0000-0000-0000-000000000002}
 		{8A803F78-740C-433A-85DA-EBD8235A5188} = {A0000000-0000-0000-0000-000000000001}
 		{211CDEBC-186E-4D14-9DA4-648F7C95AEE6} = {A0000000-0000-0000-0000-000000000001}
+		{F6344070-A3A5-CFB3-D176-318235074405} = {A0000000-0000-0000-0000-000000000001}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}

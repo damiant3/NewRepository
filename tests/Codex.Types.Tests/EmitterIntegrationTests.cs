@@ -54,6 +54,15 @@ public class EmitterIntegrationTests
         Assert.Contains("i64", rs);
     }
 
+    [Fact]
+    public void Hello_emits_python()
+    {
+        string source = ReadSample("hello.codex");
+        string? py = Helpers.CompileToPython(source, "hello");
+        Assert.NotNull(py);
+        Assert.Contains("def square", py);
+    }
+
     // ── factorial.codex ────────────────────────────────────────
 
     [Fact]
@@ -81,6 +90,15 @@ public class EmitterIntegrationTests
         string? rs = Helpers.CompileToRust(source, "factorial");
         Assert.NotNull(rs);
         Assert.Contains("fn factorial", rs);
+    }
+
+    [Fact]
+    public void Factorial_emits_python()
+    {
+        string source = ReadSample("factorial.codex");
+        string? py = Helpers.CompileToPython(source, "factorial");
+        Assert.NotNull(py);
+        Assert.Contains("def factorial", py);
     }
 
     // ── fibonacci.codex ────────────────────────────────────────
@@ -112,6 +130,15 @@ public class EmitterIntegrationTests
         Assert.Contains("fn fib", rs);
     }
 
+    [Fact]
+    public void Fibonacci_emits_python()
+    {
+        string source = ReadSample("fibonacci.codex");
+        string? py = Helpers.CompileToPython(source, "fibonacci");
+        Assert.NotNull(py);
+        Assert.Contains("def fib", py);
+    }
+
     // ── greeting.codex ─────────────────────────────────────────
 
     [Fact]
@@ -141,6 +168,16 @@ public class EmitterIntegrationTests
         Assert.NotNull(rs);
         Assert.Contains("fn greeting", rs);
         Assert.Contains("format!", rs);
+    }
+
+    [Fact]
+    public void Greeting_emits_python()
+    {
+        string source = ReadSample("greeting.codex");
+        string? py = Helpers.CompileToPython(source, "greeting");
+        Assert.NotNull(py);
+        Assert.Contains("def greeting", py);
+        Assert.Contains("\"Hello, \"", py);
     }
 
     // ── shapes.codex ───────────────────────────────────────────
@@ -177,6 +214,17 @@ public class EmitterIntegrationTests
         Assert.Contains("Rectangle", rs);
     }
 
+    [Fact]
+    public void Shapes_emits_python()
+    {
+        string source = ReadSample("shapes.codex");
+        string? py = Helpers.CompileToPython(source, "shapes");
+        Assert.NotNull(py);
+        Assert.Contains("class Circle", py);
+        Assert.Contains("class Rectangle", py);
+        Assert.Contains("isinstance", py);
+    }
+
     // ── person.codex ───────────────────────────────────────────
 
     [Fact]
@@ -207,6 +255,16 @@ public class EmitterIntegrationTests
         Assert.NotNull(rs);
         Assert.Contains("struct Person", rs);
         Assert.Contains("name: String", rs);
+    }
+
+    [Fact]
+    public void Person_emits_python()
+    {
+        string source = ReadSample("person.codex");
+        string? py = Helpers.CompileToPython(source, "person");
+        Assert.NotNull(py);
+        Assert.Contains("class Person", py);
+        Assert.Contains("name", py);
     }
 
     // ── safe-divide.codex ──────────────────────────────────────
@@ -243,6 +301,16 @@ public class EmitterIntegrationTests
         Assert.Contains("Failure", rs);
     }
 
+    [Fact]
+    public void SafeDivide_emits_python()
+    {
+        string source = ReadSample("safe-divide.codex");
+        string? py = Helpers.CompileToPython(source, "safe_divide");
+        Assert.NotNull(py);
+        Assert.Contains("class Success", py);
+        Assert.Contains("class Failure", py);
+    }
+
     // ── string-ops.codex ───────────────────────────────────────
 
     [Fact]
@@ -272,6 +340,15 @@ public class EmitterIntegrationTests
         Assert.Contains("fn count_letters", rs);
     }
 
+    [Fact]
+    public void StringOps_emits_python()
+    {
+        string source = ReadSample("string-ops.codex");
+        string? py = Helpers.CompileToPython(source, "string_ops");
+        Assert.NotNull(py);
+        Assert.Contains("def count_letters", py);
+    }
+
     // ── prose-greeting.codex ───────────────────────────────────
 
     [Fact]
@@ -299,6 +376,15 @@ public class EmitterIntegrationTests
         string? rs = Helpers.CompileToRust(source, "prose_greeting");
         Assert.NotNull(rs);
         Assert.Contains("fn greet", rs);
+    }
+
+    [Fact]
+    public void ProseGreeting_emits_python()
+    {
+        string source = ReadSample("prose-greeting.codex");
+        string? py = Helpers.CompileToPython(source, "prose_greeting");
+        Assert.NotNull(py);
+        Assert.Contains("def greet", py);
     }
 
     // ── effectful-hello.codex ──────────────────────────────────
@@ -331,6 +417,16 @@ public class EmitterIntegrationTests
         Assert.Contains("println!", rs);
     }
 
+    [Fact]
+    public void EffectfulHello_emits_python()
+    {
+        string source = ReadSample("effectful-hello.codex");
+        string? py = Helpers.CompileToPython(source, "effectful_hello");
+        Assert.NotNull(py);
+        Assert.Contains("print(", py);
+        Assert.Contains("input()", py);
+    }
+
     // ── arithmetic.codex ───────────────────────────────────────
 
     [Fact]
@@ -361,6 +457,15 @@ public class EmitterIntegrationTests
         Assert.Contains("fn max", rs);
     }
 
+    [Fact]
+    public void Arithmetic_emits_python()
+    {
+        string source = ReadSample("arithmetic.codex");
+        string? py = Helpers.CompileToPython(source, "arithmetic");
+        Assert.NotNull(py);
+        Assert.Contains("def max", py);
+    }
+
     // ── effects-demo.codex ─────────────────────────────────────
 
     [Fact]
@@ -389,6 +494,15 @@ public class EmitterIntegrationTests
         string? rs = Helpers.CompileToRust(source, "effects_demo");
         Assert.NotNull(rs);
         Assert.Contains("println!", rs);
+    }
+
+    [Fact]
+    public void EffectsDemo_emits_python()
+    {
+        string source = ReadSample("effects-demo.codex");
+        string? py = Helpers.CompileToPython(source, "effects_demo");
+        Assert.NotNull(py);
+        Assert.Contains("print(", py);
     }
 
     // ── tco-stress.codex ──────────────────────────────────────
@@ -424,6 +538,16 @@ public class EmitterIntegrationTests
         Assert.Contains("continue;", rs);
     }
 
+    [Fact]
+    public void TcoStress_emits_python_with_loop()
+    {
+        string source = ReadSample("tco-stress.codex");
+        string? py = Helpers.CompileToPython(source, "tco_stress");
+        Assert.NotNull(py);
+        Assert.Contains("while True:", py);
+        Assert.Contains("continue", py);
+    }
+
     // ── type-checker-test.codex ───────────────────────────────
 
     [Fact]
@@ -452,5 +576,14 @@ public class EmitterIntegrationTests
         string? rs = Helpers.CompileToRust(source, "type_checker_test");
         Assert.NotNull(rs);
         Assert.Contains("fn apply_twice", rs);
+    }
+
+    [Fact]
+    public void TypeCheckerTest_emits_python()
+    {
+        string source = ReadSample("type-checker-test.codex");
+        string? py = Helpers.CompileToPython(source, "type_checker_test");
+        Assert.NotNull(py);
+        Assert.Contains("def apply_twice", py);
     }
 }

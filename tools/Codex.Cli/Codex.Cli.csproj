@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\Codex.Emit.CSharp\Codex.Emit.CSharp.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.JavaScript\Codex.Emit.JavaScript.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.Rust\Codex.Emit.Rust.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Emit.Python\Codex.Emit.Python.csproj" />
     <ProjectReference Include="..\..\src\Codex.Proofs\Codex.Proofs.csproj" />
     <ProjectReference Include="..\..\src\Codex.Repository\Codex.Repository.csproj" />
   </ItemGroup>

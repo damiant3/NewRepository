@@ -17,11 +17,11 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 
 | Metric | Value |
 |--------|-------|
-| C# projects | 22 |
+| C# projects | 23 |
 | Test count | 297 (all passing) |
 | Codex source | 3,067 lines across 21 .codex files |
 | Bootstrap parity | 259 records, 308 functions |
-| Backends | C# (primary), JavaScript, Rust |
+| Backends | C# (primary), JavaScript, Rust, **Python** |
 | LSP | Diagnostics, hover, symbols, semantic tokens |
 | Repository | Content-addressed fact store with proposals/verdicts |
 
@@ -89,10 +89,10 @@ Full pipeline: `compile-checked` chains lex → parse → desugar → resolve �
 Induction with inductive hypothesis, cong decomposition, lemma application.
 Proof system: Refl, sym, trans, cong (bidirectional), induction with IH, assume.
 
-**11. Additional backends**
-Python is the most requested. WASM/LLVM are aspirational. A Python backend
-would follow the same pattern as JS (dynamic types, runtime assertions).
-Estimated: medium per backend.
+**11. ~~Additional backends~~** — ✅ Python added.
+Python backend: `Codex.Emit.Python`, 630 lines. All 13 samples pass.
+`@dataclass`-based records, `isinstance` pattern matching, `while True` TCO,
+native big integers, `lambda`-based let/match. No type system fights.
 
 **12. Package manager / dependency resolution**
 The repository stores facts but there's no dependency resolution across
