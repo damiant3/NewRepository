@@ -144,10 +144,20 @@ available without a Codex-side type checker).
 
 ## Phase 6: Bootstrap Verification
 
-1. Stage 0 compiles `codex-src/` → `stage1.cs`
-2. Compile `stage1.cs` with `dotnet` → `stage1.exe`
-3. `stage1.exe` compiles `codex-src/` → `stage2.cs`
-4. Verify `stage1.cs` ≡ `stage2.cs` (byte-for-byte)
+1. Stage 0 compiles `codex-src/` → `output.cs` ✅ (94KB)
+2. Compile `output.cs` with `dotnet` → Stage 1 exe ✅
+3. Stage 1 compiles `codex-src/` → `stage1-output.cs` ✅ (65KB)
+4. Verify `output.cs` ≡ `stage1-output.cs` — ❌ Not yet identical
+
+**Status**: Steps 1–3 complete. The generated compiler compiles and runs but produces
+different output because:
+- Stage 0 has full type-driven emission (binary op selection, type annotations on lets)
+- Stage 1 lacks a type checker — it emits with `ErrorTy` defaults throughout
+- Stage 1 doesn't strip prose (Chapter/Section) — handled by bootstrap harness
+
+Full byte-for-byte identity requires a Codex-side type checker (Phase 5 noted this was
+skipped). The current state proves the pipeline works end-to-end:
+`Source → Lex → Parse → Desugar → Lower → EmitCSharp → dotnet build → run`.
 
 ## Estimated Effort
 
@@ -158,8 +168,8 @@ available without a Codex-side type checker).
 | Phase 3 | Lexer in Codex | ✅ 1 |
 | Phase 4 | Parser + AST + Desugarer | ✅ 2 |
 | Phase 5 | IR + Lowering + Emitter | ✅ 1 |
-| Phase 6 | Bootstrap verification | ⏳ next |
-| **Total** | | **6 sessions so far** |
+| Phase 6 | Bootstrap verification | ✅ 1 (partial — compiles & runs, not yet identical) |
+| **Total** | | **7 sessions** |
 
 ---
 
@@ -195,5 +205,41 @@ available without a Codex-side type checker).
 - `dotnet test Codex.sln` — 246/246 tests pass
 - `codex build codex-src` — compiles all 16 files (Core 4 + Syntax 5 + Ast 2 + Types 1 + IR 2 + Emit 1 + Main 1)
 - Generated `codex-src/output.cs` — 94KB of C# code
+
+### Session 6 — Phase 6: Bootstrap Verification
+
+**Goal**: Compile the generated C# and run it to produce Stage 1 output.
+
+**New project**: `tools/Codex.Bootstrap/` — wraps `codex-src/output.cs` in a console
+project that reads `.codex` files, extracts notation (strips prose), and calls the
+generated `compile` function.
+
+**Stage 0 emitter fixes** (to make generated C# compilable):
+1. **Generic type parameters on definitions** — `TypeVariable` emits as `T{id}`,
+   definitions with type variables get `<T0, T1>` generic params. Required
+   `CollectTypeVarIds` helper.
+2. **`EmitArgument` wrapper** — function-type names passed as arguments get wrapped
+   in `new Func<P, R>(name)` to satisfy C# delegate conversion. Multi-arg definitions
+   get currying lambdas instead.
+3. **Partial application** — when `args.Count < arity`, emits nested single-arg lambdas:
+   `(_p0_) => (_p1_) => f(applied, _p0_, _p1_)`.
+4. **`Equals` → `Equals_` sanitization** — C# records can't be named `Equals` (CS0542).
+5. **`ForAllType` stripping in Lowering** — `LookupName` strips `ForAllType` wrappers
+   so built-in polymorphic types like `list-at` expose their function type.
+6. **Type variable substitution in `LowerApply`** — when applying a function whose
+   parameter type contains `TypeVariable`, matches against the concrete arg type and
+   substitutes in the return type (`list-at List<IRParam> 0` → returns `IRParam`).
+7. **Constructor field type resolution** — `LowerCtorPattern` resolves `ConstructedType`
+   to `SumType` via `m_typeDefMap` and falls back to `m_ctorMap` for field types.
+8. **Bootstrap harness** — `ExtractNotation` strips Chapter/Section prose, 256MB stack
+   thread for deep recursion.
+
+**Results**:
+- `dotnet build Codex.sln` — zero warnings
+- `dotnet test Codex.sln` — 246/246 tests pass
+- Stage 0: `codex build codex-src` → `output.cs` (94KB)
+- Stage 1: `dotnet run --project tools/Codex.Bootstrap -- build codex-src` → `stage1-output.cs` (65KB)
+- Stage 1 output differs from Stage 0 (no type checker in Codex → wrong binary ops, missing params)
+- Full bootstrap identity requires Codex-side type checker (future work)
 
 Root Cause Found: Stage 0 Parser Greedy Branch Consumption

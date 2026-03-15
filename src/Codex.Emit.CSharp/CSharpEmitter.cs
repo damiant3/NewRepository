@@ -133,12 +133,74 @@ public sealed class CSharpEmitter : ICodeEmitter
         return names;
     }
 
+    void EmitArgument(StringBuilder sb, IRExpr arg, int indent)
+    {
+        if (arg is IRName name && name.Name == "show")
+        {
+            sb.Append("new Func<object, string>(x => Convert.ToString(x))");
+        }
+        else if (arg is IRName name2 && name2.Name == "negate")
+        {
+            sb.Append("new Func<long, long>(x => -x)");
+        }
+        else if (arg is IRName fnName && fnName.Type is FunctionType ft
+            && !m_constructorNames.Contains(fnName.Name)
+            && !HasTypeVariable(ft))
+        {
+            if (m_definitionArity.TryGet(fnName.Name, out int arity) && arity > 1)
+            {
+                EmitPartialApplication(sb, fnName.Name, arity, [], indent);
+            }
+            else
+            {
+                string pType = EmitType(ft.Parameter);
+                string rType = EmitType(ft.Return);
+                sb.Append($"new Func<{pType}, {rType}>(");
+                sb.Append(SanitizeIdentifier(fnName.Name));
+                sb.Append(')');
+            }
+        }
+        else
+        {
+            EmitExpr(sb, arg, indent);
+        }
+    }
+
+    static bool HasTypeVariable(CodexType type)
+    {
+        return type switch
+        {
+            TypeVariable => true,
+            FunctionType ft => HasTypeVariable(ft.Parameter) || HasTypeVariable(ft.Return),
+            ListType lt => HasTypeVariable(lt.Element),
+            _ => false
+        };
+    }
+
     void EmitDefinition(StringBuilder sb, IRDefinition def)
     {
+        HashSet<int> typeVarIds = [];
+        CollectTypeVarIds(def.Type, typeVarIds);
+
         string returnType = EmitType(GetReturnType(def));
         string name = SanitizeIdentifier(def.Name);
 
-        sb.Append($"    public static {returnType} {name}(");
+        sb.Append($"    public static {returnType} {name}");
+
+        if (typeVarIds.Count > 0)
+        {
+            sb.Append('<');
+            bool first = true;
+            foreach (int id in typeVarIds.Order())
+            {
+                if (!first) sb.Append(", ");
+                sb.Append($"T{id}");
+                first = false;
+            }
+            sb.Append('>');
+        }
+
+        sb.Append('(');
 
         for (int i = 0; i < def.Parameters.Length; i++)
         {
@@ -355,15 +417,19 @@ public sealed class CSharpEmitter : ICodeEmitter
                                 for (int i = 0; i < args.Count; i++)
                                 {
                                     if (i > 0) sb.Append(", ");
-                                    EmitExpr(sb, args[i], indent);
+                                    EmitArgument(sb, args[i], indent);
                                 }
                                 sb.Append(')');
+                            }
+                            else if (args.Count < arity)
+                            {
+                                EmitPartialApplication(sb, defName, arity, args, indent);
                             }
                             else
                             {
                                 EmitExpr(sb, app.Function, indent);
                                 sb.Append('(');
-                                EmitExpr(sb, app.Argument, indent);
+                                EmitArgument(sb, app.Argument, indent);
                                 sb.Append(')');
                             }
                         }
@@ -371,7 +437,7 @@ public sealed class CSharpEmitter : ICodeEmitter
                         {
                             EmitExpr(sb, app.Function, indent);
                             sb.Append('(');
-                            EmitExpr(sb, app.Argument, indent);
+                            EmitArgument(sb, app.Argument, indent);
                             sb.Append(')');
                         }
                     }
@@ -589,6 +655,28 @@ public sealed class CSharpEmitter : ICodeEmitter
         EmitExpr(sb, let.Body, indent);
         sb.Append("))(");
         EmitExpr(sb, let.Value, indent);
+        sb.Append(')');
+    }
+
+    void EmitPartialApplication(
+        StringBuilder sb, string defName, int arity, List<IRExpr> appliedArgs, int indent)
+    {
+        int remaining = arity - appliedArgs.Count;
+        for (int i = 0; i < remaining; i++)
+        {
+            sb.Append($"(_p{i}_) => ");
+        }
+        sb.Append($"{SanitizeIdentifier(defName)}(");
+        for (int i = 0; i < appliedArgs.Count; i++)
+        {
+            EmitArgument(sb, appliedArgs[i], indent);
+            sb.Append(", ");
+        }
+        for (int i = 0; i < remaining; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            sb.Append($"_p{i}_");
+        }
         sb.Append(')');
     }
 
@@ -866,17 +954,17 @@ public sealed class CSharpEmitter : ICodeEmitter
             VoidType => "void",
             EffectfulType eft => EmitType(eft.Return),
             LinearType lin => EmitType(lin.Inner),
-            FunctionType ft => $"Func<{EmitType(ft.Parameter)}, {EmitType(ft.Return)}>",
-            DependentFunctionType dep => $"Func<{EmitType(dep.ParamType)}, {EmitType(dep.Body)}>",
             ListType lt => $"List<{EmitType(lt.Element)}>",
             SumType st => SanitizeIdentifier(st.TypeName.Value),
             RecordType rt => SanitizeIdentifier(rt.TypeName.Value),
             ConstructedType ct => SanitizeIdentifier(ct.Constructor.Value),
+            FunctionType ft => $"Func<{EmitType(ft.Parameter)}, {EmitType(ft.Return)}>",
+            DependentFunctionType dep => $"Func<{EmitType(dep.ParamType)}, {EmitType(dep.Body)}>",
             TypeLevelValue => "long",
             TypeLevelVar => "long",
             TypeLevelBinary => "long",
             ProofType => "object",
-            TypeVariable => "object",
+            TypeVariable tv => $"T{tv.Id}",
             ErrorType => "object",
             _ => "object"
         };
@@ -901,6 +989,30 @@ public sealed class CSharpEmitter : ICodeEmitter
         if (type is EffectfulType eft)
             type = eft.Return;
         return type;
+    }
+
+    static void CollectTypeVarIds(CodexType type, HashSet<int> ids)
+    {
+        switch (type)
+        {
+            case TypeVariable tv:
+                ids.Add(tv.Id);
+                break;
+            case FunctionType ft:
+                CollectTypeVarIds(ft.Parameter, ids);
+                CollectTypeVarIds(ft.Return, ids);
+                break;
+            case ListType lt:
+                CollectTypeVarIds(lt.Element, ids);
+                break;
+            case ForAllType fa:
+                CollectTypeVarIds(fa.Body, ids);
+                break;
+            case ConstructedType ct:
+                foreach (CodexType arg in ct.Arguments)
+                    CollectTypeVarIds(arg, ids);
+                break;
+        }
     }
 
     static bool IsEffectfulDefinition(IRDefinition def)
@@ -937,6 +1049,8 @@ public sealed class CSharpEmitter : ICodeEmitter
             or "protected" or "internal" or "abstract" or "sealed" or "override"
             or "virtual" or "event" or "delegate" or "out" or "ref" or "params"
                 => $"@{sanitized}",
+            "Equals" or "GetHashCode" or "ToString" or "GetType" or "MemberwiseClone"
+                => $"{sanitized}_",
             _ => sanitized
         };
     }

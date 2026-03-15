@@ -229,7 +229,41 @@ public sealed class Lowering(
             returnType = expectedType;
         }
         IRExpr arg = LowerExpr(app.Argument, argType);
+
+        returnType = SubstituteTypeVarsFromArg(argType, arg.Type, returnType);
+
         return new IRApply(func, arg, returnType);
+    }
+
+    static CodexType SubstituteTypeVarsFromArg(
+        CodexType paramType, CodexType argType, CodexType target)
+    {
+        if (paramType is TypeVariable tv)
+            return SubstituteTypeVar(target, tv.Id, argType);
+
+        if (paramType is ListType lp && argType is ListType la)
+            return SubstituteTypeVarsFromArg(lp.Element, la.Element, target);
+
+        if (paramType is FunctionType fp && argType is FunctionType fa)
+        {
+            target = SubstituteTypeVarsFromArg(fp.Parameter, fa.Parameter, target);
+            return SubstituteTypeVarsFromArg(fp.Return, fa.Return, target);
+        }
+
+        return target;
+    }
+
+    static CodexType SubstituteTypeVar(CodexType type, int varId, CodexType replacement)
+    {
+        return type switch
+        {
+            TypeVariable tv when tv.Id == varId => replacement,
+            FunctionType ft => new FunctionType(
+                SubstituteTypeVar(ft.Parameter, varId, replacement),
+                SubstituteTypeVar(ft.Return, varId, replacement)),
+            ListType lt => new ListType(SubstituteTypeVar(lt.Element, varId, replacement)),
+            _ => type
+        };
     }
 
     IRExpr LowerLambda(LambdaExpr lam, CodexType expectedType)
@@ -302,8 +336,30 @@ public sealed class Lowering(
     IRPattern LowerCtorPattern(CtorPattern ctor, CodexType scrutineeType)
     {
         SumType? sumType = scrutineeType as SumType;
+        if (sumType is null && scrutineeType is ConstructedType ct)
+        {
+            CodexType? resolved = m_typeDefMap[ct.Constructor.Value];
+            sumType = resolved as SumType;
+        }
         SumConstructorType? sumCtor = sumType?.Constructors
             .FirstOrDefault(c => c.Name.Value == ctor.Constructor.Value);
+
+        if (sumCtor is null)
+        {
+            CtorInfo? ctorInfo = m_ctorMap[ctor.Constructor.Value];
+            if (ctorInfo is not null)
+            {
+                CodexType ctorType = ctorInfo.ConstructorType;
+                List<CodexType> fields = [];
+                while (ctorType is FunctionType ft)
+                {
+                    fields.Add(ft.Parameter);
+                    ctorType = ft.Return;
+                }
+                sumCtor = new SumConstructorType(ctor.Constructor,
+                    [.. fields]);
+            }
+        }
 
         ImmutableArray<IRPattern>.Builder subPatterns = ImmutableArray.CreateBuilder<IRPattern>();
         for (int i = 0; i < ctor.SubPatterns.Count; i++)
@@ -351,11 +407,14 @@ public sealed class Lowering(
 
     CodexType LookupName(string name, CodexType fallback)
     {
-        return m_localEnv[name]
+        CodexType result = m_localEnv[name]
             ?? m_typeMap[name]
             ?? m_ctorMap[name]?.ConstructorType
             ?? s_builtinTypes[name]
             ?? fallback;
+        while (result is ForAllType fa)
+            result = fa.Body;
+        return result;
     }
 
     IRExpr LowerDoExpr(DoExpr doExpr, CodexType expectedType)
