@@ -43,11 +43,11 @@ public sealed class RustEmitter : ICodeEmitter
             sb.AppendLine("fn main() {");
             if (IsEffectfulDefinition(mainDef))
             {
-                sb.AppendLine($"    {Sanitize("main")}();");
+                sb.AppendLine("    codex_main();");
             }
             else
             {
-                sb.AppendLine($"    println!(\"{{:?}}\", {Sanitize("main")}());");
+                sb.AppendLine("    println!(\"{:?}\", codex_main());");
             }
             sb.AppendLine("}");
         }
@@ -113,9 +113,7 @@ public sealed class RustEmitter : ICodeEmitter
 
     void EmitDefinition(StringBuilder sb, IRDefinition def)
     {
-        if (def.Name == "main") return;
-
-        string name = Sanitize(def.Name);
+        string name = def.Name == "main" ? "codex_main" : Sanitize(def.Name);
         string returnType = EmitType(GetReturnType(def));
 
         sb.Append($"fn {name}(");
@@ -341,6 +339,11 @@ public sealed class RustEmitter : ICodeEmitter
         {
             EmitExpr(sb, app.Argument, indent);
             sb.Append(".parse::<i64>().unwrap()");
+        }
+        else if (app.Function is IRName fn11b && fn11b.Name == "integer-to-text")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".to_string()");
         }
         else if (app.Function is IRName fn12 && fn12.Name == "char-code")
         {
@@ -674,7 +677,7 @@ public sealed class RustEmitter : ICodeEmitter
         args.Add(app.Argument);
     }
 
-    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at");
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at", "text-replace");
 
     static string? FindBuiltinRoot(IRApply app)
     {
@@ -718,6 +721,15 @@ public sealed class RustEmitter : ICodeEmitter
                 sb.Append("[");
                 EmitExpr(sb, args[1], indent);
                 sb.Append(" as usize].clone()");
+                return true;
+
+            case "text-replace" when args.Count == 3:
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".replace(&");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(", &");
+                EmitExpr(sb, args[2], indent);
+                sb.Append(')');
                 return true;
 
             default:

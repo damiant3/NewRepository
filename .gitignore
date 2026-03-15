@@ -355,6 +355,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Codex — generated C# files from `codex build`
+# Codex — generated output files from `codex build`
 samples/*.cs
+samples/*.js
+samples/*.rs
 .codex/

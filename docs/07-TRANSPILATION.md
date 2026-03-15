@@ -279,3 +279,28 @@ The self-hosting milestone is gated on:
 4. **WASM strategy** — direct WASM emission vs. compiling through C/LLVM. Direct emission gives more control but is much more work. Going through LLVM gives us WASM + native for one backend investment.
 
 5. **Source maps** — for the JS and WASM backends, we need source maps that map generated code back to Codex source. This requires carrying source spans through the entire pipeline.
+
+
+Summary of JS & Rust emitter fixes post-bootstrap:
+JavaScript (JavaScriptEmitter.cs)
+Fix	Before	After
+Match paren balance	(((_s) => ... — extra unmatched (	((_s) => ... — balanced
+Ctor pattern binding	Nested IIFEs with reversed binding order	Single IIFE with const bindings
+integer-to-text	Missing	String(x)
+text-replace	Missing	.replaceAll(old, new)
+Rust (RustEmitter.cs)
+Fix	Before	After
+fn main collision	Skipped main def, generated recursive fn main() calling main()	Emits codex_main(), Rust fn main() calls it
+DependentFunctionType brace	{EmitType(dep.Body)}}> — extra }	{EmitType(dep.Body)}> — correct interpolation
+integer-to-text	Missing	.to_string()
+text-replace	Missing	.replace(&old, &new)
+Both
+Sample	JS	Rust
+hello.codex	✅ 25n	✅ compiles
+factorial.codex	✅ 3628800n	✅ compiles
+fibonacci.codex	✅ 6765n	✅ compiles
+greeting.codex	✅ Hello, World!	✅ compiles
+shapes.codex	✅ 78.5	✅ compiles
+person.codex	✅ Hello, Alice!	✅ compiles
+string-ops.codex	✅ 10n	✅ compiles
+effectful-hello.codex	✅ compiles	✅ compiles

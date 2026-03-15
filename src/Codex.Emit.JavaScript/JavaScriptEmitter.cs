@@ -315,6 +315,12 @@ public sealed class JavaScriptEmitter : ICodeEmitter
             EmitExpr(sb, app.Argument, indent);
             sb.Append(", 10)");
         }
+        else if (app.Function is IRName fn11b && fn11b.Name == "integer-to-text")
+        {
+            sb.Append("String(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(')');
+        }
         else if (app.Function is IRName fn12 && fn12.Name == "char-code")
         {
             EmitExpr(sb, app.Argument, indent);
@@ -475,7 +481,7 @@ public sealed class JavaScriptEmitter : ICodeEmitter
 
     void EmitMatch(StringBuilder sb, IRMatch match, int indent)
     {
-        sb.Append("(((_s) => ");
+        sb.Append("((_s) => ");
         bool first = true;
         int opens = 0;
         foreach (IRMatchBranch branch in match.Branches)
@@ -556,21 +562,14 @@ public sealed class JavaScriptEmitter : ICodeEmitter
             return;
         }
 
-        for (int i = varBindings.Count - 1; i >= 0; i--)
+        sb.Append("(() => { ");
+        foreach ((string name, string access) in varBindings)
         {
-            sb.Append("((");
-            sb.Append(Sanitize(varBindings[i].Name));
-            sb.Append(") => ");
+            sb.Append($"const {Sanitize(name)} = {access}; ");
         }
-
+        sb.Append("return ");
         EmitExpr(sb, body, indent);
-
-        for (int i = 0; i < varBindings.Count; i++)
-        {
-            sb.Append(")(");
-            sb.Append(varBindings[i].Access);
-            sb.Append(')');
-        }
+        sb.Append("; })()");
     }
 
     void EmitDoExpr(StringBuilder sb, IRDo doExpr, int indent)
@@ -625,7 +624,7 @@ public sealed class JavaScriptEmitter : ICodeEmitter
         args.Add(app.Argument);
     }
 
-    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at");
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at", "text-replace");
 
     static string? FindBuiltinRoot(IRApply app)
     {
@@ -670,6 +669,15 @@ public sealed class JavaScriptEmitter : ICodeEmitter
                 sb.Append("[");
                 EmitExpr(sb, args[1], indent);
                 sb.Append("]");
+                return true;
+
+            case "text-replace" when args.Count == 3:
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".replaceAll(");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(", ");
+                EmitExpr(sb, args[2], indent);
+                sb.Append(')');
                 return true;
 
             default:
