@@ -1,0 +1,150 @@
+Chapter: Lexer State
+
+  The lexer operates by threading state through a series of pure functions.
+  Each function consumes characters from the source and produces tokens.
+
+  The lexer state tracks our position in the source text:
+
+    LexState = record {
+      source : Text,
+      offset : Integer,
+      line : Integer,
+      column : Integer
+    }
+
+  A lex result is either a successful token or an indication that we've
+  reached the end of input:
+
+    LexResult =
+      | LexOk (Token) (LexState)
+      | LexDone
+
+  To create an initial lexer state from source text:
+
+    make-lex-state : Text -> LexState
+    make-lex-state (source) = LexState { source = source, offset = 0, line = 1, column = 1 }
+
+  To check if we've consumed all input:
+
+    is-at-end : LexState -> Boolean
+    is-at-end (state) = state.offset >= text-length state.source
+
+  To peek at the current character without consuming it:
+
+    peek-char : LexState -> Text
+    peek-char (state) =
+      if is-at-end state
+        then ""
+        else char-at state.source state.offset
+
+  To advance the state by one character:
+
+    advance : LexState -> LexState
+    advance (state) =
+      let ch = peek-char state
+      in if ch == "\n"
+        then LexState {
+          source = state.source,
+          offset = state.offset + 1,
+          line = state.line + 1,
+          column = 1
+        }
+        else LexState {
+          source = state.source,
+          offset = state.offset + 1,
+          line = state.line,
+          column = state.column + 1
+        }
+
+  To make a token from the current state:
+
+    make-token : TokenKind -> Text -> LexState -> Token
+    make-token (kind) (text) (state) =
+      Token {
+        kind = kind,
+        text = text,
+        offset = state.offset,
+        line = state.line,
+        column = state.column
+      }
+
+  To skip whitespace (spaces and tabs, not newlines):
+
+    skip-spaces : LexState -> LexState
+    skip-spaces (state) =
+      if is-at-end state
+        then state
+        else let ch = peek-char state
+          in if ch == " "
+            then skip-spaces (advance state)
+            else if ch == "\t"
+              then skip-spaces (advance state)
+              else state
+
+  To consume an identifier (lowercase letters and hyphens):
+
+    scan-identifier : LexState -> Integer -> LexState
+    scan-identifier (state) (start) =
+      if is-at-end state
+        then state
+        else let ch = peek-char state
+          in if is-letter ch
+            then scan-identifier (advance state) start
+            else if is-digit ch
+              then scan-identifier (advance state) start
+              else if ch == "-"
+                then scan-identifier (advance state) start
+                else state
+
+  To lex a single token from the current position:
+
+    lex-one : LexState -> LexResult
+    lex-one (state) =
+      let after-spaces = skip-spaces state
+      in if is-at-end after-spaces
+        then LexOk (make-token EndOfFile "" after-spaces) after-spaces
+        else let ch = peek-char after-spaces
+          in if ch == "\n"
+            then LexOk (make-token Newline "\n" after-spaces) (advance after-spaces)
+            else if is-letter ch
+              then let start = after-spaces.offset
+                in let end-state = scan-identifier (advance after-spaces) start
+                  in let ident = substring after-spaces.source start (end-state.offset - start)
+                    in LexOk (make-token Identifier ident after-spaces) end-state
+              else if is-digit ch
+                then let start = after-spaces.offset
+                  in let end-state = scan-identifier (advance after-spaces) start
+                    in let digits = substring after-spaces.source start (end-state.offset - start)
+                      in LexOk (make-token IntegerLiteral digits after-spaces) end-state
+                else if ch == "="
+                  then let next = advance after-spaces
+                    in if peek-char next == "="
+                      then LexOk (make-token DoubleEqualsToken "==" after-spaces) (advance next)
+                      else LexOk (make-token EqualsToken "=" after-spaces) next
+                  else if ch == ":"
+                    then LexOk (make-token ColonToken ":" after-spaces) (advance after-spaces)
+                    else if ch == "("
+                      then LexOk (make-token LeftParenToken "(" after-spaces) (advance after-spaces)
+                      else if ch == ")"
+                        then LexOk (make-token RightParenToken ")" after-spaces) (advance after-spaces)
+                        else if ch == "+"
+                          then let next = advance after-spaces
+                            in if peek-char next == "+"
+                              then LexOk (make-token PlusPlusToken "++" after-spaces) (advance next)
+                              else LexOk (make-token PlusToken "+" after-spaces) next
+                          else if ch == "-"
+                            then let next = advance after-spaces
+                              in if peek-char next == ">"
+                                then LexOk (make-token ArrowToken "->" after-spaces) (advance next)
+                                else LexOk (make-token MinusToken "-" after-spaces) next
+                            else if ch == "*"
+                              then LexOk (make-token StarToken "*" after-spaces) (advance after-spaces)
+                              else if ch == "/"
+                                then LexOk (make-token SlashToken "/" after-spaces) (advance after-spaces)
+                                else if ch == "|"
+                                  then LexOk (make-token PipeToken "|" after-spaces) (advance after-spaces)
+                                  else if ch == ","
+                                    then LexOk (make-token CommaToken "," after-spaces) (advance after-spaces)
+                                    else if ch == "."
+                                      then LexOk (make-token DotToken "." after-spaces) (advance after-spaces)
+                                      else LexOk (make-token ErrorToken ch after-spaces) (advance after-spaces)

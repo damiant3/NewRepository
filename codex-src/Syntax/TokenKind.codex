@@ -1,0 +1,59 @@
+Chapter: Token Kinds
+
+  A token kind describes what kind of lexical element a token represents.
+  This is the fundamental enumeration that the lexer produces and the
+  parser consumes.
+
+  We define:
+
+    TokenKind =
+      | EndOfFile
+      | Newline
+      | Indent
+      | Dedent
+      | IntegerLiteral
+      | NumberLiteral
+      | TextLiteral
+      | TrueKeyword
+      | FalseKeyword
+      | Identifier
+      | TypeIdentifier
+      | ProseText
+      | ChapterHeader
+      | SectionHeader
+      | LetKeyword
+      | InKeyword
+      | IfKeyword
+      | ThenKeyword
+      | ElseKeyword
+      | WhenKeyword
+      | WhereKeyword
+      | DoKeyword
+      | RecordKeyword
+      | ImportKeyword
+      | PipeToken
+      | EqualsToken
+      | ColonToken
+      | ArrowToken
+      | LeftArrowToken
+      | PlusToken
+      | MinusToken
+      | StarToken
+      | SlashToken
+      | PlusPlusToken
+      | DoubleEqualsToken
+      | NotEqualsToken
+      | LessThanToken
+      | GreaterThanToken
+      | LessOrEqualToken
+      | GreaterOrEqualToken
+      | LeftParenToken
+      | RightParenToken
+      | LeftBracketToken
+      | RightBracketToken
+      | LeftBraceToken
+      | RightBraceToken
+      | CommaToken
+      | DotToken
+      | UnderscoreToken
+      | ErrorToken

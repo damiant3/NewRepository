@@ -317,6 +317,45 @@ public sealed class RustEmitter : ICodeEmitter
             EmitExpr(sb, app.Argument, indent);
             sb.Append(')');
         }
+        else if (app.Function is IRName fn7 && fn7.Name == "text-length")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".len() as i64");
+        }
+        else if (app.Function is IRName fn8 && fn8.Name == "is-letter")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".chars().next().map_or(false, |c| c.is_alphabetic())");
+        }
+        else if (app.Function is IRName fn9 && fn9.Name == "is-digit")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".chars().next().map_or(false, |c| c.is_ascii_digit())");
+        }
+        else if (app.Function is IRName fn10 && fn10.Name == "is-whitespace")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".chars().next().map_or(false, |c| c.is_whitespace())");
+        }
+        else if (app.Function is IRName fn11 && fn11.Name == "text-to-integer")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".parse::<i64>().unwrap()");
+        }
+        else if (app.Function is IRName fn12 && fn12.Name == "char-code")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".chars().next().unwrap() as i64");
+        }
+        else if (app.Function is IRName fn13 && fn13.Name == "code-to-char")
+        {
+            sb.Append("String::from(char::from_u32(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(" as u32).unwrap())");
+        }
+        else if (TryEmitMultiArgBuiltin(sb, app, indent))
+        {
+        }
         else
         {
             string? ctorName = FindConstructorName(app);
@@ -628,6 +667,50 @@ public sealed class RustEmitter : ICodeEmitter
         if (app.Function is IRApply inner)
             CollectApplyArgs(inner, args);
         args.Add(app.Argument);
+    }
+
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring");
+
+    static string? FindBuiltinRoot(IRApply app)
+    {
+        IRExpr current = app.Function;
+        while (current is IRApply inner)
+            current = inner.Function;
+        if (current is IRName name && s_multiArgBuiltins.Contains(name.Name))
+            return name.Name;
+        return null;
+    }
+
+    bool TryEmitMultiArgBuiltin(StringBuilder sb, IRApply app, int indent)
+    {
+        string? name = FindBuiltinRoot(app);
+        if (name is null) return false;
+
+        List<IRExpr> args = [];
+        CollectApplyArgs(app, args);
+
+        switch (name)
+        {
+            case "char-at" when args.Count == 2:
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".chars().nth(");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(" as usize).unwrap().to_string()");
+                return true;
+
+            case "substring" when args.Count == 3:
+                sb.Append("{ let s = &");
+                EmitExpr(sb, args[0], indent);
+                sb.Append("; s.chars().skip(");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(" as usize).take(");
+                EmitExpr(sb, args[2], indent);
+                sb.Append(" as usize).collect::<String>() }");
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     static Set<string> CollectConstructorNames(IRModule module)

@@ -477,6 +477,19 @@ public sealed class Lowering
             NothingType.s_instance);
         map = map.Set("close-file", new FunctionType(fileHandle, fsNothing));
 
+        map = map.Set("char-at", new FunctionType(TextType.s_instance,
+            new FunctionType(IntegerType.s_instance, TextType.s_instance)));
+        map = map.Set("text-length", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        map = map.Set("substring", new FunctionType(TextType.s_instance,
+            new FunctionType(IntegerType.s_instance,
+                new FunctionType(IntegerType.s_instance, TextType.s_instance))));
+        map = map.Set("is-letter", new FunctionType(TextType.s_instance, BooleanType.s_instance));
+        map = map.Set("is-digit", new FunctionType(TextType.s_instance, BooleanType.s_instance));
+        map = map.Set("is-whitespace", new FunctionType(TextType.s_instance, BooleanType.s_instance));
+        map = map.Set("text-to-integer", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        map = map.Set("char-code", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        map = map.Set("code-to-char", new FunctionType(IntegerType.s_instance, TextType.s_instance));
+
         return map;
     }
 

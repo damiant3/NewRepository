@@ -59,6 +59,19 @@ public sealed class TypeEnvironment
             NothingType.s_instance);
         env = env.Bind("close-file", new FunctionType(fileHandle, fsNothing));
 
+        env = env.Bind("char-at", new FunctionType(TextType.s_instance,
+            new FunctionType(IntegerType.s_instance, TextType.s_instance)));
+        env = env.Bind("text-length", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        env = env.Bind("substring", new FunctionType(TextType.s_instance,
+            new FunctionType(IntegerType.s_instance,
+                new FunctionType(IntegerType.s_instance, TextType.s_instance))));
+        env = env.Bind("is-letter", new FunctionType(TextType.s_instance, BooleanType.s_instance));
+        env = env.Bind("is-digit", new FunctionType(TextType.s_instance, BooleanType.s_instance));
+        env = env.Bind("is-whitespace", new FunctionType(TextType.s_instance, BooleanType.s_instance));
+        env = env.Bind("text-to-integer", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        env = env.Bind("char-code", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        env = env.Bind("code-to-char", new FunctionType(IntegerType.s_instance, TextType.s_instance));
+
         return env;
     }
 }
