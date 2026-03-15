@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -9,46 +9,23 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{A0000000
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{A0000000-0000-0000-0000-000000000003}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codex-src", "codex-src", "{A0000000-0000-0000-0000-000000000004}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{A0000000-0000-0000-0000-000000000007}"
-	ProjectSection(SolutionItems) = preProject
-		codex-src\Core\Diagnostic.codex = codex-src\Core\Diagnostic.codex
-		codex-src\Core\Diagnostic.cs = codex-src\Core\Diagnostic.cs
-		codex-src\Core\Name.codex = codex-src\Core\Name.codex
-		codex-src\Core\Name.cs = codex-src\Core\Name.cs
-		codex-src\Core\SourceText.codex = codex-src\Core\SourceText.codex
-		codex-src\Core\SourceText.cs = codex-src\Core\SourceText.cs
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Syntax", "Syntax", "{A0000000-0000-0000-0000-000000000008}"
-	ProjectSection(SolutionItems) = preProject
-		codex-src\Syntax\Lexer.codex = codex-src\Syntax\Lexer.codex
-		codex-src\Syntax\Token.codex = codex-src\Syntax\Token.codex
-		codex-src\Syntax\Token.cs = codex-src\Syntax\Token.cs
-		codex-src\Syntax\TokenKind.codex = codex-src\Syntax\TokenKind.codex
-		codex-src\Syntax\TokenKind.cs = codex-src\Syntax\TokenKind.cs
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{A0000000-0000-0000-0000-000000000005}"
 	ProjectSection(SolutionItems) = preProject
 		samples\arithmetic.codex = samples\arithmetic.codex
-		samples\arithmetic.cs = samples\arithmetic.cs
 		samples\effectful-hello.codex = samples\effectful-hello.codex
 		samples\effects-demo.codex = samples\effects-demo.codex
 		samples\factorial.codex = samples\factorial.codex
 		samples\fibonacci.codex = samples\fibonacci.codex
 		samples\greeting.codex = samples\greeting.codex
 		samples\hello.codex = samples\hello.codex
-		samples\hello.cs = samples\hello.cs
 		samples\person.codex = samples\person.codex
-		samples\person.cs = samples\person.cs
 		samples\prose-greeting.codex = samples\prose-greeting.codex
 		samples\safe-divide.codex = samples\safe-divide.codex
-		samples\safe-divide.cs = samples\safe-divide.cs
 		samples\shapes.codex = samples\shapes.codex
-		samples\shapes.cs = samples\shapes.cs
 		samples\string-ops.codex = samples\string-ops.codex
+		samples\proofs.codex = samples\proofs.codex
+		samples\tco-stress.codex = samples\tco-stress.codex
+		samples\type-checker-test.codex = samples\type-checker-test.codex
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A0000000-0000-0000-0000-000000000006}"
@@ -87,6 +64,59 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vision", "Vision", "{A00000
 	ProjectSection(SolutionItems) = preProject
 		docs\Vision\IntelligenceLayer.txt = docs\Vision\IntelligenceLayer.txt
 		docs\Vision\NewRepository.txt = docs\Vision\NewRepository.txt
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codex-in-codex", "codex-in-codex", "{E0000000-0000-0000-0000-000000000001}"
+	ProjectSection(SolutionItems) = preProject
+		codex-in-codex\README.md = codex-in-codex\README.md
+		codex-in-codex\Main.codex = codex-in-codex\Main.codex
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{E0000000-0000-0000-0000-000000000002}"
+	ProjectSection(SolutionItems) = preProject
+		codex-in-codex\Core\Collections.codex = codex-in-codex\Core\Collections.codex
+		codex-in-codex\Core\Diagnostic.codex = codex-in-codex\Core\Diagnostic.codex
+		codex-in-codex\Core\Name.codex = codex-in-codex\Core\Name.codex
+		codex-in-codex\Core\SourceText.codex = codex-in-codex\Core\SourceText.codex
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Syntax", "Syntax", "{E0000000-0000-0000-0000-000000000003}"
+	ProjectSection(SolutionItems) = preProject
+		codex-in-codex\Syntax\Lexer.codex = codex-in-codex\Syntax\Lexer.codex
+		codex-in-codex\Syntax\Parser.codex = codex-in-codex\Syntax\Parser.codex
+		codex-in-codex\Syntax\SyntaxNodes.codex = codex-in-codex\Syntax\SyntaxNodes.codex
+		codex-in-codex\Syntax\Token.codex = codex-in-codex\Syntax\Token.codex
+		codex-in-codex\Syntax\TokenKind.codex = codex-in-codex\Syntax\TokenKind.codex
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ast", "Ast", "{E0000000-0000-0000-0000-000000000004}"
+	ProjectSection(SolutionItems) = preProject
+		codex-in-codex\Ast\AstNodes.codex = codex-in-codex\Ast\AstNodes.codex
+		codex-in-codex\Ast\Desugarer.codex = codex-in-codex\Ast\Desugarer.codex
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Semantics", "Semantics", "{E0000000-0000-0000-0000-000000000005}"
+	ProjectSection(SolutionItems) = preProject
+		codex-in-codex\Semantics\NameResolver.codex = codex-in-codex\Semantics\NameResolver.codex
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Types", "Types", "{E0000000-0000-0000-0000-000000000006}"
+	ProjectSection(SolutionItems) = preProject
+		codex-in-codex\Types\CodexType.codex = codex-in-codex\Types\CodexType.codex
+		codex-in-codex\Types\TypeChecker.codex = codex-in-codex\Types\TypeChecker.codex
+		codex-in-codex\Types\TypeEnv.codex = codex-in-codex\Types\TypeEnv.codex
+		codex-in-codex\Types\Unifier.codex = codex-in-codex\Types\Unifier.codex
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "IR", "IR", "{E0000000-0000-0000-0000-000000000007}"
+	ProjectSection(SolutionItems) = preProject
+		codex-in-codex\IR\IRModule.codex = codex-in-codex\IR\IRModule.codex
+		codex-in-codex\IR\Lowering.codex = codex-in-codex\IR\Lowering.codex
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Emit", "Emit", "{E0000000-0000-0000-0000-000000000008}"
+	ProjectSection(SolutionItems) = preProject
+		codex-in-codex\Emit\CSharpEmitter.codex = codex-in-codex\Emit\CSharpEmitter.codex
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Core", "src\Codex.Core\Codex.Core.csproj", "{B1000000-0000-0000-0000-000000000001}"
@@ -548,8 +578,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{A0000000-0000-0000-0000-000000000007} = {A0000000-0000-0000-0000-000000000004}
-		{A0000000-0000-0000-0000-000000000008} = {A0000000-0000-0000-0000-000000000004}
 		{A0000000-0000-0000-0000-000000000009} = {A0000000-0000-0000-0000-000000000006}
 		{B1000000-0000-0000-0000-000000000001} = {A0000000-0000-0000-0000-000000000001}
 		{B1000000-0000-0000-0000-000000000002} = {A0000000-0000-0000-0000-000000000001}
@@ -582,6 +610,13 @@ Global
 		{EDD661B4-6ECC-44A7-8C72-3FADB30ADEE5} = {A0000000-0000-0000-0000-000000000001}
 		{8B16F91F-D010-433A-AF36-D740B3192D71} = {A0000000-0000-0000-0000-000000000001}
 		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30} = {A0000000-0000-0000-0000-000000000003}
+		{E0000000-0000-0000-0000-000000000002} = {E0000000-0000-0000-0000-000000000001}
+		{E0000000-0000-0000-0000-000000000003} = {E0000000-0000-0000-0000-000000000001}
+		{E0000000-0000-0000-0000-000000000004} = {E0000000-0000-0000-0000-000000000001}
+		{E0000000-0000-0000-0000-000000000005} = {E0000000-0000-0000-0000-000000000001}
+		{E0000000-0000-0000-0000-000000000006} = {E0000000-0000-0000-0000-000000000001}
+		{E0000000-0000-0000-0000-000000000007} = {E0000000-0000-0000-0000-000000000001}
+		{E0000000-0000-0000-0000-000000000008} = {E0000000-0000-0000-0000-000000000001}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}

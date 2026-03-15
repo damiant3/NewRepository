@@ -43,6 +43,11 @@ public sealed partial class CSharpEmitter : ICodeEmitter
             }
             sb.AppendLine();
         }
+        else if (module.Definitions.Length == 0)
+        {
+            sb.AppendLine("Console.WriteLine(\"All proofs verified at compile time.\");");
+            sb.AppendLine();
+        }
 
         EmitTypeDefinitions(sb, module);
 
