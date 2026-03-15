@@ -99,6 +99,18 @@ public sealed class Unifier(DiagnosticBag diagnostics)
             return true;
         }
 
+        if (a is ListType la3 && b is ConstructedType cv && cv.Constructor.Value == "Vector"
+            && cv.Arguments.Length == 2)
+        {
+            return Unify(la3.Element, cv.Arguments[1], span);
+        }
+
+        if (a is ConstructedType cv2 && cv2.Constructor.Value == "Vector"
+            && cv2.Arguments.Length == 2 && b is ListType lb3)
+        {
+            return Unify(cv2.Arguments[1], lb3.Element, span);
+        }
+
         if (a is DependentFunctionType da && b is DependentFunctionType db)
         {
             return Unify(da.ParamType, db.ParamType, span)

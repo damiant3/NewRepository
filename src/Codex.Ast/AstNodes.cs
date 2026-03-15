@@ -105,6 +105,8 @@ public sealed record IntegerLiteralTypeExpr(long Value, SourceSpan Span) : TypeE
 
 public sealed record BinaryTypeExpr(TypeExpr Left, BinaryOp Op, TypeExpr Right, SourceSpan Span) : TypeExpr(Span);
 
+public sealed record ProofConstraintExpr(TypeExpr Left, BinaryOp Op, TypeExpr Right, SourceSpan Span) : TypeExpr(Span);
+
 public abstract record TypeDef(Name Name, IReadOnlyList<Name> TypeParameters, SourceSpan Span);
 
 public sealed record RecordTypeDef(

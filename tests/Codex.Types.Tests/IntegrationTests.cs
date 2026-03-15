@@ -721,4 +721,102 @@ public class IntegrationTests
         DiagnosticBag diag = CheckWithLinearity(source);
         Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
     }
+
+    // --- Dependent types (Milestone 8) ---
+
+    [Fact]
+    public void Dependent_function_type_checks()
+    {
+        string source =
+            "identity : (n : Integer) -> Integer\n" +
+            "identity (x) = x\n";
+        Map<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.IsType<DependentFunctionType>(types!["identity"]);
+    }
+
+    [Fact]
+    public void Dependent_type_application_substitutes_value()
+    {
+        string source =
+            "f : (n : Integer) -> Integer\n" +
+            "f (x) = x\n\n" +
+            "main : Integer\n" +
+            "main = f 42\n";
+        Map<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.IsType<IntegerType>(types!["main"]);
+    }
+
+    [Fact]
+    public void Dependent_type_with_vector_type_checks()
+    {
+        string source =
+            "length : (n : Integer) -> Vector n Integer -> Integer\n" +
+            "length (n) (v) = n\n";
+        Map<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        Assert.IsType<DependentFunctionType>(types!["length"]);
+    }
+
+    [Fact]
+    public void Nested_dependent_types_type_check()
+    {
+        string source =
+            "add-lengths : (m : Integer) -> (n : Integer) -> Integer\n" +
+            "add-lengths (a) (b) = a + b\n";
+        Map<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+        DependentFunctionType outer = Assert.IsType<DependentFunctionType>(types!["add-lengths"]);
+        Assert.IsType<DependentFunctionType>(outer.Body);
+    }
+
+    [Fact]
+    public void Dependent_type_compiles_to_csharp()
+    {
+        string source =
+            "f : (n : Integer) -> Integer\n" +
+            "f (x) = x\n\n" +
+            "main : Integer\n" +
+            "main = f 5\n";
+        string? cs = CompileToCS(source, "deptest");
+        Assert.NotNull(cs);
+        Assert.Contains("f", cs!);
+    }
+
+    [Fact]
+    public void Type_level_arithmetic_verified_at_compile_time()
+    {
+        string source =
+            "f : (m : Integer) -> (n : Integer) -> Vector (m + n) Integer -> Integer\n" +
+            "f (a) (b) (v) = a + b\n\n" +
+            "main : Integer\n" +
+            "main = f 3 2 [1, 2, 3, 4, 5]\n";
+        Map<string, CodexType>? types = TypeCheck(source);
+        Assert.NotNull(types);
+    }
+
+    [Fact]
+    public void Proof_obligation_discharged_for_literal_evidence()
+    {
+        string source =
+            "safe-index : (i : Integer) -> (n : Integer) -> {proof : i < n} -> Integer\n" +
+            "safe-index (i) (n) = i\n\n" +
+            "main : Integer\n" +
+            "main = safe-index 3 5\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Proof_obligation_fails_for_invalid_literal_evidence()
+    {
+        string source =
+            "safe-index : (i : Integer) -> (n : Integer) -> {proof : i < n} -> Integer\n" +
+            "safe-index (i) (n) = i\n\n" +
+            "main : Integer\n" +
+            "main = safe-index 5 3\n";
+        DiagnosticBag diag = TypeCheckWithDiagnostics(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX2040");
+    }
 }

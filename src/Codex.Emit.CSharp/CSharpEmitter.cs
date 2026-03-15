@@ -765,6 +765,8 @@ public sealed class CSharpEmitter : ICodeEmitter
         CodexType type = def.Type;
         for (int i = 0; i < def.Parameters.Length; i++)
         {
+            while (type is FunctionType pft && pft.Parameter is ProofType)
+                type = pft.Return;
             if (type is FunctionType ft)
                 type = ft.Return;
             else if (type is DependentFunctionType dep)
@@ -772,6 +774,8 @@ public sealed class CSharpEmitter : ICodeEmitter
             else
                 break;
         }
+        while (type is FunctionType pft2 && pft2.Parameter is ProofType)
+            type = pft2.Return;
         if (type is EffectfulType eft)
             type = eft.Return;
         return type;
@@ -782,6 +786,8 @@ public sealed class CSharpEmitter : ICodeEmitter
         CodexType type = def.Type;
         for (int i = 0; i < def.Parameters.Length; i++)
         {
+            while (type is FunctionType pft && pft.Parameter is ProofType)
+                type = pft.Return;
             if (type is FunctionType ft)
                 type = ft.Return;
             else if (type is DependentFunctionType dep)
@@ -789,6 +795,8 @@ public sealed class CSharpEmitter : ICodeEmitter
             else
                 break;
         }
+        while (type is FunctionType pft2 && pft2.Parameter is ProofType)
+            type = pft2.Return;
         return type is EffectfulType;
     }
 

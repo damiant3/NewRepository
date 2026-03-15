@@ -50,6 +50,7 @@ public enum SyntaxKind
     DependentType,
     IntegerLiteralType,
     BinaryType,
+    ProofConstraintType,
     RecordType,
     RecordTypeField,
     VariantType,
@@ -382,6 +383,12 @@ public sealed record IntegerTypeNode(Token Literal, SourceSpan Span)
 
 public sealed record BinaryTypeNode(TypeNode Left, Token Operator, TypeNode Right, SourceSpan Span)
     : TypeNode(SyntaxKind.BinaryType, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Left, Right];
+}
+
+public sealed record ProofConstraintNode(TypeNode Left, Token Operator, TypeNode Right, SourceSpan Span)
+    : TypeNode(SyntaxKind.ProofConstraintType, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [Left, Right];
 }

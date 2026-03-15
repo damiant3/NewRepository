@@ -3,14 +3,9 @@ using Codex.Syntax;
 
 namespace Codex.Ast;
 
-public sealed class Desugarer
+public sealed class Desugarer(DiagnosticBag diagnostics)
 {
-    readonly DiagnosticBag m_diagnostics;
-
-    public Desugarer(DiagnosticBag diagnostics)
-    {
-        m_diagnostics = diagnostics;
-    }
+    readonly DiagnosticBag m_diagnostics = diagnostics;
 
     public Module Desugar(DocumentNode document, string moduleName)
     {
@@ -180,6 +175,11 @@ public sealed class Desugarer
             DesugarBinaryOp(b.Operator.Kind),
             DesugarType(b.Right),
             b.Span),
+        ProofConstraintNode p => new ProofConstraintExpr(
+            DesugarType(p.Left),
+            DesugarBinaryOp(p.Operator.Kind),
+            DesugarType(p.Right),
+            p.Span),
         _ => new NamedTypeExpr(new Name("?"), node.Span)
     };
 

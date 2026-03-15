@@ -143,6 +143,9 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
         CodexType currentExpected = expectedType;
         foreach (Parameter param in def.Parameters)
         {
+            while (currentExpected is FunctionType skipFt && skipFt.Parameter is ProofType)
+                currentExpected = skipFt.Return;
+
             CodexType paramType;
             if (currentExpected is FunctionType ft)
             {
@@ -165,19 +168,15 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             m_env = m_env.Bind(param.Name, paramType);
         }
 
+        while (currentExpected is FunctionType skipFt2 && skipFt2.Parameter is ProofType)
+            currentExpected = skipFt2.Return;
+
         CodexType bodyType = InferExpr(def.Body);
         m_unifier.Unify(currentExpected, bodyType, def.Body.Span);
 
-        CodexType fullType = bodyType;
-        for (int i = def.Parameters.Count - 1; i >= 0; i--)
-        {
-            CodexType paramType = m_env.Lookup(def.Parameters[i].Name) ?? ErrorType.s_instance;
-            fullType = new FunctionType(paramType, fullType);
-        }
-
         m_env = savedEnv;
         m_currentEffects = savedEffects;
-        return fullType;
+        return expectedType;
     }
 
     CodexType InferExpr(Expr expr)
@@ -328,18 +327,34 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
     CodexType InferApplication(ApplyExpr app)
     {
         CodexType funcType = InferExpr(app.Function);
-        CodexType argType = InferExpr(app.Argument);
+        CodexType resolvedFunc = m_unifier.Resolve(funcType);
+
+        if (resolvedFunc is DependentFunctionType dep)
+        {
+            CodexType argType = InferExpr(app.Argument);
+            m_unifier.Unify(argType, dep.ParamType, app.Span);
+            CodexType? argValue = TryExtractTypeLevelValue(app.Argument);
+            CodexType body = argValue is not null
+                ? SubstituteTypeLevelVar(dep.Body, dep.ParamName, argValue)
+                : dep.Body;
+            body = TryDischargeProofParams(body, app.Span);
+            CheckEffectAllowed(body, app.Span);
+            return body;
+        }
+
+        CodexType argType2 = InferExpr(app.Argument);
         CodexType returnType = m_unifier.FreshVar();
 
-        if (!m_unifier.Unify(funcType, new FunctionType(argType, returnType), app.Span))
+        if (!m_unifier.Unify(funcType, new FunctionType(argType2, returnType), app.Span))
         {
             return ErrorType.s_instance;
         }
 
         CodexType resolved = m_unifier.Resolve(returnType);
+        resolved = TryDischargeProofParams(resolved, app.Span);
         CheckEffectAllowed(resolved, app.Span);
 
-        return returnType;
+        return resolved;
     }
 
     CodexType InferLet(LetExpr let)
@@ -640,6 +655,7 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             DependentTypeExpr dep => ResolveDependentType(dep),
             IntegerLiteralTypeExpr intLit => new TypeLevelValue(intLit.Value),
             BinaryTypeExpr bin => ResolveTypeLevelBinary(bin),
+            ProofConstraintExpr proof => ResolveProofConstraint(proof),
             _ => ErrorType.s_instance
         };
     }
@@ -784,6 +800,44 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
         return NormalizeTypeLevelExpr(new TypeLevelBinary(op, left, right));
     }
 
+    CodexType ResolveProofConstraint(ProofConstraintExpr proof)
+    {
+        CodexType left = ResolveTypeExpr(proof.Left);
+        CodexType right = ResolveTypeExpr(proof.Right);
+        return new ProofType(new LessThanClaim(left, right));
+    }
+
+    CodexType TryDischargeProofParams(CodexType type, SourceSpan span)
+    {
+        while (type is FunctionType ft && ft.Parameter is ProofType proof)
+        {
+            if (TryDischargeProof(proof.Claim))
+            {
+                type = ft.Return;
+            }
+            else
+            {
+                m_diagnostics.Error("CDX2040",
+                    $"Cannot discharge proof obligation: {proof.Claim}",
+                    span);
+                type = ft.Return;
+            }
+        }
+        return type;
+    }
+
+    static bool TryDischargeProof(CodexType claim)
+    {
+        if (claim is LessThanClaim lt)
+        {
+            CodexType left = NormalizeTypeLevelExpr(lt.Left);
+            CodexType right = NormalizeTypeLevelExpr(lt.Right);
+            if (left is TypeLevelValue lv && right is TypeLevelValue rv)
+                return lv.Value < rv.Value;
+        }
+        return false;
+    }
+
     static CodexType NormalizeTypeLevelExpr(CodexType type)
     {
         if (type is TypeLevelBinary bin)
@@ -819,7 +873,8 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             ListType l => new ListType(SubstituteVar(l.Element, varId, replacement)),
             ConstructedType c => c with
             {
-                Arguments = [.. c.Arguments.Select(a => SubstituteVar(a, varId, replacement))]
+                Arguments = [.. c.Arguments.Select(a => SubstituteVar(a, varId, replacement))
+                ]
             },
             ForAllType fa when fa.VariableId != varId =>
                 fa with { Body = SubstituteVar(fa.Body, varId, replacement) },
@@ -827,7 +882,8 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             {
                 Constructors = [.. s.Constructors.Select(c => c with
                 {
-                    Fields = [.. c.Fields.Select(f => SubstituteVar(f, varId, replacement))]
+                    Fields = [.. c.Fields.Select(f => SubstituteVar(f, varId, replacement))
+                    ]
                 })]
             },
             RecordType r => r with
@@ -854,6 +910,52 @@ public sealed class TypeChecker(DiagnosticBag diagnostics)
             LessThanClaim lt => new LessThanClaim(
                 SubstituteVar(lt.Left, varId, replacement),
                 SubstituteVar(lt.Right, varId, replacement)),
+            _ => type
+        };
+    }
+
+    CodexType? TryExtractTypeLevelValue(Expr expr)
+    {
+        if (expr is LiteralExpr lit && lit.Kind == LiteralKind.Integer)
+            return new TypeLevelValue(Convert.ToInt64(lit.Value));
+        if (expr is ListExpr list)
+            return new TypeLevelValue(list.Elements.Count);
+        return null;
+    }
+
+    static CodexType SubstituteTypeLevelVar(CodexType type, string varName, CodexType replacement)
+    {
+        return type switch
+        {
+            TypeLevelVar tv when tv.Name == varName => replacement,
+            FunctionType f => new FunctionType(
+                SubstituteTypeLevelVar(f.Parameter, varName, replacement),
+                SubstituteTypeLevelVar(f.Return, varName, replacement)),
+            DependentFunctionType dep when dep.ParamName != varName =>
+                new DependentFunctionType(
+                    dep.ParamName,
+                    SubstituteTypeLevelVar(dep.ParamType, varName, replacement),
+                    SubstituteTypeLevelVar(dep.Body, varName, replacement)),
+            ConstructedType c => c with
+            {
+                Arguments = [.. c.Arguments.Select(
+                    a => SubstituteTypeLevelVar(a, varName, replacement))
+                ]
+            },
+            ListType l => new ListType(SubstituteTypeLevelVar(l.Element, varName, replacement)),
+            TypeLevelBinary bin => NormalizeTypeLevelExpr(new TypeLevelBinary(
+                bin.Op,
+                SubstituteTypeLevelVar(bin.Left, varName, replacement),
+                SubstituteTypeLevelVar(bin.Right, varName, replacement))),
+            EffectfulType eft => eft with
+            {
+                Return = SubstituteTypeLevelVar(eft.Return, varName, replacement)
+            },
+            ProofType proof => new ProofType(
+                SubstituteTypeLevelVar(proof.Claim, varName, replacement)),
+            LessThanClaim lt => new LessThanClaim(
+                SubstituteTypeLevelVar(lt.Left, varName, replacement),
+                SubstituteTypeLevelVar(lt.Right, varName, replacement)),
             _ => type
         };
     }

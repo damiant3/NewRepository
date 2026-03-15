@@ -2,18 +2,11 @@ using Codex.Core;
 
 namespace Codex.Syntax;
 
-public sealed class Parser
+public sealed class Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostics)
 {
-    readonly IReadOnlyList<Token> m_tokens;
-    readonly DiagnosticBag m_diagnostics;
-    int m_position;
-
-    public Parser(IReadOnlyList<Token> tokens, DiagnosticBag diagnostics)
-    {
-        m_tokens = tokens;
-        m_diagnostics = diagnostics;
-        m_position = 0;
-    }
+    readonly IReadOnlyList<Token> m_tokens = tokens;
+    readonly DiagnosticBag m_diagnostics = diagnostics;
+    int m_position = 0;
 
     public DiagnosticBag Diagnostics => m_diagnostics;
 
@@ -265,6 +258,31 @@ public sealed class Parser
             Advance();
             TypeNode inner = ParseTypeAtom();
             return new LinearTypeNode(inner, start.Span.Through(inner.Span));
+        }
+
+        if (Current.Kind == TokenKind.LeftBrace)
+        {
+            Token start = Current;
+            Advance();
+            if ((Current.Kind == TokenKind.Identifier || Current.Kind == TokenKind.ProofKeyword)
+                && Current.Text == "proof"
+                && Peek(1)?.Kind == TokenKind.Colon)
+            {
+                Advance(); // skip "proof"
+                Advance(); // skip ":"
+            }
+            TypeNode left = ParseTypeAtom();
+            Token op = Current;
+            if (op.Kind is TokenKind.LessThan or TokenKind.GreaterThan
+                or TokenKind.LessOrEqual or TokenKind.GreaterOrEqual)
+            {
+                Advance();
+                TypeNode right = ParseTypeAtom();
+                Expect(TokenKind.RightBrace);
+                return new ProofConstraintNode(left, op, right, start.Span.Through(Previous.Span));
+            }
+            Expect(TokenKind.RightBrace);
+            return new ProofConstraintNode(left, op, left, start.Span.Through(Previous.Span));
         }
 
         if (Current.Kind == TokenKind.LeftBracket)

@@ -48,6 +48,9 @@ public sealed class Lowering
         CodexType currentType = fullType;
         foreach (Parameter param in def.Parameters)
         {
+            while (currentType is FunctionType skipFt && skipFt.Parameter is ProofType)
+                currentType = skipFt.Return;
+
             CodexType paramType;
             if (currentType is FunctionType ft)
             {
@@ -66,6 +69,9 @@ public sealed class Lowering
             parameters.Add(new(param.Name.Value, paramType));
             m_localEnv = m_localEnv.Set(param.Name.Value, paramType);
         }
+
+        while (currentType is FunctionType skipFt2 && skipFt2.Parameter is ProofType)
+            currentType = skipFt2.Return;
 
         IRExpr body = LowerExpr(def.Body, currentType);
         m_localEnv = savedEnv;

@@ -29,6 +29,9 @@ public sealed class LinearityChecker(DiagnosticBag diagnostics, Map<string, Code
         CodexType currentType = defType;
         foreach (Parameter param in def.Parameters)
         {
+            while (currentType is FunctionType skipFt && skipFt.Parameter is ProofType)
+                currentType = skipFt.Return;
+
             CodexType paramType;
             if (currentType is FunctionType ft)
             {
