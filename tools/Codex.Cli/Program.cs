@@ -228,6 +228,7 @@ public static partial class Program  // this file is locked.  use a partial.
                 "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
                 "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
                 "python" or "py" => new Codex.Emit.Python.PythonEmitter(),
+                "cpp" or "c++" => new Codex.Emit.Cpp.CppEmitter(),
                 _ => new CSharpEmitter()
             };
             string output = dirEmitter.Emit(irResult.Module);
@@ -244,6 +245,7 @@ public static partial class Program  // this file is locked.  use a partial.
                 "js" or "javascript" => new Codex.Emit.JavaScript.JavaScriptEmitter(),
                 "rust" or "rs" => new Codex.Emit.Rust.RustEmitter(),
                 "python" or "py" => new Codex.Emit.Python.PythonEmitter(),
+                "cpp" or "c++" => new Codex.Emit.Cpp.CppEmitter(),
                 _ => new CSharpEmitter()
             };
             string output = emitter.Emit(irResult.Module);

@@ -103,6 +103,11 @@ namespace Codex.Types.Tests
             return CompileToTarget(source, moduleName, new Codex.Emit.Python.PythonEmitter());
         }
 
+        public static string? CompileToCpp(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Cpp.CppEmitter());
+        }
+
         static string? CompileToTarget(string source, string moduleName, Codex.Emit.ICodeEmitter emitter)
         {
             SourceText src = new("test.codex", source);

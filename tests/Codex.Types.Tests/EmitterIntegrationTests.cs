@@ -63,6 +63,16 @@ public class EmitterIntegrationTests
         Assert.Contains("def square", py);
     }
 
+    [Fact]
+    public void Hello_emits_cpp()
+    {
+        string source = ReadSample("hello.codex");
+        string? cpp = Helpers.CompileToCpp(source, "hello");
+        Assert.NotNull(cpp);
+        Assert.Contains("int64_t square", cpp);
+        Assert.Contains("std::cout", cpp);
+    }
+
     // ── factorial.codex ────────────────────────────────────────
 
     [Fact]
@@ -101,6 +111,15 @@ public class EmitterIntegrationTests
         Assert.Contains("def factorial", py);
     }
 
+    [Fact]
+    public void Factorial_emits_cpp()
+    {
+        string source = ReadSample("factorial.codex");
+        string? cpp = Helpers.CompileToCpp(source, "factorial");
+        Assert.NotNull(cpp);
+        Assert.Contains("int64_t factorial", cpp);
+    }
+
     // ── fibonacci.codex ────────────────────────────────────────
 
     [Fact]
@@ -137,6 +156,15 @@ public class EmitterIntegrationTests
         string? py = Helpers.CompileToPython(source, "fibonacci");
         Assert.NotNull(py);
         Assert.Contains("def fib", py);
+    }
+
+    [Fact]
+    public void Fibonacci_emits_cpp()
+    {
+        string source = ReadSample("fibonacci.codex");
+        string? cpp = Helpers.CompileToCpp(source, "fibonacci");
+        Assert.NotNull(cpp);
+        Assert.Contains("int64_t fib", cpp);
     }
 
     // ── greeting.codex ─────────────────────────────────────────
@@ -178,6 +206,15 @@ public class EmitterIntegrationTests
         Assert.NotNull(py);
         Assert.Contains("def greeting", py);
         Assert.Contains("\"Hello, \"", py);
+    }
+
+    [Fact]
+    public void Greeting_emits_cpp()
+    {
+        string source = ReadSample("greeting.codex");
+        string? cpp = Helpers.CompileToCpp(source, "greeting");
+        Assert.NotNull(cpp);
+        Assert.Contains("std::string greeting", cpp);
     }
 
     // ── shapes.codex ───────────────────────────────────────────
@@ -225,6 +262,18 @@ public class EmitterIntegrationTests
         Assert.Contains("isinstance", py);
     }
 
+    [Fact]
+    public void Shapes_emits_cpp()
+    {
+        string source = ReadSample("shapes.codex");
+        string? cpp = Helpers.CompileToCpp(source, "shapes");
+        Assert.NotNull(cpp);
+        Assert.Contains("struct Circle", cpp);
+        Assert.Contains("struct Rectangle", cpp);
+        Assert.Contains("std::variant", cpp);
+        Assert.Contains("std::visit", cpp);
+    }
+
     // ── person.codex ───────────────────────────────────────────
 
     [Fact]
@@ -265,6 +314,15 @@ public class EmitterIntegrationTests
         Assert.NotNull(py);
         Assert.Contains("class Person", py);
         Assert.Contains("name", py);
+    }
+
+    [Fact]
+    public void Person_emits_cpp()
+    {
+        string source = ReadSample("person.codex");
+        string? cpp = Helpers.CompileToCpp(source, "person");
+        Assert.NotNull(cpp);
+        Assert.Contains("struct Person", cpp);
     }
 
     // ── safe-divide.codex ──────────────────────────────────────
@@ -311,6 +369,17 @@ public class EmitterIntegrationTests
         Assert.Contains("class Failure", py);
     }
 
+    [Fact]
+    public void SafeDivide_emits_cpp()
+    {
+        string source = ReadSample("safe-divide.codex");
+        string? cpp = Helpers.CompileToCpp(source, "safe_divide");
+        Assert.NotNull(cpp);
+        Assert.Contains("struct Success", cpp);
+        Assert.Contains("struct Failure", cpp);
+        Assert.Contains("std::variant", cpp);
+    }
+
     // ── string-ops.codex ───────────────────────────────────────
 
     [Fact]
@@ -349,6 +418,15 @@ public class EmitterIntegrationTests
         Assert.Contains("def count_letters", py);
     }
 
+    [Fact]
+    public void StringOps_emits_cpp()
+    {
+        string source = ReadSample("string-ops.codex");
+        string? cpp = Helpers.CompileToCpp(source, "string_ops");
+        Assert.NotNull(cpp);
+        Assert.Contains("int64_t count_letters", cpp);
+    }
+
     // ── prose-greeting.codex ───────────────────────────────────
 
     [Fact]
@@ -385,6 +463,15 @@ public class EmitterIntegrationTests
         string? py = Helpers.CompileToPython(source, "prose_greeting");
         Assert.NotNull(py);
         Assert.Contains("def greet", py);
+    }
+
+    [Fact]
+    public void ProseGreeting_emits_cpp()
+    {
+        string source = ReadSample("prose-greeting.codex");
+        string? cpp = Helpers.CompileToCpp(source, "prose_greeting");
+        Assert.NotNull(cpp);
+        Assert.Contains("std::string greet", cpp);
     }
 
     // ── effectful-hello.codex ──────────────────────────────────
@@ -427,6 +514,16 @@ public class EmitterIntegrationTests
         Assert.Contains("input()", py);
     }
 
+    [Fact]
+    public void EffectfulHello_emits_cpp()
+    {
+        string source = ReadSample("effectful-hello.codex");
+        string? cpp = Helpers.CompileToCpp(source, "effectful_hello");
+        Assert.NotNull(cpp);
+        Assert.Contains("std::cout", cpp);
+        Assert.Contains("std::getline", cpp);
+    }
+
     // ── arithmetic.codex ───────────────────────────────────────
 
     [Fact]
@@ -466,6 +563,15 @@ public class EmitterIntegrationTests
         Assert.Contains("def max", py);
     }
 
+    [Fact]
+    public void Arithmetic_emits_cpp()
+    {
+        string source = ReadSample("arithmetic.codex");
+        string? cpp = Helpers.CompileToCpp(source, "arithmetic");
+        Assert.NotNull(cpp);
+        Assert.Contains("int64_t max", cpp);
+    }
+
     // ── effects-demo.codex ─────────────────────────────────────
 
     [Fact]
@@ -503,6 +609,15 @@ public class EmitterIntegrationTests
         string? py = Helpers.CompileToPython(source, "effects_demo");
         Assert.NotNull(py);
         Assert.Contains("print(", py);
+    }
+
+    [Fact]
+    public void EffectsDemo_emits_cpp()
+    {
+        string source = ReadSample("effects-demo.codex");
+        string? cpp = Helpers.CompileToCpp(source, "effects_demo");
+        Assert.NotNull(cpp);
+        Assert.Contains("std::cout", cpp);
     }
 
     // ── tco-stress.codex ──────────────────────────────────────
@@ -548,6 +663,16 @@ public class EmitterIntegrationTests
         Assert.Contains("continue", py);
     }
 
+    [Fact]
+    public void TcoStress_emits_cpp_with_loop()
+    {
+        string source = ReadSample("tco-stress.codex");
+        string? cpp = Helpers.CompileToCpp(source, "tco_stress");
+        Assert.NotNull(cpp);
+        Assert.Contains("while (true)", cpp);
+        Assert.Contains("continue;", cpp);
+    }
+
     // ── type-checker-test.codex ───────────────────────────────
 
     [Fact]
@@ -585,5 +710,14 @@ public class EmitterIntegrationTests
         string? py = Helpers.CompileToPython(source, "type_checker_test");
         Assert.NotNull(py);
         Assert.Contains("def apply_twice", py);
+    }
+
+    [Fact]
+    public void TypeCheckerTest_emits_cpp()
+    {
+        string source = ReadSample("type-checker-test.codex");
+        string? cpp = Helpers.CompileToCpp(source, "type_checker_test");
+        Assert.NotNull(cpp);
+        Assert.Contains("apply_twice", cpp);
     }
 }
