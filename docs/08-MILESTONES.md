@@ -6,9 +6,12 @@ We build in vertical slices, not horizontal layers. Each milestone produces a wo
 
 Every milestone ends with a demo: a Codex program that exercises the new capability, compiled and executed.
 
+Direction and priorities live in [FORWARD-PLAN.md](FORWARD-PLAN.md).
+Design choices live in [DECISIONS.md](DECISIONS.md).
+
 ---
 
-## Milestone 0: Foundation
+## Milestone 0: Foundation ✅
 **Goal**: Project structure, build system, core primitives. Nothing compiles yet, but everything builds.
 
 ### Deliverables
@@ -18,16 +21,14 @@ Every milestone ends with a demo: a Codex program that exercises the new capabil
 - [x] `Codex.Ast`: AST node types (empty implementations, just the shape)
 - [x] `Codex.Core.Tests`: Tests for content hashing, name handling
 - [x] Build passes. All tests pass.
-- [x] `docs/` directory with all planning documents (this milestone is partially complete already)
+- [x] `docs/` directory with all planning documents
 
 ### Demo
-`dotnet build` succeeds. `dotneo test` passes. The project structure matches the architecture doc.
-
-### Status: ✅ Complete
+`dotnet build` succeeds. `dotnet test` passes. The project structure matches the architecture doc.
 
 ---
 
-## Milestone 1: Hello Notation
+## Milestone 1: Hello Notation ✅
 **Goal**: Lex and parse a minimal Codex program (notation only, no prose). Produce a CST.
 
 ### Deliverables
@@ -38,17 +39,6 @@ Every milestone ends with a demo: a Codex program that exercises the new capabil
 - [x] Pretty printer: CST → formatted source text (round-trip test)
 - [x] `Codex.Syntax.Tests`: lexer and parser tests for each construct
 - [x] `Codex.Ast.Tests`: desugaring tests
-
-### Grammar Subset
-```
-definition  = name ":" type "\n" name params "=" expr
-type        = name | type "→" type | "(" type ")"
-expr        = literal | name | expr expr | "let" bindings "in" expr 
-            | "if" expr "then" expr "else" expr
-literal     = integer | text | boolean
-params      = name*
-bindings    = name "=" expr ("," name "=" expr)*
-```
 
 ### Demo Program
 ```
@@ -61,14 +51,9 @@ main = square 5
 
 Parse it. Print the CST. Print the AST. No type checking, no execution.
 
-### Status: ✅ Complete
-
-### Estimated Effort
-Medium. The lexer with indentation tracking is the hardest part.
-
 ---
 
-## Milestone 2: Type Checking (Simple)
+## Milestone 2: Type Checking (Simple) ✅
 **Goal**: Type-check programs with primitive types, functions, and simple algebraic types.
 
 ### Deliverables
@@ -79,17 +64,6 @@ Medium. The lexer with indentation tracking is the hardest part.
 - [x] Sum type definitions and pattern matching (exhaustiveness check)
 - [x] Record type definitions and field access
 - [x] `Codex.Types.Tests`: type checking tests — both success and failure cases
-
-### Grammar Extensions
-```
-type-def    = name "=" "|" constructor ("|" constructor)*
-constructor = name type*
-record-def  = name "=" "record" "{" field ("," field)* "}"
-field       = name ":" type
-match       = "when" expr branch+
-branch      = "if" pattern "→" expr
-pattern     = constructor pattern* | name | literal | "_"
-```
 
 ### Demo Program
 ```
@@ -112,12 +86,9 @@ describe (result) =
 
 Type-check it. Report any errors. No execution yet.
 
-### Estimated Effort
-Large. The type checker is the core of the project.
-
 ---
 
-## Milestone 3: Execution via C#
+## Milestone 3: Execution via C# ✅
 **Goal**: Compile a type-checked Codex program to C# and run it.
 
 ### Deliverables
@@ -125,7 +96,13 @@ Large. The type checker is the core of the project.
 - [x] `Codex.Emit.CSharp`: C# code emitter
 - [x] Codex runtime library for C# (Unit, Maybe, Result, CodexList)
 - [x] `Codex.Cli`: `codex check`, `codex build`, `codex run` commands
-- [x] `Codex.Integration.Tests`: end-to-end tests (source → compile → run → verify output)
+- [x] Integration tests (source → compile → run → verify output)
+
+### Key Decisions
+- IR is not A-Normal Form — expressions nest freely. See [DECISIONS.md](DECISIONS.md).
+- Curried application: `IRApply(IRApply(f, a), b)`. See [DECISIONS.md](DECISIONS.md).
+- No separate runtime library — built-ins emitted inline. See [DECISIONS.md](DECISIONS.md).
+- `long` for Integer, `double` for Number. See [DECISIONS.md](DECISIONS.md).
 
 ### Demo
 ```
@@ -133,79 +110,79 @@ codex run hello.codex
 > 25
 ```
 
-Where `hello.codex` is the `square 5` program, and it actually executes.
-
-### Status: ✅ Complete
-
-### Estimated Effort
-Medium-large. The C# emitter has many edge cases but the core is straightforward.
-
 ---
 
-## Milestone 4: Prose Integration
+## Milestone 4: Prose Integration ⚠️
 **Goal**: Parse and process Codex source that includes prose. The literate programming model works.
 
 ### Deliverables
 - [x] Lexer: prose mode / notation mode switching
-- [x] Parser: chapter headers, section headers, prose blocks, prose templates
-- [ ] Prose template matching: "An X is a record containing:", "X is either:", etc.
-- [ ] The Reader: formatted prose output (CLI: `codex read <file>` renders to terminal)
+- [x] Parser: chapter headers, section headers, prose blocks
+- [x] Prose template matching: "An X is a record containing:", "X is either:"
+- [x] Templates produce `RecordTypeBody`/`VariantTypeBody` from bullet lists
 - [x] The account module example from `NewRepository.txt` parses and type-checks
+- [ ] **The Reader**: `codex read <file>` renders formatted prose to terminal (`Codex.Narration`)
 
-### Status: ⚠️ Mostly complete — Chapter/Section parsing and prose-aware compilation work. Template matching and prose rendering deferred.
+### Status
+Chapter/Section parsing, prose-aware compilation, and template matching all work end-to-end.
+Templates desugar through the full pipeline (7 tests in `ProseTemplateTests`).
+The Reader and `Codex.Narration` are deferred — the project exists but is empty.
 
 ### Demo Program
 ```codex
 Chapter: Greeting
 
   This module provides a simple greeting function.
-  Given a person's name, it produces a greeting message.
+
+  An Account is a record containing:
+  - owner : Text
+  - balance : Integer
 
   We say:
 
     greet : Text → Text
     greet (name) = "Hello, " ++ name ++ "!"
 
-  To greet the world:
-
     main : Text
     main = greet "World"
 ```
 
-Parse it. Type-check it. Compile it. Run it. Print `Hello, World!`
-
-### Estimated Effort
-Medium. The prose lexer/parser is new territory but we've designed it well.
-
 ---
 
-## Milestone 5: Effects
+## Milestone 5: Effects ⚠️
 **Goal**: The effect system works. Pure functions are enforced. Effectful functions declare their effects.
 
 ### Deliverables
 - [x] Effect row types in `Codex.Types`
 - [x] Effect checking: pure functions cannot call effectful functions
-- [ ] Effect polymorphism: `map` propagates effects
+- [x] Effect polymorphism: row variables (`[e]`), `map` propagates effects
 - [x] Built-in effects: `Console` (read/write console), `State`
-- [ ] Effect handlers: `run-state`
 - [x] C# backend: effects encoded as contexts/interfaces
+- [ ] **Effect handlers**: `run-state`, user-defined effects
 
-### Status: ⚠️ Mostly complete — effect types, effect checking, Console/State effects, and C# emission all work. Polymorphic effects and user-defined handlers deferred.
+### Key Decisions
+- Direct I/O for effects, no monadic encoding. See [DECISIONS.md](DECISIONS.md): "Direct I/O for Effects."
 
+### Status
+Effect types, effect checking, effect polymorphism (row variables), Console/State effects, and C# emission
+all work. User-defined effect handlers deferred.
 
 ---
 
-## Milestone 6: Linear Types
+## Milestone 6: Linear Types ⚠️
 **Goal**: Linear types enforce resource safety.
 
 ### Deliverables
 - [x] Linearity annotations in `Codex.Types`
-- [ ] Linearity checker
 - [x] `FileHandle` as a linear type
 - [x] File system effect + linear file handles
 - [x] C# backend: linear types encoded as runtime checks
+- [ ] **Linearity checker** — reject programs that use a linear value twice or not at all
 
-### Status: ⚠️ Partial — linear type annotations parse and type-check, and the C# backend emits runtime checks. A full linearity checker (rejecting programs that use a linear value twice or not at all) is not implemented.
+### Status
+Linearity annotations parse and type-check, and the C# backend emits runtime checks.
+The actual **linearity checker** (usage-counting pass) is not implemented.
+See [FORWARD-PLAN.md](FORWARD-PLAN.md) — this is a Tier 1 priority.
 
 ### Demo Program
 ```codex
@@ -219,28 +196,32 @@ Chapter: Safe File Reading
       succeed contents
 ```
 
-If you forget `close-file`, the compiler rejects the program.
-
-### Estimated Effort
-Medium. The linearity checker is well-understood (Linear Haskell paper).
+If you forget `close-file`, the compiler should reject the program. (Not yet enforced.)
 
 ---
 
-## Milestone 7: Repository (Local)
-**Goal**: The local fact store works. Definitions are content-addressed.
+## Milestone 7: Repository (Local) ⚠️
+**Goal**: The local fact store works. Definitions are content-addressed. Imports resolve from the store.
 
 ### Deliverables
 - [x] `Codex.Repository`: local content-addressed store
-- [x] Facts: Definition, Supersession
-- [ ] Views: single-user views
+- [x] Facts: Definition, Supersession, Proposal, Verdict, Trust
 - [x] CLI: `codex init`, `codex publish`, `codex history`
-- [ ] Import from repository: `import Account` resolves from the store
+- [x] Proposals + verdicts with consensus checking
+- [x] Repository sync between stores
+- [x] `import TypeName` resolves from the fact store via `IModuleLoader`
+- [x] `RepositoryModuleLoader` in `Codex.Cli` wires fact store to name resolver
+- [ ] **Views**: single-user views, view consistency checking
 
-### Status: ⚠️ Partial — the repository, content hashing, fact storage, and CLI commands work. Views and import-from-repository not yet integrated.
+### Status
+The repository, content hashing, fact storage, CLI commands, and import-from-repository all work.
+`IModuleLoader` interface in `Codex.Semantics`, `RepositoryModuleLoader` in `Codex.Cli`
+(per the architecture: Repository is orthogonal, consumed by Cli/Lsp/DevEnv).
+Views are not yet integrated. See [05-REPOSITORY-MODEL.md](05-REPOSITORY-MODEL.md) for the design.
 
 ---
 
-## Milestone 8: Dependent Types (Basic)
+## Milestone 8: Dependent Types (Basic) ⚠️
 **Goal**: Types can depend on values. Vector with length. Proof obligations generated.
 
 ### Deliverables
@@ -248,9 +229,11 @@ Medium. The linearity checker is well-understood (Linear Haskell paper).
 - [x] Type-level arithmetic: `m + n` evaluated during type checking
 - [x] Proof obligations: `index` requires proof that index < length
 - [x] Simple proof discharge: literal evidence and context-based evidence
-- [ ] The `Vector` type with `append` having the correct dependent type
+- [ ] **The `Vector` type** with `append` having the correct dependent type, end-to-end
 
-### Status: ⚠️ Mostly complete — dependent function types, type-level arithmetic, and proof obligations all work in the type checker. Full dependent Vector example not yet end-to-end.
+### Status
+Dependent function types, type-level arithmetic, and proof obligations all work in the type checker.
+Full dependent `Vector` example not yet end-to-end.
 
 ### Demo Program
 ```codex
@@ -264,12 +247,9 @@ Chapter: Vectors
 
 Type-checks and compiles. The compiler verifies that 3 + 2 = 5.
 
-### Estimated Effort
-Very large. This is the hardest type system feature.
-
 ---
 
-## Milestone 9: LSP & Editor Integration
+## Milestone 9: LSP & Editor Integration ✅
 **Goal**: Write Codex in VS Code with syntax highlighting, error reporting, and hover.
 
 ### Deliverables
@@ -282,68 +262,94 @@ Very large. This is the hardest type system feature.
 - [x] Semantic tokens (syntax highlighting)
 - [x] VS Code extension (thin wrapper)
 
-### Status: ✅ Complete — all major LSP features implemented. Completion includes user-defined types and constructors. Go-to-definition navigates to function definitions, type definitions (record/variant), and individual constructors. Hover shows type signatures, record fields, and variant constructors.
+### Status
+All major LSP features implemented. 18 tests in `Codex.Lsp.Tests`.
 
 ---
 
-## Milestone 10: Proofs
+## Milestone 10: Proofs ⚠️
 **Goal**: Users can write and verify proofs. The compiler checks them.
 
 ### Deliverables
 - [x] `Codex.Proofs`: proof terms, proof checker
-- [x] Proof by induction (with inductive hypothesis)
+- [x] Proof by induction (with inductive hypothesis registration)
 - [x] Proof by case analysis
-- [x] Proof by rewriting
+- [x] Proof by rewriting (sym, trans, cong)
 - [x] Claims and proofs in the source
-- [x] The reverse-reverse proof works (with assume for irreducible steps)
 - [x] Cong with bidirectional goal decomposition
 - [x] Lemma application with argument instantiation
-- [ ] Type-level function reduction (needed for non-trivial inductive steps)
-- [ ] Arithmetic induction with Peano encoding
+- [x] The reverse-reverse proof works (with `assume` for irreducible steps)
+- [ ] **Type-level function reduction** (needed for non-trivial inductive steps)
+- [ ] **Arithmetic induction** with Peano encoding
 
-### Status: ⚠️ Mostly complete — Refl, sym, trans, cong (bidirectional), induction with IH, lemma application all work. The inductive hypothesis is available in step cases and can be referenced by `__ih_{variable}` or by the claim name. Type-level function reduction is the main gap: inductive steps that require unfolding function definitions use `assume`. Sample: `samples/proofs.codex` (9 claims, 9 proofs, 0 errors).
+### Key Decisions
+- IH registration: `__ih_{variable}` or claim name. See [DECISIONS.md](DECISIONS.md): "Inductive Hypothesis Registration."
+- Cong goal decomposition: bidirectional. See [DECISIONS.md](DECISIONS.md): "Cong Goal Decomposition."
+
+### Status
+Refl, sym, trans, cong (bidirectional), induction with IH, lemma application all work.
+The main gap: inductive steps that require unfolding function definitions use `assume`.
+Sample: `samples/proofs.codex` (9 claims, 9 proofs, 0 errors).
 
 ---
 
-## Milestone 11: Tests
-**Goal**: Comprehensive automation of test cases. CI pipeline verifies correctness.
+## Milestone 11: Tests ⚠️
+**Goal**: Comprehensive automation of test cases.
 
 ### Deliverables
 - [x] Property-based testing framework
 - [x] Integration test cases for each milestone (end-to-end)
-- [x] Fuzz testing for robustness
-- [x] CI configuration for automated testing
+- [x] 451 tests across 7 test projects (all passing)
+- [ ] **Fuzz testing** for robustness
+- [ ] **CI configuration** for automated testing
 
-### Status: ⚠️ Mostly complete — property-based testing and integration test cases work. Fuzz testing and CI configuration deferred.
+### Current Test Breakdown
+
+| Project | Tests |
+|---------|-------|
+| `Codex.Core.Tests` | 16 |
+| `Codex.Syntax.Tests` | 77 |
+| `Codex.Ast.Tests` | 11 |
+| `Codex.Semantics.Tests` | 15 |
+| `Codex.Types.Tests` | 291 |
+| `Codex.Lsp.Tests` | 18 |
+| `Codex.Repository.Tests` | 23 |
+| **Total** | **451** |
+
+### Status
+Integration tests cover all milestones. Fuzz testing and CI deferred.
+See [DECISIONS.md](DECISIONS.md) re: CI pipeline — deferred until there are users or funding.
 
 ---
 
-## Milestone 12: Additional Backends
-**Goal**: Codex compiles to JavaScript and Rust.
+## Milestone 12: Additional Backends ✅
+**Goal**: Codex compiles to JavaScript, Rust, and beyond.
 
 ### Deliverables
-- [x] `Codex.Emit.JavaScript`: JavaScript emitter
-- [x] `Codex.Emit.Rust`: Rust emitter
-- [x] Backend capability validation
-- [x] Integration tests for each backend (39 tests: 13 samples × 3 backends)
-- [x] Tail call optimization in all three backends
+- [x] `Codex.Emit.JavaScript`: JavaScript emitter (BigInt integers, console.log, TCO)
+- [x] `Codex.Emit.Rust`: Rust emitter (enum variants, `codex_main`, TCO)
+- [x] `Codex.Emit.Python`: Python emitter (@dataclass, TCO)
+- [x] `Codex.Emit.Cpp`: C++ emitter (std::variant, TCO). Verified MSVC /std:c++17 (14/15 samples)
+- [x] `Codex.Emit.Go`: Go emitter (interface{}, TCO)
+- [x] `Codex.Emit.Java`: Java emitter (sealed interface + record, TCO)
+- [x] `Codex.Emit.Ada`: Ada emitter (discriminant records, TCO)
+- [x] `Codex.Emit.Babbage`: Babbage Analytical Engine emitter (Store columns, TCO)
+- [x] `Codex.Emit.Fortran`: Fortran emitter (tagged structs, `do while/.true./cycle` TCO)
+- [x] `Codex.Emit.Cobol`: COBOL emitter (`PIC 9(2)` tags, `GO TO` TCO)
+- [x] Integration tests: 15 samples × 11 backends = 165 tests
+- [x] TCO in all 11 backends
 
-### Status: ✅ Complete — both emitters handle all IR node types (literals, binary ops, if/let/match/do/lambda/record/field-access/list/apply), all built-in functions, sum types, record types, effectful definitions, and TCO. All samples compile and run on C#, JS, and Rust backends. 39 integration tests verify this.
+### Key Decisions
+- `codex_main` in Rust. See [DECISIONS.md](DECISIONS.md): "Codex Main Renamed."
+- TCO via loop conversion in all backends. See [DECISIONS.md](DECISIONS.md): "Tail Call Optimization."
+- Variant syntax without leading pipe. See [DECISIONS.md](DECISIONS.md): "Variant Type Syntax."
 
-### Demo
-```
-codex run hello.codex
-> 25
-```
-
-Where `hello.codex` is the `square 5` program, and it actually executes in all backends.
-
-### Estimated Effort
-Large. Each backend is a significant lift, but sharing the emitter infrastructure helps.
+### Status
+11 backends total. All 15 samples (including proof-only modules) emit and compile across all backends.
 
 ---
 
-## Milestone 13: Self-Hosting
+## Milestone 13: Self-Hosting ✅
 **Goal**: The Codex compiler is written in Codex and compiles itself.
 
 ### Deliverables
@@ -351,24 +357,45 @@ Large. Each backend is a significant lift, but sharing the emitter infrastructur
 - [x] Stage 0 (C# compiler) compiles Stage 1 (Codex compiler)
 - [x] **Codex-side type checker** (Unifier, TypeEnvironment, TypeChecker)
 - [x] **Codex-side name resolver** (scope tracking, duplicate detection, built-ins)
-- [x] **Full pipeline in Codex** — `compile-checked` runs: lex → parse → desugar → resolve → typecheck → lower → emit
-- [x] **C# generics support** — polymorphic functions emit as generic methods, no more `object` erasure
-- [x] **Stage 1 compiles and runs** — `output.cs` compiles as a standalone .NET program with zero errors
+- [x] **Full pipeline in Codex** — `compile-checked` chains lex → parse → desugar → resolve → typecheck → lower → emit
+- [x] **C# generics support** — polymorphic functions emit as generic methods
+- [x] **Stage 1 compiles and runs** — `output.cs` compiles as a standalone .NET 8 program with zero errors
 - [x] **Stage 1 produces output** — the compiled Codex compiler successfully compiles a test Codex program
 - [ ] Stage 1 output = Stage 2 output (full bootstrap fixed-point verification)
 
-### Status: ✅ Stage 2 proof achieved.
-The Codex compiler (21 source files, 3,067 lines) compiles to C# via Stage 0, produces `output.cs`
-(259 records, 308 functions), which compiles with **zero C# errors** as a standalone .NET 8 console app.
-When executed, it successfully compiles a Codex program (`square : Integer -> Integer`) and produces
-valid C# output. The compilation chain is:
+### Key Decisions
+- C# generics replace `object` erasure. See [DECISIONS.md](DECISIONS.md): "C# Generics for Polymorphic Functions." (Supersedes the earlier "TypeVariable Emits as `object`" decision.)
+- Threaded UnificationState for purely functional unifier. See [DECISIONS.md](DECISIONS.md): "Codex-Side Type Checker."
+- Error-collecting scope walk for name resolution. See [DECISIONS.md](DECISIONS.md): "Codex-Side Name Resolver."
 
+### Status
+Stage 2 proof achieved. The compilation chain works:
 ```
 Codex source → Stage 0 (C# compiler) → output.cs → dotnet build → Stage 1 binary → compiles Codex → C# output
 ```
 
-Key technical decisions that made this work:
-- **C# generics**: `TypeVariable` emits as `T{id}`, polymorphic functions become generic methods — eliminates all `object` erasure issues
-- **Zero-arg definition calls**: both C# and JS emitters add `()` for zero-parameter definitions
-- **TCO branch naming**: unique `_tco_m{i}` per match branch eliminates variable shadowing
-- **List type propagation**: `++` operator propagates left operand's list element type to right operand
+Codex source: 21 files, ~2,600 lines. `output.cs`: ~286 records, ~310 functions. Zero C# errors.
+Byte-identical fixed-point not yet verified (Stage 1 output ≠ Stage 0 output due to minor formatting differences).
+
+---
+
+## Post-Milestone Work (Completed)
+
+These were done after the original M0–M13 plan, not covered by numbered milestones.
+
+### IDE / Syntax Highlighting ✅
+- [x] TextMate grammar (`codex.tmLanguage.json`) for VS 2022 + VS Code
+- [x] Keywords, proof keywords, type identifiers, strings, numbers, operators (including Unicode)
+- [x] Effect brackets `[Console]`, annotations `@name`, prose headers `Chapter:` / `Section:`
+- [x] Language configuration: bracket matching, auto-close, smart indentation
+- [x] VS 2022 support: `.pkgdef` registration, `install-vs.ps1`, `build-vsix.ps1`
+- [x] Project file: `codex.project.json` with schema validation, sources glob, targets, output
+- [x] `codex init` creates project scaffold
+
+### Incremental / Parallel Builds ✅
+- [x] `--incremental` flag skips unchanged files (SHA256 content hash + timestamp)
+- [x] Build manifest stored in `.codex-build/manifest.json`
+- [x] Parallel front-end: `Parallel.ForEach` over source files (lex + parse + desugar)
+- [x] Sequential middle: name resolution → type check → linearity → proofs → lowering
+- [x] Parallel emission: `--targets cs,js,py,...` emits all backends concurrently
+- [x] `codex.project.json` `targets` array for declarative multi-target builds

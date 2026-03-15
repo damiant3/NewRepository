@@ -17,10 +17,22 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
         List<TypeDefinitionNode> typeDefinitions = [];
         List<ClaimNode> claims = [];
         List<ProofNode> proofs = [];
+        List<ImportNode> imports = [];
 
         SkipNewlines();
         while (!IsAtEnd)
         {
+            if (Current.Kind == TokenKind.ImportKeyword)
+            {
+                ImportNode? imp = TryParseImport();
+                if (imp is not null)
+                {
+                    imports.Add(imp);
+                    SkipNewlines();
+                    continue;
+                }
+            }
+
             if (Current.Kind == TokenKind.ClaimKeyword)
             {
                 ClaimNode? claim = TryParseClaim();
@@ -66,7 +78,7 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
 
         SourceSpan endSpan = Previous.Span;
         return new DocumentNode(definitions, typeDefinitions, claims, proofs,
-            [], startSpan.Through(endSpan));
+            [], startSpan.Through(endSpan)) { Imports = imports };
     }
 
     TypeDefinitionNode? TryParseTypeDefinition()
@@ -129,6 +141,16 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
             lookahead++;
         }
         return false;
+    }
+
+    ImportNode? TryParseImport()
+    {
+        if (Current.Kind != TokenKind.ImportKeyword)
+            return null;
+        Token importKw = Current;
+        Advance();
+        Token name = Expect(TokenKind.TypeIdentifier);
+        return new ImportNode(name, importKw.Span.Through(name.Span));
     }
 
     RecordTypeBody ParseRecordTypeBody()

@@ -1,9 +1,12 @@
 # Forward Plan
 
-*Updated March 2026, post-bootstrap.*
+*Updated March 15 2026, post-full-bootstrap.*
 
 This document captures what's done, what's next, and what the open questions are.
-It replaces the iteration handoff docs as the single source of truth for project status.
+It replaces the iteration handoff docs as the single source of truth for project direction.
+
+Detailed deliverable checklists live in [08-MILESTONES.md](08-MILESTONES.md).
+Design choices live in [DECISIONS.md](DECISIONS.md).
 
 ---
 
@@ -12,20 +15,53 @@ It replaces the iteration handoff docs as the single source of truth for project
 The Codex compiler is self-hosting. The full pipeline works:
 
 ```
-Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → Lower → Emit → dotnet/node/rustc
+Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → Lower → Emit → dotnet/node/rustc/...
 ```
 
 | Metric | Value |
 |--------|-------|
 | C# projects | 31 |
-| Test count | 420 (all passing) |
-| Codex source | 3,067 lines across 21 .codex files |
-| Bootstrap parity | 259 records, 308 functions |
-| Backends | C#, JavaScript, Rust, Python, C++, Go, Java, Ada, Babbage, **Fortran**, **COBOL** |
-| LSP | Diagnostics, hover, symbols, semantic tokens |
-| Repository | Content-addressed fact store with proposals/verdicts |
+| Test count | 451 (all passing) |
+| Codex source | ~2,600 lines across 21 .codex files |
+| Bootstrap parity | ~286 records, ~310 functions in output.cs |
+| Backends | C#, JavaScript, Rust, Python, C++, Go, Java, Ada, Babbage, Fortran, COBOL (11 total) |
+| LSP | Diagnostics, hover, completion, go-to-definition, symbols, semantic tokens |
+| Repository | Content-addressed fact store with proposals/verdicts, import resolution |
 | IDE support | TextMate grammar for VS 2022 + VS Code |
 | Build system | Incremental builds, parallel front-end, parallel multi-target emission |
+| Prose | Chapter/Section structure, prose templates (record & variant from bullet lists) |
+
+---
+
+## What's Done (Completed Milestones)
+
+All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliverable checklists.
+
+| # | Milestone | Summary |
+|---|-----------|---------|
+| M0 | Foundation | Project structure, `Codex.Core`, content hashing, diagnostics |
+| M1 | Hello Notation | Lexer, parser, CST/AST, desugaring |
+| M2 | Type Checking | Bidirectional type checker, sum/record types, pattern matching |
+| M3 | Execution via C# | IR, C# emitter, CLI (`codex check/build/run`) |
+| M9 | LSP & Editor | Diagnostics, completion, hover, go-to-def, symbols, semantic tokens |
+| M12 | JS & Rust backends | 3 backends total, 39 integration tests, TCO in all three |
+| M13 | Self-hosting | Stage 0 → output.cs → Stage 1 → compiles Codex. C# generics. |
+| M10 | Proofs | Refl, sym, trans, cong (bidirectional), induction with IH, lemma application |
+| — | 8 more backends | Python, C++, Go, Java, Ada, Babbage, Fortran, COBOL. 165 integration tests. |
+| — | IDE / syntax | TextMate grammar, VS 2022 `.pkgdef`, `codex.project.json`, `codex init` |
+| — | Incremental builds | SHA256 content hashing, parallel front-end, parallel multi-target emission |
+
+## What's Partially Done
+
+| # | Milestone | What works | What's left |
+|---|-----------|------------|-------------|
+| M4 | Prose Integration | Chapter/Section parsing, prose templates (record/variant from bullets), prose-aware compilation | The Reader (`codex read`): formatted prose rendering to terminal |
+| M5 | Effects | Effect rows, effect checking, effect polymorphism (row variables), Console/State, C# emission | Effect handlers (`run-state`), user-defined effects |
+| M6 | Linear Types | Linearity annotations parse and type-check, C# runtime checks | **Linearity checker** — reject programs that use a linear value twice or not at all |
+| M7 | Repository | Fact store, content hashing, CLI commands, `import` resolution from store via `IModuleLoader` | Views (single-user views, view consistency checking) |
+| M8 | Dependent Types | Dependent function types, type-level arithmetic, proof obligations | Full `Vector` type with `append` end-to-end |
+| M10 | Proofs | Induction, cong, lemma application, IH registration, 9 proofs in sample | Type-level function reduction (needed for non-trivial inductive steps), arithmetic induction with Peano encoding |
+| M11 | Tests | Property-based tests, integration tests (451 total) | Fuzz testing, CI configuration |
 
 ---
 
@@ -33,132 +69,85 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 
 ### Tier 1: Solidify What Exists
 
-These are low-risk, high-value tasks that strengthen the foundation.
-
-**1. ~~Backend integration tests~~** — ✅ Done.
-39 integration tests across 13 samples × 3 backends. Plus 3 TCO-specific tests.
-
-**2. ~~LSP completion and go-to-definition~~** — ✅ Done.
-Completion includes user types, constructors, builtins, keywords. Go-to-definition
-finds functions, type definitions, and constructors. Hover shows type signatures,
-record fields, variant constructors.
-
-**3. ~~Stage 2 verification~~** — ✅ Done.
-Stage 1 (output.cs) compiles with zero C# errors as a standalone .NET 8 console app.
-When run, it compiles a Codex program and produces valid C# output. The bootstrap chain works:
-Codex source → Stage 0 → output.cs → dotnet build → Stage 1 binary → compiles Codex.
-
-**4. Error recovery in parser**
+**1. Error recovery in parser**
 The parser currently stops at the first error. For IDE use, it should skip to
 the next definition and continue. The CST has `ErrorNode` support; the parser
 just needs synchronization points. Estimated: medium.
 
-### Tier 2: Complete Partial Milestones
-
-These finish work that's 60–80% done.
-
-**5. Linearity checker (M6)**
+**2. Linearity checker (M6)**
 Linear type annotations exist and parse. The checker that rejects programs
 using a linear value twice (or not at all) is missing. The type checker
 already tracks linearity annotations — it needs a usage-counting pass.
+Estimated: medium. See the Linear Haskell paper for the approach.
+
+### Tier 2: Complete Partial Milestones
+
+**3. Effect handlers (M5)**
+`run-state` and user-defined effect handlers. The effect system already has
+row variables for polymorphism — handlers need to eliminate effects from
+the row. See [DECISIONS.md](DECISIONS.md): "Direct I/O for Effects."
+Estimated: medium-large.
+
+**4. Views (M7)**
+The repository stores facts and resolves imports, but there's no view layer.
+A View maps names to definitions such that all definitions are mutually
+consistent. Single-user views first, then multi-user consensus.
 Estimated: medium.
 
-**6. Effect polymorphism (M5)**
-`map` should propagate effects: if the function argument is effectful, `map`
-is effectful. Currently effects are checked but not polymorphic. Requires
-effect row variables in the type checker. Estimated: medium-large.
+**5. The Reader (M4)**
+`codex read <file>` renders a prose-mode document to the terminal with
+formatted prose, highlighted notation blocks, and structured layout.
+`Codex.Narration` is the project for this — currently empty.
+Estimated: small-medium.
 
-**7. Prose templates (M4)**
-"An Account is a record containing:" should parse as a record type definition.
-The prose parser recognizes Chapter/Section headers but not semantic templates.
-Estimated: medium.
-
-**8. Repository imports (M7)**
-`import Account` should resolve from the content-addressed store. The store
-exists, facts are publishable, but the compiler doesn't query the store during
-name resolution. Estimated: medium.
+**6. Type-level function reduction (M10)**
+Proof steps that require unfolding function definitions currently use
+`assume`. The proof checker needs to normalize type-level expressions
+by inlining function bodies. Arithmetic induction with Peano encoding
+also depends on this. Estimated: medium.
 
 ### Tier 3: New Capabilities
 
-These open new doors.
+**7. Package manager / dependency resolution**
+The repository stores facts but there's no transitive dependency resolution
+across modules. `import` currently resolves one level deep — it needs to
+resolve transitively, handle version conflicts, and support views.
+Estimated: large.
 
-**9. ~~Codex-side type checker (M13 completion)~~** — ✅ Done.
-Type checker, unifier, type environment, and name resolver all written in Codex.
-Full pipeline: `compile-checked` chains lex → parse → desugar → resolve → typecheck → lower → emit.
-259 records, 308 functions, 3,067 lines of Codex.
-
-**10. ~~Induction proofs (M10)~~** — ✅ Done.
-Induction with inductive hypothesis, cong decomposition, lemma application.
-Proof system: Refl, sym, trans, cong (bidirectional), induction with IH, assume.
-
-**11. ~~Additional backends~~** — ✅ Python, C++, Go, Java, Ada, Babbage, Fortran, COBOL added.
-11 backends total: C# (primary), JavaScript, Rust, Python, C++, Go, Java, Ada,
-Babbage Analytical Engine, Fortran, COBOL. All 15 samples (including proofs)
-emit across all backends.
-Sum types: `@dataclass` (Python), `std::variant` (C++), `interface{}` (Go),
-`sealed interface` + `record` (Java), discriminant records (Ada),
-Store columns (Babbage), tagged structs (Fortran), `PIC 9(2)` tags (COBOL).
-TCO in all backends: `do while/.true./cycle` (Fortran), `GO TO` (COBOL).
-Proof-only modules emit proper entry points in all 11 backends.
-C++ verified compiling and running under MSVC /std:c++17 (14/15 samples).
-165 backend integration tests (15 samples × 11 backends).
-
-**11b. ~~IDE / syntax highlighting~~** — ✅ Done.
-TextMate grammar (`codex.tmLanguage.json`) for both VS 2022 and VS Code.
-Highlights: keywords, proof keywords, type identifiers, strings, numbers,
-operators (including Unicode `→` `≡` `∀` `∃`), effect brackets `[Console]`,
-annotations `@name`, prose headers `Chapter:` / `Section:`, function definitions.
-Language configuration: bracket matching, auto-close, smart indentation.
-VS 2022 support: `.pkgdef` registration, `install-vs.ps1`, `build-vsix.ps1`.
-Project file: `codex.project.json` with schema validation, sources glob, target(s), output.
-`codex init` creates project scaffold.
-
-**11c. ~~Incremental / parallel builds~~** — ✅ Done.
-`--incremental` flag skips unchanged files (SHA256 content hash + timestamp).
-Build manifest stored in `.codex-build/manifest.json`.
-Parallel front-end: `Parallel.ForEach` over source files (lex + parse + desugar).
-Sequential middle: name resolution → type check → linearity → proofs → lowering.
-Parallel emission: `--targets cs,js,py,...` emits all backends concurrently.
-`codex.project.json` `targets` array for declarative multi-target builds.
-
-**12. Package manager / dependency resolution**
-The repository stores facts but there's no dependency resolution across
-modules. `import` needs to resolve transitively, handle version conflicts,
-and support views. Estimated: large.
+**8. Full `Vector` type (M8)**
+The dependent type infrastructure works. Wire it up end-to-end: `Vector n a`
+with `append : Vector m a → Vector n a → Vector (m + n) a`, compile and run.
+Estimated: medium.
 
 ---
 
 ## Resolved Questions
 
-These were open questions. Damian answered them; decisions are recorded here
-and in [DECISIONS.md](DECISIONS.md).
+These were open questions. Damian answered them; decisions are recorded in
+[DECISIONS.md](DECISIONS.md).
 
 ### Language Design
 
-1. **Module system** → **Prose-style imports.** Not `import X` but something
-   like `I need: access to the filesystem to write files.` Declarative,
-   natural language, consistent with the prose-first philosophy. The compiler
-   resolves capabilities from these declarations. Design work needed.
+1. **Module system** → **Prose-style imports (long-term).** The vision
+   ([NewRepository.txt](Vision/NewRepository.txt)) describes capability-based
+   prose imports: `I need: access to the filesystem to write files.` For now,
+   `import TypeName` works as the notation-mode syntax and resolves from the
+   repository's fact store. The prose-import design is an open question.
 
 2. **Mutable state** → **Named-purpose mutability.** No general `ref` types.
    Mutable values must declare their purpose by naming convention —
-   `UnificationVariable`, not `MutableRef`. The name answers "why are you
-   changing this value?" Additionally, pure functions that are expensive
-   (primes, fibonacci) should be auto-memoized by the runtime: mutable cache
-   internally, pure interface to the language. The programmer never sees state.
+   `UnificationState`, not `MutableRef`. See [DECISIONS.md](DECISIONS.md):
+   "Codex-Side Type Checker — Threaded UnificationState."
 
 3. **Type classes / traits** → **No explicit type classes.** Polymorphism is
-   the compiler's problem, not the programmer's. Prose handles subtyping
-   naturally: "I have a list of animals, add this fish to it." The compiler
-   infers the necessary coercions. Design work needed on how this maps to
-   the type checker.
+   the compiler's problem. Prose handles subtyping naturally. Design work needed.
 
-4. **String interpolation** → **No.** Decided. `++` and named functions only.
-   See [DECISIONS.md](DECISIONS.md).
+4. **String interpolation** → **No.** `++` and named functions only.
+   See [DECISIONS.md](DECISIONS.md): "No String Interpolation Syntax."
 
-5. **Tail call optimization** → **✅ Done.** All three backends now convert
-   self-recursive tail calls to loops. Tested with 1,000,000-deep recursion.
-   See [DECISIONS.md](DECISIONS.md).
+5. **Tail call optimization** → **✅ Done.** All 11 backends convert
+   self-recursive tail calls to loops. See [DECISIONS.md](DECISIONS.md):
+   "Tail Call Optimization via Loop Conversion."
 
 ### Tooling
 
@@ -170,15 +159,12 @@ and in [DECISIONS.md](DECISIONS.md).
 
 ### Architecture
 
-9. **Incremental compilation** → **Priority raised.** File sizes are about to
-   grow significantly. The LSP needs definition-level incremental type checking
-   with dependency tracking. This is now a Tier 2 priority.
+9. **Incremental compilation** → **✅ Done.** SHA256 content hash + timestamp.
+   Parallel front-end, parallel emission. See M11c in the completed list above.
 
-10. **Test preservation** → **New policy.** Test code created during development
-    must be kept, not deleted. Sample `.codex` files go in `samples/`, and
-    integration tests call the compiler on them via `Helpers.CompileToCS/JS/Rust`.
-    Every sample is a permanent regression test. This is now enforced: 285 tests
-    including 39 emitter integration tests across all samples × 3 backends.
+10. **Test preservation** → **Policy enforced.** Sample `.codex` files go in
+    `samples/`, integration tests call the compiler on them. Every sample is
+    a permanent regression test. Currently 451 tests across 7 test projects.
 
 ---
 
@@ -187,18 +173,20 @@ and in [DECISIONS.md](DECISIONS.md).
 1. **Prose-import syntax** — What exactly does a prose import look like?
    `I need: access to the filesystem` implies capability-based imports rather
    than module-based. How does this interact with the effect system?
+   (See [NewRepository.txt](Vision/NewRepository.txt) Chapter 4.)
 
 2. **Auto-memoization** — Which functions get memoized? All recursive pure
    functions? Only those marked? Only those with primitive arguments? What's
    the eviction policy? This needs a design doc before implementation.
+   (See the Named-purpose mutability decision.)
 
 3. **Subtype-inference for prose polymorphism** — "Add this fish to the list
    of animals" implies structural subtyping or coercion. Codex currently has
    nominal sum types. How do we bridge the gap?
 
-4. **Heap-allocated stack frames** — Damian mentioned building stack frames
-   on the heap for deep recursion (lattice project). For non-tail recursive
-   functions, should we offer a similar strategy? CPS transform + trampoline?
+4. **Heap-allocated stack frames** — For non-tail recursive functions, should
+   we offer CPS transform + trampoline? TCO covers the tail-call case;
+   this would cover general deep recursion.
 
 ---
 
@@ -206,13 +194,12 @@ and in [DECISIONS.md](DECISIONS.md).
 
 | Item | Location | Impact | Effort | Status |
 |------|----------|--------|--------|--------|
-| Rust backend doesn't `.clone()` for recursive calls | `RustEmitter.cs` | Generated Rust won't compile for recursive `String`/`Vec` args (mitigated by TCO for tail-recursive functions) | Medium | Open |
+| Rust backend doesn't `.clone()` for recursive calls | `RustEmitter.cs` | Generated Rust won't compile for recursive `String`/`Vec` args (mitigated by TCO) | Medium | Open |
 | JS uses `BigInt` (`42n`) for integers | `JavaScriptEmitter.cs` | Can't mix with `number` in arithmetic without explicit conversion | Low | Intentional |
-| ~~No test coverage for emitters~~ | `Codex.Emit.*` | ~~Emitter bugs found manually~~ | ~~Medium~~ | **Fixed** — 39 integration tests across 13 samples × 3 backends |
 | `output.cs` is tracked in git | `codex-src/output.cs` | Large generated file in version control | Low | Convenient for now |
-| Iteration handoff docs are stale | `docs/ITERATION-*-HANDOFF.md` | 12 docs from old iteration model, now superseded by this plan | Low | Archive or delete |
-| `Codex.Narration` project is empty | `src/Codex.Narration/` | No prose rendering capability | Low | Deferred until M4 |
-| `Codex.Proofs` is minimal | `src/Codex.Proofs/` | Basic proof terms exist, no proof checker | Low | **Priority: Critical** (M10) |
+| Iteration handoff docs are stale | `docs/ITERATION-*-HANDOFF.md` | 10 docs from old iteration model, superseded by this plan | Low | Archive or delete |
+| `Codex.Narration` project is empty | `src/Codex.Narration/` | No prose rendering capability | Low | Deferred — see "The Reader (M4)" above |
+| `TypeVariable emits as object` decision is superseded | `DECISIONS.md` | Superseded by "C# Generics for Polymorphic Functions" | None | Marked in DECISIONS.md |
 
 ---
 
@@ -228,7 +215,6 @@ See [10-PRINCIPLES.md](10-PRINCIPLES.md). The core principles haven't changed:
 
 ---
 
-*This document will be updated as priorities shift. The milestones doc
+*This document tracks direction. The milestones doc
 ([08-MILESTONES.md](08-MILESTONES.md)) tracks deliverable status. The decision
-log ([DECISIONS.md](DECISIONS.md)) tracks design choices. This doc tracks
-direction.*
+log ([DECISIONS.md](DECISIONS.md)) tracks design choices.*

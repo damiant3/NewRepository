@@ -2,7 +2,7 @@ using Codex.Core;
 
 namespace Codex.Syntax;
 
-public sealed class ProseParser
+public sealed partial class ProseParser
 {
     readonly SourceText m_source;
     readonly DiagnosticBag m_diagnostics;
@@ -103,7 +103,7 @@ public sealed class ProseParser
                 continue;
             }
 
-            members.Add(ParseProseBlock());
+            ParseProseOrTemplate(members);
         }
 
         int endOffset = m_lineIndex < m_lines.Length
@@ -144,7 +144,7 @@ public sealed class ProseParser
                 continue;
             }
 
-            members.Add(ParseProseBlock());
+            ParseProseOrTemplate(members);
         }
 
         int endOffset = m_lineIndex < m_lines.Length

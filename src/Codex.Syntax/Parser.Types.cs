@@ -16,6 +16,13 @@ public sealed partial class Parser
         return left;
     }
 
+    public TypeNode? TryParseType()
+    {
+        if (Current.Kind == TokenKind.EndOfFile)
+            return null;
+        return ParseType();
+    }
+
     TypeNode ParseTypeAtom()
     {
         if (Current.Kind == TokenKind.LinearKeyword)

@@ -48,13 +48,20 @@ public static partial class Program
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        NameResolver resolver = new(diagnostics);
+        NameResolver resolver = CreateResolver(diagnostics);
         ResolvedModule resolved = resolver.Resolve(module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
         TypeChecker checker = new(diagnostics);
         Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+
+        // Register imported type definitions
+        foreach (ResolvedModule imported in resolved.ImportedModules)
+        {
+            TypeChecker importChecker = new(diagnostics);
+            importChecker.CheckModule(imported.Module);
+        }
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
@@ -118,7 +125,7 @@ public static partial class Program
             allProofs,
             combinedSpan);
 
-        NameResolver resolver = new(diagnostics);
+        NameResolver resolver = CreateResolver(diagnostics);
         ResolvedModule resolved = resolver.Resolve(combined);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
@@ -160,5 +167,15 @@ public static partial class Program
             };
             Console.Error.WriteLine($"{severity} {diag.Code}: {diag.Message} {diag.Span}");
         }
+    }
+
+    static NameResolver CreateResolver(DiagnosticBag diagnostics)
+    {
+        Codex.Repository.FactStore? store =
+            Codex.Repository.FactStore.Open(Directory.GetCurrentDirectory());
+        if (store is not null)
+            return new NameResolver(diagnostics,
+                new RepositoryModuleLoader(store, diagnostics));
+        return new(diagnostics);
     }
 }

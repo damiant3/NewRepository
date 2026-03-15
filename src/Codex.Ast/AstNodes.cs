@@ -8,7 +8,10 @@ public sealed record Module(
     IReadOnlyList<TypeDef> TypeDefinitions,
     IReadOnlyList<ClaimDef> Claims,
     IReadOnlyList<ProofDef> Proofs,
-    SourceSpan Span);
+    SourceSpan Span)
+{
+    public IReadOnlyList<ImportDecl> Imports { get; init; } = [];
+}
 
 public sealed record Definition(
     Name Name,
@@ -18,6 +21,8 @@ public sealed record Definition(
     SourceSpan Span);
 
 public sealed record Parameter(Name Name, TypeExpr? TypeAnnotation, SourceSpan Span);
+
+public sealed record ImportDecl(Name ModuleName, SourceSpan Span);
 
 public abstract record Expr(SourceSpan Span);
 

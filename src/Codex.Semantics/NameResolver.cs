@@ -7,11 +7,15 @@ public sealed record ResolvedModule(
     Module Module,
     Set<string> TopLevelNames,
     Set<string> TypeNames,
-    Set<string> ConstructorNames);
+    Set<string> ConstructorNames)
+{
+    public IReadOnlyList<ResolvedModule> ImportedModules { get; init; } = [];
+}
 
 public sealed class NameResolver(DiagnosticBag diagnostics)
 {
     readonly DiagnosticBag m_diagnostics = diagnostics;
+    IModuleLoader? m_loader;
 
     static readonly Set<string> s_builtins = Set<string>.Of(
         "show", "negate", "True", "False", "Nothing",
@@ -24,6 +28,12 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
         "list-length", "list-at",
         "map"
     );
+
+    public NameResolver(DiagnosticBag diagnostics, IModuleLoader? loader)
+        : this(diagnostics)
+    {
+        m_loader = loader;
+    }
 
     public ResolvedModule Resolve(Module module)
     {
@@ -53,7 +63,6 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
             typeNames = typeNames.Add(td.Name.Value);
 
             if (td is VariantTypeDef variant)
-            {
                 foreach (VariantCtorDef ctor in variant.Constructors)
                 {
                     if (ctorNames.Contains(ctor.Name.Value))
@@ -64,7 +73,23 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
                     }
                     ctorNames = ctorNames.Add(ctor.Name.Value);
                 }
+        }
+
+        List<ResolvedModule> importedModules = [];
+        foreach (ImportDecl imp in module.Imports)
+        {
+            ResolvedModule? imported = m_loader?.Load(imp.ModuleName.Value);
+            if (imported is null)
+            {
+                m_diagnostics.Error("CDX3010",
+                    $"Cannot resolve import '{imp.ModuleName.Value}'",
+                    imp.Span);
+                continue;
             }
+            importedModules.Add(imported);
+            topLevel = topLevel.Union(imported.TopLevelNames);
+            typeNames = typeNames.Union(imported.TypeNames);
+            ctorNames = ctorNames.Union(imported.ConstructorNames);
         }
 
         Set<string> allKnownNames = topLevel
@@ -79,7 +104,8 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
             ResolveExpr(def.Body, scope);
         }
 
-        return new ResolvedModule(module, topLevel, typeNames, ctorNames);
+        return new ResolvedModule(module, topLevel, typeNames, ctorNames)
+            { ImportedModules = importedModules };
     }
 
     void ResolveExpr(Expr expr, Set<string> scope)

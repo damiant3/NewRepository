@@ -14,7 +14,10 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
         List<TypeDef> typeDefinitions = document.TypeDefinitions.Select(DesugarTypeDefinition).ToList();
         List<ClaimDef> claims = document.Claims.Select(DesugarClaim).ToList();
         List<ProofDef> proofs = document.Proofs.Select(DesugarProof).ToList();
-        return new Module(name, definitions, typeDefinitions, claims, proofs, document.Span);
+        List<ImportDecl> imports = document.Imports
+            .Select(i => new ImportDecl(new Name(i.Name.Text), i.Span)).ToList();
+        return new Module(name, definitions, typeDefinitions, claims, proofs, document.Span)
+            { Imports = imports };
     }
 
     Definition DesugarDefinition(DefinitionNode node)

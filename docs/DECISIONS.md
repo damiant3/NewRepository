@@ -108,11 +108,10 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: Self-Hosting Without Type Checker in Codex
-**Date**: 2026-03 (M13)
-**Context**: Full byte-identical self-hosting requires a Codex-side type checker. Writing a bidirectional type checker with unification in purely functional Codex is a major undertaking.
-**Decision**: Declare structural parity (264/264 records, 0 missing functions) as the M13 success criterion. The Stage 0 type checker handles all type checking. Stage 1 emits `object` types.
-**Rationale**: The bootstrap proves the pipeline works end-to-end. The type checker can be added incrementally. Waiting for a perfect fixed point would block everything else.
-**Consequences**: Stage 1 output compiles and runs but is not byte-identical to Stage 0. Full fixed-point is a future milestone.
+**Date**: 2026-03 (M13, early)
+**Superseded by**: The Codex-side type checker was subsequently implemented (see M13 deliverables in [08-MILESTONES.md](08-MILESTONES.md)).
+**Original decision**: Declare structural parity as the M13 success criterion. The Stage 0 type checker handles all type checking. Stage 1 emits `object` types.
+**What actually happened**: A full Codex-side type checker (Unifier, TypeEnvironment, TypeChecker, NameResolver) was written. Additionally, `object` erasure was replaced by C# generics (see "C# Generics for Polymorphic Functions" below). Stage 1 now compiles with zero C# errors and produces valid output.
 
 ---
 
@@ -135,12 +134,12 @@ Significant design and engineering decisions are recorded here in chronological 
 
 ---
 
-## Decision: TypeVariable Emits as `object` in C#, Not Generic `T<N>`
+## Decision: ~~TypeVariable Emits as `object` in C#, Not Generic `T<N>`~~ — SUPERSEDED
 **Date**: 2026-03
+**Superseded by**: "C# Generics for Polymorphic Functions" (below)
 **Context**: Polymorphic sum types (e.g., `Result (a) = Success (a) | Failure Text`) emitted `T0` as a C# type name, but no generic parameter was declared. This caused `CS0246: T0 not found`.
-**Decision**: Emit `TypeVariable` as `object` in C#. Use casts at usage sites. No C# generics on emitted code.
-**Rationale**: The Codex type system handles polymorphism at the source level. The C# output is cast-based — simpler, working, and consistent with how the bootstrap (`output.cs`) already operates. C# generics can be revisited when the type system can monomorphize.
-**Consequences**: Polymorphic values are boxed. Cast errors are possible at runtime but prevented by the Codex type checker.
+**Original decision**: Emit `TypeVariable` as `object` in C#. Use casts at usage sites.
+**Why superseded**: The `object` approach caused 105+ CS1503 type mismatch errors during Stage 1 compilation. Switching to C# generics eliminated them entirely. See the later decision.
 
 ---
 
