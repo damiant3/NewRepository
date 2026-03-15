@@ -150,3 +150,19 @@ Significant design and engineering decisions are recorded here in chronological 
 **Decision**: No string interpolation. Use `++` for concatenation and named functions like `integer-to-text` for conversion.
 **Rationale**: `${}` is visual noise that reduces readability — contrary to Codex's prose-first philosophy. Named functions are clearer: "convert this integer to text" vs "embed this integer in a string template." The language should not add special syntax to make string building easier when function composition already works.
 **Consequences**: No lexer/parser changes needed. The `InterpolationMode` from the original lexer design is permanently deferred.
+
+---
+
+## Decision: Inductive Hypothesis Registration in Proof Checker
+**Date**: 2026-03 (M10)
+**Context**: Proof by induction requires the inductive hypothesis (IH) to be available in the step case. The checker already had `CheckInduction` with case splitting but did not register the IH.
+**Decision**: For each variable sub-pattern in a constructor case, register the IH (the claim substituted with that variable) in the claim map. It's available both as `__ih_{variable}` and via the enclosing claim name with the variable as an argument.
+**Rationale**: This is the standard approach in proof assistants (Coq, Lean, Agda). The IH is scoped to the case — saved and restored after checking.
+**Consequences**: Induction proofs can now reference the IH. Structural induction on lists works. Arithmetic induction requires Peano encoding (deferred). The `assume` escape hatch remains for steps that require function reduction.
+
+## Decision: Cong Goal Decomposition
+**Date**: 2026-03 (M10)
+**Context**: `cong f proof` tried to infer the inner proof's type, which fails for `Refl` (no type to infer). `cong List Refl` for the goal `List Nil ≡ List Nil` failed.
+**Decision**: When inference fails, decompose the goal: extract `A` from `f(A) ≡ f(B)` and check the inner proof against `A ≡ B`.
+**Rationale**: Bidirectional — try inference first, fall back to checking. Matches the bidirectional pattern used in the type checker.
+**Consequences**: `cong List Refl` now works. `cong f (lemma args)` works when inference succeeds or when the goal is decomposable.

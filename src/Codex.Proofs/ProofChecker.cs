@@ -11,6 +11,7 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
     Map<string, EqualityType> m_claimMap = Map<string, EqualityType>.s_empty;
     Map<string, IReadOnlyList<string>> m_claimParamsMap = Map<string, IReadOnlyList<string>>.s_empty;
     Map<string, CodexType> m_typeMap = Map<string, CodexType>.s_empty;
+    string? m_currentProofName;
 
     public void CheckModule(Module module, Map<string, CodexType> typeMap)
     {
@@ -106,7 +107,10 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
             proofEnv = proofEnv.Set(param.Name.Value, new TypeLevelVar(param.Name.Value));
         }
 
+        m_currentProofName = proof.Name.Value;
         EqualityType? result = CheckProofExpr(proof.Body, claim, proofEnv);
+        m_currentProofName = null;
+
         if (result is null)
         {
             m_diagnostics.Error("CDX4002",
@@ -169,7 +173,22 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
             case CongProofExpr cong:
             {
                 EqualityType? innerResult = InferProofExpr(cong.Inner, env);
-                if (innerResult is null) return null;
+                if (innerResult is null)
+                {
+                    CodexType? innerLeft = ExtractCongArg(goal.Left, cong.FunctionName.Value);
+                    CodexType? innerRight = ExtractCongArg(goal.Right, cong.FunctionName.Value);
+                    if (innerLeft is not null && innerRight is not null)
+                    {
+                        EqualityType innerGoal = new(innerLeft, innerRight);
+                        EqualityType? checked_ = CheckProofExpr(cong.Inner, innerGoal, env);
+                        if (checked_ is not null)
+                            return goal;
+                    }
+                    m_diagnostics.Error("CDX4011",
+                        $"Cong {cong.FunctionName.Value}: cannot infer inner proof",
+                        expr.Span);
+                    return null;
+                }
 
                 CodexType newLeft = ApplyFunction(cong.FunctionName.Value, innerResult.Left);
                 CodexType newRight = ApplyFunction(cong.FunctionName.Value, innerResult.Right);
@@ -258,6 +277,9 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
             caseGoal = NormalizeEquality(caseGoal);
 
             Map<string, CodexType> innerEnv = caseEnv;
+            Map<string, EqualityType> savedClaimMap = m_claimMap;
+            Map<string, IReadOnlyList<string>> savedParamsMap = m_claimParamsMap;
+
             if (proofCase.Pattern is CtorPattern ctor)
             {
                 foreach (Pattern sub in ctor.SubPatterns)
@@ -265,11 +287,29 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
                     if (sub is VarPattern v)
                     {
                         innerEnv = innerEnv.Set(v.Name.Value, new TypeLevelVar(v.Name.Value));
+
+                        if (m_currentProofName is not null)
+                        {
+                            EqualityType ihGoal = NormalizeEquality(new(
+                                SubstituteVar(goal.Left, ind.Variable.Value, new TypeLevelVar(v.Name.Value)),
+                                SubstituteVar(goal.Right, ind.Variable.Value, new TypeLevelVar(v.Name.Value))));
+
+                            string ihName = $"__ih_{v.Name.Value}";
+                            m_claimMap = m_claimMap.Set(ihName, ihGoal);
+                            m_claimParamsMap = m_claimParamsMap.Set(ihName, []);
+
+                            m_claimMap = m_claimMap.Set(m_currentProofName, ihGoal);
+                            m_claimParamsMap = m_claimParamsMap.Set(m_currentProofName, [v.Name.Value]);
+                        }
                     }
                 }
             }
 
             EqualityType? result = CheckProofExpr(proofCase.Body, caseGoal, innerEnv);
+
+            m_claimMap = savedClaimMap;
+            m_claimParamsMap = savedParamsMap;
+
             if (result is null)
             {
                 m_diagnostics.Error("CDX4021",
@@ -328,6 +368,17 @@ public sealed class ProofChecker(DiagnosticBag diagnostics)
         m_diagnostics.Error("CDX4013",
             $"Lemma '{apply.LemmaName.Value}' proves {instantiated.Left} ≡ {instantiated.Right}, but goal is {goal.Left} ≡ {goal.Right}",
             apply.Span);
+        return null;
+    }
+
+    static CodexType? ExtractCongArg(CodexType type, string funcName)
+    {
+        if (type is ConstructedType ct
+            && ct.Constructor.Value == funcName
+            && ct.Arguments.Length == 1)
+        {
+            return ct.Arguments[0];
+        }
         return null;
     }
 
