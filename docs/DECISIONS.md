@@ -187,3 +187,21 @@ Significant design and engineering decisions are recorded here in chronological 
 **Rationale**: This is the standard purely functional approach (used in Haskell, ML). The name `UnificationState` answers "why is this changing?" — because we're accumulating unification knowledge. The alternative (effect system with State effect) requires the Codex effect system to be more mature.
 **Implementation**: `UnificationState` holds `substitutions : List SubstEntry`, `next-id : Integer`, `errors : List Diagnostic`. All type checking functions return `CheckResult { inferred-type, state }` or `UnifyResult { success, state }`.
 **Consequences**: Every function signature is longer (extra state parameter). But the data flow is explicit, debuggable, and the code is self-documenting about what mutates and why.
+
+---
+
+## Decision: Codex-Side Name Resolver — Error-Collecting Scope Walk
+**Date**: 2026-03 (M13)
+**Context**: Name resolution must validate that all referenced names exist in scope. The C# NameResolver uses `Set<string>` and mutates a `DiagnosticBag`. In Codex, there's no mutable set.
+**Decision**: Use a `Scope` record containing `List Text`. Walk all expressions, collecting `List Diagnostic` as errors. No mutation — errors are concatenated via `++`. Scope is extended by prepending names.
+**Rationale**: Lists are inefficient for lookup (O(n) per check), but correctness is the priority. Codex programs are small enough that linear scan is fine. If performance matters later, a balanced tree or hash set can be added to `Core/Collections.codex`.
+**Consequences**: The name resolver is purely functional. `resolve-module` returns `ResolveResult { errors, top-level-names, type-names, ctor-names }`. The `compile-checked` pipeline gates on zero errors before proceeding to type checking.
+
+---
+
+## Decision: C# Generics for Polymorphic Functions
+**Date**: 2026-03 (M13)
+**Context**: The C# emitter used `object` for all type variables, causing `Func<LetBind, ALetBind>` vs `Func<object, object>` mismatches, `List<object>` to `List<string>` errors, and required coercion hacks at every callsite.
+**Decision**: Emit `TypeVariable(id)` as `T{id}`. Polymorphic functions become C# generic methods: `public static T1 map_list<T0, T1>(Func<T0, T1> f, List<T0> xs)`. C# infers type arguments at callsites.
+**Rationale**: The boxing argument against generics is a false economy — nobody building a compiler is CPU-bound on type dispatch. Generics eliminate an entire class of emitter bugs and make the generated C# natural.
+**Consequences**: Zero `object` erasure. All 105 CS1503 type mismatch errors eliminated. Stage 1 compiles with zero errors. The emitter is simpler (no coercion logic needed).

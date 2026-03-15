@@ -38,8 +38,9 @@ public sealed partial class CSharpEmitter
     {
         string returnType = EmitType(GetReturnType(def));
         string name = SanitizeIdentifier(def.Name);
+        string generics = GenericSuffix(def);
 
-        sb.Append($"    public static {returnType} {name}(");
+        sb.Append($"    public static {returnType} {name}{generics}(");
         for (int i = 0; i < def.Parameters.Length; i++)
         {
             if (i > 0) sb.Append(", ");
@@ -112,10 +113,13 @@ public sealed partial class CSharpEmitter
         sb.AppendLine(";");
 
         bool first = true;
+        int branchIdx = 0;
         foreach (IRMatchBranch branch in match.Branches)
         {
             string keyword = first ? "if" : "else if";
             first = false;
+            string matchVar = $"_tco_m{branchIdx}";
+            branchIdx++;
 
             switch (branch.Pattern)
             {
@@ -129,12 +133,12 @@ public sealed partial class CSharpEmitter
                     break;
 
                 case IRCtorPattern ctorPat:
-                    sb.AppendLine($"{pad}{keyword} ({scrutineeVar} is {SanitizeIdentifier(ctorPat.Name)} _tco_m)");
+                    sb.AppendLine($"{pad}{keyword} ({scrutineeVar} is {SanitizeIdentifier(ctorPat.Name)} {matchVar})");
                     sb.AppendLine($"{pad}{{");
                     for (int i = 0; i < ctorPat.SubPatterns.Length; i++)
                     {
                         if (ctorPat.SubPatterns[i] is IRVarPattern svp)
-                            sb.AppendLine($"{pad}    var {SanitizeIdentifier(svp.Name)} = _tco_m.Field{i};");
+                            sb.AppendLine($"{pad}    var {SanitizeIdentifier(svp.Name)} = {matchVar}.Field{i};");
                     }
                     EmitTailCallBody(sb, branch.Body, funcName, parameters, indent + 1);
                     sb.AppendLine($"{pad}}}");

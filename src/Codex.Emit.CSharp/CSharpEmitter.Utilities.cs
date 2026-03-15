@@ -27,7 +27,7 @@ public sealed partial class CSharpEmitter
             TypeLevelVar => "long",
             TypeLevelBinary => "long",
             ProofType => "object",
-            TypeVariable => "object",
+            TypeVariable tv => $"T{tv.Id}",
             ErrorType => "object",
             _ => "object"
         };

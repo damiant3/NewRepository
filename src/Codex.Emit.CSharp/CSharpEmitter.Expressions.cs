@@ -37,6 +37,10 @@ public sealed partial class CSharpEmitter
                 else if (name.Name.Length > 0 && char.IsUpper(name.Name[0])
                     && name.Type is not FunctionType)
                     sb.Append($"new {SanitizeIdentifier(name.Name)}()");
+                else if (m_definitionArity.TryGet(name.Name, out int nameArity)
+                    && nameArity == 0
+                    && name.Type is not FunctionType)
+                    sb.Append($"{SanitizeIdentifier(name.Name)}()");
                 else
                     sb.Append(SanitizeIdentifier(name.Name));
                 break;

@@ -144,7 +144,14 @@ public sealed class Lowering(
     IRExpr LowerBinary(BinaryExpr bin, CodexType expectedType)
     {
         IRExpr left = LowerExpr(bin.Left, expectedType);
-        IRExpr right = LowerExpr(bin.Right, expectedType);
+
+        CodexType rightExpected = expectedType;
+        if (bin.Op == BinaryOp.Append && left.Type is ListType)
+            rightExpected = left.Type;
+        else if (bin.Op == BinaryOp.Cons && left.Type is not ErrorType)
+            rightExpected = new ListType(left.Type);
+
+        IRExpr right = LowerExpr(bin.Right, rightExpected);
 
         IRBinaryOp op = bin.Op switch
         {

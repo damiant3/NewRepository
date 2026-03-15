@@ -273,6 +273,10 @@ public sealed class JavaScriptEmitter : ICodeEmitter
                 else if (name.Name.Length > 0 && char.IsUpper(name.Name[0])
                     && name.Type is not FunctionType)
                     sb.Append($"{Sanitize(name.Name)}()");
+                else if (m_definitionArity.TryGet(name.Name, out int nameArity)
+                    && nameArity == 0
+                    && name.Type is not FunctionType)
+                    sb.Append($"{Sanitize(name.Name)}()");
                 else
                     sb.Append(Sanitize(name.Name));
                 break;
@@ -390,8 +394,9 @@ public sealed class JavaScriptEmitter : ICodeEmitter
         }
         else if (app.Function is IRName fn7 && fn7.Name == "text-length")
         {
+            sb.Append("BigInt(");
             EmitExpr(sb, app.Argument, indent);
-            sb.Append(".length");
+            sb.Append(".length)");
         }
         else if (app.Function is IRName fn8 && fn8.Name == "is-letter")
         {
@@ -425,19 +430,21 @@ public sealed class JavaScriptEmitter : ICodeEmitter
         }
         else if (app.Function is IRName fn12 && fn12.Name == "char-code")
         {
+            sb.Append("BigInt(");
             EmitExpr(sb, app.Argument, indent);
-            sb.Append(".charCodeAt(0)");
+            sb.Append(".charCodeAt(0))");
         }
         else if (app.Function is IRName fn13 && fn13.Name == "code-to-char")
         {
-            sb.Append("String.fromCharCode(");
+            sb.Append("String.fromCharCode(Number(");
             EmitExpr(sb, app.Argument, indent);
-            sb.Append(')');
+            sb.Append("))");
         }
         else if (app.Function is IRName fn14 && fn14.Name == "list-length")
         {
+            sb.Append("BigInt(");
             EmitExpr(sb, app.Argument, indent);
-            sb.Append(".length");
+            sb.Append(".length)");
         }
         else if (TryEmitMultiArgBuiltin(sb, app, indent))
         {
@@ -750,27 +757,27 @@ public sealed class JavaScriptEmitter : ICodeEmitter
         {
             case "char-at" when args.Count == 2:
                 EmitExpr(sb, args[0], indent);
-                sb.Append("[");
+                sb.Append("[Number(");
                 EmitExpr(sb, args[1], indent);
-                sb.Append("]");
+                sb.Append(")]");
                 return true;
 
             case "substring" when args.Count == 3:
                 EmitExpr(sb, args[0], indent);
-                sb.Append(".substring(");
+                sb.Append(".substring(Number(");
                 EmitExpr(sb, args[1], indent);
-                sb.Append(", ");
+                sb.Append("), Number(");
                 EmitExpr(sb, args[1], indent);
                 sb.Append(" + ");
                 EmitExpr(sb, args[2], indent);
-                sb.Append(')');
+                sb.Append("))");
                 return true;
 
             case "list-at" when args.Count == 2:
                 EmitExpr(sb, args[0], indent);
-                sb.Append("[");
+                sb.Append("[Number(");
                 EmitExpr(sb, args[1], indent);
-                sb.Append("]");
+                sb.Append(")]");
                 return true;
 
             case "text-replace" when args.Count == 3:

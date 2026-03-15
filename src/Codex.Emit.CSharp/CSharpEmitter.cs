@@ -176,8 +176,9 @@ public sealed partial class CSharpEmitter : ICodeEmitter
 
         string returnType = EmitType(GetReturnType(def));
         string name = SanitizeIdentifier(def.Name);
+        string generics = GenericSuffix(def);
 
-        sb.Append($"    public static {returnType} {name}(");
+        sb.Append($"    public static {returnType} {name}{generics}(");
 
         for (int i = 0; i < def.Parameters.Length; i++)
         {
