@@ -377,7 +377,9 @@ public sealed class Lowering(
     {
         CodexType elementType = expectedType is ListType lt
             ? lt.Element
-            : (list.Elements.Count > 0 ? InferElementType(list) : ErrorType.s_instance);
+            : (list.Elements.Count > 0
+                ? InferElementType(list) is ErrorType ? InferExprType(list.Elements[0]) : InferElementType(list)
+                : ErrorType.s_instance);
 
         ImmutableArray<IRExpr>.Builder elements = ImmutableArray.CreateBuilder<IRExpr>();
         foreach (Expr elem in list.Elements)
@@ -401,6 +403,17 @@ public sealed class Lowering(
                 LiteralKind.Boolean => BooleanType.s_instance,
                 _ => ErrorType.s_instance
             },
+            _ => ErrorType.s_instance
+        };
+    }
+
+    CodexType InferExprType(Expr expr)
+    {
+        return expr switch
+        {
+            RecordExpr rec when rec.TypeName is not null =>
+                m_typeDefMap[rec.TypeName.Value.Value] ?? ErrorType.s_instance,
+            NameExpr name => LookupName(name.Name.Value, ErrorType.s_instance),
             _ => ErrorType.s_instance
         };
     }

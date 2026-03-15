@@ -644,48 +644,47 @@ Section: Definition Parsing
       if is-colon (peek-kind st 1)
         then let ann-result = parse-type-annotation st
           in unwrap-type-for-def ann-result
-        else parse-def-body st
+        else parse-def-body-with-ann [] st
 
     unwrap-type-for-def : ParseTypeResult -> ParseDefResult
     unwrap-type-for-def (r) =
       when r
         if TypeOk (ann-type) (st) ->
-          let st2 = skip-newlines st
-          in parse-def-body st2
+          let name-tok = Token { kind = Identifier, text = "", offset = 0, line = 0, column = 0 }
+          in let ann = [TypeAnn { name = name-tok, type-expr = ann-type }]
+            in let st2 = skip-newlines st
+              in parse-def-body-with-ann ann st2
 
-    parse-def-body : ParseState -> ParseDefResult
-    parse-def-body (st) =
+    parse-def-body-with-ann : List TypeAnn -> ParseState -> ParseDefResult
+    parse-def-body-with-ann (ann) (st) =
       let name-tok = current st
       in let st2 = advance st
-        in let params-result = parse-def-params [] st2
-          in unwrap-expr-for-def params-result name-tok
+        in parse-def-params-then ann name-tok [] st2
 
-    unwrap-expr-for-def : ParseExprResult -> Token -> ParseDefResult
-    unwrap-expr-for-def (r) (name-tok) =
-      when r
-        if ExprOk (dummy) (st) ->
-          let st2 = expect Equals st
-          in let st3 = skip-newlines st2
-            in let body = parse-expr st3
-              in unwrap-expr-for-def-body body name-tok
-
-    unwrap-expr-for-def-body : ParseExprResult -> Token -> ParseDefResult
-    unwrap-expr-for-def-body (r) (name-tok) =
-      when r
-        if ExprOk (b) (st) ->
-          DefOk (Def { name = name-tok, params = [], ann = [], body = b }) st
-
-    parse-def-params : List Token -> ParseState -> ParseExprResult
-    parse-def-params (acc) (st) =
+    parse-def-params-then : List TypeAnn -> Token -> List Token -> ParseState -> ParseDefResult
+    parse-def-params-then (ann) (name-tok) (acc) (st) =
       if is-left-paren (current-kind st)
         then let st2 = advance st
           in if is-ident (current-kind st2)
             then let param = current st2
               in let st3 = advance st2
                 in let st4 = expect RightParen st3
-                  in parse-def-params (acc ++ [param]) st4
-            else ExprOk (LitExpr (current st)) st
-        else ExprOk (LitExpr (current st)) st
+                  in parse-def-params-then ann name-tok (acc ++ [param]) st4
+            else finish-def ann name-tok acc st
+        else finish-def ann name-tok acc st
+
+    finish-def : List TypeAnn -> Token -> List Token -> ParseState -> ParseDefResult
+    finish-def (ann) (name-tok) (params) (st) =
+      let st2 = expect Equals st
+      in let st3 = skip-newlines st2
+        in let body-result = parse-expr st3
+          in unwrap-def-body body-result ann name-tok params
+
+    unwrap-def-body : ParseExprResult -> List TypeAnn -> Token -> List Token -> ParseDefResult
+    unwrap-def-body (r) (ann) (name-tok) (params) =
+      when r
+        if ExprOk (b) (st) ->
+          DefOk (Def { name = name-tok, params = params, ann = ann, body = b }) st
 
 Section: Type Definition Parsing
 

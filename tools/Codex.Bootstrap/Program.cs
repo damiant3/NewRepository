@@ -46,6 +46,22 @@ class Program
 
     static string ExtractNotation(string content)
     {
+        bool hasProse = false;
+        foreach (string line in content.Split('\n'))
+        {
+            string t = line.TrimStart();
+            if (t.Length == 0) continue;
+            if (t.StartsWith("Chapter:", StringComparison.Ordinal))
+            {
+                hasProse = true;
+                break;
+            }
+            break;
+        }
+
+        if (!hasProse)
+            return content;
+
         string[] lines = content.Split('\n');
         List<string> result = [];
         int i = 0;
