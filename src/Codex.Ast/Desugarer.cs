@@ -12,7 +12,9 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
         QualifiedName name = QualifiedName.Simple(moduleName);
         List<Definition> definitions = document.Definitions.Select(DesugarDefinition).ToList();
         List<TypeDef> typeDefinitions = document.TypeDefinitions.Select(DesugarTypeDefinition).ToList();
-        return new Module(name, definitions, typeDefinitions, document.Span);
+        List<ClaimDef> claims = document.Claims.Select(DesugarClaim).ToList();
+        List<ProofDef> proofs = document.Proofs.Select(DesugarProof).ToList();
+        return new Module(name, definitions, typeDefinitions, claims, proofs, document.Span);
     }
 
     Definition DesugarDefinition(DefinitionNode node)
@@ -234,5 +236,47 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
         TokenKind.Ampersand => BinaryOp.And,
         TokenKind.Pipe => BinaryOp.Or,
         _ => BinaryOp.Add
+    };
+
+    ClaimDef DesugarClaim(ClaimNode node)
+    {
+        Name name = new(node.Name.Text);
+        List<Parameter> parameters = node.Parameters.Select(p =>
+            new Parameter(new Name(p.Text), null, p.Span)).ToList();
+        TypeExpr left = DesugarType(node.Left);
+        TypeExpr right = DesugarType(node.Right);
+        return new ClaimDef(name, parameters, left, right, node.Span);
+    }
+
+    ProofDef DesugarProof(ProofNode node)
+    {
+        Name name = new(node.Name.Text);
+        List<Parameter> parameters = node.Parameters.Select(p =>
+            new Parameter(new Name(p.Text), null, p.Span)).ToList();
+        ProofExpr body = DesugarProofExpr(node.Body);
+        return new ProofDef(name, parameters, body, node.Span);
+    }
+
+    ProofExpr DesugarProofExpr(ProofExprNode node) => node switch
+    {
+        ReflNode r => new ReflProofExpr(r.Span),
+        SymNode s => new SymProofExpr(DesugarProofExpr(s.Inner), s.Span),
+        TransNode t => new TransProofExpr(
+            DesugarProofExpr(t.Left), DesugarProofExpr(t.Right), t.Span),
+        CongNode c => new CongProofExpr(
+            new Name(c.FunctionName.Text), DesugarProofExpr(c.Inner), c.Span),
+        InductionNode ind => new InductionProofExpr(
+            new Name(ind.Variable.Text),
+            ind.Cases.Select(c => new ProofCase(
+                DesugarPattern(c.Pattern),
+                DesugarProofExpr(c.Body),
+                c.Span)).ToList(),
+            ind.Span),
+        ProofNameNode n => new NameProofExpr(new Name(n.Name.Text), n.Span),
+        ProofApplyNode a => new ApplyProofExpr(
+            new Name(a.LemmaName.Text),
+            a.Arguments.Select(DesugarExpr).ToList(),
+            a.Span),
+        _ => new ReflProofExpr(node.Span)
     };
 }

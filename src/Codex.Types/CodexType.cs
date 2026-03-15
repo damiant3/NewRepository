@@ -186,3 +186,34 @@ public sealed record LessThanClaim(CodexType Left, CodexType Right) : CodexType
 {
     public override string ToString() => $"{Left} < {Right}";
 }
+
+public sealed record EqualityType(CodexType Left, CodexType Right) : CodexType
+{
+    public override string ToString() => $"{Left} ≡ {Right}";
+}
+
+public sealed record ReflProof : CodexType
+{
+    public static readonly ReflProof s_instance = new();
+    public override string ToString() => "Refl";
+}
+
+public sealed record CongProof(string FunctionName, CodexType InnerProof) : CodexType
+{
+    public override string ToString() => $"Cong {FunctionName} {InnerProof}";
+}
+
+public sealed record SymProof(CodexType InnerProof) : CodexType
+{
+    public override string ToString() => $"Sym {InnerProof}";
+}
+
+public sealed record TransProof(CodexType Left, CodexType Right) : CodexType
+{
+    public override string ToString() => $"Trans {Left} {Right}";
+}
+
+public sealed record InductionProof(string Variable, CodexType BaseCase, CodexType InductiveStep) : CodexType
+{
+    public override string ToString() => $"Induction {Variable} (base: {BaseCase}) (step: {InductiveStep})";
+}

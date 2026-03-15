@@ -65,7 +65,8 @@ public sealed class ProseParser
             CollectDefinitions(chapter.Members, allDefs, allTypeDefs);
         }
 
-        return new DocumentNode(allDefs, allTypeDefs, chapters, docSpan);
+        return new DocumentNode(allDefs, allTypeDefs, Array.Empty<ClaimNode>(),
+            Array.Empty<ProofNode>(), chapters, docSpan);
     }
 
     ChapterNode ParseChapter()

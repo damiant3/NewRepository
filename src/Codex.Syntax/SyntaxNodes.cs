@@ -59,6 +59,18 @@ public enum SyntaxKind
     // Type signature
     TypeAnnotation,
 
+    // Claims and Proofs
+    ClaimDefinition,
+    ProofDefinition,
+    ProofRefl,
+    ProofSym,
+    ProofTrans,
+    ProofCong,
+    ProofInduction,
+    ProofCase,
+    ProofName,
+    ProofApply,
+
     // Parameters
     Parameter,
 
@@ -80,15 +92,19 @@ public sealed record TokenNode(Token Token)
 public sealed record DocumentNode(
     IReadOnlyList<DefinitionNode> Definitions,
     IReadOnlyList<TypeDefinitionNode> TypeDefinitions,
+    IReadOnlyList<ClaimNode> Claims,
+    IReadOnlyList<ProofNode> Proofs,
     IReadOnlyList<ChapterNode> Chapters,
     SourceSpan Span)
     : SyntaxNode(SyntaxKind.Document, Span)
 {
     public DocumentNode(IReadOnlyList<DefinitionNode> Definitions, SourceSpan Span)
-        : this(Definitions, Array.Empty<TypeDefinitionNode>(), Array.Empty<ChapterNode>(), Span) { }
+        : this(Definitions, Array.Empty<TypeDefinitionNode>(), Array.Empty<ClaimNode>(),
+               Array.Empty<ProofNode>(), Array.Empty<ChapterNode>(), Span) { }
 
     public DocumentNode(IReadOnlyList<DefinitionNode> Definitions, IReadOnlyList<ChapterNode> Chapters, SourceSpan Span)
-        : this(Definitions, Array.Empty<TypeDefinitionNode>(), Chapters, Span) { }
+        : this(Definitions, Array.Empty<TypeDefinitionNode>(), Array.Empty<ClaimNode>(),
+               Array.Empty<ProofNode>(), Chapters, Span) { }
 
     public override IEnumerable<SyntaxNode> Children
     {
@@ -96,6 +112,8 @@ public sealed record DocumentNode(
         {
             foreach (ChapterNode ch in Chapters) yield return ch;
             foreach (TypeDefinitionNode td in TypeDefinitions) yield return td;
+            foreach (ClaimNode cl in Claims) yield return cl;
+            foreach (ProofNode pr in Proofs) yield return pr;
             foreach (DefinitionNode def in Definitions) yield return def;
         }
     }
@@ -442,4 +460,97 @@ public sealed record VariantFieldNode(Token? FieldName, TypeNode Type, SourceSpa
     : SyntaxNode(SyntaxKind.RecordTypeField, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [Type];
+}
+
+public sealed record ClaimNode(
+    Token Name,
+    IReadOnlyList<Token> Parameters,
+    TypeNode Left,
+    TypeNode Right,
+    SourceSpan Span)
+    : SyntaxNode(SyntaxKind.ClaimDefinition, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Left, Right];
+}
+
+public sealed record ProofNode(
+    Token Name,
+    IReadOnlyList<Token> Parameters,
+    ProofExprNode Body,
+    SourceSpan Span)
+    : SyntaxNode(SyntaxKind.ProofDefinition, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Body];
+}
+
+public abstract record ProofExprNode(SyntaxKind Kind, SourceSpan Span)
+    : SyntaxNode(Kind, Span);
+
+public sealed record ReflNode(SourceSpan Span)
+    : ProofExprNode(SyntaxKind.ProofRefl, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [];
+}
+
+public sealed record SymNode(ProofExprNode Inner, SourceSpan Span)
+    : ProofExprNode(SyntaxKind.ProofSym, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Inner];
+}
+
+public sealed record TransNode(ProofExprNode Left, ProofExprNode Right, SourceSpan Span)
+    : ProofExprNode(SyntaxKind.ProofTrans, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Left, Right];
+}
+
+public sealed record CongNode(Token FunctionName, ProofExprNode Inner, SourceSpan Span)
+    : ProofExprNode(SyntaxKind.ProofCong, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Inner];
+}
+
+public sealed record InductionNode(
+    Token Variable,
+    IReadOnlyList<ProofCaseNode> Cases,
+    SourceSpan Span)
+    : ProofExprNode(SyntaxKind.ProofInduction, Span)
+{
+    public override IEnumerable<SyntaxNode> Children
+    {
+        get
+        {
+            foreach (ProofCaseNode c in Cases) yield return c;
+        }
+    }
+}
+
+public sealed record ProofCaseNode(
+    PatternNode Pattern,
+    ProofExprNode Body,
+    SourceSpan Span)
+    : SyntaxNode(SyntaxKind.ProofCase, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Pattern, Body];
+}
+
+public sealed record ProofNameNode(Token Name, SourceSpan Span)
+    : ProofExprNode(SyntaxKind.ProofName, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [];
+}
+
+public sealed record ProofApplyNode(
+    Token LemmaName,
+    IReadOnlyList<ExpressionNode> Arguments,
+    SourceSpan Span)
+    : ProofExprNode(SyntaxKind.ProofApply, Span)
+{
+    public override IEnumerable<SyntaxNode> Children
+    {
+        get
+        {
+            foreach (ExpressionNode a in Arguments) yield return a;
+        }
+    }
 }

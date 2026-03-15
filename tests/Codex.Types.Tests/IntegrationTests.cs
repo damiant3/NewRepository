@@ -819,4 +819,116 @@ public class IntegrationTests
         DiagnosticBag diag = TypeCheckWithDiagnostics(source);
         Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX2040");
     }
+
+    // --- Proofs (Milestone 10) ---
+
+    private static DiagnosticBag CheckWithProofs(string source, string moduleName = "test")
+    {
+        SourceText src = new("test.codex", source);
+        DiagnosticBag diagnostics = new();
+
+        Lexer lexer = new(src, diagnostics);
+        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+        Parser parser = new(tokens, diagnostics);
+        DocumentNode document = parser.ParseDocument();
+
+        Desugarer desugarer = new(diagnostics);
+        Module module = desugarer.Desugar(document, moduleName);
+        if (diagnostics.HasErrors) return diagnostics;
+
+        NameResolver resolver = new(diagnostics);
+        ResolvedModule resolved = resolver.Resolve(module);
+        if (diagnostics.HasErrors) return diagnostics;
+
+        TypeChecker checker = new(diagnostics);
+        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+        if (diagnostics.HasErrors) return diagnostics;
+
+        Codex.Proofs.ProofChecker proofChecker = new(diagnostics);
+        proofChecker.CheckModule(resolved.Module, types);
+        return diagnostics;
+    }
+
+    [Fact]
+    public void Claim_and_refl_proof_succeeds()
+    {
+        string source =
+            "claim zero-is-zero : 0 === 0\n" +
+            "proof zero-is-zero = Refl\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Claim_and_refl_proof_with_types_succeeds()
+    {
+        string source =
+            "claim five-is-five : 5 === 5\n" +
+            "proof five-is-five = Refl\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Refl_proof_with_unequal_sides_fails()
+    {
+        string source =
+            "claim bad : 3 === 5\n" +
+            "proof bad = Refl\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX4010");
+    }
+
+    [Fact]
+    public void Sym_proof_succeeds()
+    {
+        string source =
+            "claim a-eq : 5 === 5\n" +
+            "proof a-eq = Refl\n\n" +
+            "claim b-eq : 5 === 5\n" +
+            "proof b-eq = sym a-eq\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Proof_without_claim_fails()
+    {
+        string source =
+            "proof orphan = Refl\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX4001");
+    }
+
+    [Fact]
+    public void Type_level_arithmetic_in_claim_normalizes()
+    {
+        string source =
+            "claim add-comm : (3 + 2) === 5\n" +
+            "proof add-comm = Refl\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void Type_level_arithmetic_wrong_value_fails()
+    {
+        string source =
+            "claim bad-add : (3 + 2) === 6\n" +
+            "proof bad-add = Refl\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX4010");
+    }
+
+    [Fact]
+    public void Cong_proof_succeeds()
+    {
+        string source =
+            "claim inner-eq : 5 === 5\n" +
+            "proof inner-eq = Refl\n\n" +
+            "claim outer-eq : List 5 === List 5\n" +
+            "proof outer-eq = cong List inner-eq\n";
+        DiagnosticBag diag = CheckWithProofs(source);
+        Assert.DoesNotContain(diag.ToImmutable(), d => d.Severity == DiagnosticSeverity.Error);
+    }
 }

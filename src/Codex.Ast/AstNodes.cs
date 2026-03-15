@@ -6,6 +6,8 @@ public sealed record Module(
     QualifiedName Name,
     IReadOnlyList<Definition> Definitions,
     IReadOnlyList<TypeDef> TypeDefinitions,
+    IReadOnlyList<ClaimDef> Claims,
+    IReadOnlyList<ProofDef> Proofs,
     SourceSpan Span);
 
 public sealed record Definition(
@@ -131,3 +133,28 @@ public sealed record VariantCtorDef(
     SourceSpan Span);
 
 public sealed record VariantFieldDef(Name? FieldName, TypeExpr Type, SourceSpan Span);
+
+public sealed record ClaimDef(Name Name, IReadOnlyList<Parameter> Parameters, TypeExpr Left, TypeExpr Right, SourceSpan Span);
+
+public sealed record ProofDef(Name Name, IReadOnlyList<Parameter> Parameters, ProofExpr Body, SourceSpan Span);
+
+public abstract record ProofExpr(SourceSpan Span);
+
+public sealed record ReflProofExpr(SourceSpan Span) : ProofExpr(Span);
+
+public sealed record SymProofExpr(ProofExpr Inner, SourceSpan Span) : ProofExpr(Span);
+
+public sealed record TransProofExpr(ProofExpr Left, ProofExpr Right, SourceSpan Span) : ProofExpr(Span);
+
+public sealed record CongProofExpr(Name FunctionName, ProofExpr Inner, SourceSpan Span) : ProofExpr(Span);
+
+public sealed record InductionProofExpr(
+    Name Variable,
+    IReadOnlyList<ProofCase> Cases,
+    SourceSpan Span) : ProofExpr(Span);
+
+public sealed record ProofCase(Pattern Pattern, ProofExpr Body, SourceSpan Span);
+
+public sealed record NameProofExpr(Name Name, SourceSpan Span) : ProofExpr(Span);
+
+public sealed record ApplyProofExpr(Name LemmaName, IReadOnlyList<Expr> Arguments, SourceSpan Span) : ProofExpr(Span);
