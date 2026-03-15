@@ -177,12 +177,18 @@ all work. User-defined effect handlers deferred.
 - [x] `FileHandle` as a linear type
 - [x] File system effect + linear file handles
 - [x] C# backend: linear types encoded as runtime checks
-- [ ] **Linearity checker** — reject programs that use a linear value twice or not at all
+- [x] **Linearity checker** (`LinearityChecker.cs`) — usage-counting pass with CDX2040 (never used), CDX2041 (used more than once), CDX2042 (inconsistent across branches)
+- [x] Let-forward tracking (rebinding a linear variable transfers linearity)
+- [x] If/match branch merging (linear variable must be used consistently in all branches)
+- [x] Wired into CLI compile pipeline and `Helpers.CheckWithLinearity` test harness
+- [x] 6 tests in `IntegrationTests.Linearity.cs`
+- [ ] **Advanced linearity**: linear values through record fields, linear closures
 
 ### Status
-Linearity annotations parse and type-check, and the C# backend emits runtime checks.
-The actual **linearity checker** (usage-counting pass) is not implemented.
-See [FORWARD-PLAN.md](FORWARD-PLAN.md) — this is a Tier 1 priority.
+The linearity checker is implemented and wired into the pipeline. It rejects programs that
+use a linear value twice (`CDX2041`), not at all (`CDX2040`), or inconsistently across
+branches (`CDX2042`). Let-forwarding, lambda scoping, and do-expression scoping are handled.
+Remaining work: tracking linearity through record field access and closures that capture linear values.
 
 ### Demo Program
 ```codex
@@ -196,7 +202,7 @@ Chapter: Safe File Reading
       succeed contents
 ```
 
-If you forget `close-file`, the compiler should reject the program. (Not yet enforced.)
+If you forget `close-file`, the compiler rejects the program with CDX2040.
 
 ---
 

@@ -57,7 +57,7 @@ All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliv
 |---|-----------|------------|-------------|
 | M4 | Prose Integration | Chapter/Section parsing, prose templates (record/variant from bullets), prose-aware compilation | The Reader (`codex read`): formatted prose rendering to terminal |
 | M5 | Effects | Effect rows, effect checking, effect polymorphism (row variables), Console/State, C# emission | Effect handlers (`run-state`), user-defined effects |
-| M6 | Linear Types | Linearity annotations parse and type-check, C# runtime checks | **Linearity checker** — reject programs that use a linear value twice or not at all |
+| M6 | Linear Types | Linearity annotations, `LinearityChecker` with usage counting (CDX2040/2041/2042), if/match branch merging, let-forward tracking, C# runtime checks. 6 tests. Wired in pipeline. | Richer integration: linear values through record fields, linear closures |
 | M7 | Repository | Fact store, content hashing, CLI commands, `import` resolution from store via `IModuleLoader` | Views (single-user views, view consistency checking) |
 | M8 | Dependent Types | Dependent function types, type-level arithmetic, proof obligations | Full `Vector` type with `append` end-to-end |
 | M10 | Proofs | Induction, cong, lemma application, IH registration, 9 proofs in sample | Type-level function reduction (needed for non-trivial inductive steps), arithmetic induction with Peano encoding |
@@ -74,33 +74,27 @@ The parser currently stops at the first error. For IDE use, it should skip to
 the next definition and continue. The CST has `ErrorNode` support; the parser
 just needs synchronization points. Estimated: medium.
 
-**2. Linearity checker (M6)**
-Linear type annotations exist and parse. The checker that rejects programs
-using a linear value twice (or not at all) is missing. The type checker
-already tracks linearity annotations — it needs a usage-counting pass.
-Estimated: medium. See the Linear Haskell paper for the approach.
-
 ### Tier 2: Complete Partial Milestones
 
-**3. Effect handlers (M5)**
+**2. Effect handlers (M5)**
 `run-state` and user-defined effect handlers. The effect system already has
 row variables for polymorphism — handlers need to eliminate effects from
 the row. See [DECISIONS.md](DECISIONS.md): "Direct I/O for Effects."
 Estimated: medium-large.
 
-**4. Views (M7)**
+**3. Views (M7)**
 The repository stores facts and resolves imports, but there's no view layer.
 A View maps names to definitions such that all definitions are mutually
 consistent. Single-user views first, then multi-user consensus.
 Estimated: medium.
 
-**5. The Reader (M4)**
+**4. The Reader (M4)**
 `codex read <file>` renders a prose-mode document to the terminal with
 formatted prose, highlighted notation blocks, and structured layout.
 `Codex.Narration` is the project for this — currently empty.
 Estimated: small-medium.
 
-**6. Type-level function reduction (M10)**
+**5. Type-level function reduction (M10)**
 Proof steps that require unfolding function definitions currently use
 `assume`. The proof checker needs to normalize type-level expressions
 by inlining function bodies. Arithmetic induction with Peano encoding
@@ -108,13 +102,13 @@ also depends on this. Estimated: medium.
 
 ### Tier 3: New Capabilities
 
-**7. Package manager / dependency resolution**
+**6. Package manager / dependency resolution**
 The repository stores facts but there's no transitive dependency resolution
 across modules. `import` currently resolves one level deep — it needs to
 resolve transitively, handle version conflicts, and support views.
 Estimated: large.
 
-**8. Full `Vector` type (M8)**
+**7. Full `Vector` type (M8)**
 The dependent type infrastructure works. Wire it up end-to-end: `Vector n a`
 with `append : Vector m a → Vector n a → Vector (m + n) a`, compile and run.
 Estimated: medium.
