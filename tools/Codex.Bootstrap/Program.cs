@@ -29,7 +29,8 @@ class Program
             foreach (string file in files)
             {
                 string raw = File.ReadAllText(file);
-                combined += ExtractNotation(raw) + "\n";
+                string extracted = ExtractNotation(raw);
+                combined += extracted + "\n";
             }
 
             string moduleName = Path.GetFileName(dir);
@@ -49,7 +50,7 @@ class Program
         bool hasProse = false;
         foreach (string line in content.Split('\n'))
         {
-            string t = line.TrimStart();
+            string t = line.Trim();
             if (t.Length == 0) continue;
             if (t.StartsWith("Chapter:", StringComparison.Ordinal))
             {
@@ -68,7 +69,8 @@ class Program
 
         while (i < lines.Length)
         {
-            string trimmed = lines[i].TrimStart();
+            string raw = lines[i].TrimEnd('\r');
+            string trimmed = raw.TrimStart();
 
             if (trimmed.StartsWith("Chapter:", StringComparison.Ordinal) ||
                 trimmed.StartsWith("Section:", StringComparison.Ordinal))
@@ -77,17 +79,18 @@ class Program
                 continue;
             }
 
-            if (trimmed.Length == 0 || !char.IsWhiteSpace(lines[i][0]))
+            int indent = raw.Length - trimmed.Length;
+            if (trimmed.Length == 0 || indent < 4 || !LooksLikeNotation(trimmed))
             {
                 i++;
                 continue;
             }
 
-            int baseIndent = lines[i].Length - lines[i].TrimStart().Length;
+            int baseIndent = indent;
 
             while (i < lines.Length)
             {
-                string line = lines[i];
+                string line = lines[i].TrimEnd('\r');
                 string lt = line.Trim();
 
                 if (lt.Length == 0)
@@ -96,7 +99,7 @@ class Program
                     while (peek < lines.Length && lines[peek].Trim().Length == 0) peek++;
                     if (peek < lines.Length)
                     {
-                        string peekLine = lines[peek];
+                        string peekLine = lines[peek].TrimEnd('\r');
                         int peekIndent = peekLine.Length - peekLine.TrimStart().Length;
                         if (peekIndent >= baseIndent &&
                             !peekLine.TrimStart().StartsWith("Chapter:", StringComparison.Ordinal) &&
@@ -110,13 +113,13 @@ class Program
                     break;
                 }
 
-                int indent = line.Length - line.TrimStart().Length;
-                if (indent < baseIndent) break;
+                int lineIndent = line.Length - line.TrimStart().Length;
+                if (lineIndent < baseIndent) break;
                 if (lt.StartsWith("Chapter:", StringComparison.Ordinal) ||
                     lt.StartsWith("Section:", StringComparison.Ordinal))
                     break;
 
-                string dedented = indent >= baseIndent ? line[baseIndent..].TrimEnd('\r') : lt;
+                string dedented = lineIndent >= baseIndent ? line[baseIndent..] : lt;
                 result.Add(dedented);
                 i++;
             }
@@ -125,5 +128,19 @@ class Program
         }
 
         return string.Join("\n", result);
+    }
+
+    static bool LooksLikeNotation(string trimmed)
+    {
+        if (trimmed.Length == 0) return false;
+        if (trimmed[0] == '|') return true;
+        if (char.IsLetter(trimmed[0]) || trimmed[0] == '_')
+        {
+            if (trimmed.Contains(" : ")) return true;
+            if (trimmed.Contains(" = ")) return true;
+            if (trimmed.EndsWith(" =") || trimmed.EndsWith("=")) return true;
+            if (trimmed.Contains('(')) return true;
+        }
+        return false;
     }
 }

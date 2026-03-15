@@ -92,6 +92,11 @@ Section: TokenKind Predicates
       if Pipe -> True
       if _ -> False
 
+    is-dot : TokenKind -> Boolean
+    is-dot (k) = when k
+      if Dot -> True
+      if _ -> False
+
     is-left-paren : TokenKind -> Boolean
     is-left-paren (k) = when k
       if LeftParen -> True
@@ -187,6 +192,14 @@ Section: TokenKind Predicates
       if FalseKeyword -> True
       if LeftParen -> True
       if LeftBracket -> True
+      if _ -> False
+
+    is-compound : Expr -> Boolean
+    is-compound (e) = when e
+      if MatchExpr (s) (arms) -> True
+      if IfExpr (c) (t) (el) -> True
+      if LetExpr (binds) (body) -> True
+      if DoExpr (stmts) -> True
       if _ -> False
 
     is-type-arg-start : TokenKind -> Boolean
@@ -378,11 +391,12 @@ Section: Expression Parsing
 
     parse-app-loop : Expr -> ParseState -> ParseExprResult
     parse-app-loop (func) (st) =
-      if is-done st then ExprOk func st
-      else if is-app-start (current-kind st)
-        then let arg-result = parse-atom st
-          in unwrap-expr-ok arg-result (continue-app func)
-        else ExprOk func st
+      if is-compound func then ExprOk func st
+      else if is-done st then ExprOk func st
+        else if is-app-start (current-kind st)
+          then let arg-result = parse-atom st
+            in unwrap-expr-ok arg-result (continue-app func)
+          else ExprOk func st
 
     continue-app : Expr -> Expr -> ParseState -> ParseExprResult
     continue-app (func) (arg) (st) =
@@ -393,7 +407,7 @@ Section: Expression Parsing
       if is-literal (current-kind st)
         then ExprOk (LitExpr (current st)) (advance st)
         else if is-ident (current-kind st)
-          then ExprOk (NameExpr (current st)) (advance st)
+          then parse-field-access (NameExpr (current st)) (advance st)
           else if is-type-ident (current-kind st)
             then parse-atom-type-ident st
             else if is-left-paren (current-kind st)
@@ -409,6 +423,15 @@ Section: Expression Parsing
                       else if is-do-keyword (current-kind st)
                         then parse-do-expr st
                         else ExprOk (ErrExpr (current st)) (advance st)
+
+    parse-field-access : Expr -> ParseState -> ParseExprResult
+    parse-field-access (node) (st) =
+      if is-dot (current-kind st)
+        then let st2 = advance st
+          in let field = current st2
+            in let st3 = advance st2
+              in parse-field-access (FieldExpr node field) st3
+        else ExprOk node st
 
     parse-atom-type-ident : ParseState -> ParseExprResult
     parse-atom-type-ident (st) =
@@ -708,32 +731,33 @@ Section: Type Definition Parsing
       let st2 = advance st
       in let st3 = expect LeftBrace st2
         in let st4 = skip-newlines st3
-          in let fields = parse-record-type-fields [] st4
-            in unwrap-type-for-record-type name-tok fields
+          in parse-record-fields-loop name-tok [] st4
 
-    unwrap-type-for-record-type : Token -> ParseTypeResult -> ParseTypeDefResult
-    unwrap-type-for-record-type (name-tok) (r) =
+    parse-record-fields-loop : Token -> List RecordFieldDef -> ParseState -> ParseTypeDefResult
+    parse-record-fields-loop (name-tok) (acc) (st) =
+      if is-right-brace (current-kind st)
+        then TypeDefOk (TypeDef { name = name-tok, type-params = [], body = RecordBody acc }) (advance st)
+        else if is-ident (current-kind st)
+          then parse-one-record-field name-tok acc st
+          else TypeDefOk (TypeDef { name = name-tok, type-params = [], body = RecordBody acc }) st
+
+    parse-one-record-field : Token -> List RecordFieldDef -> ParseState -> ParseTypeDefResult
+    parse-one-record-field (name-tok) (acc) (st) =
+      let field-name = current st
+      in let st2 = advance st
+        in let st3 = expect Colon st2
+          in let field-type-result = parse-type st3
+            in unwrap-record-field-type name-tok acc field-name field-type-result
+
+    unwrap-record-field-type : Token -> List RecordFieldDef -> Token -> ParseTypeResult -> ParseTypeDefResult
+    unwrap-record-field-type (name-tok) (acc) (field-name) (r) =
       when r
-        if TypeOk (dummy) (st) ->
-          let st2 = expect RightBrace st
-          in TypeDefOk (TypeDef { name = name-tok, type-params = [], body = RecordBody [] }) st2
-
-    parse-record-type-fields : List RecordFieldDef -> ParseState -> ParseTypeResult
-    parse-record-type-fields (acc) (st) =
-      if is-ident (current-kind st)
-        then let field-name = current st
-          in let st2 = advance st
-            in let st3 = expect Colon st2
-              in let field-type = parse-type st3
-                in unwrap-type-ok field-type (continue-record-fields acc)
-        else TypeOk (NamedType (current st)) st
-
-    continue-record-fields : List RecordFieldDef -> TypeExpr -> ParseState -> ParseTypeResult
-    continue-record-fields (acc) (ft) (st) =
-      let st2 = skip-newlines st
-      in if is-comma (current-kind st2)
-        then parse-record-type-fields acc (skip-newlines (advance st2))
-        else parse-record-type-fields acc st2
+        if TypeOk (ft) (st) ->
+          let field = RecordFieldDef { name = field-name, type-expr = ft }
+          in let st2 = skip-newlines st
+            in if is-comma (current-kind st2)
+              then parse-record-fields-loop name-tok (acc ++ [field]) (skip-newlines (advance st2))
+              else parse-record-fields-loop name-tok (acc ++ [field]) st2
 
     parse-variant-type : Token -> ParseState -> ParseTypeDefResult
     parse-variant-type (name-tok) (st) =
@@ -745,10 +769,24 @@ Section: Type Definition Parsing
         then let st2 = skip-newlines (advance st)
           in let ctor-name = current st2
             in let st3 = advance st2
-              in let st4 = skip-newlines st3
-                in let ctor = VariantCtorDef { name = ctor-name, fields = [] }
-                  in parse-variant-ctors name-tok (acc ++ [ctor]) st4
+              in parse-ctor-fields ctor-name [] st3 name-tok acc
         else TypeDefOk (TypeDef { name = name-tok, type-params = [], body = VariantBody acc }) st
+
+    parse-ctor-fields : Token -> List TypeExpr -> ParseState -> Token -> List VariantCtorDef -> ParseTypeDefResult
+    parse-ctor-fields (ctor-name) (fields) (st) (name-tok) (acc) =
+      if is-left-paren (current-kind st)
+        then let field-result = parse-type (advance st)
+          in unwrap-ctor-field field-result ctor-name fields name-tok acc
+        else let st2 = skip-newlines st
+          in let ctor = VariantCtorDef { name = ctor-name, fields = fields }
+            in parse-variant-ctors name-tok (acc ++ [ctor]) st2
+
+    unwrap-ctor-field : ParseTypeResult -> Token -> List TypeExpr -> Token -> List VariantCtorDef -> ParseTypeDefResult
+    unwrap-ctor-field (r) (ctor-name) (fields) (name-tok) (acc) =
+      when r
+        if TypeOk (ty) (st) ->
+          let st2 = expect RightParen st
+            in parse-ctor-fields ctor-name (fields ++ [ty]) st2 name-tok acc
 
 Section: Document Parsing
 

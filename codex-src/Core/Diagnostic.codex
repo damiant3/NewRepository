@@ -1,24 +1,34 @@
-DiagnosticSeverity =
-  | Error
-  | Warning
-  | Info
+Chapter: Diagnostics
 
-Diagnostic = record {
-  code : Text,
-  message : Text,
-  severity : DiagnosticSeverity
-}
+  Compiler diagnostic types.
 
-make-error : Text -> Text -> Diagnostic
-make-error (code) (msg) =
-  Diagnostic { code = code, message = msg, severity = Error }
+Section: Types
 
-make-warning : Text -> Text -> Diagnostic
-make-warning (code) (msg) =
-  Diagnostic { code = code, message = msg, severity = Warning }
+    DiagnosticSeverity =
+      | Error
+      | Warning
+      | Info
 
-severity-label : DiagnosticSeverity -> Text
-severity-label (s) = when s if Error -> "error" if Warning -> "warning" if Info -> "info"
+    Diagnostic = record {
+      code : Text,
+      message : Text,
+      severity : DiagnosticSeverity
+    }
 
-diagnostic-display : Diagnostic -> Text
-diagnostic-display (d) = severity-label d.severity ++ " " ++ d.code ++ ": " ++ d.message
+Section: Constructors
+
+    make-error : Text -> Text -> Diagnostic
+    make-error (code) (msg) =
+      Diagnostic { code = code, message = msg, severity = Error }
+
+    make-warning : Text -> Text -> Diagnostic
+    make-warning (code) (msg) =
+      Diagnostic { code = code, message = msg, severity = Warning }
+
+Section: Display
+
+    severity-label : DiagnosticSeverity -> Text
+    severity-label (s) = when s if Error -> "error" if Warning -> "warning" if Info -> "info"
+
+    diagnostic-display : Diagnostic -> Text
+    diagnostic-display (d) = severity-label d.severity ++ " " ++ d.code ++ ": " ++ d.message

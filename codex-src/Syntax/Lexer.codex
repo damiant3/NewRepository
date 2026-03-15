@@ -155,9 +155,10 @@ Section: Single Token Scanning
           in if ch == "\n"
             then LexToken (make-token Newline "\n" s) (advance-char s)
             else if ch == "\""
-              then let start = s.offset
+              then let start = s.offset + 1
                 in let after = scan-string-body (advance-char s)
-                  in LexToken (make-token TextLiteral (extract-text s start after) s) after
+                  in let text-len = after.offset - start - 1
+                    in LexToken (make-token TextLiteral (substring s.source start text-len) s) after
               else if is-letter ch
                 then let start = s.offset
                   in let after = scan-ident-rest (advance-char s)

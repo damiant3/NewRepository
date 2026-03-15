@@ -1,21 +1,29 @@
-SourcePosition = record {
-  line : Integer,
-  column : Integer,
-  offset : Integer
-}
+Chapter: Source Text
 
-SourceSpan = record {
-  start : SourcePosition,
-  end : SourcePosition,
-  file : Text
-}
+  Source position and span types for error reporting.
 
-make-position : Integer -> Integer -> Integer -> SourcePosition
-make-position (line) (col) (offset) =
-  SourcePosition { line = line, column = col, offset = offset }
+Section: Types
 
-make-span : SourcePosition -> SourcePosition -> Text -> SourceSpan
-make-span (s) (e) (f) = SourceSpan { start = s, end = e, file = f }
+    SourcePosition = record {
+      line : Integer,
+      column : Integer,
+      offset : Integer
+    }
 
-span-length : SourceSpan -> Integer
-span-length (span) = span.end.offset - span.start.offset
+    SourceSpan = record {
+      start : SourcePosition,
+      end : SourcePosition,
+      file : Text
+    }
+
+Section: Functions
+
+    make-position : Integer -> Integer -> Integer -> SourcePosition
+    make-position (line) (col) (offset) =
+      SourcePosition { line = line, column = col, offset = offset }
+
+    make-span : SourcePosition -> SourcePosition -> Text -> SourceSpan
+    make-span (s) (e) (f) = SourceSpan { start = s, end = e, file = f }
+
+    span-length : SourceSpan -> Integer
+    span-length (span) = span.end.offset - span.start.offset

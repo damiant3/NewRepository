@@ -1,0 +1,497 @@
+using System.Text;
+using Codex.Core;
+using Codex.IR;
+using Codex.Types;
+
+namespace Codex.Emit.CSharp;
+
+public sealed partial class CSharpEmitter
+{
+    void EmitExpr(StringBuilder sb, IRExpr expr, int indent)
+    {
+        switch (expr)
+        {
+            case IRIntegerLit lit:
+                sb.Append($"{lit.Value}L");
+                break;
+
+            case IRNumberLit lit:
+                sb.Append($"{lit.Value}m");
+                break;
+
+            case IRTextLit lit:
+                sb.Append($"\"{EscapeString(lit.Value)}\"");
+                break;
+
+            case IRBoolLit lit:
+                sb.Append(lit.Value ? "true" : "false");
+                break;
+
+            case IRName name:
+                if (name.Name == "read-line")
+                    sb.Append("Console.ReadLine()");
+                else if (name.Name == "show")
+                    sb.Append("new Func<object, string>(x => Convert.ToString(x))");
+                else if (name.Name == "negate")
+                    sb.Append("new Func<long, long>(x => -x)");
+                else if (name.Name.Length > 0 && char.IsUpper(name.Name[0])
+                    && name.Type is not FunctionType)
+                    sb.Append($"new {SanitizeIdentifier(name.Name)}()");
+                else
+                    sb.Append(SanitizeIdentifier(name.Name));
+                break;
+
+            case IRBinary bin:
+                EmitBinary(sb, bin, indent);
+                break;
+
+            case IRNegate neg:
+                sb.Append("(-");
+                EmitExpr(sb, neg.Operand, indent);
+                sb.Append(')');
+                break;
+
+            case IRIf iff:
+                sb.Append('(');
+                EmitExpr(sb, iff.Condition, indent);
+                sb.Append(" ? ");
+                EmitExpr(sb, iff.Then, indent);
+                sb.Append(" : ");
+                EmitExpr(sb, iff.Else, indent);
+                sb.Append(')');
+                break;
+
+            case IRLet let:
+                EmitLet(sb, let, indent);
+                break;
+
+            case IRApply app:
+                EmitApply(sb, app, indent);
+                break;
+
+            case IRLambda lam:
+                EmitLambda(sb, lam, indent);
+                break;
+
+            case IRList list:
+                EmitList(sb, list, indent);
+                break;
+
+            case IRMatch match:
+                EmitMatch(sb, match, indent);
+                break;
+
+            case IRDo doExpr:
+                EmitDoExpr(sb, doExpr, indent);
+                break;
+
+            case IRRecord rec:
+                sb.Append($"new {SanitizeIdentifier(rec.TypeName)}(");
+                for (int i = 0; i < rec.Fields.Length; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    EmitExpr(sb, rec.Fields[i].Value, indent);
+                }
+                sb.Append(')');
+                break;
+
+            case IRFieldAccess fa:
+                EmitExpr(sb, fa.Record, indent);
+                sb.Append('.');
+                sb.Append(SanitizeIdentifier(fa.FieldName));
+                break;
+
+            case IRError err:
+                sb.Append($"throw new InvalidOperationException(\"{EscapeString(err.Message)}\")");
+                break;
+
+            default:
+                sb.Append("default");
+                break;
+        }
+    }
+
+    void EmitApply(StringBuilder sb, IRApply app, int indent)
+    {
+        if (app.Function is IRName fn && fn.Name == "show")
+        {
+            sb.Append("Convert.ToString(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(')');
+        }
+        else if (app.Function is IRName fn2 && fn2.Name == "negate")
+        {
+            sb.Append("(-");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(')');
+        }
+        else if (app.Function is IRName fn3 && fn3.Name == "print-line")
+        {
+            sb.Append("Console.WriteLine(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(')');
+        }
+        else if (app.Function is IRName fn4 && fn4.Name == "open-file")
+        {
+            sb.Append("File.OpenRead(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(')');
+        }
+        else if (app.Function is IRName fn5 && fn5.Name == "read-all")
+        {
+            sb.Append("new System.IO.StreamReader(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(").ReadToEnd()");
+        }
+        else if (app.Function is IRName fn6 && fn6.Name == "close-file")
+        {
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".Dispose()");
+        }
+        else if (app.Function is IRName fn7 && fn7.Name == "text-length")
+        {
+            sb.Append("((long)");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".Length)");
+        }
+        else if (app.Function is IRName fn8 && fn8.Name == "is-letter")
+        {
+            sb.Append("(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".Length > 0 && char.IsLetter(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append("[0]))");
+        }
+        else if (app.Function is IRName fn9 && fn9.Name == "is-digit")
+        {
+            sb.Append("(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".Length > 0 && char.IsDigit(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append("[0]))");
+        }
+        else if (app.Function is IRName fn10 && fn10.Name == "is-whitespace")
+        {
+            sb.Append("(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".Length > 0 && char.IsWhiteSpace(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append("[0]))");
+        }
+        else if (app.Function is IRName fn11 && fn11.Name == "text-to-integer")
+        {
+            sb.Append("long.Parse(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(')');
+        }
+        else if (app.Function is IRName fn11b && fn11b.Name == "integer-to-text")
+        {
+            sb.Append('(');
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(").ToString()");
+        }
+        else if (app.Function is IRName fn12 && fn12.Name == "char-code")
+        {
+            sb.Append("((long)");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append("[0])");
+        }
+        else if (app.Function is IRName fn13 && fn13.Name == "code-to-char")
+        {
+            sb.Append("((char)");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(").ToString()");
+        }
+        else if (app.Function is IRName fn14 && fn14.Name == "list-length")
+        {
+            sb.Append("((long)");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(".Count)");
+        }
+        else if (TryEmitMultiArgBuiltin(sb, app, indent))
+        {
+        }
+        else
+        {
+            EmitApplyGeneral(sb, app, indent);
+        }
+    }
+
+    void EmitApplyGeneral(StringBuilder sb, IRApply app, int indent)
+    {
+        string? ctorName = FindConstructorName(app);
+        if (ctorName is not null)
+        {
+            List<IRExpr> args = [];
+            CollectApplyArgs(app, args);
+            sb.Append($"new {SanitizeIdentifier(ctorName)}(");
+            for (int i = 0; i < args.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                EmitExpr(sb, args[i], indent);
+            }
+            sb.Append(')');
+        }
+        else
+        {
+            string? defName = FindDefinitionName(app);
+            if (defName is not null
+                && m_definitionArity.TryGet(defName, out int arity)
+                && arity > 1)
+            {
+                List<IRExpr> args = [];
+                CollectApplyArgs(app, args);
+                if (args.Count == arity)
+                {
+                    sb.Append(SanitizeIdentifier(defName));
+                    sb.Append('(');
+                    for (int i = 0; i < args.Count; i++)
+                    {
+                        if (i > 0) sb.Append(", ");
+                        EmitArgument(sb, args[i], indent);
+                    }
+                    sb.Append(')');
+                }
+                else if (args.Count < arity)
+                {
+                    EmitPartialApplication(sb, defName, arity, args, indent);
+                }
+                else
+                {
+                    EmitExpr(sb, app.Function, indent);
+                    sb.Append('(');
+                    EmitArgument(sb, app.Argument, indent);
+                    sb.Append(')');
+                }
+            }
+            else
+            {
+                EmitExpr(sb, app.Function, indent);
+                sb.Append('(');
+                EmitArgument(sb, app.Argument, indent);
+                sb.Append(')');
+            }
+        }
+    }
+
+    static string? FindConstructorName(IRApply app)
+    {
+        IRExpr current = app.Function;
+        while (current is IRApply inner)
+        {
+            current = inner.Function;
+        }
+        if (current is IRName name && name.Name.Length > 0 && char.IsUpper(name.Name[0]))
+        {
+            return name.Name;
+        }
+        return null;
+    }
+
+    static string? FindDefinitionName(IRApply app)
+    {
+        IRExpr current = app.Function;
+        while (current is IRApply inner)
+        {
+            current = inner.Function;
+        }
+        if (current is IRName name && name.Name.Length > 0 && char.IsLower(name.Name[0]))
+        {
+            return name.Name;
+        }
+        return null;
+    }
+
+    static void CollectApplyArgs(IRApply app, List<IRExpr> args)
+    {
+        if (app.Function is IRApply inner)
+        {
+            CollectApplyArgs(inner, args);
+        }
+        args.Add(app.Argument);
+    }
+
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at", "text-replace");
+
+    static string? FindBuiltinRoot(IRApply app)
+    {
+        IRExpr current = app.Function;
+        while (current is IRApply inner)
+            current = inner.Function;
+        if (current is IRName name && s_multiArgBuiltins.Contains(name.Name))
+            return name.Name;
+        return null;
+    }
+
+    bool TryEmitMultiArgBuiltin(StringBuilder sb, IRApply app, int indent)
+    {
+        string? name = FindBuiltinRoot(app);
+        if (name is null) return false;
+
+        List<IRExpr> args = [];
+        CollectApplyArgs(app, args);
+
+        switch (name)
+        {
+            case "char-at" when args.Count == 2:
+                EmitExpr(sb, args[0], indent);
+                sb.Append("[(int)");
+                EmitExpr(sb, args[1], indent);
+                sb.Append("].ToString()");
+                return true;
+
+            case "substring" when args.Count == 3:
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".Substring((int)");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(", (int)");
+                EmitExpr(sb, args[2], indent);
+                sb.Append(')');
+                return true;
+
+            case "list-at" when args.Count == 2:
+                EmitExpr(sb, args[0], indent);
+                sb.Append("[(int)");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(']');
+                return true;
+
+            case "text-replace" when args.Count == 3:
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".Replace(");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(", ");
+                EmitExpr(sb, args[2], indent);
+                sb.Append(')');
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    void EmitBinary(StringBuilder sb, IRBinary bin, int indent)
+    {
+        switch (bin.Op)
+        {
+            case IRBinaryOp.AppendText:
+                sb.Append("string.Concat(");
+                EmitExpr(sb, bin.Left, indent);
+                sb.Append(", ");
+                EmitExpr(sb, bin.Right, indent);
+                sb.Append(')');
+                break;
+
+            case IRBinaryOp.AppendList:
+                sb.Append("Enumerable.Concat(");
+                EmitExpr(sb, bin.Left, indent);
+                sb.Append(", ");
+                EmitExpr(sb, bin.Right, indent);
+                sb.Append(").ToList()");
+                break;
+
+            case IRBinaryOp.ConsList:
+                sb.Append("new List<");
+                sb.Append(EmitType(bin.Left.Type));
+                sb.Append("> { ");
+                EmitExpr(sb, bin.Left, indent);
+                sb.Append(" }.Concat(");
+                EmitExpr(sb, bin.Right, indent);
+                sb.Append(").ToList()");
+                break;
+
+            case IRBinaryOp.PowInt:
+                sb.Append("(long)Math.Pow((double)");
+                EmitExpr(sb, bin.Left, indent);
+                sb.Append(", (double)");
+                EmitExpr(sb, bin.Right, indent);
+                sb.Append(')');
+                break;
+
+            default:
+                string op = bin.Op switch
+                {
+                    IRBinaryOp.AddInt or IRBinaryOp.AddNum => "+",
+                    IRBinaryOp.SubInt or IRBinaryOp.SubNum => "-",
+                    IRBinaryOp.MulInt or IRBinaryOp.MulNum => "*",
+                    IRBinaryOp.DivInt or IRBinaryOp.DivNum => "/",
+                    IRBinaryOp.Eq => "==",
+                    IRBinaryOp.NotEq => "!=",
+                    IRBinaryOp.Lt => "<",
+                    IRBinaryOp.Gt => ">",
+                    IRBinaryOp.LtEq => "<=",
+                    IRBinaryOp.GtEq => ">=",
+                    IRBinaryOp.And => "&&",
+                    IRBinaryOp.Or => "||",
+                    _ => "+"
+                };
+                sb.Append('(');
+                EmitExpr(sb, bin.Left, indent);
+                sb.Append($" {op} ");
+                EmitExpr(sb, bin.Right, indent);
+                sb.Append(')');
+                break;
+        }
+    }
+
+    void EmitLet(StringBuilder sb, IRLet let, int indent)
+    {
+        string funcType = $"Func<{EmitType(let.NameType)}, {EmitType(let.Body.Type)}>";
+        sb.Append("((" + funcType + ")((");
+        sb.Append(SanitizeIdentifier(let.Name));
+        sb.Append(") => ");
+        EmitExpr(sb, let.Body, indent);
+        sb.Append("))(");
+        EmitExpr(sb, let.Value, indent);
+        sb.Append(')');
+    }
+
+    void EmitPartialApplication(
+        StringBuilder sb, string defName, int arity, List<IRExpr> appliedArgs, int indent)
+    {
+        int remaining = arity - appliedArgs.Count;
+        for (int i = 0; i < remaining; i++)
+        {
+            sb.Append($"(_p{i}_) => ");
+        }
+        sb.Append($"{SanitizeIdentifier(defName)}(");
+        for (int i = 0; i < appliedArgs.Count; i++)
+        {
+            EmitArgument(sb, appliedArgs[i], indent);
+            sb.Append(", ");
+        }
+        for (int i = 0; i < remaining; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            sb.Append($"_p{i}_");
+        }
+        sb.Append(')');
+    }
+
+    void EmitLambda(StringBuilder sb, IRLambda lam, int indent)
+    {
+        sb.Append('(');
+        for (int i = 0; i < lam.Parameters.Length; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            sb.Append($"{EmitType(lam.Parameters[i].Type)} {SanitizeIdentifier(lam.Parameters[i].Name)}");
+        }
+        sb.Append(") => ");
+        EmitExpr(sb, lam.Body, indent);
+    }
+
+    void EmitList(StringBuilder sb, IRList list, int indent)
+    {
+        sb.Append($"new List<{EmitType(list.ElementType)}>()");
+        if (list.Elements.Length > 0)
+        {
+            sb.Append(" { ");
+            for (int i = 0; i < list.Elements.Length; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                EmitExpr(sb, list.Elements[i], indent);
+            }
+            sb.Append(" }");
+        }
+    }
+}

@@ -144,19 +144,19 @@ available without a Codex-side type checker).
 
 ## Phase 6: Bootstrap Verification
 
-1. Stage 0 compiles `codex-src/` → `output.cs` ✅ (96KB)
+1. Stage 0 compiles `codex-src/` → `output.cs` ✅ (101KB, 264 records, 215 defs)
 2. Compile `output.cs` with `dotnet` → Stage 1 exe ✅
-3. Stage 1 compiles `codex-src/` → `stage1-output.cs` ✅ (71KB, 660 defs vs 206)
+3. Stage 1 compiles `codex-src/` → `stage1-output.cs` ✅ (82KB, 182 records, 685 defs)
 4. Verify `output.cs` ≡ `stage1-output.cs` — ❌ Not yet identical
 
 **Status**: Steps 1–3 complete. Stage 1 correctly lexes, parses (with params &
-annotations), desugars, lowers, and emits C#. Outputs differ because:
+annotations), desugars, lowers, emits type definitions AND function definitions.
+Outputs differ because:
 - Stage 0 has full type-driven emission (binary op selection, type annotations on lets)
 - Stage 1 lacks a type checker — emits `ErrorTy`/`object` defaults
-- Stage 1 doesn't emit record/variant type definitions (only functions)
 - Stage 1 doesn't collapse multi-arity functions (each curry → separate def)
 
-Full byte-for-byte identity requires a Codex-side type checker + type emission.
+Full byte-for-byte identity requires a Codex-side type checker.
 The current state proves the **complete pipeline** works:
 `Source → Lex → Parse → Desugar → Lower → EmitCSharp → dotnet build → run → compile`.
 
@@ -169,8 +169,8 @@ The current state proves the **complete pipeline** works:
 | Phase 3 | Lexer in Codex | ✅ 1 |
 | Phase 4 | Parser + AST + Desugarer | ✅ 2 |
 | Phase 5 | IR + Lowering + Emitter | ✅ 1 |
-| Phase 6 | Bootstrap verification | ✅ 1 (compiles, runs, produces output) |
-| **Total** | | **7 sessions** |
+| Phase 6 | Bootstrap verification | ✅ 2 (compiles, runs, emits types + defs) |
+| **Total** | | **8 sessions** |
 
 ---
 
@@ -242,5 +242,36 @@ generated `compile` function.
 - Stage 1: `dotnet run --project tools/Codex.Bootstrap -- build codex-src` → `stage1-output.cs` (71KB)
 - Stage 1 output differs from Stage 0 (no type checker in Codex → wrong binary ops, missing params)
 - Full bootstrap identity requires Codex-side type checker (future work)
+
+Root Cause Found: Stage 0 Parser Greedy Branch Consumption
+
+### Session 7 — Phase 6 continuation: Parser fix + Type Emission
+
+**Codex-side fixes**:
+1. **Parser param threading** (`codex-src/Syntax/Parser.codex`): Restructured definition
+   parsing to thread accumulated params and type annotations through the parse chain.
+   Old code: `Def { params = [], ann = [] }` (hardcoded empty).
+   New code: `parse-def-params-then` → `finish-def` → `unwrap-def-body` threads
+   `ann`, `name-tok`, `params` to `Def { params = params, ann = ann, ... }`.
+2. **Type definition emission** (`codex-src/Emit/CSharpEmitter.codex`): Added
+   `emit-type-defs`, `emit-type-def`, `emit-variant-ctor`, `emit-record-field-defs`,
+   `emit-type-expr`, `when-type-name` — emits `ARecordTypeDef` as `sealed record`
+   and `AVariantTypeDef` as `abstract record` + `sealed record` variants.
+3. **Full module emission** (`codex-src/Emit/CSharpEmitter.codex`): New
+   `emit-full-module` function emits `using` → type defs → static class → defs.
+4. **Compile pipeline** (`codex-src/Main.codex`): Updated to call `emit-full-module`
+   with `ast.type-defs`.
+
+**Stage 0 compiler fixes**:
+1. **List element type inference** (`src/Codex.IR/Lowering.cs`): `LowerList` now falls
+   back to `InferExprType` (resolves record expressions via `m_typeDefMap`) when
+   `InferElementType` returns `ErrorType`.
+
+**Verification**:
+- `dotnet build Codex.sln` — zero warnings
+- `dotnet test Codex.sln` — 246/246 tests pass
+- Stage 0: 101KB (264 records, 215 defs)
+- Stage 1: 82KB (182 records, 685 defs) — now includes type definitions
+- Stage 1 correctly parses function params and type annotations
 
 Root Cause Found: Stage 0 Parser Greedy Branch Consumption
