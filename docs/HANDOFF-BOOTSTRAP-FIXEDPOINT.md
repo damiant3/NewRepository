@@ -27,13 +27,11 @@ Only 5 `object` references remain (all correct).
 
 | # | File | Why |
 |---|------|-----|
-| 1 | `tools/Codex.Bootstrap/Program.cs` | The Stage 1 runner. Calls `Codex_codex_src.compile()` from `codex-src/output.cs`. Reads `.codex` files, strips prose, concatenates, compiles, writes `stage1-output.cs`. ~150 lines. |
-| 2 | `tools/Codex.Bootstrap/Codex.Bootstrap.csproj` | References `codex-src/output.cs` as compiled source. **This is stale** — it uses the OLD output before typed lowering. |
-| 3 | `codex-src/output.cs` | The OLD Stage 1 output. `lower_module(AModule m)` with no type args. Must be replaced with `Codex.Codex/out/Codex.Codex.cs`. |
-| 4 | `Codex.Codex/out/Codex.Codex.cs` | The NEW Stage 0 output (with typed lowering). This is what Stage 1 should now be. |
-| 5 | `docs/M13-BOOTSTRAP-PLAN.md` lines 160–200 | Lists known cosmetic differences between Stage 0 and Stage 1 output (curried calls, `_loop` helpers). |
-| 6 | `docs/08-MILESTONES.md` Milestone 13 section | The unchecked item: "Stage 1 output = Stage 2 output (full bootstrap fixed-point verification)" |
-| 7 | `docs/FORWARD-PLAN.md` "What's Next" section | Priority list after fixed-point. |
+| 1 | `codex-src/output.cs` | The OLD Stage 1 output. `lower_module(AModule m)` with no type args. Must be replaced with `Codex.Codex/out/Codex.Codex.cs`. |
+| 2 | `Codex.Codex/out/Codex.Codex.cs` | The NEW Stage 0 output (with typed lowering). This is what Stage 1 should now be. |
+| 3 | `docs/M13-BOOTSTRAP-PLAN.md` lines 160–200 | Lists known cosmetic differences between Stage 0 and Stage 1 output (curried calls, `_loop` helpers). |
+| 4 | `docs/08-MILESTONES.md` Milestone 13 section | The unchecked item: "Stage 1 output = Stage 2 output (full bootstrap fixed-point verification)" |
+| 5 | `docs/FORWARD-PLAN.md` "What's Next" section | Priority list after fixed-point. |
 
 ---
 
@@ -47,24 +45,6 @@ Only 5 `object` references remain (all correct).
 - Any emitter other than `Codex.Emit.CSharp`
 - `src/Codex.Lsp/`, `src/Codex.Proofs/`, `src/Codex.Repository/`
 - `docs/00-OVERVIEW.md` through `docs/10-PRINCIPLES.md`
-
----
-
-## Exactly What to Do
-
-### Step 1: Update `codex-src/output.cs`
-
-Copy `Codex.Codex/out/Codex.Codex.cs` → `codex-src/output.cs`.
-This gives the Bootstrap project the new typed Stage 1 compiler.
-
-Verify: `dotnet build tools/Codex.Bootstrap/Codex.Bootstrap.csproj`
-must succeed. If it fails, the Bootstrap project's `Program.cs` may
-reference APIs that changed signature (e.g., `compile` is still
-`(string, string) → string` so it should be fine, but check).
-
-### Step 2: Run Stage 1 to produce Stage 2
-
-Build and run the Bootstrap project on the Codex source:
 
 ```
 dotnet run --project tools/Codex.Bootstrap -- build Codex.Codex
@@ -104,11 +84,6 @@ sources:
 
 ## Known Risks
 
-1. **`Codex.Bootstrap/Program.cs` uses `Codex_codex_src.compile`** — the
-   class name in `codex-src/output.cs` is `Codex_codex_src`. The new
-   `Codex.Codex/out/Codex.Codex.cs` may use `Codex_Codex_Codex` or
-   similar. Check the class name and update `Program.cs` if needed.
-
 2. **Stack overflow** — The Bootstrap project already allocates a 256 MB
    stack (`new Thread(() => ..., 256 * 1024 * 1024)`). If Stage 1 with
    typed lowering is more recursive, it might still overflow. Monitor.
@@ -124,9 +99,7 @@ sources:
 
 1. `dotnet build Codex.sln` — zero warnings
 2. `dotnet test Codex.sln` — all tests pass
-3. `dotnet build tools/Codex.Bootstrap/Codex.Bootstrap.csproj` — succeeds
-4. `dotnet run --project tools/Codex.Bootstrap -- build Codex.Codex` — produces `stage1-output.cs`
-5. Diff `Codex.Codex/out/Codex.Codex.cs` vs `Codex.Codex/stage1-output.cs` — differences are cosmetic only
+3. Diff `Codex.Codex/out/Codex.Codex.cs` vs `Codex.Codex/stage1-output.cs` — differences are cosmetic only
 
 ---
 

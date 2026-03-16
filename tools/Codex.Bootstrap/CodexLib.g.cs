@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-Codex_Codex_Codex.main();
+
 
 public sealed record ARecordFieldDef(Name name, ATypeExpr type_expr);
 

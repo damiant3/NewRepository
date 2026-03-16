@@ -22,17 +22,11 @@
     <Compile Include="out\**\*.cs" />
   </ItemGroup>
   <Target Name="CodexBuild" BeforeTargets="Build">
-    <Exec Command="&quot;$(CodexCliExe)&quot; build ."
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="Exists('$(CodexCliExe)')"
-          IgnoreExitCode="true" ConsoleToMSBuild="true">
+    <Exec Command="&quot;$(CodexCliExe)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)" Condition="Exists('$(CodexCliExe)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
       <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
     </Exec>
-    <Exec Command="codex build ."
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="!Exists('$(CodexCliExe)')"
-          IgnoreExitCode="true" ConsoleToMSBuild="true">
+    <Exec Command="codex build ." WorkingDirectory="$(MSBuildProjectDirectory)" Condition="!Exists('$(CodexCliExe)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
       <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
     </Exec>
