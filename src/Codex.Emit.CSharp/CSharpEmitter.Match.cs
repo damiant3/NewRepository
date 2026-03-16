@@ -9,6 +9,7 @@ public sealed partial class CSharpEmitter
 {
     void EmitMatch(StringBuilder sb, IRMatch match, int indent)
     {
+        int matchId = m_matchCounter++;
         bool hasMultipleCtorBranches = match.Branches
             .Count(b => b.Pattern is IRCtorPattern or IRLiteralPattern) > 1;
 
@@ -16,8 +17,8 @@ public sealed partial class CSharpEmitter
         if (hasMultipleCtorBranches)
         {
             string scrutineeType = EmitType(match.Scrutinee.Type);
-            sb.Append($"((Func<{scrutineeType}, {EmitType(match.Type)}>)((_scrutinee_) => ");
-            scrutineeRef = "_scrutinee_";
+            sb.Append($"((Func<{scrutineeType}, {EmitType(match.Type)}>)((_scrutinee{matchId}_) => ");
+            scrutineeRef = $"_scrutinee{matchId}_";
         }
         else
         {
@@ -53,7 +54,7 @@ public sealed partial class CSharpEmitter
 
                 case IRCtorPattern ctorPat:
                     string ctorId = SanitizeIdentifier(ctorPat.Name);
-                    string binding = $"_m{ctorId}_";
+                    string binding = $"_m{ctorId}{matchId}_";
                     sb.Append('(');
                     openParens++;
                     if (hasMultipleCtorBranches)

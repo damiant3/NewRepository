@@ -9,6 +9,7 @@ public sealed partial class CSharpEmitter : ICodeEmitter
 {
     Set<string> m_constructorNames = Set<string>.s_empty;
     ValueMap<string, int> m_definitionArity = ValueMap<string, int>.s_empty;
+    int m_matchCounter;
 
     public string TargetName => "C#";
     public string FileExtension => ".cs";
