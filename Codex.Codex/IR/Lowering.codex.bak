@@ -55,16 +55,10 @@ Section: Binary Op Lowering
         if OpLtEq -> IrLtEq
         if OpGtEq -> IrGtEq
         if OpDefEq -> IrEq
-        if OpAppend -> if is-text-type ty then IrAppendText else IrAppendList
+        if OpAppend -> IrAppendList
         if OpCons -> IrConsList
         if OpAnd -> IrAnd
         if OpOr -> IrOr
-
-    is-text-type : CodexType -> Boolean
-    is-text-type (ty) =
-      when ty
-        if TextTy -> True
-        if _ -> False
 
 Section: Expression Lowering
 

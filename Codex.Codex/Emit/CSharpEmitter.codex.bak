@@ -94,7 +94,7 @@ Section: Expression Emission
         if IrTextLit (s) -> "\"" ++ escape-text s ++ "\""
         if IrBoolLit (b) -> if b then "true" else "false"
         if IrName (n) (ty) -> sanitize n
-        if IrBinary (op) (l) (r) (ty) -> emit-binary op l r ty
+        if IrBinary (op) (l) (r) (ty) -> "(" ++ emit-expr l ++ " " ++ emit-bin-op op ++ " " ++ emit-expr r ++ ")"
         if IrNegate (operand) -> "(-" ++ emit-expr operand ++ ")"
         if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c ++ " ? " ++ emit-expr t ++ " : " ++ emit-expr el ++ ")"
         if IrLet (name) (ty) (val) (body) -> emit-let name ty val body
@@ -107,37 +107,8 @@ Section: Expression Emission
         if IrFieldAccess (rec) (field) (ty) -> emit-expr rec ++ "." ++ sanitize field
         if IrError (msg) (ty) -> "/* error: " ++ msg ++ " */ default"
 
-    emit-binary : IRBinaryOp -> IRExpr -> IRExpr -> CodexType -> Text
-    emit-binary (op) (l) (r) (ty) =
-      when op
-        if IrAppendText -> "string.Concat(" ++ emit-expr l ++ ", " ++ emit-expr r ++ ")"
-        if IrAppendList -> "Enumerable.Concat(" ++ emit-expr l ++ ", " ++ emit-expr r ++ ").ToList()"
-        if IrConsList -> "new List<" ++ cs-type (ir-expr-type l) ++ "> { " ++ emit-expr l ++ " }.Concat(" ++ emit-expr r ++ ").ToList()"
-        if _ -> "(" ++ emit-expr l ++ " " ++ emit-bin-op op ++ " " ++ emit-expr r ++ ")"
-
     escape-text : Text -> Text
     escape-text (s) = text-replace (text-replace s "\\" "\\\\") "\"" "\\\""
-
-    ir-expr-type : IRExpr -> CodexType
-    ir-expr-type (e) =
-      when e
-        if IrIntLit (n) -> IntegerTy
-        if IrNumLit (n) -> NumberTy
-        if IrTextLit (s) -> TextTy
-        if IrBoolLit (b) -> BooleanTy
-        if IrName (n) (ty) -> ty
-        if IrBinary (op) (l) (r) (ty) -> ty
-        if IrNegate (operand) -> IntegerTy
-        if IrIf (c) (t) (el) (ty) -> ty
-        if IrLet (name) (ty) (val) (body) -> ir-expr-type body
-        if IrApply (f) (a) (ty) -> ty
-        if IrLambda (params) (body) (ty) -> ty
-        if IrList (elems) (ty) -> ListTy ty
-        if IrMatch (scrut) (branches) (ty) -> ty
-        if IrDo (stmts) (ty) -> ty
-        if IrRecord (name) (fields) (ty) -> ty
-        if IrFieldAccess (rec) (field) (ty) -> ty
-        if IrError (msg) (ty) -> ty
 
     emit-bin-op : IRBinaryOp -> Text
     emit-bin-op (op) =
@@ -170,8 +141,7 @@ Section: Expression Emission
 
     emit-let : Text -> CodexType -> IRExpr -> IRExpr -> Text
     emit-let (name) (ty) (val) (body) =
-      let body-ty = ir-expr-type body
-      in "((Func<" ++ cs-type ty ++ ", " ++ cs-type body-ty ++ ">)((" ++ sanitize name ++ ") => " ++ emit-expr body ++ "))(" ++ emit-expr val ++ ")"
+      "((" ++ cs-type ty ++ " " ++ sanitize name ++ " = " ++ emit-expr val ++ ") is var _ ? " ++ emit-expr body ++ " : default)"
 
     emit-lambda : List IRParam -> IRExpr -> Text
     emit-lambda (params) (body) =
