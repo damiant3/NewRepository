@@ -71,7 +71,8 @@ public class SourceTextTests
         SourceText source = new("test.codex", "hello world");
         SourceSpan span = new SourceSpan(
             new SourcePosition(6, 1, 7),
-            new SourcePosition(11, 1, 12));
+            new SourcePosition(11, 1, 12),
+            "test.codex");
         Assert.Equal("world", source.GetText(span));
     }
 }

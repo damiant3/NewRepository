@@ -137,7 +137,14 @@ public sealed partial class Parser
                 ExpressionNode inner = ParseExpression();
                 SkipNewlines();
                 Expect(TokenKind.RightParen);
-                return new ParenthesizedExpressionNode(inner, start.Span.Through(Previous.Span));
+                ExpressionNode node = new ParenthesizedExpressionNode(inner, start.Span.Through(Previous.Span));
+                while (Current.Kind == TokenKind.Dot)
+                {
+                    Advance();
+                    Token field = Expect(TokenKind.Identifier);
+                    node = new FieldAccessExpressionNode(node, field, node.Span.Through(field.Span));
+                }
+                return node;
             }
 
             case TokenKind.LeftBracket:

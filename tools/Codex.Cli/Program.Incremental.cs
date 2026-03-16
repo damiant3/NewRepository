@@ -139,7 +139,7 @@ public static partial class Program
 
         SourceSpan combinedSpan = allDefinitions.Count > 0
             ? allDefinitions[0].Span
-            : SourceSpan.Single(0, 1, 1);
+            : SourceSpan.Single(0, 1, 1, "<combined>");
         Module combined = new(
             QualifiedName.Simple(moduleName),
             allDefinitions,
@@ -217,7 +217,7 @@ public static partial class Program
 
         SourceSpan combinedSpan = allDefinitions.Count > 0
             ? allDefinitions[0].Span
-            : SourceSpan.Single(0, 1, 1);
+            : SourceSpan.Single(0, 1, 1, "<combined>");
         Module combined = new(
             QualifiedName.Simple(moduleName),
             allDefinitions,

@@ -12,6 +12,7 @@ public sealed class Lexer
 {
     readonly DiagnosticBag m_diagnostics;
     readonly string m_text;
+    readonly string m_fileName;
 
     int m_position;
     int m_line;
@@ -27,6 +28,7 @@ public sealed class Lexer
     {
         m_diagnostics = diagnostics;
         m_text = source.Content;
+        m_fileName = source.FileName;
         m_position = 0;
         m_line = 1;
         m_column = 1;
@@ -391,7 +393,7 @@ public sealed class Lexer
         int indent = m_currentLineIndent;
         int currentIndent = m_indentStack.Peek();
         SourcePosition pos = MakePosition();
-        SourceSpan span = SourceSpan.Single(pos.Offset, pos.Line, pos.Column);
+        SourceSpan span = SourceSpan.Single(pos.Offset, pos.Line, pos.Column, m_fileName);
 
         if (indent > currentIndent)
         {
@@ -416,7 +418,7 @@ public sealed class Lexer
     Token EmitDedentsToZero()
     {
         SourcePosition pos = MakePosition();
-        SourceSpan span = SourceSpan.Single(pos.Offset, pos.Line, pos.Column);
+        SourceSpan span = SourceSpan.Single(pos.Offset, pos.Line, pos.Column, m_fileName);
 
         while (m_indentStack.Count > 1)
         {
@@ -477,5 +479,5 @@ public sealed class Lexer
     SourcePosition MakePosition() => new(m_position, m_line, m_column);
 
     SourceSpan MakeSpan(SourcePosition start) =>
-        new(start, MakePosition());
+        new(start, MakePosition(), m_fileName);
 }

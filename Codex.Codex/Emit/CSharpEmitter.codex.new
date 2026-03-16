@@ -106,6 +106,11 @@ Section: Arity Tracking
         in if e.def-name == name then e.arity
           else lookup-arity-loop entries name (i + 1)
 
+    is-upper-char : Text -> Boolean
+    is-upper-char (c) =
+      let code = char-code c
+      in code >= 65 && code <= 90
+
     is-ctor-name : Text -> Boolean
     is-ctor-name (n) =
       if text-length n == 0 then False
@@ -139,26 +144,14 @@ Section: Expression Emission
       if n == "read-line" then "Console.ReadLine()"
       else if n == "show" then "new Func<object, string>(x => Convert.ToString(x))"
         else if n == "negate" then "new Func<long, long>(x => -x)"
-          else if is-ctor-name n then emit-ctor-name-ref n ty
-            else emit-def-name-ref n ty arities
-
-    emit-ctor-name-ref : Text -> CodexType -> Text
-    emit-ctor-name-ref (n) (ty) =
-      when ty
-        if FunTy (p) (r) -> sanitize n
-        if _ -> "new " ++ sanitize n ++ "()"
-
-    emit-def-name-ref : Text -> CodexType -> List ArityEntry -> Text
-    emit-def-name-ref (n) (ty) (arities) =
-      let ar = lookup-arity arities n
-      in if ar == 0 then emit-zero-arity-name-ref n ty
-        else sanitize n
-
-    emit-zero-arity-name-ref : Text -> CodexType -> Text
-    emit-zero-arity-name-ref (n) (ty) =
-      when ty
-        if FunTy (p) (r) -> sanitize n
-        if _ -> sanitize n ++ "()"
+          else if is-ctor-name n then when ty
+            if FunTy (p) (r) -> sanitize n
+            if _ -> "new " ++ sanitize n ++ "()"
+          else let ar = lookup-arity arities n
+            in if ar == 0 then when ty
+              if FunTy (p) (r) -> sanitize n
+              if _ -> sanitize n ++ "()"
+            else sanitize n
 
     emit-binary : IRBinaryOp -> IRExpr -> IRExpr -> CodexType -> List ArityEntry -> Integer -> Text
     emit-binary (op) (l) (r) (ty) (arities) (mid) =
@@ -313,13 +306,13 @@ Section: Apply Emission
     emit-multi-builtin (f) (a) (arities) (mid) =
       let root = find-apply-root f
       in let args = collect-apply-args f [a]
-        in if root == "char-at" & list-length args == 2
+        in if root == "char-at" && list-length args == 2
           then emit-expr (list-at args 0) arities mid ++ "[(int)" ++ emit-expr (list-at args 1) arities mid ++ "].ToString()"
-          else if root == "substring" & list-length args == 3
+          else if root == "substring" && list-length args == 3
             then emit-expr (list-at args 0) arities mid ++ ".Substring((int)" ++ emit-expr (list-at args 1) arities mid ++ ", (int)" ++ emit-expr (list-at args 2) arities mid ++ ")"
-            else if root == "list-at" & list-length args == 2
+            else if root == "list-at" && list-length args == 2
               then emit-expr (list-at args 0) arities mid ++ "[(int)" ++ emit-expr (list-at args 1) arities mid ++ "]"
-              else if root == "text-replace" & list-length args == 3
+              else if root == "text-replace" && list-length args == 3
                 then emit-expr (list-at args 0) arities mid ++ ".Replace(" ++ emit-expr (list-at args 1) arities mid ++ ", " ++ emit-expr (list-at args 2) arities mid ++ ")"
                 else emit-expr f arities mid ++ "(" ++ emit-expr a arities mid ++ ")"
 
@@ -334,9 +327,9 @@ Section: Apply Emission
               in if is-ctor-name root
                 then "new " ++ sanitize root ++ "(" ++ emit-expr-list args arities 0 mid ++ ")"
                 else let ar = lookup-arity arities root
-                  in if ar > 1 & list-length args == ar
+                  in if ar > 1 && list-length args == ar
                     then sanitize root ++ "(" ++ emit-arg-list args arities 0 mid ++ ")"
-                    else if ar > 1 & list-length args < ar
+                    else if ar > 1 && list-length args < ar
                       then emit-partial-application root ar args arities mid
                       else emit-expr f arities mid ++ "(" ++ emit-argument a arities mid ++ ")"
 
@@ -360,7 +353,7 @@ Section: Apply Emission
     has-type-variable (ty) =
       when ty
         if TypeVar (id) -> True
-        if FunTy (p) (r) -> has-type-variable p | has-type-variable r
+        if FunTy (p) (r) -> has-type-variable p || has-type-variable r
         if ListTy (elem) -> has-type-variable elem
         if _ -> False
 
@@ -368,18 +361,14 @@ Section: Apply Emission
     emit-name-argument (n) (ty) (arities) (mid) =
       if n == "show" then "new Func<object, string>(x => Convert.ToString(x))"
       else if n == "negate" then "new Func<long, long>(x => -x)"
-        else emit-name-argument-by-type n ty arities mid
-
-    emit-name-argument-by-type : Text -> CodexType -> List ArityEntry -> Integer -> Text
-    emit-name-argument-by-type (n) (ty) (arities) (mid) =
-      when ty
-        if FunTy (p) (r) ->
-          if is-ctor-name n then sanitize n
-          else if has-type-variable ty then sanitize n
-            else let ar = lookup-arity arities n
-              in if ar > 1 then emit-partial-application n ar [] arities mid
-                else "new Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">(" ++ sanitize n ++ ")"
-        if _ -> sanitize n
+        else when ty
+          if FunTy (p) (r) ->
+            if is-ctor-name n then sanitize n
+            else if has-type-variable ty then sanitize n
+              else let ar = lookup-arity arities n
+                in if ar > 1 then emit-partial-application n ar [] arities mid
+                  else "new Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">(" ++ sanitize n ++ ")"
+          if _ -> sanitize n
 
     emit-partial-application : Text -> Integer -> List IRExpr -> List ArityEntry -> Integer -> Text
     emit-partial-application (name) (arity) (applied) (arities) (mid) =
@@ -517,7 +506,7 @@ Section: Do Expression Emission
 
     emit-do : List IRDoStmt -> List ArityEntry -> Integer -> Text
     emit-do (stmts) (arities) (mid) =
-      "((Func<object>)(() => {\n" ++ emit-do-stmts stmts 0 arities mid ++ "        return null;\n    }))()"
+      "((Func<object>)(() => {\n" ++ emit-do-stmts stmts 0 arities mid ++ "        return null;\n    }))()";
 
     emit-do-stmts : List IRDoStmt -> Integer -> List ArityEntry -> Integer -> Text
     emit-do-stmts (stmts) (i) (arities) (mid) =
@@ -689,7 +678,7 @@ Section: Tail Call Detection
     expr-has-tail-call : IRExpr -> Text -> Boolean
     expr-has-tail-call (e) (name) =
       when e
-        if IrIf (c) (t) (el) (ty) -> expr-has-tail-call t name | expr-has-tail-call el name
+        if IrIf (c) (t) (el) (ty) -> expr-has-tail-call t name || expr-has-tail-call el name
         if IrLet (n) (ty) (v) (body) -> expr-has-tail-call body name
         if IrMatch (scrut) (branches) (ty) -> branches-have-tail-call branches name 0
         if IrApply (f) (a) (ty) -> is-self-call f name
@@ -698,7 +687,7 @@ Section: Tail Call Detection
     branches-have-tail-call : List IRBranch -> Text -> Integer -> Boolean
     branches-have-tail-call (branches) (name) (i) =
       if i == list-length branches then False
-      else expr-has-tail-call (list-at branches i).body name | branches-have-tail-call branches name (i + 1)
+      else expr-has-tail-call (list-at branches i).body name || branches-have-tail-call branches name (i + 1)
 
     is-self-call : IRExpr -> Text -> Boolean
     is-self-call (e) (name) =
@@ -862,7 +851,7 @@ Section: Module Emission
     emit-main-call : List IRDef -> Text -> Text
     emit-main-call (defs) (class-name) =
       let main-def = find-main-def defs 0
-      in if main-def.name == "main" & list-length main-def.params == 0
+      in if main-def.name == "main" && list-length main-def.params == 0
         then if is-effectful-def main-def
           then class-name ++ ".main();\n\n"
           else "Console.WriteLine(" ++ class-name ++ ".main());\n\n"

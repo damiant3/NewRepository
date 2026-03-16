@@ -18,6 +18,7 @@
   <ItemGroup>
     <None Include="**\*.codex" />
     <None Include="codex.project.json" />
+    <None Include="Emit\CSharpEmitter.codex.new" />
     <None Include="out\Codex.Codex2.cs" />
     <Compile Remove="**\*" />
     <Compile Include="out\**\*.cs" />

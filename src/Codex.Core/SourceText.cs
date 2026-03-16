@@ -5,23 +5,29 @@ public readonly record struct SourcePosition(int Offset, int Line, int Column)
     public override string ToString() => $"({Line}:{Column})";
 }
 
-public readonly record struct SourceSpan(SourcePosition Start, SourcePosition End)
+public readonly record struct SourceSpan(SourcePosition Start, SourcePosition End, string FileName)
 {
     public int Length => End.Offset - Start.Offset;
 
     public static readonly SourceSpan s_synthetic = new(
         new SourcePosition(0, 0, 0),
-        new SourcePosition(0, 0, 0));
+        new SourcePosition(0, 0, 0),
+        "");
 
-    public static SourceSpan Single(int offset, int line, int column) =>
+    public static SourceSpan Single(int offset, int line, int column, string fileName) =>
         new(new SourcePosition(offset, line, column),
-            new SourcePosition(offset + 1, line, column + 1));
+            new SourcePosition(offset + 1, line, column + 1),
+            fileName);
 
     public SourceSpan Through(SourceSpan other) =>
         new(Start.Offset <= other.Start.Offset ? Start : other.Start,
-            End.Offset >= other.End.Offset ? End : other.End);
+            End.Offset >= other.End.Offset ? End : other.End,
+            FileName.Length > 0 ? FileName : other.FileName);
 
-    public override string ToString() => $"{Start}-{End}";
+    public override string ToString() =>
+        FileName.Length > 0
+            ? $"{FileName} {Start}-{End}"
+            : $"{Start}-{End}";
 }
 
 public sealed class SourceText

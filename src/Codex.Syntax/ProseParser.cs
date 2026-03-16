@@ -317,7 +317,7 @@ public sealed partial class ProseParser
     {
         SourcePosition start = OffsetToPosition(startOffset);
         SourcePosition end = OffsetToPosition(endOffset);
-        return new SourceSpan(start, end);
+        return new SourceSpan(start, end, m_source.FileName);
     }
 
     SourcePosition OffsetToPosition(int offset)
