@@ -69,4 +69,12 @@ Section: Builtins
       in let e11 = env-bind e10 "code-to-char" (FunTy IntegerTy TextTy)
       in let e12 = env-bind e11 "text-replace" (FunTy TextTy (FunTy TextTy (FunTy TextTy TextTy)))
       in let e13 = env-bind e12 "text-to-integer" (FunTy TextTy IntegerTy)
-      in e13
+      in let e14 = env-bind e13 "show" (ForAllTy 0 (FunTy (TypeVar 0) TextTy))
+      in let e15 = env-bind e14 "print-line" (FunTy TextTy NothingTy)
+      in let e16 = env-bind e15 "list-length" (ForAllTy 0 (FunTy (ListTy (TypeVar 0)) IntegerTy))
+      in let e17 = env-bind e16 "list-at" (ForAllTy 0 (FunTy (ListTy (TypeVar 0)) (FunTy IntegerTy (TypeVar 0))))
+      in let e18 = env-bind e17 "map" (ForAllTy 0 (ForAllTy 1 (FunTy (FunTy (TypeVar 0) (TypeVar 1)) (FunTy (ListTy (TypeVar 0)) (ListTy (TypeVar 1))))))
+      in let e19 = env-bind e18 "filter" (ForAllTy 0 (FunTy (FunTy (TypeVar 0) BooleanTy) (FunTy (ListTy (TypeVar 0)) (ListTy (TypeVar 0)))))
+      in let e20 = env-bind e19 "fold" (ForAllTy 0 (ForAllTy 1 (FunTy (FunTy (TypeVar 1) (FunTy (TypeVar 0) (TypeVar 1))) (FunTy (TypeVar 1) (FunTy (ListTy (TypeVar 0)) (TypeVar 1))))))
+      in let e21 = env-bind e20 "read-line" TextTy
+      in e21

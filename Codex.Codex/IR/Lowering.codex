@@ -4,6 +4,40 @@ Chapter: Lowering
   Each AST expression is lowered to an IR expression that carries
   its resolved type.
 
+Section: Type Lookup
+
+    lookup-type : List TypeBinding -> Text -> CodexType
+    lookup-type (bindings) (name) =
+      lookup-type-loop bindings name 0 (list-length bindings)
+
+    lookup-type-loop : List TypeBinding -> Text -> Integer -> Integer -> CodexType
+    lookup-type-loop (bindings) (name) (i) (len) =
+      if i == len then ErrorTy
+      else
+        let b = list-at bindings i
+        in if b.name == name then b.bound-type
+           else lookup-type-loop bindings name (i + 1) len
+
+    peel-fun-param : CodexType -> CodexType
+    peel-fun-param (ty) =
+      when ty
+        if FunTy (p) (r) -> p
+        if ForAllTy (id) (body) -> peel-fun-param body
+        if _ -> ErrorTy
+
+    peel-fun-return : CodexType -> CodexType
+    peel-fun-return (ty) =
+      when ty
+        if FunTy (p) (r) -> r
+        if ForAllTy (id) (body) -> peel-fun-return body
+        if _ -> ErrorTy
+
+    strip-forall-ty : CodexType -> CodexType
+    strip-forall-ty (ty) =
+      when ty
+        if ForAllTy (id) (body) -> strip-forall-ty body
+        if _ -> ty
+
 Section: Binary Op Lowering
 
     lower-bin-op : BinaryOp -> CodexType -> IRBinaryOp
@@ -62,20 +96,33 @@ Section: Expression Lowering
     lower-let (binds) (body) (ty) =
       if list-length binds == 0 then lower-expr body ty
       else let b = list-at binds 0
-        in IrLet b.name.value ty (lower-expr b.value ty) (lower-let-rest binds body ty 1)
+        in IrLet b.name.value ty (lower-expr b.value ErrorTy) (lower-let-rest binds body ty 1)
 
     lower-let-rest : List ALetBind -> AExpr -> CodexType -> Integer -> IRExpr
     lower-let-rest (binds) (body) (ty) (i) =
       if i == list-length binds then lower-expr body ty
       else let b = list-at binds i
-        in IrLet b.name.value ty (lower-expr b.value ty) (lower-let-rest binds body ty (i + 1))
+        in IrLet b.name.value ty (lower-expr b.value ErrorTy) (lower-let-rest binds body ty (i + 1))
 
     lower-lambda : List Name -> AExpr -> CodexType -> IRExpr
     lower-lambda (params) (body) (ty) =
-      IrLambda (map-list lower-param params) (lower-expr body ty) ty
+      let stripped = strip-forall-ty ty
+      in IrLambda (lower-lambda-params params stripped 0) (lower-expr body (get-lambda-return stripped (list-length params))) ty
 
-    lower-param : Name -> IRParam
-    lower-param (n) = IRParam { name = n.value, type-val = ErrorTy }
+    lower-lambda-params : List Name -> CodexType -> Integer -> List IRParam
+    lower-lambda-params (params) (ty) (i) =
+      if i == list-length params then []
+      else let p = list-at params i
+        in let param-ty = peel-fun-param ty
+        in let rest-ty = peel-fun-return ty
+        in [IRParam { name = p.value, type-val = param-ty }] ++ lower-lambda-params params rest-ty (i + 1)
+
+    get-lambda-return : CodexType -> Integer -> CodexType
+    get-lambda-return (ty) (n) =
+      if n == 0 then ty
+      else when ty
+        if FunTy (p) (r) -> get-lambda-return r (n - 1)
+        if _ -> ErrorTy
 
     lower-match : AExpr -> List AMatchArm -> CodexType -> IRExpr
     lower-match (scrut) (arms) (ty) =
@@ -95,7 +142,10 @@ Section: Expression Lowering
 
     lower-list : List AExpr -> CodexType -> IRExpr
     lower-list (elems) (ty) =
-      IrList (map-list (lower-elem ty) elems) ty
+      let elem-ty = when ty
+            if ListTy (e) -> e
+            if _ -> ErrorTy
+      in IrList (map-list (lower-elem elem-ty) elems) elem-ty
 
     lower-elem : CodexType -> AExpr -> IRExpr
     lower-elem (ty) (e) = lower-expr e ty
@@ -120,13 +170,35 @@ Section: Expression Lowering
 
 Section: Definition Lowering
 
-    lower-def : ADef -> IRDef
-    lower-def (d) =
-      IRDef { name = d.name.value, params = map-list lower-def-param d.params, type-val = ErrorTy, body = lower-expr d.body ErrorTy }
+    lower-def : ADef -> List TypeBinding -> UnificationState -> IRDef
+    lower-def (d) (types) (ust) =
+      let raw-type = lookup-type types d.name.value
+      in let full-type = deep-resolve ust raw-type
+      in let stripped = strip-forall-ty full-type
+      in let params = lower-def-params d.params stripped 0
+      in let ret-type = get-return-type-n stripped (list-length d.params)
+      in IRDef { name = d.name.value, params = params, type-val = full-type, body = lower-expr d.body ret-type }
 
-    lower-def-param : AParam -> IRParam
-    lower-def-param (p) = IRParam { name = p.name.value, type-val = ErrorTy }
+    lower-def-params : List AParam -> CodexType -> Integer -> List IRParam
+    lower-def-params (params) (ty) (i) =
+      if i == list-length params then []
+      else let p = list-at params i
+        in let param-ty = peel-fun-param ty
+        in let rest-ty = peel-fun-return ty
+        in [IRParam { name = p.name.value, type-val = param-ty }] ++ lower-def-params params rest-ty (i + 1)
 
-    lower-module : AModule -> IRModule
-    lower-module (m) =
-      IRModule { name = m.name, defs = map-list lower-def m.defs }
+    get-return-type-n : CodexType -> Integer -> CodexType
+    get-return-type-n (ty) (n) =
+      if n == 0 then ty
+      else when ty
+        if FunTy (p) (r) -> get-return-type-n r (n - 1)
+        if _ -> ErrorTy
+
+    lower-module : AModule -> List TypeBinding -> UnificationState -> IRModule
+    lower-module (m) (types) (ust) =
+      IRModule { name = m.name, defs = lower-defs m.defs types ust 0 }
+
+    lower-defs : List ADef -> List TypeBinding -> UnificationState -> Integer -> List IRDef
+    lower-defs (defs) (types) (ust) (i) =
+      if i == list-length defs then []
+      else [lower-def (list-at defs i) types ust] ++ lower-defs defs types ust (i + 1)
