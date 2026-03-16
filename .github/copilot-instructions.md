@@ -43,15 +43,13 @@ Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
 
 ## File Editing Rules
 
-- **Always read a file before editing it** unless you just created it.
+- **Always read a file before editing it** unless you just created it.  Always backup a file locally before editing it, unless it is fresh from the repo.  The file edit tool occasionally nukes stuff, and you need a quick plan rather than rewriting hundreds of lines of code.  Cleanup .bak files when done.
 - **Use `edit_file` with enough surrounding context** (unique lines above and below the change) so the tool can locate the edit site unambiguously. If an edit fails, re-read the file and provide more context lines.
 - **Never print out a full file as a code block and ask the user to paste it.** Use `edit_file` or `create_file`.
 
-### Large File Editing Strategy
+### Large File Editing Requirement
 
 - **When a file exceeds ~300 lines and you need to add or iterate on multiple methods, use a partial class file.** Create a second file (e.g., `Program.Collaboration.cs`) with `partial class` containing the new methods. This keeps edits small and the UI responsive.
-- **Merge partial files back into the main file only when the methods are stable and finalized.** During active iteration, keep them separate.
-- **This applies especially to `Program.cs` in `Codex.Cli` and any large compiler-pass files** (Parser, TypeChecker, Emitter, etc.).
 
 ---
 

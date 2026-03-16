@@ -62,8 +62,8 @@ All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliv
 | M7 | Repository | Fact store, content hashing, CLI commands, `import` resolution from store via `IModuleLoader` | Views (single-user views, view consistency checking) |
 | M8 | Dependent Types | Dependent function types, type-level arithmetic, proof obligations | Full `Vector` type with `append` end-to-end |
 | M10 | Proofs | Induction, cong, lemma application, IH registration, 9 proofs in sample | Type-level function reduction (needed for non-trivial inductive steps), arithmetic induction with Peano encoding |
-| M11 | Tests | Property-based tests, integration tests (654 total), corpus emission (165 per-sample-per-backend) | Fuzz testing, CI configuration |
-| — | IL Emitter | `Codex.Emit.IL` project, `IAssemblyEmitter` interface, CLI wired (`--target il`). Emits working `.exe`/`.dll` via `System.Reflection.Metadata`. Handles: integer/text/boolean/number literals, static methods with parameters, if/else branching, let bindings, negation, binary ops, function application (including recursive/forward calls, curried multi-arg, nested composition). 26 integration tests (emission + PE validation + runtime execution). Verified: hello→25, factorial→3628800, arithmetic→37. | Records/sum types (IL class hierarchy), pattern matching (branch tables), generics, TCO (`tail.` prefix), full bootstrap (`codex build codex-src --target il`) |
+| M11 | Tests | Property-based tests, integration tests (666 total), corpus emission (165 per-sample-per-backend) | Fuzz testing, CI configuration |
+| — | IL Emitter | `Codex.Emit.IL` project, `IAssemblyEmitter` interface, CLI wired (`--target il`). Emits working `.exe`/`.dll` via `System.Reflection.Metadata`. Handles: integer/text/boolean/number literals, static methods with parameters, if/else branching, let bindings, negation, binary ops, function application (including recursive/forward calls, curried multi-arg, nested composition), **records (IL classes with fields + constructors), sum types (abstract base + sealed subclasses), field access (`ldfld`), pattern matching (`isinst` branch chains with sub-pattern binding)**. 38 integration tests (emission + PE validation + runtime execution). Verified: hello→25, factorial→3628800, arithmetic→37, person→"Hello, Alice!", shapes with field extraction. | Generics, TCO (`tail.` prefix), full bootstrap (`codex build codex-src --target il`) |
 
 ---
 
@@ -144,25 +144,27 @@ round-tripping through C# and MSBuild.
 1. ~~Scaffold `Codex.Emit.IL` project, `IAssemblyEmitter` interface, wire into CLI~~ ✅
 2. ~~Emit a working `.exe` for a trivial `main = "Hello"` program~~ ✅
 3. ~~Emit static methods (the module class pattern the C# emitter uses)~~ ✅
-4. Records and sum types (sealed record → IL class hierarchy)
-5. Pattern matching (the `switch` dispatch the C# emitter generates → IL branch tables)
+4. ~~Records and sum types (sealed record → IL class hierarchy)~~ ✅
+5. ~~Pattern matching (the `switch` dispatch the C# emitter generates → IL `isinst` branch chains)~~ ✅
 6. Generics (the C# emitter's generic function strategy → IL generic method defs)
 7. Tail call optimization (IL `tail.` prefix or loop conversion)
 8. Full bootstrap: `codex build codex-src --target il` produces `Codex.exe`
 
-Steps 1–3 are done. The IL emitter handles literals, parameters, binary ops,
+Steps 1–5 are done. The IL emitter handles literals, parameters, binary ops,
 negation, if/else, let bindings, function calls (including recursive, forward,
-curried multi-arg, and nested composition), and `Console.WriteLine` for
-main-value printing. 26 tests verify emission, PE structure, and runtime output.
+curried multi-arg, and nested composition), `Console.WriteLine` for
+main-value printing, record types (IL classes with fields and constructors),
+sum types (abstract base class + sealed subclasses), field access (`ldfld`),
+and pattern matching (`isinst` branch chains with sub-pattern variable binding).
+38 tests verify emission, PE structure, and runtime output.
 
-**What step 4 requires:**
-- `IRRecord` → IL class with constructor and fields
-- `IRFieldAccess` → `ldfld` instruction
-- Type definitions → class definitions in metadata
-- Constructor references for `new` expressions
+**What step 6 requires:**
+- Generic method definitions with type parameters in metadata
+- Type parameter encoding in signatures
+- Generic instantiation for call sites
 
-**Estimated remaining:** medium-large (steps 4–5 are the bulk; 6–7 are
-individually medium; step 8 is integration/debugging).
+**Estimated remaining:** medium (step 6 is the bulk; step 7 is small;
+step 8 is integration/debugging).
 
 **6. Package manager / dependency resolution**
 The repository stores facts but there's no transitive dependency resolution

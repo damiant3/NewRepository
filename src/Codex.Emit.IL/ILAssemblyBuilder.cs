@@ -3,12 +3,13 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using Codex.Core;
 using Codex.IR;
 using Codex.Types;
 
 namespace Codex.Emit.IL;
 
-sealed class ILAssemblyBuilder
+sealed partial class ILAssemblyBuilder
 {
     readonly string m_assemblyName;
     readonly MetadataBuilder m_metadata = new();
@@ -25,9 +26,15 @@ sealed class ILAssemblyBuilder
     MemberReferenceHandle m_stringConcatRef;
     MemberReferenceHandle m_int64ToStringRef;
     MemberReferenceHandle m_boolToStringRef;
+    MemberReferenceHandle m_objectCtorRef;
 
     TypeDefinitionHandle m_moduleClassDef;
-    readonly Dictionary<string, MethodDefinitionHandle> m_definedMethods = new();
+    ValueMap<string, MethodDefinitionHandle> m_definedMethods = ValueMap<string, MethodDefinitionHandle>.s_empty;
+    ValueMap<string, TypeDefinitionHandle> m_emittedTypes = ValueMap<string, TypeDefinitionHandle>.s_empty;
+    ValueMap<string, MethodDefinitionHandle> m_ctorDefs = ValueMap<string, MethodDefinitionHandle>.s_empty;
+    Map<string, List<(string Name, CodexType Type)>> m_typeFields = Map<string, List<(string Name, CodexType Type)>>.s_empty;
+    ValueMap<string, FieldDefinitionHandle> m_fieldDefs = ValueMap<string, FieldDefinitionHandle>.s_empty;
+    Map<string, string> m_ctorToBaseType = Map<string, string>.s_empty;
 
     public ILAssemblyBuilder(string assemblyName)
     {
@@ -118,6 +125,11 @@ sealed class ILAssemblyBuilder
             EncodeMethodSignature(SignatureCallingConvention.Default, false,
                 returnType: b => b.Type().String(),
                 parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        m_objectCtorRef = m_metadata.AddMemberReference(
+            m_objectRef,
+            m_metadata.GetOrAddString(".ctor"),
+            EncodeCtorSignature(Array.Empty<Action<ParameterTypeEncoder>>()));
     }
 
     public void EmitModule(IRModule module)
@@ -137,23 +149,38 @@ sealed class ILAssemblyBuilder
             default,
             AssemblyHashAlgorithm.None);
 
-        m_moduleClassDef = m_metadata.AddTypeDefinition(
-            TypeAttributes.Public | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit,
-            m_metadata.GetOrAddString(""),
+        // <Module> must be the first type (row 1). It has no methods or fields of its own.
+        m_metadata.AddTypeDefinition(
+            default,
+            default,
             m_metadata.GetOrAddString("<Module>"),
-            m_objectRef,
+            default,
             MetadataTokens.FieldDefinitionHandle(1),
             MetadataTokens.MethodDefinitionHandle(1));
 
+        EmitTypeDefinitions(module);
+
+        // The static "Program" class holds all user-defined methods and the entry point.
+        // It must be defined after type definitions so its MethodList points past the ctors.
+        int firstMethodRow = m_metadata.GetRowCount(TableIndex.MethodDef) + 1;
+        int firstFieldRow = m_metadata.GetRowCount(TableIndex.Field) + 1;
+        m_moduleClassDef = m_metadata.AddTypeDefinition(
+            TypeAttributes.Public | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit,
+            m_metadata.GetOrAddString(""),
+            m_metadata.GetOrAddString("Program"),
+            m_objectRef,
+            MetadataTokens.FieldDefinitionHandle(firstFieldRow),
+            MetadataTokens.MethodDefinitionHandle(firstMethodRow));
+
         // Pre-register method handles so recursive/forward calls resolve correctly.
-        int row = 1;
+        int methodRow = firstMethodRow;
         foreach (IRDefinition def in module.Definitions)
         {
-            m_definedMethods[def.Name] = MetadataTokens.MethodDefinitionHandle(row);
-            row++;
+            m_definedMethods = m_definedMethods.Set(def.Name, MetadataTokens.MethodDefinitionHandle(methodRow));
+            methodRow++;
         }
         // Reserve a row for the synthetic Main entry point.
-        m_definedMethods["__entryMain"] = MetadataTokens.MethodDefinitionHandle(row);
+        m_definedMethods = m_definedMethods.Set("__entryMain", MetadataTokens.MethodDefinitionHandle(methodRow));
 
         foreach (IRDefinition def in module.Definitions)
         {
@@ -183,7 +210,7 @@ sealed class ILAssemblyBuilder
 
         ControlFlowBuilder controlFlow = new();
         InstructionEncoder il = new(new BlobBuilder(), controlFlow);
-        LocalsBuilder locals = new(m_metadata);
+        LocalsBuilder locals = new(m_metadata, EncodeType);
 
         EmitExpr(il, def.Body, locals, def.Parameters);
 
@@ -238,11 +265,11 @@ sealed class ILAssemblyBuilder
 
         if (isEffectful)
         {
-            il.Call(m_definedMethods["main"]);
+            il.Call(m_definedMethods["main"]!.Value);
         }
         else
         {
-            il.Call(m_definedMethods["main"]);
+            il.Call(m_definedMethods["main"]!.Value);
             MemberReferenceHandle writeLine = mainDef.Type switch
             {
                 IntegerType => m_writeLineInt64Ref,
@@ -306,7 +333,13 @@ sealed class ILAssemblyBuilder
                 {
                     il.LoadLocal(localIndex);
                 }
-                else if (m_definedMethods.TryGetValue(name.Name, out MethodDefinitionHandle methodRef))
+                else if (m_ctorDefs.TryGet(name.Name, out MethodDefinitionHandle ctorDef)
+                    && name.Type is not FunctionType)
+                {
+                    il.OpCode(ILOpCode.Newobj);
+                    il.Token(ctorDef);
+                }
+                else if (m_definedMethods.TryGet(name.Name, out MethodDefinitionHandle methodRef))
                 {
                     il.Call(methodRef);
                 }
@@ -330,6 +363,18 @@ sealed class ILAssemblyBuilder
 
             case IRDo doExpr:
                 EmitDo(il, doExpr, locals, parameters);
+                break;
+
+            case IRRecord rec:
+                EmitRecordConstruction(il, rec, locals, parameters);
+                break;
+
+            case IRFieldAccess fa:
+                EmitFieldAccess(il, fa, locals, parameters);
+                break;
+
+            case IRMatch match:
+                EmitMatch(il, match, locals, parameters);
                 break;
         }
     }
@@ -434,13 +479,27 @@ sealed class ILAssemblyBuilder
         }
         args.Reverse();
 
-        if (func is IRName funcName && m_definedMethods.TryGetValue(funcName.Name, out MethodDefinitionHandle methodDef))
+        if (func is IRName funcName)
         {
-            foreach (IRExpr arg in args)
+            if (m_ctorDefs.TryGet(funcName.Name, out MethodDefinitionHandle ctorDef))
             {
-                EmitExpr(il, arg, locals, parameters);
+                foreach (IRExpr arg in args)
+                {
+                    EmitExpr(il, arg, locals, parameters);
+                }
+                il.OpCode(ILOpCode.Newobj);
+                il.Token(ctorDef);
+                return;
             }
-            il.Call(methodDef);
+
+            if (m_definedMethods.TryGet(funcName.Name, out MethodDefinitionHandle methodDef))
+            {
+                foreach (IRExpr arg in args)
+                {
+                    EmitExpr(il, arg, locals, parameters);
+                }
+                il.Call(methodDef);
+            }
         }
     }
 
@@ -473,7 +532,7 @@ sealed class ILAssemblyBuilder
     {
         BlobBuilder peBlob = new();
 
-        MethodDefinitionHandle entryPoint = m_definedMethods.TryGetValue("__entryMain", out MethodDefinitionHandle ep)
+        MethodDefinitionHandle entryPoint = m_definedMethods.TryGet("__entryMain", out MethodDefinitionHandle ep)
             ? ep
             : MetadataTokens.MethodDefinitionHandle(m_metadata.GetRowCount(TableIndex.MethodDef));
 
@@ -506,9 +565,30 @@ sealed class ILAssemblyBuilder
             case VoidType or NothingType:
                 encoder.Builder.WriteByte((byte)SignatureTypeCode.Void);
                 break;
+            case RecordType rec:
+                EncodeUserType(encoder, SanitizeName(rec.TypeName.Value));
+                break;
+            case SumType sum:
+                EncodeUserType(encoder, SanitizeName(sum.TypeName.Value));
+                break;
+            case ConstructedType ct:
+                EncodeUserType(encoder, SanitizeName(ct.Constructor.Value));
+                break;
             default:
                 encoder.Object();
                 break;
+        }
+    }
+
+    void EncodeUserType(SignatureTypeEncoder encoder, string typeName)
+    {
+        if (m_emittedTypes.TryGet(typeName, out TypeDefinitionHandle handle))
+        {
+            encoder.Type(handle, false);
+        }
+        else
+        {
+            encoder.Object();
         }
     }
 

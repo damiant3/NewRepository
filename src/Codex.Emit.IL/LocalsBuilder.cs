@@ -7,13 +7,15 @@ namespace Codex.Emit.IL;
 sealed class LocalsBuilder
 {
     readonly MetadataBuilder m_metadata;
-    readonly List<(string Name, CodexType Type)> m_locals = new();
+    readonly Action<SignatureTypeEncoder, CodexType> m_encodeType;
+    readonly List<(string Name, CodexType Type)> m_locals = [];
 
     public int Count => m_locals.Count;
 
-    public LocalsBuilder(MetadataBuilder metadata)
+    public LocalsBuilder(MetadataBuilder metadata, Action<SignatureTypeEncoder, CodexType> encodeType)
     {
         m_metadata = metadata;
+        m_encodeType = encodeType;
     }
 
     public int AddLocal(string name, CodexType type)
@@ -45,30 +47,8 @@ sealed class LocalsBuilder
         foreach ((string _, CodexType type) in m_locals)
         {
             LocalVariableTypeEncoder localEncoder = localsEncoder.AddVariable();
-            EncodeLocalType(localEncoder.Type(), type);
+            m_encodeType(localEncoder.Type(), type);
         }
         return m_metadata.AddStandaloneSignature(m_metadata.GetOrAddBlob(sig));
-    }
-
-    static void EncodeLocalType(SignatureTypeEncoder encoder, CodexType type)
-    {
-        switch (type)
-        {
-            case IntegerType:
-                encoder.Int64();
-                break;
-            case NumberType:
-                encoder.Double();
-                break;
-            case TextType:
-                encoder.String();
-                break;
-            case BooleanType:
-                encoder.Boolean();
-                break;
-            default:
-                encoder.Object();
-                break;
-        }
     }
 }
