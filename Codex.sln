@@ -42,6 +42,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A0000000-0
 		docs\09-RISKS.md = docs\09-RISKS.md
 		docs\10-PRINCIPLES.md = docs\10-PRINCIPLES.md
 		docs\GLOSSARY.md = docs\GLOSSARY.md
+		ProseGrammarProposal.md = ProseGrammarProposal.md
 		docs\VSCODE-SETUP.md = docs\VSCODE-SETUP.md
 	EndProjectSection
 EndProject

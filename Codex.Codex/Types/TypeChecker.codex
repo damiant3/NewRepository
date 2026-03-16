@@ -310,11 +310,20 @@ Section: Infer Expression (dispatch)
         if ADoExpr (stmts) -> infer-do st env stmts
         if AFieldAccess (obj) (field) ->
           let r = infer-expr st env obj
-          in let fr = fresh-and-advance r.state
-          in CheckResult { inferred-type = fr.var-type, state = fr.state }
+          in let resolved = deep-resolve r.state r.inferred-type
+          in when resolved
+            if RecordTy (rname) (rfields) ->
+              let ftype = lookup-record-field rfields field.value
+              in CheckResult { inferred-type = ftype, state = r.state }
+            if _ ->
+              let fr = fresh-and-advance r.state
+              in CheckResult { inferred-type = fr.var-type, state = fr.state }
+
         if ARecordExpr (name) (fields) ->
           let st2 = infer-record-fields st env fields 0 (list-length fields)
-          in CheckResult { inferred-type = ConstructedTy name [], state = st2 }
+          in let ctor-type = if env-has env name.value then env-lookup env name.value else ErrorTy
+          in let result-type = strip-fun-args ctor-type
+          in CheckResult { inferred-type = result-type, state = st2 }
         if AErrorExpr (msg) -> CheckResult { inferred-type = ErrorTy, state = st }
 
     infer-record-fields : UnificationState -> TypeEnv -> List AFieldExpr -> Integer -> Integer -> UnificationState
@@ -324,6 +333,12 @@ Section: Infer Expression (dispatch)
         let f = list-at fields i
         in let r = infer-expr st env f.value
         in infer-record-fields r.state env fields (i + 1) len
+
+    strip-fun-args : CodexType -> CodexType
+    strip-fun-args (ty) =
+      when ty
+        if FunTy (p) (r) -> strip-fun-args r
+        if _ -> ty
 
 Section: Resolve Type Expression
 
@@ -459,9 +474,34 @@ Section: Register Type Definitions
           let result-ty = ConstructedTy name []
           in register-variant-ctors st env ctors result-ty 0 (list-length ctors)
         if ARecordTypeDef (name) (type-params) (fields) ->
-          let result-ty = ConstructedTy name []
+          let resolved-fields = build-record-fields fields 0 (list-length fields) []
+          in let result-ty = RecordTy name resolved-fields
           in let ctor-ty = build-record-ctor-type fields result-ty 0 (list-length fields)
           in LetBindResult { state = st, env = env-bind env name.value ctor-ty }
+
+    build-record-fields : List ARecordFieldDef -> Integer -> Integer -> List RecordField -> List RecordField
+    build-record-fields (fields) (i) (len) (acc) =
+      if i == len then acc
+      else
+        let f = list-at fields i
+        in let rfield = RecordField { name = f.name, type-val = resolve-type-expr f.type-expr }
+        in build-record-fields fields (i + 1) len (acc ++ [rfield])
+
+    lookup-record-field : List RecordField -> Text -> CodexType
+    lookup-record-field (fields) (name) =
+      if list-length fields == 0 then ErrorTy
+      else
+        let f = list-at fields 0
+        in if f.name.value == name then f.type-val
+        else lookup-record-field-loop fields name 1 (list-length fields)
+
+    lookup-record-field-loop : List RecordField -> Text -> Integer -> Integer -> CodexType
+    lookup-record-field-loop (fields) (name) (i) (len) =
+      if i == len then ErrorTy
+      else
+        let f = list-at fields i
+        in if f.name.value == name then f.type-val
+        else lookup-record-field-loop fields name (i + 1) len
 
     register-variant-ctors : UnificationState -> TypeEnv -> List AVariantCtorDef -> CodexType -> Integer -> Integer -> LetBindResult
     register-variant-ctors (st) (env) (ctors) (result-ty) (i) (len) =
