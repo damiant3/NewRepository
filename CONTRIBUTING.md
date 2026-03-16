@@ -43,7 +43,6 @@ These rules must be enforced by all contributors and automated agents when gener
 - Property and type names: **PascalCase**. Local variables and parameters: **camelCase**.
 - Constants: PascalCase.
 - Avoid `var` when the type is not obvious from the right-hand side.
-- Use explicit accessibility modifiers on all types and members.
 - Prefer `readonly record struct` for small value types; `sealed record` for immutable reference types.
 - `TreatWarningsAsErrors` is `true` in `Directory.Build.props`. Do not leave unused variables, fields, or parameters.
 
@@ -153,4 +152,3 @@ To add a new emission target (e.g., Rust, Python):
 - [ ] `dotnet test Codex.sln` passes (all existing tests + new tests).
 - [ ] Private fields use the `m_` prefix.
 - [ ] No `var` where the type is non-obvious.
-- [ ] Commit message follows Conventional Commits (`feat:`, `fix:`, etc.).

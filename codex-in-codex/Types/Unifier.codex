@@ -2,8 +2,9 @@ Chapter: Unification
 
   Type unification for the Codex type checker. The UnificationState
   is threaded through all operations — it tracks type variable
-  substitutions, a counter for generating fresh variables, and
-  accumulated diagnostics.
+  substitutions, a counter for generating fresh variables,
+  accumulated diagnostics, and the type definition / constructor
+  maps built during type registration.
 
   Naming convention: the state is called a UnificationState because
   its mutations serve a specific purpose — unifying type variables
@@ -15,12 +16,25 @@ Section: State
     UnificationState = record {
       substitutions : List SubstEntry,
       next-id : Integer,
-      errors : List Diagnostic
+      errors : List Diagnostic,
+      type-defs : List TypeDefEntry,
+      ctor-entries : List CtorEntry
     }
 
     SubstEntry = record {
       var-id : Integer,
       resolved-type : CodexType
+    }
+
+    TypeDefEntry = record {
+      name : Text,
+      resolved-type : CodexType
+    }
+
+    CtorEntry = record {
+      name : Text,
+      ctor-type : CodexType,
+      owner-type : CodexType
     }
 
     UnifyResult = record {
@@ -32,7 +46,7 @@ Section: Construction
 
     empty-unification-state : UnificationState
     empty-unification-state =
-      UnificationState { substitutions = [], next-id = 0, errors = [] }
+      UnificationState { substitutions = [], next-id = 0, errors = [], type-defs = [], ctor-entries = [] }
 
 Section: Fresh Variables
 
@@ -41,7 +55,13 @@ Section: Fresh Variables
 
     advance-id : UnificationState -> UnificationState
     advance-id (st) =
-      UnificationState { substitutions = st.substitutions, next-id = st.next-id + 1, errors = st.errors }
+      UnificationState {
+        substitutions = st.substitutions,
+        next-id = st.next-id + 1,
+        errors = st.errors,
+        type-defs = st.type-defs,
+        ctor-entries = st.ctor-entries
+      }
 
     fresh-and-advance : UnificationState -> FreshResult
     fresh-and-advance (st) =
@@ -96,7 +116,9 @@ Section: Add Substitution
       UnificationState {
         substitutions = st.substitutions ++ [SubstEntry { var-id = var-id, resolved-type = ty }],
         next-id = st.next-id,
-        errors = st.errors
+        errors = st.errors,
+        type-defs = st.type-defs,
+        ctor-entries = st.ctor-entries
       }
 
 Section: Add Error
@@ -106,8 +128,76 @@ Section: Add Error
       UnificationState {
         substitutions = st.substitutions,
         next-id = st.next-id,
-        errors = st.errors ++ [make-error code msg]
+        errors = st.errors ++ [make-error code msg],
+        type-defs = st.type-defs,
+        ctor-entries = st.ctor-entries
       }
+
+Section: Type Def Lookup
+
+    lookup-type-def : UnificationState -> Text -> CodexType
+    lookup-type-def (st) (name) =
+      lookup-type-def-loop st.type-defs name 0 (list-length st.type-defs)
+
+    lookup-type-def-loop : List TypeDefEntry -> Text -> Integer -> Integer -> CodexType
+    lookup-type-def-loop (entries) (name) (i) (len) =
+      if i == len then ErrorTy
+      else
+        let e = list-at entries i
+        in if e.name == name then e.resolved-type
+           else lookup-type-def-loop entries name (i + 1) len
+
+    has-type-def : UnificationState -> Text -> Boolean
+    has-type-def (st) (name) =
+      has-type-def-loop st.type-defs name 0 (list-length st.type-defs)
+
+    has-type-def-loop : List TypeDefEntry -> Text -> Integer -> Integer -> Boolean
+    has-type-def-loop (entries) (name) (i) (len) =
+      if i == len then False
+      else
+        let e = list-at entries i
+        in if e.name == name then True
+           else has-type-def-loop entries name (i + 1) len
+
+Section: Constructor Lookup
+
+    lookup-ctor : UnificationState -> Text -> CtorEntry
+    lookup-ctor (st) (name) =
+      lookup-ctor-loop st.ctor-entries name 0 (list-length st.ctor-entries)
+
+    lookup-ctor-loop : List CtorEntry -> Text -> Integer -> Integer -> CtorEntry
+    lookup-ctor-loop (entries) (name) (i) (len) =
+      if i == len then CtorEntry { name = "", ctor-type = ErrorTy, owner-type = ErrorTy }
+      else
+        let e = list-at entries i
+        in if e.name == name then e
+           else lookup-ctor-loop entries name (i + 1) len
+
+    has-ctor : UnificationState -> Text -> Boolean
+    has-ctor (st) (name) =
+      has-ctor-loop st.ctor-entries name 0 (list-length st.ctor-entries)
+
+    has-ctor-loop : List CtorEntry -> Text -> Integer -> Integer -> Boolean
+    has-ctor-loop (entries) (name) (i) (len) =
+      if i == len then False
+      else
+        let e = list-at entries i
+        in if e.name == name then True
+           else has-ctor-loop entries name (i + 1) len
+
+Section: Record Field Lookup
+
+    lookup-record-field : List RecordField -> Text -> CodexType
+    lookup-record-field (fields) (name) =
+      lookup-record-field-loop fields name 0 (list-length fields)
+
+    lookup-record-field-loop : List RecordField -> Text -> Integer -> Integer -> CodexType
+    lookup-record-field-loop (fields) (name) (i) (len) =
+      if i == len then ErrorTy
+      else
+        let f = list-at fields i
+        in if f.name.value == name then f.type-val
+           else lookup-record-field-loop fields name (i + 1) len
 
 Section: Occurs Check
 
@@ -174,6 +264,21 @@ Section: Unify
         if ListTy (ea) -> when b
           if ListTy (eb) -> unify st ea eb
           if _ -> unify-mismatch st a b
+        if ConstructedTy (na) (args-a) -> when b
+          if ConstructedTy (nb) (args-b) ->
+            if na.value == nb.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if _ -> unify-mismatch st a b
+        if RecordTy (na) (fa) -> when b
+          if RecordTy (nb) (fb) ->
+            if na.value == nb.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if _ -> unify-mismatch st a b
+        if SumTy (na) (ca) -> when b
+          if SumTy (nb) (cb) ->
+            if na.value == nb.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if _ -> unify-mismatch st a b
         if _ -> unify-mismatch st a b
 
     unify-fun : UnificationState -> CodexType -> CodexType -> CodexType -> CodexType -> UnifyResult
@@ -194,4 +299,5 @@ Section: Deep Resolve
       in when resolved
         if FunTy (param) (ret) -> FunTy (deep-resolve st param) (deep-resolve st ret)
         if ListTy (elem) -> ListTy (deep-resolve st elem)
+        if ForAllTy (id) (body) -> deep-resolve st body
         if _ -> resolved
