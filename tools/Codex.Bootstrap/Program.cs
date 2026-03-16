@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 
 class Program
@@ -32,18 +34,66 @@ class Program
 
         Console.WriteLine($"Found {files.Length} .codex files");
 
-        string combined = string.Join("\n\n", files.Select(f =>
+        List<string> codeBlocks = [];
+        foreach (string f in files)
         {
-            Console.WriteLine($"  {Path.GetRelativePath(codexDir, f)}");
-            return File.ReadAllText(f);
-        }));
+            string rel = Path.GetRelativePath(codexDir, f);
+            string content = File.ReadAllText(f);
+            Console.WriteLine($"  {rel}");
 
-        Console.WriteLine($"Total source: {combined.Length} chars");
+            if (IsProseDocument(content))
+            {
+                string code = ExtractCodeBlocks(content);
+                if (code.Length > 0)
+                    codeBlocks.Add(code);
+            }
+            else
+            {
+                codeBlocks.Add(content);
+            }
+        }
+
+        string combined = string.Join("\n\n", codeBlocks);
+
+        Console.WriteLine($"Total source after prose extraction: {combined.Length} chars");
         Console.WriteLine("Compiling with Codex.Codex (Stage 1)...");
 
         try
         {
-            string output = Codex_Codex_Codex.compile(combined, "Codex_Codex");
+            var tokens = Codex_Codex_Codex.tokenize(combined);
+            Console.WriteLine($"  Tokens: {tokens.Count}");
+
+            var st = Codex_Codex_Codex.make_parse_state(tokens);
+            var doc = Codex_Codex_Codex.parse_document(st);
+            Console.WriteLine($"  Parsed defs: {doc.defs.Count}, type-defs: {doc.type_defs.Count}");
+
+            var ast = Codex_Codex_Codex.desugar_document(doc, "Codex_Codex");
+            Console.WriteLine($"  Desugared defs: {ast.defs.Count}, type-defs: {ast.type_defs.Count}");
+
+            var checkResult = Codex_Codex_Codex.check_module(ast);
+            Console.WriteLine($"  Type bindings: {checkResult.types.Count}");
+            Console.WriteLine($"  Unification errors: {checkResult.state.errors.Count}");
+
+            // Show first 20 type bindings
+            for (int i = 0; i < Math.Min(20, checkResult.types.Count); i++)
+            {
+                var tb = checkResult.types[i];
+                var resolved = Codex_Codex_Codex.deep_resolve(checkResult.state, tb.bound_type);
+                Console.WriteLine($"    {tb.name} : {Codex_Codex_Codex.cs_type(resolved)}");
+            }
+
+            var ir = Codex_Codex_Codex.lower_module(ast, checkResult.types, checkResult.state);
+            Console.WriteLine($"  IR defs: {ir.defs.Count}");
+
+            // Show first 10 IR def signatures
+            for (int j = 0; j < Math.Min(10, ir.defs.Count); j++)
+            {
+                var d = ir.defs[j];
+                var paramStr = string.Join(", ", d.@params.Select(p => $"{Codex_Codex_Codex.cs_type(p.type_val)} {p.name}"));
+                Console.WriteLine($"    {d.name}({paramStr}) : {Codex_Codex_Codex.cs_type(d.type_val)}");
+            }
+
+            string output = Codex_Codex_Codex.emit_full_module(ir, ast.type_defs);
             string outputPath = Path.Combine(codexDir, "stage1-output.cs");
             File.WriteAllText(outputPath, output);
             Console.WriteLine($"Stage 1 output written to: {outputPath}");
@@ -56,5 +106,118 @@ class Program
             Console.Error.WriteLine(ex.StackTrace);
             return 1;
         }
+    }
+
+    static bool IsProseDocument(string content)
+    {
+        foreach (string line in content.Split('\n'))
+        {
+            string trimmed = line.TrimStart();
+            if (trimmed.Length == 0)
+                continue;
+            return trimmed.StartsWith("Chapter:", StringComparison.Ordinal);
+        }
+        return false;
+    }
+
+    static string ExtractCodeBlocks(string content)
+    {
+        string[] lines = content.Split('\n');
+        List<string> result = [];
+        int i = 0;
+
+        while (i < lines.Length)
+        {
+            string trimmed = lines[i].Trim();
+
+            if (trimmed.Length == 0)
+            {
+                i++;
+                continue;
+            }
+
+            if (trimmed.StartsWith("Chapter:", StringComparison.Ordinal) ||
+                trimmed.StartsWith("Section:", StringComparison.Ordinal))
+            {
+                i++;
+                continue;
+            }
+
+            int indent = MeasureIndent(lines[i]);
+            if (indent >= 4 && LooksLikeNotation(trimmed))
+            {
+                int baseIndent = indent;
+                List<string> block = [];
+
+                while (i < lines.Length)
+                {
+                    string line = lines[i];
+                    string lt = line.Trim();
+
+                    if (lt.Length == 0)
+                    {
+                        int peekIdx = i + 1;
+                        while (peekIdx < lines.Length && lines[peekIdx].Trim().Length == 0)
+                            peekIdx++;
+
+                        if (peekIdx < lines.Length && MeasureIndent(lines[peekIdx]) >= baseIndent)
+                        {
+                            block.Add("");
+                            i++;
+                            continue;
+                        }
+                        break;
+                    }
+
+                    int lineIndent = MeasureIndent(line);
+                    if (lineIndent < baseIndent)
+                        break;
+
+                    if (lt.StartsWith("Chapter:", StringComparison.Ordinal) ||
+                        lt.StartsWith("Section:", StringComparison.Ordinal))
+                        break;
+
+                    string dedented = lineIndent >= baseIndent
+                        ? line[baseIndent..].TrimEnd('\r')
+                        : lt;
+                    block.Add(dedented);
+                    i++;
+                }
+
+                if (block.Count > 0)
+                    result.Add(string.Join("\n", block));
+            }
+            else
+            {
+                i++;
+            }
+        }
+
+        return string.Join("\n\n", result);
+    }
+
+    static bool LooksLikeNotation(string trimmed)
+    {
+        if (trimmed.Length == 0) return false;
+        if (trimmed[0] == '|') return true;
+        if (char.IsLetter(trimmed[0]) || trimmed[0] == '_')
+        {
+            if (trimmed.Contains(" : ")) return true;
+            if (trimmed.Contains(" = ")) return true;
+            if (trimmed.EndsWith(" =") || trimmed.EndsWith("=")) return true;
+            if (trimmed.Contains('(')) return true;
+        }
+        return false;
+    }
+
+    static int MeasureIndent(string line)
+    {
+        int count = 0;
+        foreach (char c in line)
+        {
+            if (c == ' ') count++;
+            else break;
+        }
+        return count;
     }
 }

@@ -341,16 +341,19 @@ public sealed class Lowering(
         IRExpr scrutinee = LowerExpr(match.Scrutinee, ErrorType.s_instance);
         ImmutableArray<IRMatchBranch>.Builder branches = ImmutableArray.CreateBuilder<IRMatchBranch>();
 
+        CodexType resolvedType = expectedType;
         foreach (MatchBranch branch in match.Branches)
         {
             Map<string, CodexType> savedEnv = m_localEnv;
             IRPattern pattern = LowerPattern(branch.Pattern, scrutinee.Type);
-            IRExpr body = LowerExpr(branch.Body, expectedType);
+            IRExpr body = LowerExpr(branch.Body, resolvedType);
             branches.Add(new(pattern, body));
+            if (resolvedType is ErrorType && body.Type is not ErrorType)
+                resolvedType = body.Type;
             m_localEnv = savedEnv;
         }
 
-        return new IRMatch(scrutinee, branches.ToImmutable(), expectedType);
+        return new IRMatch(scrutinee, branches.ToImmutable(), resolvedType);
     }
 
     IRPattern LowerPattern(Pattern pattern, CodexType scrutineeType)

@@ -340,7 +340,10 @@ public sealed partial class Parser
         SkipNewlines();
 
         List<MatchBranchNode> branches = [];
-        while (Current.Kind == TokenKind.IfKeyword)
+        int branchColumn = Current.Kind == TokenKind.IfKeyword ? Current.Span.Start.Column : -1;
+        int branchLine = Current.Kind == TokenKind.IfKeyword ? Current.Span.Start.Line : -1;
+        while (Current.Kind == TokenKind.IfKeyword
+            && (Current.Span.Start.Line == branchLine || Current.Span.Start.Column == branchColumn))
         {
             Advance();
             PatternNode pattern = ParsePattern();
