@@ -41,6 +41,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A0000000-0
 		docs\08-MILESTONES.md = docs\08-MILESTONES.md
 		docs\09-RISKS.md = docs\09-RISKS.md
 		docs\10-PRINCIPLES.md = docs\10-PRINCIPLES.md
+		docs\BOOTSTRAP-STATUS.md = docs\BOOTSTRAP-STATUS.md
 		docs\DECISIONS.md = docs\DECISIONS.md
 		docs\FORWARD-PLAN.md = docs\FORWARD-PLAN.md
 		docs\GLOSSARY.md = docs\GLOSSARY.md

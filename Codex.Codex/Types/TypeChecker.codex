@@ -236,17 +236,38 @@ Section: Infer Match
       if i == len then st
       else
         let arm = list-at arms i
-        in let env2 = bind-pattern env arm.pattern scrut-ty
-        in let br = infer-expr st env2 arm.body
+        in let pr = bind-pattern st env arm.pattern scrut-ty
+        in let br = infer-expr pr.state pr.env arm.body
         in let r = unify br.state br.inferred-type result-ty
         in infer-match-arms r.state env scrut-ty result-ty arms (i + 1) len
 
-    bind-pattern : TypeEnv -> APat -> CodexType -> TypeEnv
-    bind-pattern (env) (pat) (ty) =
+    PatBindResult = record {
+      state : UnificationState,
+      env : TypeEnv
+    }
+
+    bind-pattern : UnificationState -> TypeEnv -> APat -> CodexType -> PatBindResult
+    bind-pattern (st) (env) (pat) (ty) =
       when pat
-        if AVarPat (name) -> env-bind env name.value ty
-        if AWildPat -> env
-        if _ -> env
+        if AVarPat (name) -> PatBindResult { state = st, env = env-bind env name.value ty }
+        if AWildPat -> PatBindResult { state = st, env = env }
+        if ALitPat (val) (kind) -> PatBindResult { state = st, env = env }
+        if ACtorPat (ctor-name) (sub-pats) ->
+          let ctor-lookup = instantiate-type st (env-lookup env ctor-name.value)
+          in bind-ctor-sub-patterns ctor-lookup.state env sub-pats ctor-lookup.var-type 0 (list-length sub-pats)
+
+    bind-ctor-sub-patterns : UnificationState -> TypeEnv -> List APat -> CodexType -> Integer -> Integer -> PatBindResult
+    bind-ctor-sub-patterns (st) (env) (sub-pats) (ctor-ty) (i) (len) =
+      if i == len then PatBindResult { state = st, env = env }
+      else
+        when ctor-ty
+          if FunTy (param-ty) (ret-ty) ->
+            let pr = bind-pattern st env (list-at sub-pats i) param-ty
+            in bind-ctor-sub-patterns pr.state pr.env sub-pats ret-ty (i + 1) len
+          if _ ->
+            let fr = fresh-and-advance st
+            in let pr = bind-pattern fr.state env (list-at sub-pats i) fr.var-type
+            in bind-ctor-sub-patterns pr.state pr.env sub-pats ctor-ty (i + 1) len
 
 Section: Infer Do
 
@@ -394,7 +415,8 @@ Section: Check Module
 
     check-module : AModule -> ModuleResult
     check-module (mod) =
-      let env = register-all-defs empty-unification-state builtin-type-env mod.defs 0 (list-length mod.defs)
+      let tenv = register-type-defs empty-unification-state builtin-type-env mod.type-defs 0 (list-length mod.type-defs)
+      in let env = register-all-defs tenv.state tenv.env mod.defs 0 (list-length mod.defs)
       in check-all-defs env.state env.env mod.defs 0 (list-length mod.defs) []
 
     register-all-defs : UnificationState -> TypeEnv -> List ADef -> Integer -> Integer -> LetBindResult
@@ -419,3 +441,48 @@ Section: Check Module
         in let resolved = deep-resolve r.state r.inferred-type
         in let entry = TypeBinding { name = def.name.value, bound-type = resolved }
         in check-all-defs r.state env defs (i + 1) len (acc ++ [entry])
+
+Section: Register Type Definitions
+
+    register-type-defs : UnificationState -> TypeEnv -> List ATypeDef -> Integer -> Integer -> LetBindResult
+    register-type-defs (st) (env) (tdefs) (i) (len) =
+      if i == len then LetBindResult { state = st, env = env }
+      else
+        let td = list-at tdefs i
+        in let r = register-one-type-def st env td
+        in register-type-defs r.state r.env tdefs (i + 1) len
+
+    register-one-type-def : UnificationState -> TypeEnv -> ATypeDef -> LetBindResult
+    register-one-type-def (st) (env) (td) =
+      when td
+        if AVariantTypeDef (name) (type-params) (ctors) ->
+          let result-ty = ConstructedTy name []
+          in register-variant-ctors st env ctors result-ty 0 (list-length ctors)
+        if ARecordTypeDef (name) (type-params) (fields) ->
+          let result-ty = ConstructedTy name []
+          in let ctor-ty = build-record-ctor-type fields result-ty 0 (list-length fields)
+          in LetBindResult { state = st, env = env-bind env name.value ctor-ty }
+
+    register-variant-ctors : UnificationState -> TypeEnv -> List AVariantCtorDef -> CodexType -> Integer -> Integer -> LetBindResult
+    register-variant-ctors (st) (env) (ctors) (result-ty) (i) (len) =
+      if i == len then LetBindResult { state = st, env = env }
+      else
+        let ctor = list-at ctors i
+        in let ctor-ty = build-ctor-type ctor.fields result-ty 0 (list-length ctor.fields)
+        in let env2 = env-bind env ctor.name.value ctor-ty
+        in register-variant-ctors st env2 ctors result-ty (i + 1) len
+
+    build-ctor-type : List ATypeExpr -> CodexType -> Integer -> Integer -> CodexType
+    build-ctor-type (fields) (result) (i) (len) =
+      if i == len then result
+      else
+        let rest = build-ctor-type fields result (i + 1) len
+        in FunTy (resolve-type-expr (list-at fields i)) rest
+
+    build-record-ctor-type : List ARecordFieldDef -> CodexType -> Integer -> Integer -> CodexType
+    build-record-ctor-type (fields) (result) (i) (len) =
+      if i == len then result
+      else
+        let f = list-at fields i
+        in let rest = build-record-ctor-type fields result (i + 1) len
+        in FunTy (resolve-type-expr f.type-expr) rest

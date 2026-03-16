@@ -13,9 +13,9 @@ It successfully produced `Codex.Codex/stage1-output.cs`.
 
 ---
 
-## Gap #1 Fix Iteration (TypeChecker.codex + Unifier.codex)
+## Gap #1 Fix Iteration — Round 2 (TypeChecker.codex + Unifier.codex)
 
-6 fixes were applied to the self-hosted type checker and unifier:
+### Round 1 (6 fixes)
 
 1. **infer-name**: Instantiate `ForAllTy` wrappers with fresh vars (polymorphic builtins)
 2. **AFieldAccess/ARecordExpr**: Return fresh vars / `ConstructedTy` instead of `ErrorTy`
@@ -24,42 +24,57 @@ It successfully produced `Codex.Codex/stage1-output.cs`.
 5. **unify-structural**: Handle `ConstructedTy`, `SumTy`, `RecordTy`, `ForAllTy`, cross-matching
 6. **deep-resolve**: Recurse into `ConstructedTy`, `ForAllTy`, `SumTy`, `RecordTy`
 
+### Round 2 (3 fixes)
+
+7. **register-type-defs**: Register variant constructors and record types into the type
+   environment before checking definitions. Each variant constructor gets a function
+   type `Field1 -> Field2 -> ... -> VariantType`. Without this, all 196 constructor
+   applications in the `.codex` source failed type checking.
+8. **bind-pattern for ACtorPat**: Constructor patterns now look up the constructor type
+   from the env, instantiate it, and decompose the function type to bind sub-pattern
+   variables with correct field types. Also threads `UnificationState` through
+   `bind-pattern` (new `PatBindResult` record).
+9. **check-module**: Now calls `register-type-defs` on `mod.type-defs` before
+   `register-all-defs`, mirroring the C# `RegisterTypeDefinitions` call.
+
 ### Results
 
-| Metric | Before fixes | After fixes | Stage 0 target |
-|--------|-------------|-------------|----------------|
-| Unification errors | 1,864 | **1,066** | 0 |
-| `object` type refs | 1,105 | **1,091** | 1 |
-| `string` concrete | 87 | 81 | 475 |
-| `long` concrete | 21 | 25 | 277 |
-| `Func<` types | 2 | 2 | 618 |
-| Defs / type-defs | 332 / 73 | 340 / 73 | 342 / 73 |
+| Metric | Original | After R1 | After R2 | Stage 0 target |
+|--------|---------|---------|---------|----------------|
+| Unification errors | 1,864 | 1,066 | **203** | 0 |
+| `object` type refs | 1,105 | 1,091 | 1,222 | 5 |
+| `string` concrete | 87 | 81 | 82 | 477 |
+| `long` concrete | 21 | 25 | 25 | 292 |
+| `Func<` types | 2 | 2 | 2 | 636 |
+| Defs / type-defs | 332 / 73 | 340 / 73 | **346 / 74** | 342 / 73 |
 
-**Verdict:** Real progress on return types (many now concrete record types like
-`ADef`, `AModule`, `ALetBind` instead of `object`). But parameter types are still
-almost all `object` — the unification errors are still preventing type propagation
-into function parameters. 1,066 errors remain to diagnose.
+**Verdict:** Unification errors dropped 89% (1,864 → 203). Return types are now
+concrete for most functions (e.g. `AExpr`, `ALetBind`, `LiteralKind`, `BinaryOp`).
+Parameter types remain mostly `object` — this is expected because the remaining
+203 errors prevent constraint propagation into function parameters. The `object`
+count rose slightly because more functions are now generated (346 vs 332).
 
-### Example: what Stage 0 produces vs Stage 1
+### Example improvement
 
 ```
-Stage 0:  public static AExpr desugar_expr(Expr node)
-Stage 1:  public static T1432 desugar_expr<T1432>(object node)
+Round 1:  public static T1432 desugar_expr<T1432>(object node)
+Round 2:  public static AExpr desugar_expr(object node)
 ```
 
-Both param type (`Expr` vs `object`) and return type (`AExpr` vs `T1432`) still differ.
+Return type now correct (`AExpr`). Param type still `object`.
 
 ---
 
 ## Remaining Gaps
 
-### Gap #1: Type Inference (PARTIALLY FIXED — needs more work)
+### Gap #1: Type Inference (203 errors remain)
 
-Still 1,066 unification errors. The remaining failures likely involve:
-- Pattern match scrutinee types not propagating into branches
-- `when` expression branch type unification
-- Higher-order function types (passing functions as args to `map-list` etc.)
-- Constructor application types
+The remaining 203 unification errors likely involve:
+- Missing type annotation propagation (annotated types aren't generalized/instantiated
+  in the two-pass `register-all-defs` / `check-all-defs` flow the way the C# version does)
+- `string`/`long` types showing as `object` because `Text`/`Integer` builtins don't
+  unify through complex patterns
+- Higher-order function types through `map-list`, `fold-list` etc.
 
 **Files:** `Codex.Codex/Types/TypeChecker.codex`, `Codex.Codex/Types/Unifier.codex`
 **Reference:** `src/Codex.Types/TypeChecker.cs`, `src/Codex.Types/Unifier.cs`
