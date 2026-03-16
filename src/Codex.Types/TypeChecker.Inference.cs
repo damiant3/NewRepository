@@ -214,7 +214,27 @@ public sealed partial class TypeChecker
             return body;
         }
 
+        // If the function's parameter type is effectful, temporarily allow those effects
+        // while inferring the argument. This is how effect handlers (run-state) work:
+        // the handler's parameter declares the effects it handles, and the argument
+        // is allowed to use them.
+        Set<string> savedEffects = m_currentEffects;
+        bool isEffectHandler = false;
+        CodexType resolvedForParam = m_unifier.Resolve(resolvedFunc);
+        if (resolvedForParam is FunctionType paramFt
+            && paramFt.Parameter is EffectfulType paramEft)
+        {
+            isEffectHandler = true;
+            foreach (EffectType e in paramEft.Effects)
+                m_currentEffects = m_currentEffects.Add(e.EffectName.Value);
+            if (paramEft.RowVariable is not null)
+                m_currentEffects = m_currentEffects.Add("*");
+        }
+
         CodexType argType2 = InferExpr(app.Argument);
+
+        m_currentEffects = savedEffects;
+
         CodexType returnType = m_unifier.FreshVar();
 
         if (!m_unifier.Unify(funcType, new FunctionType(argType2, returnType), app.Span))
@@ -222,7 +242,18 @@ public sealed partial class TypeChecker
 
         CodexType resolved = m_unifier.Resolve(returnType);
         resolved = TryDischargeProofParams(resolved, app.Span);
-        CheckEffectAllowed(resolved, app.Span);
+
+        // Effect handlers eliminate effects — don't re-check the return type
+        if (!isEffectHandler)
+            CheckEffectAllowed(resolved, app.Span);
+
+        // If the handler returned an EffectfulType with no concrete effects, unwrap it
+        if (isEffectHandler && resolved is EffectfulType handledEft && handledEft.Effects.IsEmpty)
+        {
+            ImmutableArray<EffectType> rowEffects = m_unifier.ResolveEffectRow(handledEft.RowVariable);
+            if (rowEffects.IsEmpty)
+                resolved = handledEft.Return;
+        }
 
         return resolved;
     }

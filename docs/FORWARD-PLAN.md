@@ -57,12 +57,12 @@ All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliv
 | # | Milestone | What works | What's left |
 |---|-----------|------------|-------------|
 | M4 | Prose Integration | Chapter/Section parsing, prose templates (record/variant from bullets), prose-aware compilation | The Reader (`codex read`): formatted prose rendering to terminal |
-| M5 | Effects | Effect rows, effect checking, effect polymorphism (row variables), Console/State, C# emission | Effect handlers (`run-state`), user-defined effects |
+| M5 | Effects | Effect rows, effect checking, effect polymorphism (row variables), Console/State, C# emission, **`run-state` effect handler** (`get-state`, `set-state`, `run-state` built-ins; type checker allows effects inside handler scope and eliminates them from the return type; C# emitter emits mutable-cell closure; `do` blocks as handler arguments). 12 effect handler tests. | User-defined effects, additional built-in handlers |
 | M6 | Linear Types | Linearity annotations, `LinearityChecker` with usage counting (CDX2040/2041/2042), if/match branch merging, let-forward tracking, C# runtime checks. 6 tests. Wired in pipeline. | Richer integration: linear values through record fields, linear closures |
 | M7 | Repository | Fact store, content hashing, CLI commands, `import` resolution from store via `IModuleLoader` | Views (single-user views, view consistency checking) |
 | M8 | Dependent Types | Dependent function types, type-level arithmetic, proof obligations | Full `Vector` type with `append` end-to-end |
 | M10 | Proofs | Induction, cong, lemma application, IH registration, 9 proofs in sample | Type-level function reduction (needed for non-trivial inductive steps), arithmetic induction with Peano encoding |
-| M11 | Tests | Property-based tests, integration tests (666 total), corpus emission (165 per-sample-per-backend) | Fuzz testing, CI configuration |
+| M11 | Tests | Property-based tests, integration tests (689 total), corpus emission (165 per-sample-per-backend) | Fuzz testing, CI configuration |
 | — | IL Emitter | `Codex.Emit.IL` project, `IAssemblyEmitter` interface, CLI wired (`--target il`). Emits working `.exe`/`.dll` via `System.Reflection.Metadata`. Handles: integer/text/boolean/number literals, static methods with parameters, if/else branching, let bindings, negation, binary ops, function application (including recursive/forward calls, curried multi-arg, nested composition), **records (IL classes with fields + constructors), sum types (abstract base + sealed subclasses), field access (`ldfld`), pattern matching (`isinst` branch chains with sub-pattern binding)**. 38 integration tests (emission + PE validation + runtime execution). Verified: hello→25, factorial→3628800, arithmetic→37, person→"Hello, Alice!", shapes with field extraction. | Generics, TCO (`tail.` prefix), full bootstrap (`codex build codex-src --target il`) |
 
 ---

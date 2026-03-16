@@ -77,6 +77,11 @@ public sealed class Lowering(
                 return LowerLiteral(lit);
 
             case NameExpr name:
+                if (name.Name.Value == "get-state")
+                {
+                    CodexType stateType = expectedType;
+                    return new IRGetState(stateType);
+                }
                 return new IRName(name.Name.Value, LookupName(name.Name.Value, expectedType));
 
             case BinaryExpr bin:
@@ -217,6 +222,32 @@ public sealed class Lowering(
 
     IRExpr LowerApply(ApplyExpr app, CodexType expectedType)
     {
+        // Detect set-state val → IRSetState(val, stateType)
+        if (app.Function is NameExpr setName && setName.Name.Value == "set-state")
+        {
+            IRExpr val = LowerExpr(app.Argument, ErrorType.s_instance);
+            return new IRSetState(val, val.Type);
+        }
+
+        // Detect run-state init comp → IRRunState(init, comp, stateType, resultType)
+        if (app.Function is ApplyExpr innerApp
+            && innerApp.Function is NameExpr runName
+            && runName.Name.Value == "run-state")
+        {
+            IRExpr init = LowerExpr(innerApp.Argument, ErrorType.s_instance);
+            CodexType stateType = init.Type;
+            IRExpr comp = LowerExpr(app.Argument, ErrorType.s_instance);
+            CodexType resultType = expectedType;
+            if (resultType is ErrorType or EffectfulType)
+            {
+                if (comp.Type is FunctionType compFt && compFt.Return is EffectfulType eft)
+                    resultType = eft.Return;
+                else if (comp.Type is FunctionType compFt2)
+                    resultType = compFt2.Return;
+            }
+            return new IRRunState(init, comp, stateType, resultType);
+        }
+
         IRExpr func = LowerExpr(app.Function, ErrorType.s_instance);
         CodexType argType;
         CodexType returnType;
@@ -569,6 +600,31 @@ public sealed class Lowering(
         map = map.Set("list-at", new ForAllType(0,
             new FunctionType(new ListType(new TypeVariable(0)),
                 new FunctionType(IntegerType.s_instance, new TypeVariable(0)))));
+
+
+        TypeVariable stateS = new(200);
+        TypeVariable stateA = new(201);
+        EffectRowVariable stateE = new(202);
+
+        EffectfulType getStateType = new(
+            [new EffectType(new Name("State"))], stateS);
+        map = map.Set("get-state", new ForAllType(200, getStateType));
+
+        EffectfulType setStateReturn = new(
+            [new EffectType(new Name("State"))], NothingType.s_instance);
+        map = map.Set("set-state", new ForAllType(200,
+            new FunctionType(stateS, setStateReturn)));
+
+        // run-state : s -> [State s, e] a -> [e] a
+        EffectfulType runCompType = new(
+            [new EffectType(new Name("State"))], stateA, stateE);
+        EffectfulType runStateReturn = new([], stateA, stateE);
+        map = map.Set("run-state", new ForAllType(200,
+            new ForAllType(201,
+                new ForAllType(202,
+                    new FunctionType(stateS,
+                        new FunctionType(runCompType, runStateReturn))))));
+
         return map;
     }
 

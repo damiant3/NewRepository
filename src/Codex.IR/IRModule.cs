@@ -83,3 +83,14 @@ public sealed record IRRecord(string TypeName, ImmutableArray<(string FieldName,
     : IRExpr(Type);
 
 public sealed record IRFieldAccess(IRExpr Record, string FieldName, CodexType Type) : IRExpr(Type);
+
+public sealed record IRRunState(
+    IRExpr InitialState,
+    IRExpr Computation,
+    CodexType StateType,
+    CodexType ResultType)
+    : IRExpr(ResultType);
+
+public sealed record IRGetState(CodexType StateType) : IRExpr(StateType);
+
+public sealed record IRSetState(IRExpr NewValue, CodexType StateType) : IRExpr(NothingType.s_instance);

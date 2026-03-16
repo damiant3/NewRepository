@@ -4,6 +4,7 @@ using Xunit;
 
 namespace Codex.Types.Tests;
 
+
 public class CorpusEmissionTests
 {
     static readonly string s_samplesDir = FindSamplesDir();

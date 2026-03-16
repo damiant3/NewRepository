@@ -26,7 +26,8 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
         "text-to-integer", "integer-to-text", "text-replace",
         "char-code", "code-to-char",
         "list-length", "list-at",
-        "map"
+        "map",
+        "get-state", "set-state", "run-state"
     );
 
     public NameResolver(DiagnosticBag diagnostics, IModuleLoader? loader)

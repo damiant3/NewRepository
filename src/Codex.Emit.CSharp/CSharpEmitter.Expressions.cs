@@ -105,6 +105,19 @@ public sealed partial class CSharpEmitter
                 sb.Append(SanitizeIdentifier(fa.FieldName));
                 break;
 
+            case IRGetState:
+                sb.Append("__state");
+                break;
+
+            case IRSetState setState:
+                sb.Append("__state = ");
+                EmitExpr(sb, setState.NewValue, indent);
+                break;
+
+            case IRRunState runState:
+                EmitRunState(sb, runState, indent);
+                break;
+
             case IRError err:
                 sb.Append($"throw new InvalidOperationException(\"{EscapeString(err.Message)}\")");
                 break;
@@ -497,5 +510,59 @@ public sealed partial class CSharpEmitter
             }
             sb.Append(" }");
         }
+    }
+
+    void EmitRunState(StringBuilder sb, IRRunState runState, int indent)
+    {
+        string stateType = EmitType(runState.StateType);
+        string resultType = EmitType(runState.ResultType);
+        sb.AppendLine($"((Func<{resultType}>)(() => {{");
+        string pad = new(' ', (indent + 2) * 4);
+        sb.Append(pad);
+        sb.Append($"{stateType} __state = ");
+        EmitExpr(sb, runState.InitialState, indent + 2);
+        sb.AppendLine(";");
+
+        if (runState.Computation is IRDo doExpr)
+        {
+            for (int i = 0; i < doExpr.Statements.Length; i++)
+            {
+                IRDoStatement stmt = doExpr.Statements[i];
+                bool isLast = i == doExpr.Statements.Length - 1;
+                switch (stmt)
+                {
+                    case IRDoBind bind:
+                        sb.Append(pad);
+                        sb.Append($"var {SanitizeIdentifier(bind.Name)} = ");
+                        EmitExpr(sb, bind.Value, indent + 2);
+                        sb.AppendLine(";");
+                        break;
+                    case IRDoExec exec:
+                        sb.Append(pad);
+                        if (isLast)
+                        {
+                            sb.Append("return ");
+                            EmitExpr(sb, exec.Expression, indent + 2);
+                            sb.AppendLine(";");
+                        }
+                        else
+                        {
+                            EmitExpr(sb, exec.Expression, indent + 2);
+                            sb.AppendLine(";");
+                        }
+                        break;
+                }
+            }
+        }
+        else
+        {
+            sb.Append(pad);
+            sb.Append("return ");
+            EmitExpr(sb, runState.Computation, indent + 2);
+            sb.AppendLine(";");
+        }
+
+        sb.Append(new string(' ', (indent + 1) * 4));
+        sb.Append("}))()");
     }
 }

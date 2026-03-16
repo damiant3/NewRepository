@@ -98,6 +98,34 @@ public sealed class TypeEnvironment
                         new FunctionType(new ListType(mapA), mapReturn)))));
         env = env.Bind("map", mapType);
 
+        // State effect operations:
+        // get-state : [State s] s  (polymorphic over s)
+        // set-state : s -> [State s] Nothing  (polymorphic over s)
+        // run-state : s -> [State s, e] a -> [e] a  (polymorphic over s, e, a)
+        TypeVariable stateS = new(200);
+        TypeVariable stateA = new(201);
+        EffectRowVariable stateE = new(202);
+
+        EffectfulType getStateType = new(
+            [new EffectType(new Name("State"))], stateS);
+        env = env.Bind("get-state", new ForAllType(200, getStateType));
+
+        EffectfulType setStateReturn = new(
+            [new EffectType(new Name("State"))], NothingType.s_instance);
+        env = env.Bind("set-state", new ForAllType(200,
+            new FunctionType(stateS, setStateReturn)));
+
+        // run-state : s -> [State s, e] a -> [e] a
+        // The second argument is the effectful computation itself (typically a do block)
+        EffectfulType runCompType = new(
+            [new EffectType(new Name("State"))], stateA, stateE);
+        EffectfulType runStateReturn = new([], stateA, stateE);
+        env = env.Bind("run-state", new ForAllType(200,
+            new ForAllType(201,
+                new ForAllType(202,
+                    new FunctionType(stateS,
+                        new FunctionType(runCompType, runStateReturn))))));
+
         return env;
     }
 }

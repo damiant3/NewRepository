@@ -83,7 +83,8 @@ public sealed partial class Parser
             or TokenKind.TrueKeyword
             or TokenKind.FalseKeyword
             or TokenKind.LeftParen
-            or TokenKind.LeftBracket;
+            or TokenKind.LeftBracket
+            or TokenKind.DoKeyword;
     }
 
     ExpressionNode ParseAtom()
