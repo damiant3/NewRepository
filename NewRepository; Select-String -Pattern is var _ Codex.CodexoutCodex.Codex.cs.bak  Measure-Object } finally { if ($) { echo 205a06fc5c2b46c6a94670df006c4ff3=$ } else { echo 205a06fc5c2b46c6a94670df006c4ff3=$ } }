@@ -1,0 +1,75 @@
+[33ma606ccf[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m more work?
+[33m5ef2585[m[33m ([m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m almost got it.
+[33m208349a[m docs update
+[33m2346e31[m unique parrern binding names, column based when branch infer type when error
+[33md3dec88[m clean
+[33me73f6e6[m first self compile
+[33mea39cad[m delete old stuff
+[33m07e093d[m typed-lowering
+[33med5ec81[m stage 2 ident
+[33mc0848ad[m More Effects
+[33m6078723[m ILEniter part 2
+[33m8cc9c8b[m ILEmitter
+[33m6ae8cc0[m minor fix to build
+[33m393b7c9[m Codex.Codex
+[33m09c2243[m VS integration, including projects and build.
+[33m5a06e3a[m codex code to make codex
+[33m849adb0[m All the outputs.  Plus other stuff.
+[33mf619019[m docs update
+[33mf85c718[m More progress on the forward plan
+[33m4080446[m Effect Polymorphism
+[33m2818c94[m Parser Recovery, Linearity Checker
+[33m2fa1f26[m Breakup Program into managable chunks
+[33m9d3125d[m vsix
+[33m367b0b3[m A functional language compiling to COBOL. The universe has indeed come full circle.  Also, Ada, Babbage, COBOL and Fortran
+[33m52baae2[m c++ (overflow!)
+[33m7ec413d[m Anaconda!
+[33mb2fd19e[m End to end done.
+[33m03289a5[m Codex-side Type Checker
+[33m8efcad8[m lsp done, moving on
+[33m3608256[m Proof System (M10) — Induction with Inductive Hypothesis
+[33m42d024d[m Tests and emitter tail calls.
+[33m0b38645[m TailCall, more tests.
+[33mbefa6b6[m Day 2: Backfill and Future Plan
+[33m0d501f9[m fix emiters for js, rust
+[33m6ad5470[m Ship it. 🚀
+[33m58abdff[m 0
+[33m3589e69[m 0.125
+[33m320c65e[m 0.25
+[33ma04eba8[m 0.5
+[33m2ce7230[m 1
+[33m179d20f[m 2
+[33m4180f96[m 3
+[33mefe2644[m Changes Made Bug Fix: Collaboration CLI commands never wired in (from iteration 11) tools/Codex.Cli/Program.cs — Added propose, verdict, proposals, vouch, and sync to the Main dispatch switch. These methods existed in Program.Collaboration.cs since iteration 11, were documented in the handoff, listed in PrintUsage, but were never actually callable because the agent forgot to add them to the switch statement. Feature: Multi-file compilation (codex build <directory>) tools/Codex.Cli/Program.cs — RunBuild now accepts a directory path. It collects all .codex files recursively, parses each independently, merges all definitions/types/claims/proofs into a single combined Module, then runs the full pipeline. Added CompileMultipleToIR method. Bug Fix: ProseParser CRLF handling src/Codex.Syntax/ProseParser.cs — Changed TrimStart() to Trim() throughout (CurrentTrimmed, ParseProseBlock, ParseNotationBlock, SkipBlankLines) so trailing \r from CRLF line endings doesn't break LooksLikeNotation checks. Also strip \r from dedented notation lines passed to the sub-parser. Bug Fix: ProseParser notation detection src/Codex.Syntax/ProseParser.cs — LooksLikeNotation now recognizes: • Lines starting with | (variant constructor lines) • Lines ending with = (type definitions like TokenKind =) Feature: Forward type references in TypeChecker src/Codex.Types/TypeChecker.cs — RegisterTypeDefinitions now uses a three-pass approach: (1) register all type names as ConstructedType placeholders, (2) resolve all record types, (3) resolve all variant types. This allows types defined in different files to reference each other regardless of compilation order. Extracted RegisterRecord and RegisterVariant helper methods. Feature: ConstructedType unification with named types src/Codex.Types/Unifier.cs — Added unification rules so ConstructedType placeholders (from forward references) unify with SumType/RecordType sharing the same type name. Preserved the existing ListType vs ConstructedType("Vector") rules that were accidentally at risk. codex-src fixes • codex-src/Syntax/TokenKind.codex — Renamed Ident→Identifier, TypeIdent→TypeIdentifier, EqualsSign→Equals. Fixed stray ) in Colon display. Removed token-kind-name function (not needed for bootstrap). Proper indentation inside Chapter. • codex-src/Syntax/Lexer.codex — Complete rewrite using correct constructor names matching TokenKind.codex. Strict functional lexer: identifiers/keywords, numbers, strings, all operators, with state threading.
+[33m1382ded[m 4
+[33md722370[m 5
+[33ma31c2f0[m Javascript and Rust
+[33m75fa1f5[m Iteration 11 Handoff
+[33mc4542fc[m Iteration 10, M10 Complete
+[33mfbe20b3[m Reflections and first cut at M10
+[33m9ecf396[m Iteration 9 Handoff: M10 next.
+[33m84826be[m Iteration 9, M8 - Dependant Types (basic)
+[33m5aeb162[m vscode syntax editor
+[33m466029b[m Iteration 8 Handoff date.  Also, VSCODE-Setup, and clarify copilot.
+[33mb21ee67[m Resolve conflicting rules and apply.  Iteration 8 Handoff updates.
+[33m7aed4a5[m No dictionaries anymore, Lsp
+[33m962f5c1[m Interation 8 Phase 1
+[33mf31835c[m Handoffs 5 6 7
+[33me024e68[m Cleanup.
+[33md31cc65[m Iteration 7 Handoff
+[33mf90dae2[m iteration 7
+[33mcdfbb9e[m iteration 6
+[33mac8ce55[m Add effectful types and do-expressions to Codex
+[33m1f5e1c7[m docs: Iteration 5 handoff summary
+[33me403956[m feat: Iteration 5 — type params, exhaustiveness checking, show builtin
+[33m3d21ed2[m Add user-defined record and sum types to Codex
+[33m4c4b52e[m iteration 4
+[33mf06c3dc[m Remove all XML doc comments; update code style rules
+[33md4d479c[m feat: add prose-mode document support to Codex
+[33m81655bf[m Iteration 3 handoff
+[33m05a40ea[m feat: Milestone 3 — IR, C# emitter, codex build/run commands
+[33m27e4a99[m Bootstrap Codex language: core, syntax, CLI, tests
+[33m9e9c7d1[m Add Codex project engineering and planning docs
+[33mef62c5c[m rules and configs and a vision
+[33mcf22328[m Add project files.
+[33md6452cf[m Add .gitattributes, .gitignore, and README.md.
