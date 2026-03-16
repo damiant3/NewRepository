@@ -106,6 +106,43 @@ names (`_mIntegerTy0_`, `_mIntegerTy1_`, etc.).
 
 ---
 
+## Bootstrap Status (Current)
+
+Stage 0 → Stage 1 → Stage 1 output pipeline runs end-to-end.
+
+| Metric | Stage 0 output | Stage 1 output |
+|--------|---------------|----------------|
+| Lines | 3,753 | 1,051 |
+| Size | 192 KB | 111 KB |
+| `object` references | 4 (all correct) | 328 |
+| Unresolved generics (`T{id}`) | 0 | 158 |
+| Functions with concrete types | ~310 | 92 |
+| Unification errors | 0 | 1,863 |
+| Type defs | ✅ correct | ✅ correct (fields, constructors) |
+| Nested `when` branches | ✅ all emitted | ✅ all emitted |
+
+**What works:** Type definitions (records, sum types) emit correctly with
+fields. Nested `when`/match expressions emit all branches. The full pipeline
+(lex → parse → desugar → check → lower → emit) completes without crashing.
+
+**What's broken:** The self-hosted type checker produces 1,863 unification
+errors, causing most function parameters and return types to remain as
+`object` or unresolved `T{id}`. Root causes to investigate:
+
+1. **Record field access** — `d.name`, `tok.text`, etc. require the type
+   checker to know the record type of the scrutinee to resolve field types.
+   The self-hosted checker may not have `ConstructorMap`/`TypeDefMap` wired.
+2. **Curried function application** — `f(a)(b)` requires peeling `FunTy`
+   layers. If the function's type isn't resolved, all downstream types fail.
+3. **`deep-resolve` coverage** — May not be called on all type bindings
+   before emission, leaving `TypeVar(id)` as `T{id}` in output.
+
+**Next step for bootstrap:** Fix the self-hosted type checker's unification
+to resolve concrete types. Compare `check-module` in `TypeChecker.codex`
+against `TypeChecker.cs` to find the gaps.
+
+---
+
 ## What's Next (Priority Order)
 
 ### Tier 1: Solidify What Exists
