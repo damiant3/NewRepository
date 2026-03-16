@@ -90,7 +90,7 @@ public static partial class Program
         Console.WriteLine($"  Sources: {files.Length} file(s)");
         Console.WriteLine($"  Target:  {target}");
 
-        if (incremental)
+        if (incremental && !IsAssemblyTarget(target))
         {
             string outputPath = Path.Combine(outputDir, project.Name + CreateEmitter(target).FileExtension);
             return RunIncrementalBuild(directory, target, files, outputPath);
@@ -98,6 +98,11 @@ public static partial class Program
 
         IRCompilationResult? irResult = CompileMultipleToIR(files, project.Name);
         if (irResult is null) return 1;
+
+        if (IsAssemblyTarget(target))
+        {
+            return EmitAssembly(irResult, outputDir, project.Name, target);
+        }
 
         Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
         string output = emitter.Emit(irResult.Module);
@@ -119,8 +124,14 @@ public static partial class Program
             return 1;
         }
         Array.Sort(files, StringComparer.Ordinal);
-        IRCompilationResult? irResult = CompileMultipleToIR(files, Path.GetFileName(Path.GetFullPath(directory)));
+        string moduleName = Path.GetFileName(Path.GetFullPath(directory));
+        IRCompilationResult? irResult = CompileMultipleToIR(files, moduleName);
         if (irResult is null) return 1;
+
+        if (IsAssemblyTarget(target))
+        {
+            return EmitAssembly(irResult, directory, moduleName, target);
+        }
 
         Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
         string output = emitter.Emit(irResult.Module);
@@ -138,10 +149,45 @@ public static partial class Program
         IRCompilationResult? irResult = CompileToIR(filePath);
         if (irResult is null) return 1;
 
+        if (IsAssemblyTarget(target))
+        {
+            string outputDir = Path.GetDirectoryName(Path.GetFullPath(filePath)) ?? ".";
+            string moduleName = Path.GetFileNameWithoutExtension(filePath);
+            return EmitAssembly(irResult, outputDir, moduleName, target);
+        }
+
         Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
         string output = emitter.Emit(irResult.Module);
         string outputPath = Path.ChangeExtension(filePath, emitter.FileExtension);
         File.WriteAllText(outputPath, output);
+
+        Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
+        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
+            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        return 0;
+    }
+
+    static bool IsAssemblyTarget(string target) => target is "il" or "exe";
+
+    static int EmitAssembly(IRCompilationResult irResult, string outputDir, string moduleName, string target)
+    {
+        Emit.IL.ILEmitter emitter = new();
+        byte[] assembly = emitter.EmitAssembly(irResult.Module, moduleName);
+        string outputPath = Path.Combine(outputDir, moduleName + ".exe");
+        File.WriteAllBytes(outputPath, assembly);
+
+        string runtimeConfigPath = Path.Combine(outputDir, moduleName + ".runtimeconfig.json");
+        File.WriteAllText(runtimeConfigPath, """
+            {
+              "runtimeOptions": {
+                "tfm": "net8.0",
+                "framework": {
+                  "name": "Microsoft.NETCore.App",
+                  "version": "8.0.0"
+                }
+              }
+            }
+            """);
 
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
         foreach (KeyValuePair<string, CodexType> kv in irResult.Types)

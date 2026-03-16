@@ -20,11 +20,11 @@ Source (.codex) → Lex → Parse → Desugar → NameResolve → TypeCheck → 
 
 | Metric | Value |
 |--------|-------|
-| C# projects | 31 |
-| Test count | 628 (all passing) |
+| C# projects | 32 |
+| Test count | 654 (all passing) |
 | Codex source | ~2,600 lines across 21 .codex files |
 | Bootstrap parity | ~286 records, ~310 functions in output.cs |
-| Backends | C#, JavaScript, Rust, Python, C++, Go, Java, Ada, Babbage, Fortran, COBOL (11 total) |
+| Backends | C#, JavaScript, Rust, Python, C++, Go, Java, Ada, Babbage, Fortran, COBOL, **IL** (12 total) |
 | LSP | Diagnostics, hover, completion, go-to-definition, symbols, semantic tokens |
 | Repository | Content-addressed fact store with proposals/verdicts, import resolution |
 | IDE support | TextMate grammar for VS 2022 + VS Code |
@@ -62,7 +62,8 @@ All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliv
 | M7 | Repository | Fact store, content hashing, CLI commands, `import` resolution from store via `IModuleLoader` | Views (single-user views, view consistency checking) |
 | M8 | Dependent Types | Dependent function types, type-level arithmetic, proof obligations | Full `Vector` type with `append` end-to-end |
 | M10 | Proofs | Induction, cong, lemma application, IH registration, 9 proofs in sample | Type-level function reduction (needed for non-trivial inductive steps), arithmetic induction with Peano encoding |
-| M11 | Tests | Property-based tests, integration tests (628 total), corpus emission (165 per-sample-per-backend) | Fuzz testing, CI configuration |
+| M11 | Tests | Property-based tests, integration tests (654 total), corpus emission (165 per-sample-per-backend) | Fuzz testing, CI configuration |
+| — | IL Emitter | `Codex.Emit.IL` project, `IAssemblyEmitter` interface, CLI wired (`--target il`). Emits working `.exe`/`.dll` via `System.Reflection.Metadata`. Handles: integer/text/boolean/number literals, static methods with parameters, if/else branching, let bindings, negation, binary ops, function application (including recursive/forward calls, curried multi-arg, nested composition). 26 integration tests (emission + PE validation + runtime execution). Verified: hello→25, factorial→3628800, arithmetic→37. | Records/sum types (IL class hierarchy), pattern matching (branch tables), generics, TCO (`tail.` prefix), full bootstrap (`codex build codex-src --target il`) |
 
 ---
 
@@ -126,9 +127,8 @@ Pipeline with IL emitter:
 (both in-box in .NET 8) to write raw IL bytes and PE headers. This is the same
 infrastructure Roslyn uses. No external dependencies.
 
-**New project:** `src/Codex.Emit.IL/` implementing a new `IAssemblyEmitter`
-interface (since `ICodeEmitter.Emit` returns `string`, and this returns `byte[]`
-or writes to a stream).
+**New project:** `src/Codex.Emit.IL/` implementing `IAssemblyEmitter`
+(since `ICodeEmitter.Emit` returns `string`, and this returns `byte[]`).
 
 **CLI integration:** `codex build . --target il` produces a runnable `.exe`
 directly. The existing `--target cs` continues to work for transpile scenarios.
@@ -136,19 +136,33 @@ directly. The existing `--target cs` continues to work for transpile scenarios.
 **Bootstrap significance:** Once the IL emitter can compile the full Codex
 source, the compiler can produce its own `.exe` without any C# toolchain
 dependency. That's the final step to true self-hosting — Codex compiles itself
-to an executable with no external compiler involved.
+to an executable with no external compiler involved. At that point,
+`Codex.Codex` can build with a previously-built copy of itself rather than
+round-tripping through C# and MSBuild.
 
 **Incremental plan:**
-1. Scaffold `Codex.Emit.IL` project, `IAssemblyEmitter` interface, wire into CLI
-2. Emit a working `.exe` for a trivial `main = "Hello"` program
-3. Emit static methods (the module class pattern the C# emitter uses)
+1. ~~Scaffold `Codex.Emit.IL` project, `IAssemblyEmitter` interface, wire into CLI~~ ✅
+2. ~~Emit a working `.exe` for a trivial `main = "Hello"` program~~ ✅
+3. ~~Emit static methods (the module class pattern the C# emitter uses)~~ ✅
 4. Records and sum types (sealed record → IL class hierarchy)
 5. Pattern matching (the `switch` dispatch the C# emitter generates → IL branch tables)
 6. Generics (the C# emitter's generic function strategy → IL generic method defs)
 7. Tail call optimization (IL `tail.` prefix or loop conversion)
 8. Full bootstrap: `codex build codex-src --target il` produces `Codex.exe`
 
-Estimated: large (steps 1–3 are medium; 4–8 are individually medium-large).
+Steps 1–3 are done. The IL emitter handles literals, parameters, binary ops,
+negation, if/else, let bindings, function calls (including recursive, forward,
+curried multi-arg, and nested composition), and `Console.WriteLine` for
+main-value printing. 26 tests verify emission, PE structure, and runtime output.
+
+**What step 4 requires:**
+- `IRRecord` → IL class with constructor and fields
+- `IRFieldAccess` → `ldfld` instruction
+- Type definitions → class definitions in metadata
+- Constructor references for `new` expressions
+
+**Estimated remaining:** medium-large (steps 4–5 are the bulk; 6–7 are
+individually medium; step 8 is integration/debugging).
 
 **6. Package manager / dependency resolution**
 The repository stores facts but there's no transitive dependency resolution

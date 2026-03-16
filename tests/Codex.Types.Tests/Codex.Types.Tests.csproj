@@ -31,6 +31,7 @@
     <ProjectReference Include="..\..\src\Codex.Emit.Babbage\Codex.Emit.Babbage.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.Fortran\Codex.Emit.Fortran.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.Cobol\Codex.Emit.Cobol.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Emit.IL\Codex.Emit.IL.csproj" />
     <ProjectReference Include="..\..\src\Codex.Proofs\Codex.Proofs.csproj" />
   </ItemGroup>
 </Project>
