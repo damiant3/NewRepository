@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Codex Project",
-  "description": "Configuration for a Codex language project",
+  "description": "Configuration for a Codex language project. Used by codex.project.json and .codexproj MSBuild projects.",
   "type": "object",
   "required": ["name"],
   "properties": {

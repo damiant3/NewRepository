@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Sample Codex project - open in Visual Studio 2022 and press Ctrl+Shift+B to build.
+
+    Prerequisites:
+      1. Install extension: pwsh -File tools/Codex.VsExtension/install-vs.ps1
+      2. Have 'codex' on PATH (or build tools/Codex.Cli first)
+
+    The CodexTarget property controls which backend is used:
+      csharp | javascript | rust | python | cpp | go | java | ada | fortran | cobol | babbage
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <CodexTarget>csharp</CodexTarget>
+    <DefaultItemExcludes>$(DefaultItemExcludes);out\**;.codex-build\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="**\*.codex" />
+    <None Include="codex.project.json" Condition="Exists('codex.project.json')" />
+    <Compile Remove="**\*" />
+  </ItemGroup>
+
+  <Target Name="CodexBuild" BeforeTargets="Build">
+    <Exec Command="codex build ."
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          IgnoreExitCode="false"
+          ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
+    </Exec>
+    <Message Importance="high" Text="$(_CodexOutput)" />
+  </Target>
+
+  <Target Name="CodexClean" BeforeTargets="Clean">
+    <RemoveDir Directories="$(MSBuildProjectDirectory)\out" Condition="Exists('$(MSBuildProjectDirectory)\out')" />
+    <RemoveDir Directories="$(MSBuildProjectDirectory)\.codex-build" Condition="Exists('$(MSBuildProjectDirectory)\.codex-build')" />
+  </Target>
+</Project>

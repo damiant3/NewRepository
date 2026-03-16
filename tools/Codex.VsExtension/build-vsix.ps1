@@ -1,5 +1,8 @@
-# Build the Codex VS extension
+# Build the Codex VS extension (syntax highlighting VSIX)
 # Usage: pwsh -File build-vsix.ps1
+#
+# For full project template + Build menu support, also run:
+#   pwsh -File install-vs.ps1
 
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -38,3 +41,7 @@ Compress-Archive -Path (Join-Path $staging "*") -DestinationPath $vsixPath
 
 Write-Output "VSIX built: $vsixPath"
 Write-Output "Install: double-click the .vsix file or use vsixinstaller.exe"
+Write-Output ""
+Write-Output "This VSIX provides syntax highlighting only."
+Write-Output "For project templates + Build menu, also run:"
+Write-Output "  pwsh -File install-vs.ps1"

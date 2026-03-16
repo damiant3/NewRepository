@@ -1,8 +1,8 @@
 {
   "name": "codex-language",
   "displayName": "Codex Language Support",
-  "description": "Syntax highlighting and language support for the Codex programming language",
-  "version": "0.1.0",
+  "description": "Syntax highlighting, project system, and build support for the Codex programming language",
+  "version": "0.2.0",
   "publisher": "codex-lang",
   "engines": {
     "vscode": "^1.80.0"
@@ -21,6 +21,10 @@
         }
       },
       {
+        "id": "xml",
+        "extensions": [".codexproj"]
+      },
+      {
         "id": "json",
         "filenames": ["codex.project.json"]
       }
@@ -36,6 +40,39 @@
       {
         "fileMatch": "codex.project.json",
         "url": "./codex.project.schema.json"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "codex",
+        "required": ["command"],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The codex CLI command to run (build, check, run)",
+            "enum": ["build", "check", "run"]
+          },
+          "target": {
+            "type": "string",
+            "description": "Target backend for compilation"
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "codex",
+        "owner": "codex",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(error|warning|info|hint)\\s+(CDX\\d+):\\s+(.*)\\s+(.+):(\\d+):(\\d+)$",
+          "severity": 1,
+          "code": 2,
+          "message": 3,
+          "file": 4,
+          "line": 5,
+          "column": 6
+        }
       }
     ]
   }

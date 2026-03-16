@@ -16,6 +16,17 @@
     <None Include="CodexLanguage.pkgdef" CopyToOutputDirectory="PreserveNewest" />
     <None Include="build-vsix.ps1" CopyToOutputDirectory="PreserveNewest" />
     <None Include="install-vs.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="install-sdk.ps1" CopyToOutputDirectory="PreserveNewest" />
     <None Include="README.md" CopyToOutputDirectory="PreserveNewest" />
+
+    <!-- MSBuild SDK files -->
+    <None Include="Sdk\Codex.Sdk.props" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Sdk\Codex.Sdk.targets" CopyToOutputDirectory="PreserveNewest" />
+
+    <!-- Project template files (dotnet new template) -->
+    <None Include="ProjectTemplate\.template.config\template.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="ProjectTemplate\CodexProject.csproj" />
+    <None Include="ProjectTemplate\codex.project.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="ProjectTemplate\main.codex" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
