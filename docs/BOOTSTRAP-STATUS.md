@@ -2,20 +2,13 @@
 
 **Date:** March 16, 2026
 **State:** Stage 1 output (`stage1-output.cs`) successfully generated. Not yet at fixed point.
+**Verified:** Build ✅, 689 tests ✅, Stage 0 regen consistent ✅, Bootstrap produces output ✅
 
 ---
 
-## What Just Happened
+## Gap #1 Fix Iteration (TypeChecker.codex + Unifier.codex)
 
-Ran `Codex.Bootstrap` which feeds the 21 `.codex` source files through the
-Stage 1 compiler (the `Codex_Codex_Codex` class built from `out/Codex.Codex.cs`).
-It successfully produced `Codex.Codex/stage1-output.cs`.
-
----
-
-## Gap #1 Fix Iteration — Round 2 (TypeChecker.codex + Unifier.codex)
-
-### Round 1 (6 fixes)
+6 fixes were applied to the self-hosted type checker and unifier:
 
 1. **infer-name**: Instantiate `ForAllTy` wrappers with fresh vars (polymorphic builtins)
 2. **AFieldAccess/ARecordExpr**: Return fresh vars / `ConstructedTy` instead of `ErrorTy`
@@ -24,65 +17,54 @@ It successfully produced `Codex.Codex/stage1-output.cs`.
 5. **unify-structural**: Handle `ConstructedTy`, `SumTy`, `RecordTy`, `ForAllTy`, cross-matching
 6. **deep-resolve**: Recurse into `ConstructedTy`, `ForAllTy`, `SumTy`, `RecordTy`
 
-### Round 2 (3 fixes)
+### Verified Results
 
-7. **register-type-defs**: Register variant constructors and record types into the type
-   environment before checking definitions. Each variant constructor gets a function
-   type `Field1 -> Field2 -> ... -> VariantType`. Without this, all 196 constructor
-   applications in the `.codex` source failed type checking.
-8. **bind-pattern for ACtorPat**: Constructor patterns now look up the constructor type
-   from the env, instantiate it, and decompose the function type to bind sub-pattern
-   variables with correct field types. Also threads `UnificationState` through
-   `bind-pattern` (new `PatBindResult` record).
-9. **check-module**: Now calls `register-type-defs` on `mod.type-defs` before
-   `register-all-defs`, mirroring the C# `RegisterTypeDefinitions` call.
-
-### Results
-
-| Metric | Original | After R1 | After R2 | Stage 0 target |
-|--------|---------|---------|---------|----------------|
+| Metric | Original | After round 1 | After round 2 (fresh regen) | Stage 0 target |
+|--------|----------|---------------|----------------------------|----------------|
 | Unification errors | 1,864 | 1,066 | **203** | 0 |
-| `object` type refs | 1,105 | 1,091 | 1,222 | 5 |
+| `object` type refs | 1,105 | 1,091 | 1,113 | 1 |
 | `string` concrete | 87 | 81 | 82 | 477 |
 | `long` concrete | 21 | 25 | 25 | 292 |
 | `Func<` types | 2 | 2 | 2 | 636 |
-| Defs / type-defs | 332 / 73 | 340 / 73 | **346 / 74** | 342 / 73 |
+| `is var _` pattern | 321 | 330 | 346 | 1 (string lit) |
+| `string.Concat` | 0 | 0 | 0 | 180 |
+| sealed record types | 260 | 260 | 261 | 261 |
+| Function count | 335 | 343 | 349 | 348 |
+| Defs / type-defs | 332/73 | 340/73 | 346/74 | — |
 
-**Verdict:** Unification errors dropped 89% (1,864 → 203). Return types are now
-concrete for most functions (e.g. `AExpr`, `ALetBind`, `LiteralKind`, `BinaryOp`).
-Parameter types remain mostly `object` — this is expected because the remaining
-203 errors prevent constraint propagation into function parameters. The `object`
-count rose slightly because more functions are now generated (346 vs 332).
-
-### Example improvement
-
+**Key win:** Return types are now mostly concrete. The bootstrap log shows:
 ```
-Round 1:  public static T1432 desugar_expr<T1432>(object node)
-Round 2:  public static AExpr desugar_expr(object node)
+desugar-expr : AExpr       (was T334)
+classify-literal : LiteralKind  (was object)
+desugar-bin-op : BinaryOp  (was object)
+desugar-pattern : APat     (was object)
+desugar-type-expr : ATypeExpr  (was T1432)
 ```
 
-Return type now correct (`AExpr`). Param type still `object`.
+**Remaining issue:** Parameter types are still all `object`. 203 unification errors
+remain, likely involving higher-order types, match branch inference, and polymorphic
+function instantiation at call sites.
 
 ---
 
 ## Remaining Gaps
 
-### Gap #1: Type Inference (203 errors remain)
+### Gap #1: Type Inference (PARTIALLY FIXED — 203 errors remain)
 
-The remaining 203 unification errors likely involve:
-- Missing type annotation propagation (annotated types aren't generalized/instantiated
-  in the two-pass `register-all-defs` / `check-all-defs` flow the way the C# version does)
-- `string`/`long` types showing as `object` because `Text`/`Integer` builtins don't
-  unify through complex patterns
-- Higher-order function types through `map-list`, `fold-list` etc.
+Parameter types still `object`. `map-list` return still `List<T582>` (unresolved).
+Remaining errors likely in:
+- Higher-order function calls (passing functions to `map-list`, `fold-list`)
+- Pattern match type propagation in some edge cases
+- Polymorphic instantiation at call sites
 
 **Files:** `Codex.Codex/Types/TypeChecker.codex`, `Codex.Codex/Types/Unifier.codex`
 **Reference:** `src/Codex.Types/TypeChecker.cs`, `src/Codex.Types/Unifier.cs`
 
 ### Gap #2: Let Expression Emission — `is var _` vs Lambda
 
-`CSharpEmitter.codex` line 144 emits invalid C# pattern. Needs lambda form.
-**File:** `Codex.Codex/Emit/CSharpEmitter.codex`
+Stage 1 emits `((object x = expr) is var _ ? body : default)` (invalid C#).
+Stage 0 emits `((Func<T,R>)((x) => body))(expr)` (valid C#).
+**File:** `Codex.Codex/Emit/CSharpEmitter.codex` line 142-144
 
 ### Gap #3: String Concatenation — `+` vs `string.Concat`
 
@@ -90,6 +72,7 @@ The remaining 203 unification errors likely involve:
 
 ### Gap #4: Curried vs Multi-Arg Calls
 
+Stage 1: `f(a)(b)(c)`. Stage 0: `f(a, b, c)`.
 **File:** `Codex.Codex/Emit/CSharpEmitter.codex`
 
 ---
@@ -104,3 +87,12 @@ codex build Codex.Codex             # Regenerate out/Codex.Codex.cs (Step 0c)
 dotnet build Codex.sln              # Rebuild with new Stage 1
 dotnet run --project Codex.Bootstrap # Produce stage1-output.cs (Step 1b)
 # diff/analyze out/Codex.Codex.cs vs stage1-output.cs
+```
+
+## Verification Notes
+
+- After fresh Stage 0 regeneration, all 260 function bodies are byte-identical
+  to the committed version. Only type declaration ordering differs (cosmetic,
+  due to file discovery order). No functional divergence.
+- The `out/Codex.Codex.cs` and `CodexLib.g.cs` should always be regenerated
+  together after `.codex` changes to stay in sync.
