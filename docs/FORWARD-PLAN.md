@@ -1,6 +1,6 @@
 # Forward Plan
 
-*Updated March 15 2026, post-full-bootstrap.*
+*Updated after nested-match fix session.*
 
 This document captures what's done, what's next, and what the open questions are.
 It replaces the iteration handoff docs as the single source of truth for project direction.
@@ -64,6 +64,45 @@ All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliv
 | M10 | Proofs | Induction, cong, lemma application, IH registration, 9 proofs in sample | Type-level function reduction (needed for non-trivial inductive steps), arithmetic induction with Peano encoding |
 | M11 | Tests | Property-based tests, integration tests (689 total), corpus emission (165 per-sample-per-backend) | Fuzz testing, CI configuration |
 | — | IL Emitter | `Codex.Emit.IL` project, `IAssemblyEmitter` interface, CLI wired (`--target il`). Emits working `.exe`/`.dll` via `System.Reflection.Metadata`. Handles: integer/text/boolean/number literals, static methods with parameters, if/else branching, let bindings, negation, binary ops, function application (including recursive/forward calls, curried multi-arg, nested composition), **records (IL classes with fields + constructors), sum types (abstract base + sealed subclasses), field access (`ldfld`), pattern matching (`isinst` branch chains with sub-pattern binding)**. 38 integration tests (emission + PE validation + runtime execution). Verified: hello→25, factorial→3628800, arithmetic→37, person→"Hello, Alice!", shapes with field extraction. | Generics, TCO (`tail.` prefix), full bootstrap (`codex build codex-src --target il`) |
+
+---
+
+## Recent Fixes (Bootstrap-Critical)
+
+Three Stage 0 compiler bugs were fixed that caused nested `when`/match
+expressions to emit broken C#. All three blocked self-compilation because
+the Codex source uses nested matches heavily (e.g., `unify_structural`
+pattern-matches a type, and each branch pattern-matches sub-structure).
+
+### 1. `LowerMatch` infers type from branches when `expectedType` is `ErrorType`
+
+**File:** `src/Codex.IR/Lowering.cs`
+
+When a `let` binding's value is a `when`/match, the lowering passed
+`ErrorType` as the expected type. The match then reported `ErrorType`
+as its result type, causing `IRLet.NameType` to be `ErrorType`, which
+emitted as `Func<object, …>`. Now `LowerMatch` resolves the type from
+the first non-error branch body, matching how `LowerIf` already works.
+
+### 2. Column-based `when` branch scoping in parser
+
+**File:** `src/Codex.Syntax/Parser.Expressions.cs`
+
+Nested `when` expressions (e.g., `when a if X -> when b if Y -> …`)
+had the inner match greedily consuming branches that belonged to the
+outer match. Now the parser records the column of the first `if`
+keyword and only accepts subsequent `if` keywords at the same column
+(or same line for inline matches). This cleanly distinguishes inner
+vs outer branches.
+
+### 3. Unique pattern binding names in C# emission
+
+**File:** `src/Codex.Emit.CSharp/CSharpEmitter.Match.cs`
+
+With nested matches now emitting all branches, C# pattern variable
+names like `_mIntegerTy_` clashed between outer and inner matches in
+the same expression scope. Added a `m_matchCounter` to generate unique
+names (`_mIntegerTy0_`, `_mIntegerTy1_`, etc.).
 
 ---
 
