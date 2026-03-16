@@ -46,8 +46,12 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
             CodexType checkType = envType is ForAllType
                 ? Instantiate(envType)
                 : expectedType;
+            int errorsBefore = m_diagnostics.Count;
             CodexType bodyType = InferDefinition(def, checkType);
             m_unifier.Unify(checkType, bodyType, def.Span);
+            if (m_diagnostics.Count > errorsBefore)
+                m_diagnostics.Info("CDX2099",
+                    $"in definition '{def.Name.Value}'", def.Span);
         }
 
         Map<string, CodexType> result = Map<string, CodexType>.s_empty;

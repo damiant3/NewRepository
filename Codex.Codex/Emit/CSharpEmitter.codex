@@ -76,6 +76,7 @@ Section: Identifier Helpers
         if NothingTy -> "object"
         if ErrorTy -> "object"
         if FunTy (p) (r) -> "Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">"
+
         if ListTy (elem) -> "List<" ++ cs-type elem ++ ">"
         if TypeVar (id) -> "T" ++ integer-to-text id
         if ForAllTy (id) (body) -> cs-type body
@@ -83,125 +84,44 @@ Section: Identifier Helpers
         if RecordTy (name) (fields) -> sanitize name.value
         if ConstructedTy (name) (args) -> sanitize name.value
 
-Section: Arity Tracking
-
-    ArityEntry = record {
-      def-name : Text,
-      arity : Integer
-    }
-
-    build-arities : List IRDef -> Integer -> List ArityEntry
-    build-arities (defs) (i) =
-      if i == list-length defs then []
-      else let d = list-at defs i
-        in [ArityEntry { def-name = d.name, arity = list-length d.params }] ++ build-arities defs (i + 1)
-
-    lookup-arity : List ArityEntry -> Text -> Integer
-    lookup-arity (entries) (name) = lookup-arity-loop entries name 0
-
-    lookup-arity-loop : List ArityEntry -> Text -> Integer -> Integer
-    lookup-arity-loop (entries) (name) (i) =
-      if i == list-length entries then 0 - 1
-      else let e = list-at entries i
-        in if e.def-name == name then e.arity
-          else lookup-arity-loop entries name (i + 1)
-
-    is-ctor-name : Text -> Boolean
-    is-ctor-name (n) =
-      if text-length n == 0 then False
-      else is-upper-char (char-at n 0)
-
 Section: Expression Emission
 
-    emit-expr : IRExpr -> List ArityEntry -> Integer -> Text
-    emit-expr (e) (arities) (mid) =
+    emit-expr : IRExpr -> Text
+    emit-expr (e) =
       when e
-        if IrIntLit (n) -> integer-to-text n ++ "L"
-        if IrNumLit (n) -> integer-to-text n ++ "m"
+        if IrIntLit (n) -> integer-to-text n
+        if IrNumLit (n) -> integer-to-text n
         if IrTextLit (s) -> "\"" ++ escape-text s ++ "\""
         if IrBoolLit (b) -> if b then "true" else "false"
-        if IrName (n) (ty) -> emit-name n ty arities
-        if IrBinary (op) (l) (r) (ty) -> emit-binary op l r ty arities mid
-        if IrNegate (operand) -> "(-" ++ emit-expr operand arities mid ++ ")"
-        if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c arities mid ++ " ? " ++ emit-expr t arities mid ++ " : " ++ emit-expr el arities mid ++ ")"
-        if IrLet (name) (ty) (val) (body) -> emit-let name ty val body arities mid
-        if IrApply (f) (a) (ty) -> emit-apply f a ty arities mid
-        if IrLambda (params) (body) (ty) -> emit-lambda params body arities mid
-        if IrList (elems) (ty) -> emit-list elems ty arities mid
-        if IrMatch (scrut) (branches) (ty) -> emit-match scrut branches ty arities mid
-        if IrDo (stmts) (ty) -> emit-do stmts arities mid
-        if IrRecord (name) (fields) (ty) -> emit-record name fields arities mid
-        if IrFieldAccess (rec) (field) (ty) -> emit-expr rec arities mid ++ "." ++ sanitize field
-        if IrError (msg) (ty) -> "throw new InvalidOperationException(\"" ++ escape-text msg ++ "\")"
-
-    emit-name : Text -> CodexType -> List ArityEntry -> Text
-    emit-name (n) (ty) (arities) =
-      if n == "read-line" then "Console.ReadLine()"
-      else if n == "show" then "new Func<object, string>(x => Convert.ToString(x))"
-        else if n == "negate" then "new Func<long, long>(x => -x)"
-          else if is-ctor-name n then emit-ctor-name-ref n ty
-            else emit-def-name-ref n ty arities
-
-    emit-ctor-name-ref : Text -> CodexType -> Text
-    emit-ctor-name-ref (n) (ty) =
-      when ty
-        if FunTy (p) (r) -> sanitize n
-        if _ -> "new " ++ sanitize n ++ "()"
-
-    emit-def-name-ref : Text -> CodexType -> List ArityEntry -> Text
-    emit-def-name-ref (n) (ty) (arities) =
-      let ar = lookup-arity arities n
-      in if ar == 0 then emit-zero-arity-name-ref n ty
-        else sanitize n
-
-    emit-zero-arity-name-ref : Text -> CodexType -> Text
-    emit-zero-arity-name-ref (n) (ty) =
-      when ty
-        if FunTy (p) (r) -> sanitize n
-        if _ -> sanitize n ++ "()"
-
-    emit-binary : IRBinaryOp -> IRExpr -> IRExpr -> CodexType -> List ArityEntry -> Integer -> Text
-    emit-binary (op) (l) (r) (ty) (arities) (mid) =
-      when op
-        if IrAppendText -> "string.Concat(" ++ emit-expr l arities mid ++ ", " ++ emit-expr r arities mid ++ ")"
-        if IrAppendList -> "Enumerable.Concat(" ++ emit-expr l arities mid ++ ", " ++ emit-expr r arities mid ++ ").ToList()"
-        if IrConsList -> "new List<" ++ cs-type (ir-expr-type l) ++ "> { " ++ emit-expr l arities mid ++ " }.Concat(" ++ emit-expr r arities mid ++ ").ToList()"
-        if IrPowInt -> "(long)Math.Pow((double)" ++ emit-expr l arities mid ++ ", (double)" ++ emit-expr r arities mid ++ ")"
-        if _ -> "(" ++ emit-expr l arities mid ++ " " ++ emit-bin-op op ++ " " ++ emit-expr r arities mid ++ ")"
+        if IrName (n) (ty) -> sanitize n
+        if IrBinary (op) (l) (r) (ty) -> "(" ++ emit-expr l ++ " " ++ emit-bin-op op ++ " " ++ emit-expr r ++ ")"
+        if IrNegate (operand) -> "(-" ++ emit-expr operand ++ ")"
+        if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c ++ " ? " ++ emit-expr t ++ " : " ++ emit-expr el ++ ")"
+        if IrLet (name) (ty) (val) (body) -> emit-let name ty val body
+        if IrApply (f) (a) (ty) -> emit-expr f ++ "(" ++ emit-expr a ++ ")"
+        if IrLambda (params) (body) (ty) -> emit-lambda params body
+        if IrList (elems) (ty) -> emit-list elems ty
+        if IrMatch (scrut) (branches) (ty) -> emit-match scrut branches ty
+        if IrDo (stmts) (ty) -> emit-do stmts
+        if IrRecord (name) (fields) (ty) -> emit-record name fields
+        if IrFieldAccess (rec) (field) (ty) -> emit-expr rec ++ "." ++ sanitize field
+        if IrError (msg) (ty) -> "/* error: " ++ msg ++ " */ default"
 
     escape-text : Text -> Text
     escape-text (s) = text-replace (text-replace s "\\" "\\\\") "\"" "\\\""
-
-    ir-expr-type : IRExpr -> CodexType
-    ir-expr-type (e) =
-      when e
-        if IrIntLit (n) -> IntegerTy
-        if IrNumLit (n) -> NumberTy
-        if IrTextLit (s) -> TextTy
-        if IrBoolLit (b) -> BooleanTy
-        if IrName (n) (ty) -> ty
-        if IrBinary (op) (l) (r) (ty) -> ty
-        if IrNegate (operand) -> IntegerTy
-        if IrIf (c) (t) (el) (ty) -> ty
-        if IrLet (name) (ty) (val) (body) -> ir-expr-type body
-        if IrApply (f) (a) (ty) -> ty
-        if IrLambda (params) (body) (ty) -> ty
-        if IrList (elems) (ty) -> ListTy ty
-        if IrMatch (scrut) (branches) (ty) -> ty
-        if IrDo (stmts) (ty) -> ty
-        if IrRecord (name) (fields) (ty) -> ty
-        if IrFieldAccess (rec) (field) (ty) -> ty
-        if IrError (msg) (ty) -> ty
 
     emit-bin-op : IRBinaryOp -> Text
     emit-bin-op (op) =
       when op
         if IrAddInt -> "+"
         if IrSubInt -> "-"
+
         if IrMulInt -> "*"
         if IrDivInt -> "/"
         if IrPowInt -> "^"
         if IrAddNum -> "+"
+
+
         if IrSubNum -> "-"
         if IrMulNum -> "*"
         if IrDivNum -> "/"
@@ -209,339 +129,98 @@ Section: Expression Emission
         if IrNotEq -> "!="
         if IrLt -> "<"
         if IrGt -> ">"
+
         if IrLtEq -> "<="
         if IrGtEq -> ">="
+
         if IrAnd -> "&&"
         if IrOr -> "||"
         if IrAppendText -> "+"
         if IrAppendList -> "+"
         if IrConsList -> "+"
 
-    emit-let : Text -> CodexType -> IRExpr -> IRExpr -> List ArityEntry -> Integer -> Text
-    emit-let (name) (ty) (val) (body) (arities) (mid) =
-      let body-ty = ir-expr-type body
-      in "((Func<" ++ cs-type ty ++ ", " ++ cs-type body-ty ++ ">)((" ++ sanitize name ++ ") => " ++ emit-expr body arities mid ++ "))(" ++ emit-expr val arities mid ++ ")"
+    emit-let : Text -> CodexType -> IRExpr -> IRExpr -> Text
+    emit-let (name) (ty) (val) (body) =
+      "((" ++ cs-type ty ++ " " ++ sanitize name ++ " = " ++ emit-expr val ++ ") is var _ ? " ++ emit-expr body ++ " : default)"
 
-    emit-lambda : List IRParam -> IRExpr -> List ArityEntry -> Integer -> Text
-    emit-lambda (params) (body) (arities) (mid) =
-      if list-length params == 0 then "(() => " ++ emit-expr body arities mid ++ ")"
+    emit-lambda : List IRParam -> IRExpr -> Text
+    emit-lambda (params) (body) =
+      if list-length params == 0 then "(() => " ++ emit-expr body ++ ")"
       else if list-length params == 1
         then let p = list-at params 0
-          in "((" ++ cs-type p.type-val ++ " " ++ sanitize p.name ++ ") => " ++ emit-expr body arities mid ++ ")"
-        else "(() => " ++ emit-expr body arities mid ++ ")"
+          in "((" ++ cs-type p.type-val ++ " " ++ sanitize p.name ++ ") => " ++ emit-expr body ++ ")"
+        else "(() => " ++ emit-expr body ++ ")"
 
-    emit-list : List IRExpr -> CodexType -> List ArityEntry -> Integer -> Text
-    emit-list (elems) (ty) (arities) (mid) =
+    emit-list : List IRExpr -> CodexType -> Text
+    emit-list (elems) (ty) =
       if list-length elems == 0 then "new List<" ++ cs-type ty ++ ">()"
-      else "new List<" ++ cs-type ty ++ ">() { " ++ emit-list-elems elems 0 arities mid ++ " }"
+      else "new List<" ++ cs-type ty ++ "> { " ++ emit-list-elems elems 0 ++ " }"
 
-    emit-list-elems : List IRExpr -> Integer -> List ArityEntry -> Integer -> Text
-    emit-list-elems (elems) (i) (arities) (mid) =
+    emit-list-elems : List IRExpr -> Integer -> Text
+    emit-list-elems (elems) (i) =
       if i == list-length elems then ""
-      else if i == list-length elems - 1 then emit-expr (list-at elems i) arities mid
-        else emit-expr (list-at elems i) arities mid ++ ", " ++ emit-list-elems elems (i + 1) arities mid
+      else if i == list-length elems - 1 then emit-expr (list-at elems i)
+        else emit-expr (list-at elems i) ++ ", " ++ emit-list-elems elems (i + 1)
 
-Section: Apply Emission
+    emit-match : IRExpr -> List IRBranch -> CodexType -> Text
+    emit-match (scrut) (branches) (ty) =
+      emit-expr scrut ++ " switch { " ++ emit-match-arms branches 0 ++ " }"
 
-    find-apply-root : IRExpr -> Text
-    find-apply-root (e) =
-      when e
-        if IrApply (f) (a) (ty) -> find-apply-root f
-        if IrName (n) (ty) -> n
-        if _ -> ""
+    emit-match-arms : List IRBranch -> Integer -> Text
+    emit-match-arms (branches) (i) =
+      if i == list-length branches then ""
+      else let arm = list-at branches i
+        in emit-pattern arm.pattern ++ " => " ++ emit-expr arm.body ++ ", " ++ emit-match-arms branches (i + 1)
 
-    collect-apply-args : IRExpr -> List IRExpr -> List IRExpr
-    collect-apply-args (e) (acc) =
-      when e
-        if IrApply (f) (a) (ty) -> collect-apply-args f ([a] ++ acc)
-        if _ -> acc
+    emit-pattern : IRPat -> Text
+    emit-pattern (p) =
+      when p
+        if IrVarPat (name) (ty) -> cs-type ty ++ " " ++ sanitize name
+        if IrLitPat (text) (ty) -> text
+        if IrCtorPat (name) (subs) (ty) ->
+          if list-length subs == 0
+            then sanitize name ++ " { }"
+            else sanitize name ++ "(" ++ emit-sub-patterns subs 0 ++ ")"
+        if IrWildPat -> "_"
 
-    is-single-builtin : IRExpr -> Boolean
-    is-single-builtin (f) =
-      when f
-        if IrName (n) (ty) ->
-          if n == "show" then True
-          else if n == "negate" then True
-          else if n == "print-line" then True
-          else if n == "text-length" then True
-          else if n == "integer-to-text" then True
-          else if n == "text-to-integer" then True
-          else if n == "is-letter" then True
-          else if n == "is-digit" then True
-          else if n == "is-whitespace" then True
-          else if n == "char-code" then True
-          else if n == "code-to-char" then True
-          else if n == "list-length" then True
-          else if n == "open-file" then True
-          else if n == "read-all" then True
-          else if n == "close-file" then True
-          else False
-        if _ -> False
-
-    emit-single-builtin : IRExpr -> IRExpr -> List ArityEntry -> Integer -> Text
-    emit-single-builtin (f) (a) (arities) (mid) =
-      when f
-        if IrName (n) (ty) ->
-          if n == "show" then "Convert.ToString(" ++ emit-expr a arities mid ++ ")"
-          else if n == "negate" then "(-" ++ emit-expr a arities mid ++ ")"
-          else if n == "print-line" then "Console.WriteLine(" ++ emit-expr a arities mid ++ ")"
-          else if n == "text-length" then "((long)" ++ emit-expr a arities mid ++ ".Length)"
-          else if n == "integer-to-text" then "(" ++ emit-expr a arities mid ++ ").ToString()"
-          else if n == "text-to-integer" then "long.Parse(" ++ emit-expr a arities mid ++ ")"
-          else if n == "is-letter" then "(" ++ emit-expr a arities mid ++ ".Length > 0 && char.IsLetter(" ++ emit-expr a arities mid ++ "[0]))"
-          else if n == "is-digit" then "(" ++ emit-expr a arities mid ++ ".Length > 0 && char.IsDigit(" ++ emit-expr a arities mid ++ "[0]))"
-          else if n == "is-whitespace" then "(" ++ emit-expr a arities mid ++ ".Length > 0 && char.IsWhiteSpace(" ++ emit-expr a arities mid ++ "[0]))"
-          else if n == "char-code" then "((long)" ++ emit-expr a arities mid ++ "[0])"
-          else if n == "code-to-char" then "((char)" ++ emit-expr a arities mid ++ ").ToString()"
-          else if n == "list-length" then "((long)" ++ emit-expr a arities mid ++ ".Count)"
-          else if n == "open-file" then "File.OpenRead(" ++ emit-expr a arities mid ++ ")"
-          else if n == "read-all" then "new System.IO.StreamReader(" ++ emit-expr a arities mid ++ ").ReadToEnd()"
-          else if n == "close-file" then emit-expr a arities mid ++ ".Dispose()"
-          else emit-expr f arities mid ++ "(" ++ emit-expr a arities mid ++ ")"
-        if _ -> emit-expr f arities mid ++ "(" ++ emit-expr a arities mid ++ ")"
-
-    is-multi-builtin : IRExpr -> Boolean
-    is-multi-builtin (f) =
-      let root = find-apply-root f
-      in if root == "char-at" then True
-        else if root == "substring" then True
-          else if root == "list-at" then True
-            else if root == "text-replace" then True
-              else False
-
-    emit-multi-builtin : IRExpr -> IRExpr -> List ArityEntry -> Integer -> Text
-    emit-multi-builtin (f) (a) (arities) (mid) =
-      let root = find-apply-root f
-      in let args = collect-apply-args f [a]
-        in if root == "char-at" & list-length args == 2
-          then emit-expr (list-at args 0) arities mid ++ "[(int)" ++ emit-expr (list-at args 1) arities mid ++ "].ToString()"
-          else if root == "substring" & list-length args == 3
-            then emit-expr (list-at args 0) arities mid ++ ".Substring((int)" ++ emit-expr (list-at args 1) arities mid ++ ", (int)" ++ emit-expr (list-at args 2) arities mid ++ ")"
-            else if root == "list-at" & list-length args == 2
-              then emit-expr (list-at args 0) arities mid ++ "[(int)" ++ emit-expr (list-at args 1) arities mid ++ "]"
-              else if root == "text-replace" & list-length args == 3
-                then emit-expr (list-at args 0) arities mid ++ ".Replace(" ++ emit-expr (list-at args 1) arities mid ++ ", " ++ emit-expr (list-at args 2) arities mid ++ ")"
-                else emit-expr f arities mid ++ "(" ++ emit-expr a arities mid ++ ")"
-
-    emit-apply : IRExpr -> IRExpr -> CodexType -> List ArityEntry -> Integer -> Text
-    emit-apply (f) (a) (ty) (arities) (mid) =
-      if is-single-builtin f
-        then emit-single-builtin f a arities mid
-        else if is-multi-builtin f
-          then emit-multi-builtin f a arities mid
-          else let root = find-apply-root f
-            in let args = collect-apply-args f [a]
-              in if is-ctor-name root
-                then "new " ++ sanitize root ++ "(" ++ emit-expr-list args arities 0 mid ++ ")"
-                else let ar = lookup-arity arities root
-                  in if ar > 1 & list-length args == ar
-                    then sanitize root ++ "(" ++ emit-arg-list args arities 0 mid ++ ")"
-                    else if ar > 1 & list-length args < ar
-                      then emit-partial-application root ar args arities mid
-                      else emit-expr f arities mid ++ "(" ++ emit-argument a arities mid ++ ")"
-
-    emit-expr-list : List IRExpr -> List ArityEntry -> Integer -> Integer -> Text
-    emit-expr-list (args) (arities) (i) (mid) =
-      if i == list-length args then ""
-      else emit-expr (list-at args i) arities mid ++ (if i < list-length args - 1 then ", " else "") ++ emit-expr-list args arities (i + 1) mid
-
-    emit-arg-list : List IRExpr -> List ArityEntry -> Integer -> Integer -> Text
-    emit-arg-list (args) (arities) (i) (mid) =
-      if i == list-length args then ""
-      else emit-argument (list-at args i) arities mid ++ (if i < list-length args - 1 then ", " else "") ++ emit-arg-list args arities (i + 1) mid
-
-    emit-argument : IRExpr -> List ArityEntry -> Integer -> Text
-    emit-argument (a) (arities) (mid) =
-      when a
-        if IrName (n) (ty) -> emit-name-argument n ty arities mid
-        if _ -> emit-expr a arities mid
-
-    has-type-variable : CodexType -> Boolean
-    has-type-variable (ty) =
-      when ty
-        if TypeVar (id) -> True
-        if FunTy (p) (r) -> has-type-variable p | has-type-variable r
-        if ListTy (elem) -> has-type-variable elem
-        if _ -> False
-
-    emit-name-argument : Text -> CodexType -> List ArityEntry -> Integer -> Text
-    emit-name-argument (n) (ty) (arities) (mid) =
-      if n == "show" then "new Func<object, string>(x => Convert.ToString(x))"
-      else if n == "negate" then "new Func<long, long>(x => -x)"
-        else emit-name-argument-by-type n ty arities mid
-
-    emit-name-argument-by-type : Text -> CodexType -> List ArityEntry -> Integer -> Text
-    emit-name-argument-by-type (n) (ty) (arities) (mid) =
-      when ty
-        if FunTy (p) (r) ->
-          if is-ctor-name n then sanitize n
-          else if has-type-variable ty then sanitize n
-            else let ar = lookup-arity arities n
-              in if ar > 1 then emit-partial-application n ar [] arities mid
-                else "new Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">(" ++ sanitize n ++ ")"
-        if _ -> sanitize n
-
-    emit-partial-application : Text -> Integer -> List IRExpr -> List ArityEntry -> Integer -> Text
-    emit-partial-application (name) (arity) (applied) (arities) (mid) =
-      let remaining = arity - list-length applied
-      in emit-partial-params remaining 0 ++ sanitize name ++ "(" ++ emit-partial-applied applied arities 0 mid ++ emit-partial-placeholders remaining 0 ++ ")"
-
-    emit-partial-params : Integer -> Integer -> Text
-    emit-partial-params (remaining) (i) =
-      if i == remaining then ""
-      else "(_p" ++ integer-to-text i ++ "_) => " ++ emit-partial-params remaining (i + 1)
-
-    emit-partial-applied : List IRExpr -> List ArityEntry -> Integer -> Integer -> Text
-    emit-partial-applied (args) (arities) (i) (mid) =
-      if i == list-length args then ""
-      else emit-argument (list-at args i) arities mid ++ ", " ++ emit-partial-applied args arities (i + 1) mid
-
-    emit-partial-placeholders : Integer -> Integer -> Text
-    emit-partial-placeholders (remaining) (i) =
-      if i == remaining then ""
-      else (if i > 0 then ", " else "") ++ "_p" ++ integer-to-text i ++ "_" ++ emit-partial-placeholders remaining (i + 1)
-
-Section: Match Emission
-
-    count-ctor-lit-branches : List IRBranch -> Integer -> Integer
-    count-ctor-lit-branches (branches) (i) =
-      if i == list-length branches then 0
-      else let b = list-at branches i
-        in let rest = count-ctor-lit-branches branches (i + 1)
-          in when b.pattern
-            if IrCtorPat (n) (s) (ty) -> 1 + rest
-            if IrLitPat (t) (ty) -> 1 + rest
-            if _ -> rest
-
-    emit-match : IRExpr -> List IRBranch -> CodexType -> List ArityEntry -> Integer -> Text
-    emit-match (scrut) (branches) (ty) (arities) (mid) =
-      let match-id = mid
-      in let has-multi = count-ctor-lit-branches branches 0 > 1
-        in let scrut-ref = "_scrutinee" ++ integer-to-text match-id ++ "_"
-          in let prefix = if has-multi then "((Func<" ++ cs-type (ir-expr-type scrut) ++ ", " ++ cs-type ty ++ ">)((" ++ scrut-ref ++ ") => " else ""
-            in let body = emit-match-branches scrut branches ty arities (mid + 1) 0 has-multi scrut-ref 0
-              in let suffix = if has-multi then "))(" ++ emit-expr scrut arities (mid + 1) ++ ")" else ""
-                in prefix ++ body ++ suffix
-
-    emit-match-branches : IRExpr -> List IRBranch -> CodexType -> List ArityEntry -> Integer -> Integer -> Boolean -> Text -> Integer -> Text
-    emit-match-branches (scrut) (branches) (ty) (arities) (mid) (i) (has-multi) (scrut-ref) (open-parens) =
-      if i == list-length branches
-        then " : throw new InvalidOperationException(\"Non-exhaustive match\")" ++ repeat-close-parens open-parens ++ ""
-        else let b = list-at branches i
-          in let sep = if i > 0 then " : " else ""
-            in when b.pattern
-              if IrCtorPat (name) (subs) (cty) ->
-                let ctor-id = sanitize name
-                in let binding = "_m" ++ ctor-id ++ integer-to-text (mid - 1) ++ "_"
-                  in let scrut-text = if has-multi then scrut-ref else emit-expr scrut arities mid
-                    in let ctor-body = emit-ctor-pattern-body subs binding b.body ty arities mid
-                      in let rest = emit-match-branches scrut branches ty arities mid (i + 1) has-multi scrut-ref (open-parens + 1)
-                        in sep ++ "(" ++ scrut-text ++ " is " ++ ctor-id ++ " " ++ binding ++ " ? " ++ ctor-body ++ rest
-              if IrLitPat (text) (lty) ->
-                let scrut-text = if has-multi then scrut-ref else emit-expr scrut arities mid
-                in let lit-cmp = emit-lit-compare scrut-text text lty
-                  in let rest = emit-match-branches scrut branches ty arities mid (i + 1) has-multi scrut-ref (open-parens + 1)
-                    in sep ++ "(" ++ lit-cmp ++ " ? " ++ emit-expr b.body arities mid ++ rest
-              if IrVarPat (vname) (vty) ->
-                let var-func-type = "Func<" ++ cs-type vty ++ ", " ++ cs-type (ir-expr-type b.body) ++ ">"
-                in let scrut-text = if has-multi then scrut-ref else emit-expr scrut arities mid
-                  in sep ++ "((" ++ var-func-type ++ ")((" ++ sanitize vname ++ ") => " ++ emit-expr b.body arities mid ++ "))(" ++ scrut-text ++ ")" ++ repeat-close-parens open-parens
-              if IrWildPat ->
-                sep ++ emit-expr b.body arities mid ++ repeat-close-parens open-parens
-
-    emit-lit-compare : Text -> Text -> CodexType -> Text
-    emit-lit-compare (scrut-text) (lit-text) (ty) =
-      when ty
-        if IntegerTy -> scrut-text ++ " == " ++ lit-text ++ "L"
-        if TextTy -> scrut-text ++ " == " ++ lit-text
-        if BooleanTy -> scrut-text ++ ".Equals(" ++ lit-text ++ ")"
-        if _ -> scrut-text ++ ".Equals(" ++ lit-text ++ ")"
-
-    repeat-close-parens : Integer -> Text
-    repeat-close-parens (n) =
-      if n == 0 then ""
-      else ")" ++ repeat-close-parens (n - 1)
-
-    emit-ctor-pattern-body : List IRPat -> Text -> IRExpr -> CodexType -> List ArityEntry -> Integer -> Text
-    emit-ctor-pattern-body (subs) (binding) (body) (ty) (arities) (mid) =
-      let bindings = collect-var-bindings subs binding 0
-      in emit-var-bindings-and-body bindings body arities mid
-
-    VarBinding = record {
-      var-name : Text,
-      access : Text,
-      var-type : CodexType
-    }
-
-    collect-var-bindings : List IRPat -> Text -> Integer -> List VarBinding
-    collect-var-bindings (subs) (binding) (i) =
-      if i == list-length subs then []
+    emit-sub-patterns : List IRPat -> Integer -> Text
+    emit-sub-patterns (subs) (i) =
+      if i == list-length subs then ""
       else let sub = list-at subs i
-        in let rest = collect-var-bindings subs binding (i + 1)
-          in when sub
-            if IrVarPat (name) (ty) -> [VarBinding { var-name = name, access = binding ++ ".Field" ++ integer-to-text i, var-type = ty }] ++ rest
-            if _ -> rest
+        in emit-sub-pattern sub ++ (if i < list-length subs - 1 then ", " else "") ++ emit-sub-patterns subs (i + 1)
 
-    emit-var-bindings-and-body : List VarBinding -> IRExpr -> List ArityEntry -> Integer -> Text
-    emit-var-bindings-and-body (bindings) (body) (arities) (mid) =
-      if list-length bindings == 0 then emit-expr body arities mid
-      else let open = emit-var-binding-opens bindings body arities mid (list-length bindings - 1)
-        in let body-text = emit-expr body arities mid
-          in let close = emit-var-binding-closes bindings 0
-            in open ++ body-text ++ close
+    emit-sub-pattern : IRPat -> Text
+    emit-sub-pattern (p) =
+      when p
+        if IrVarPat (name) (ty) -> "var " ++ sanitize name
+        if IrCtorPat (name) (subs) (ty) -> emit-pattern p
+        if IrWildPat -> "_"
+        if IrLitPat (text) (ty) -> text
 
-    emit-var-binding-opens : List VarBinding -> IRExpr -> List ArityEntry -> Integer -> Integer -> Text
-    emit-var-binding-opens (bindings) (body) (arities) (mid) (i) =
-      if i < 0 then ""
-      else let b = list-at bindings i
-        in let func-type = "Func<" ++ cs-type b.var-type ++ ", " ++ cs-type (ir-expr-type body) ++ ">"
-          in "((" ++ func-type ++ ")((" ++ sanitize b.var-name ++ ") => " ++ emit-var-binding-opens bindings body arities mid (i - 1)
+    emit-do : List IRDoStmt -> Text
+    emit-do (stmts) = "{ " ++ emit-do-stmts stmts 0 ++ " }"
 
-    emit-var-binding-closes : List VarBinding -> Integer -> Text
-    emit-var-binding-closes (bindings) (i) =
-      if i == list-length bindings then ""
-      else let b = list-at bindings i
-        in let cast = emit-cast b.var-type
-          in "))(" ++ cast ++ b.access ++ ")" ++ emit-var-binding-closes bindings (i + 1)
-
-    emit-cast : CodexType -> Text
-    emit-cast (ty) =
-      when ty
-        if ErrorTy -> ""
-        if TypeVar (id) -> ""
-        if NothingTy -> ""
-        if VoidTy -> ""
-        if _ -> "(" ++ cs-type ty ++ ")"
-
-Section: Do Expression Emission
-
-    emit-do : List IRDoStmt -> List ArityEntry -> Integer -> Text
-    emit-do (stmts) (arities) (mid) =
-      "((Func<object>)(() => {\n" ++ emit-do-stmts stmts 0 arities mid ++ "        return null;\n    }))()"
-
-    emit-do-stmts : List IRDoStmt -> Integer -> List ArityEntry -> Integer -> Text
-    emit-do-stmts (stmts) (i) (arities) (mid) =
+    emit-do-stmts : List IRDoStmt -> Integer -> Text
+    emit-do-stmts (stmts) (i) =
       if i == list-length stmts then ""
       else let s = list-at stmts i
-        in emit-do-stmt s arities mid ++ emit-do-stmts stmts (i + 1) arities mid
+        in emit-do-stmt s ++ " " ++ emit-do-stmts stmts (i + 1)
 
-    emit-do-stmt : IRDoStmt -> List ArityEntry -> Integer -> Text
-    emit-do-stmt (s) (arities) (mid) =
+    emit-do-stmt : IRDoStmt -> Text
+    emit-do-stmt (s) =
       when s
-        if IrDoBind (name) (ty) (val) -> "        var " ++ sanitize name ++ " = " ++ emit-expr val arities mid ++ ";\n"
-        if IrDoExec (e) -> "        " ++ emit-expr e arities mid ++ ";\n"
+        if IrDoBind (name) (ty) (val) -> "var " ++ sanitize name ++ " = " ++ emit-expr val ++ ";"
+        if IrDoExec (e) -> emit-expr e ++ ";"
 
-Section: Record Emission
+    emit-record : Text -> List IRFieldVal -> Text
+    emit-record (name) (fields) =
+      "new " ++ sanitize name ++ "(" ++ emit-record-fields fields 0 ++ ")"
 
-    emit-record : Text -> List IRFieldVal -> List ArityEntry -> Integer -> Text
-    emit-record (name) (fields) (arities) (mid) =
-      "new " ++ sanitize name ++ "(" ++ emit-record-fields fields 0 arities mid ++ ")"
-
-    emit-record-fields : List IRFieldVal -> Integer -> List ArityEntry -> Integer -> Text
-    emit-record-fields (fields) (i) (arities) (mid) =
+    emit-record-fields : List IRFieldVal -> Integer -> Text
+    emit-record-fields (fields) (i) =
       if i == list-length fields then ""
       else let f = list-at fields i
-        in emit-expr f.value arities mid ++ (if i < list-length fields - 1 then ", " else "") ++ emit-record-fields fields (i + 1) arities mid
+        in sanitize f.name ++ ": " ++ emit-expr f.value ++ (if i < list-length fields - 1 then ", " else "") ++ emit-record-fields fields (i + 1)
 
 Section: Type Definition Emission
 
@@ -602,10 +281,12 @@ Section: Type Definition Emission
     emit-type-expr-tp (te) (tparams) =
       when te
         if ANamedType (name) ->
+
           let idx = find-tparam-index tparams name.value 0
           in if idx >= 0 then "T" ++ integer-to-text idx
             else when-type-name name.value
         if AFunType (p) (r) -> "Func<" ++ emit-type-expr-tp p tparams ++ ", " ++ emit-type-expr-tp r tparams ++ ">"
+
         if AAppType (base) (args) -> emit-type-expr-tp base tparams ++ "<" ++ emit-type-expr-list-tp args tparams 0 ++ ">"
 
     find-tparam-index : List Name -> Text -> Integer -> Integer
@@ -679,157 +360,13 @@ Section: Generic Helpers
       else if i == list-length ids - 1 then "T" ++ integer-to-text (list-at ids i)
         else "T" ++ integer-to-text (list-at ids i) ++ ", " ++ emit-type-params ids (i + 1)
 
-Section: Tail Call Detection
-
-    has-self-tail-call : IRDef -> Boolean
-    has-self-tail-call (d) =
-      if list-length d.params == 0 then False
-      else expr-has-tail-call d.body d.name
-
-    expr-has-tail-call : IRExpr -> Text -> Boolean
-    expr-has-tail-call (e) (name) =
-      when e
-        if IrIf (c) (t) (el) (ty) -> expr-has-tail-call t name | expr-has-tail-call el name
-        if IrLet (n) (ty) (v) (body) -> expr-has-tail-call body name
-        if IrMatch (scrut) (branches) (ty) -> branches-have-tail-call branches name 0
-        if IrApply (f) (a) (ty) -> is-self-call f name
-        if _ -> False
-
-    branches-have-tail-call : List IRBranch -> Text -> Integer -> Boolean
-    branches-have-tail-call (branches) (name) (i) =
-      if i == list-length branches then False
-      else expr-has-tail-call (list-at branches i).body name | branches-have-tail-call branches name (i + 1)
-
-    is-self-call : IRExpr -> Text -> Boolean
-    is-self-call (e) (name) =
-      when e
-        if IrApply (f) (a) (ty) -> is-self-call f name
-        if IrName (n) (ty) -> n == name
-        if _ -> False
-
-Section: Tail Call Emission
-
-    emit-tco-def : IRDef -> List ArityEntry -> Text
-    emit-tco-def (d) (arities) =
-      let ret = get-return-type d.type-val (list-length d.params)
-      in let gen = generic-suffix d.type-val
-        in "    public static " ++ cs-type ret ++ " " ++ sanitize d.name ++ gen ++ "(" ++ emit-def-params d.params 0 ++ ")\n    {\n        while (true)\n        {\n" ++ emit-tco-body d.body d.name d.params arities 3 0 ++ "        }\n    }\n"
-
-    make-pad : Integer -> Text
-    make-pad (indent) =
-      if indent == 0 then ""
-      else "    " ++ make-pad (indent - 1)
-
-    emit-tco-body : IRExpr -> Text -> List IRParam -> List ArityEntry -> Integer -> Integer -> Text
-    emit-tco-body (e) (func-name) (params) (arities) (indent) (mid) =
-      let pad = make-pad indent
-      in when e
-        if IrIf (c) (t) (el) (ty) ->
-          pad ++ "if (" ++ emit-expr c arities mid ++ ")\n" ++ pad ++ "{\n" ++ emit-tco-body t func-name params arities (indent + 1) mid ++ pad ++ "}\n" ++ pad ++ "else\n" ++ pad ++ "{\n" ++ emit-tco-body el func-name params arities (indent + 1) mid ++ pad ++ "}\n"
-        if IrLet (name) (ty) (val) (body) ->
-          pad ++ "var " ++ sanitize name ++ " = " ++ emit-expr val arities mid ++ ";\n" ++ emit-tco-body body func-name params arities indent mid
-        if IrMatch (scrut) (branches) (ty) ->
-          emit-tco-match scrut branches func-name params arities indent mid
-        if IrApply (f) (a) (ty) ->
-          if is-self-call f func-name
-            then emit-tco-jump f a params arities indent mid
-            else pad ++ "return " ++ emit-expr e arities mid ++ ";\n"
-        if _ -> pad ++ "return " ++ emit-expr e arities mid ++ ";\n"
-
-    emit-tco-match : IRExpr -> List IRBranch -> Text -> List IRParam -> List ArityEntry -> Integer -> Integer -> Text
-    emit-tco-match (scrut) (branches) (func-name) (params) (arities) (indent) (mid) =
-      let pad = make-pad indent
-      in pad ++ "var _tco_s = " ++ emit-expr scrut arities mid ++ ";\n" ++ emit-tco-match-branches branches func-name params arities indent mid 0 True
-
-    emit-tco-match-branches : List IRBranch -> Text -> List IRParam -> List ArityEntry -> Integer -> Integer -> Integer -> Boolean -> Text
-    emit-tco-match-branches (branches) (func-name) (params) (arities) (indent) (mid) (i) (first) =
-      if i == list-length branches then ""
-      else let b = list-at branches i
-        in let pad = make-pad indent
-          in let rest = emit-tco-match-branches branches func-name params arities indent mid (i + 1) False
-            in when b.pattern
-              if IrCtorPat (name) (subs) (cty) ->
-                let keyword = if first then "if" else "else if"
-                in let match-var = "_tco_m" ++ integer-to-text i
-                  in pad ++ keyword ++ " (_tco_s is " ++ sanitize name ++ " " ++ match-var ++ ")\n" ++ pad ++ "{\n" ++ emit-tco-ctor-bindings subs match-var (indent + 1) 0 ++ emit-tco-body b.body func-name params arities (indent + 1) mid ++ pad ++ "}\n" ++ rest
-              if IrLitPat (text) (lty) ->
-                let keyword = if first then "if" else "else if"
-                in let lit-val = emit-tco-lit-val text lty
-                  in pad ++ keyword ++ " (object.Equals(_tco_s, " ++ lit-val ++ "))\n" ++ pad ++ "{\n" ++ emit-tco-body b.body func-name params arities (indent + 1) mid ++ pad ++ "}\n" ++ rest
-              if IrVarPat (vname) (vty) ->
-                pad ++ "{\n" ++ pad ++ "    var " ++ sanitize vname ++ " = _tco_s;\n" ++ emit-tco-body b.body func-name params arities (indent + 1) mid ++ pad ++ "}\n" ++ rest
-              if IrWildPat ->
-                pad ++ "{\n" ++ emit-tco-body b.body func-name params arities (indent + 1) mid ++ pad ++ "}\n" ++ rest
-
-    emit-tco-lit-val : Text -> CodexType -> Text
-    emit-tco-lit-val (text) (ty) =
-      when ty
-        if IntegerTy -> text ++ "L"
-        if BooleanTy -> text
-        if TextTy -> text
-        if _ -> text
-
-    emit-tco-ctor-bindings : List IRPat -> Text -> Integer -> Integer -> Text
-    emit-tco-ctor-bindings (subs) (match-var) (indent) (i) =
-      if i == list-length subs then ""
-      else let sub = list-at subs i
-        in let pad = make-pad indent
-          in let rest = emit-tco-ctor-bindings subs match-var indent (i + 1)
-            in when sub
-              if IrVarPat (name) (ty) -> pad ++ "var " ++ sanitize name ++ " = " ++ match-var ++ ".Field" ++ integer-to-text i ++ ";\n" ++ rest
-              if _ -> rest
-
-    emit-tco-jump : IRExpr -> IRExpr -> List IRParam -> List ArityEntry -> Integer -> Integer -> Text
-    emit-tco-jump (f) (a) (params) (arities) (indent) (mid) =
-      let args = collect-apply-args f [a]
-      in let pad = make-pad indent
-        in emit-tco-temp-assigns args arities indent mid 0 ++ emit-tco-param-assigns params indent 0 (list-length args) ++ pad ++ "continue;\n"
-
-    emit-tco-temp-assigns : List IRExpr -> List ArityEntry -> Integer -> Integer -> Integer -> Text
-    emit-tco-temp-assigns (args) (arities) (indent) (mid) (i) =
-      if i == list-length args then ""
-      else let pad = make-pad indent
-        in pad ++ "var _tco_" ++ integer-to-text i ++ " = " ++ emit-expr (list-at args i) arities mid ++ ";\n" ++ emit-tco-temp-assigns args arities indent mid (i + 1)
-
-    emit-tco-param-assigns : List IRParam -> Integer -> Integer -> Integer -> Text
-    emit-tco-param-assigns (params) (indent) (i) (count) =
-      if i == count then ""
-      else if i == list-length params then ""
-        else let pad = make-pad indent
-          in let p = list-at params i
-            in pad ++ sanitize p.name ++ " = _tco_" ++ integer-to-text i ++ ";\n" ++ emit-tco-param-assigns params indent (i + 1) count
-
-Section: Effectful Detection
-
-    is-effectful-def : IRDef -> Boolean
-    is-effectful-def (d) =
-      is-effectful-type d.type-val (list-length d.params)
-
-    is-effectful-type : CodexType -> Integer -> Boolean
-    is-effectful-type (ty) (n) =
-      if n == 0 then is-do-type ty
-      else when ty
-        if FunTy (p) (r) -> is-effectful-type r (n - 1)
-        if ForAllTy (id) (body) -> is-effectful-type body n
-        if _ -> False
-
-    is-do-type : CodexType -> Boolean
-    is-do-type (ty) =
-      when ty
-        if VoidTy -> True
-        if _ -> False
-
 Section: Definition Emission
 
-    emit-def : IRDef -> List ArityEntry -> Text
-    emit-def (d) (arities) =
-      if has-self-tail-call d
-        then emit-tco-def d arities
-        else let ret = get-return-type d.type-val (list-length d.params)
-          in let gen = generic-suffix d.type-val
-            in if is-effectful-def d
-              then "    public static " ++ cs-type ret ++ " " ++ sanitize d.name ++ gen ++ "(" ++ emit-def-params d.params 0 ++ ")\n    {\n        " ++ emit-expr d.body arities 0 ++ ";\n        return null;\n    }\n"
-              else "    public static " ++ cs-type ret ++ " " ++ sanitize d.name ++ gen ++ "(" ++ emit-def-params d.params 0 ++ ")\n    {\n        return " ++ emit-expr d.body arities 0 ++ ";\n    }\n"
+    emit-def : IRDef -> Text
+    emit-def (d) =
+      let ret = get-return-type d.type-val (list-length d.params)
+      in let gen = generic-suffix d.type-val
+        in "    public static " ++ cs-type ret ++ " " ++ sanitize d.name ++ gen ++ "(" ++ emit-def-params d.params 0 ++ ") => " ++ emit-expr d.body ++ ";\n"
 
     get-return-type : CodexType -> Integer -> CodexType
     get-return-type (ty) (n) =
@@ -852,35 +389,19 @@ Section: Definition Emission
 
 Section: Module Emission
 
-    find-main-def : List IRDef -> Integer -> IRDef
-    find-main-def (defs) (i) =
-      if i == list-length defs then IRDef { name = "", params = [], type-val = VoidTy, body = IrBoolLit False }
-      else let d = list-at defs i
-        in if d.name == "main" then d
-          else find-main-def defs (i + 1)
-
-    emit-main-call : List IRDef -> Text -> Text
-    emit-main-call (defs) (class-name) =
-      let main-def = find-main-def defs 0
-      in if main-def.name == "main" & list-length main-def.params == 0
-        then if is-effectful-def main-def
-          then class-name ++ ".main();\n\n"
-          else "Console.WriteLine(" ++ class-name ++ ".main());\n\n"
-        else ""
-
     emit-full-module : IRModule -> List ATypeDef -> Text
     emit-full-module (m) (type-defs) =
-      let arities = build-arities m.defs 0
-      in let class-name = "Codex_" ++ sanitize m.name.value
-        in "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" ++ emit-main-call m.defs class-name ++ emit-type-defs type-defs 0 ++ "public static class " ++ class-name ++ "\n{\n" ++ emit-defs m.defs 0 arities ++ "}\n"
+      "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" ++ emit-type-defs type-defs 0 ++ emit-class-header m.name.value ++ emit-defs m.defs 0 ++ "}\n"
 
     emit-module : IRModule -> Text
     emit-module (m) =
-      let arities = build-arities m.defs 0
-      in let class-name = "Codex_" ++ sanitize m.name.value
-        in "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" ++ emit-main-call m.defs class-name ++ "public static class " ++ class-name ++ "\n{\n" ++ emit-defs m.defs 0 arities ++ "}\n"
+      "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" ++ emit-class-header m.name.value ++ emit-defs m.defs 0 ++ "}\n"
 
-    emit-defs : List IRDef -> Integer -> List ArityEntry -> Text
-    emit-defs (defs) (i) (arities) =
+    emit-class-header : Text -> Text
+    emit-class-header (name) =
+      "public static class Codex_" ++ sanitize name ++ "\n{\n"
+
+    emit-defs : List IRDef -> Integer -> Text
+    emit-defs (defs) (i) =
       if i == list-length defs then ""
-      else emit-def (list-at defs i) arities ++ "\n" ++ emit-defs defs (i + 1) arities
+      else emit-def (list-at defs i) ++ "\n" ++ emit-defs defs (i + 1)
