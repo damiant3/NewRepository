@@ -151,30 +151,82 @@ Section: Unify
       when a
         if IntegerTy -> when b
           if IntegerTy -> UnifyResult { success = True, state = st }
+          if ErrorTy -> UnifyResult { success = True, state = st }
           if _ -> unify-mismatch st a b
         if NumberTy -> when b
           if NumberTy -> UnifyResult { success = True, state = st }
+          if ErrorTy -> UnifyResult { success = True, state = st }
           if _ -> unify-mismatch st a b
         if TextTy -> when b
           if TextTy -> UnifyResult { success = True, state = st }
+          if ErrorTy -> UnifyResult { success = True, state = st }
           if _ -> unify-mismatch st a b
         if BooleanTy -> when b
           if BooleanTy -> UnifyResult { success = True, state = st }
+          if ErrorTy -> UnifyResult { success = True, state = st }
           if _ -> unify-mismatch st a b
         if NothingTy -> when b
           if NothingTy -> UnifyResult { success = True, state = st }
+          if ErrorTy -> UnifyResult { success = True, state = st }
           if _ -> unify-mismatch st a b
         if VoidTy -> when b
           if VoidTy -> UnifyResult { success = True, state = st }
+          if ErrorTy -> UnifyResult { success = True, state = st }
           if _ -> unify-mismatch st a b
         if ErrorTy -> UnifyResult { success = True, state = st }
         if FunTy (pa) (ra) -> when b
           if FunTy (pb) (rb) -> unify-fun st pa ra pb rb
+          if ErrorTy -> UnifyResult { success = True, state = st }
           if _ -> unify-mismatch st a b
         if ListTy (ea) -> when b
           if ListTy (eb) -> unify st ea eb
+          if ErrorTy -> UnifyResult { success = True, state = st }
           if _ -> unify-mismatch st a b
-        if _ -> unify-mismatch st a b
+        if ConstructedTy (na) (args-a) -> when b
+          if ConstructedTy (nb) (args-b) ->
+            if na.value == nb.value
+              then unify-constructed-args st args-a args-b 0 (list-length args-a)
+              else unify-mismatch st a b
+          if SumTy (sb-name) (sb-ctors) ->
+            if na.value == sb-name.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if RecordTy (rb-name) (rb-fields) ->
+            if na.value == rb-name.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if ErrorTy -> UnifyResult { success = True, state = st }
+          if _ -> unify-mismatch st a b
+        if SumTy (sa-name) (sa-ctors) -> when b
+          if SumTy (sb-name) (sb-ctors) ->
+            if sa-name.value == sb-name.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if ConstructedTy (nb) (args-b) ->
+            if sa-name.value == nb.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if ErrorTy -> UnifyResult { success = True, state = st }
+          if _ -> unify-mismatch st a b
+        if RecordTy (ra-name) (ra-fields) -> when b
+          if RecordTy (rb-name) (rb-fields) ->
+            if ra-name.value == rb-name.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if ConstructedTy (nb) (args-b) ->
+            if ra-name.value == nb.value then UnifyResult { success = True, state = st }
+            else unify-mismatch st a b
+          if ErrorTy -> UnifyResult { success = True, state = st }
+          if _ -> unify-mismatch st a b
+        if ForAllTy (id) (body) -> unify st body b
+        if _ -> when b
+          if ErrorTy -> UnifyResult { success = True, state = st }
+          if _ -> unify-mismatch st a b
+
+    unify-constructed-args : UnificationState -> List CodexType -> List CodexType -> Integer -> Integer -> UnifyResult
+    unify-constructed-args (st) (args-a) (args-b) (i) (len) =
+      if i == len then UnifyResult { success = True, state = st }
+      else
+        if i >= list-length args-b then UnifyResult { success = True, state = st }
+        else
+          let r = unify st (list-at args-a i) (list-at args-b i)
+          in if r.success then unify-constructed-args r.state args-a args-b (i + 1) len
+             else r
 
     unify-fun : UnificationState -> CodexType -> CodexType -> CodexType -> CodexType -> UnifyResult
     unify-fun (st) (pa) (ra) (pb) (rb) =
@@ -194,4 +246,13 @@ Section: Deep Resolve
       in when resolved
         if FunTy (param) (ret) -> FunTy (deep-resolve st param) (deep-resolve st ret)
         if ListTy (elem) -> ListTy (deep-resolve st elem)
+        if ConstructedTy (name) (args) -> ConstructedTy name (deep-resolve-list st args 0 (list-length args) [])
+        if ForAllTy (id) (body) -> ForAllTy id (deep-resolve st body)
+        if SumTy (name) (ctors) -> resolved
+        if RecordTy (name) (fields) -> resolved
         if _ -> resolved
+
+    deep-resolve-list : UnificationState -> List CodexType -> Integer -> Integer -> List CodexType -> List CodexType
+    deep-resolve-list (st) (args) (i) (len) (acc) =
+      if i == len then acc
+      else deep-resolve-list st args (i + 1) len (acc ++ [deep-resolve st (list-at args i)])

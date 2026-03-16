@@ -31,8 +31,39 @@ Section: Infer Name
     infer-name : UnificationState -> TypeEnv -> Text -> CheckResult
     infer-name (st) (env) (name) =
       if env-has env name
-        then CheckResult { inferred-type = env-lookup env name, state = st }
+        then
+          let raw = env-lookup env name
+          in let inst = instantiate-type st raw
+          in CheckResult { inferred-type = inst.var-type, state = inst.state }
         else CheckResult { inferred-type = ErrorTy, state = add-unify-error st "CDX2002" ("Unknown name: " ++ name) }
+
+    instantiate-type : UnificationState -> CodexType -> FreshResult
+    instantiate-type (st) (ty) =
+      when ty
+        if ForAllTy (var-id) (body) ->
+          let fr = fresh-and-advance st
+          in let substituted = subst-type-var body var-id fr.var-type
+          in instantiate-type fr.state substituted
+        if _ -> FreshResult { var-type = ty, state = st }
+
+    subst-type-var : CodexType -> Integer -> CodexType -> CodexType
+    subst-type-var (ty) (var-id) (replacement) =
+      when ty
+        if TypeVar (id) -> if id == var-id then replacement else ty
+        if FunTy (param) (ret) -> FunTy (subst-type-var param var-id replacement) (subst-type-var ret var-id replacement)
+        if ListTy (elem) -> ListTy (subst-type-var elem var-id replacement)
+        if ForAllTy (inner-id) (body) ->
+          if inner-id == var-id then ty
+          else ForAllTy inner-id (subst-type-var body var-id replacement)
+        if ConstructedTy (name) (args) -> ConstructedTy name (map-subst-type-var args var-id replacement 0 (list-length args) [])
+        if SumTy (name) (ctors) -> ty
+        if RecordTy (name) (fields) -> ty
+        if _ -> ty
+
+    map-subst-type-var : List CodexType -> Integer -> CodexType -> Integer -> Integer -> List CodexType -> List CodexType
+    map-subst-type-var (args) (var-id) (replacement) (i) (len) (acc) =
+      if i == len then acc
+      else map-subst-type-var args var-id replacement (i + 1) len (acc ++ [subst-type-var (list-at args i) var-id replacement])
 
 Section: Infer Binary
 
@@ -258,9 +289,20 @@ Section: Infer Expression (dispatch)
         if ADoExpr (stmts) -> infer-do st env stmts
         if AFieldAccess (obj) (field) ->
           let r = infer-expr st env obj
-          in CheckResult { inferred-type = ErrorTy, state = r.state }
-        if ARecordExpr (name) (fields) -> CheckResult { inferred-type = ErrorTy, state = st }
+          in let fr = fresh-and-advance r.state
+          in CheckResult { inferred-type = fr.var-type, state = fr.state }
+        if ARecordExpr (name) (fields) ->
+          let st2 = infer-record-fields st env fields 0 (list-length fields)
+          in CheckResult { inferred-type = ConstructedTy name [], state = st2 }
         if AErrorExpr (msg) -> CheckResult { inferred-type = ErrorTy, state = st }
+
+    infer-record-fields : UnificationState -> TypeEnv -> List AFieldExpr -> Integer -> Integer -> UnificationState
+    infer-record-fields (st) (env) (fields) (i) (len) =
+      if i == len then st
+      else
+        let f = list-at fields i
+        in let r = infer-expr st env f.value
+        in infer-record-fields r.state env fields (i + 1) len
 
 Section: Resolve Type Expression
 
@@ -269,7 +311,23 @@ Section: Resolve Type Expression
       when texpr
         if ANamedType (name) -> resolve-type-name name.value
         if AFunType (param) (ret) -> FunTy (resolve-type-expr param) (resolve-type-expr ret)
-        if AAppType (ctor) (args) -> resolve-type-expr ctor
+        if AAppType (ctor) (args) -> resolve-applied-type ctor args
+
+    resolve-applied-type : ATypeExpr -> List ATypeExpr -> CodexType
+    resolve-applied-type (ctor) (args) =
+      when ctor
+        if ANamedType (name) ->
+          if name.value == "List"
+            then if list-length args == 1
+              then ListTy (resolve-type-expr (list-at args 0))
+              else ListTy ErrorTy
+            else ConstructedTy name (resolve-type-expr-list args 0 (list-length args) [])
+        if _ -> resolve-type-expr ctor
+
+    resolve-type-expr-list : List ATypeExpr -> Integer -> Integer -> List CodexType -> List CodexType
+    resolve-type-expr-list (args) (i) (len) (acc) =
+      if i == len then acc
+      else resolve-type-expr-list args (i + 1) len (acc ++ [resolve-type-expr (list-at args i)])
 
     resolve-type-name : Text -> CodexType
     resolve-type-name (name) =
@@ -284,7 +342,7 @@ Section: Check Definition
 
     check-def : UnificationState -> TypeEnv -> ADef -> CheckResult
     check-def (st) (env) (def) =
-      let declared = resolve-declared-type st def
+      let declared = resolve-declared-type st env def
       in let env2 = bind-def-params declared.state declared.env def.params declared.expected-type 0 (list-length def.params)
       in let body-r = infer-expr env2.state env2.env def.body
       in let u = unify body-r.state env2.remaining-type body-r.inferred-type
@@ -297,15 +355,15 @@ Section: Check Definition
       env : TypeEnv
     }
 
-    resolve-declared-type : UnificationState -> ADef -> DefSetup
-    resolve-declared-type (st) (def) =
+    resolve-declared-type : UnificationState -> TypeEnv -> ADef -> DefSetup
+    resolve-declared-type (st) (env) (def) =
       if list-length def.declared-type == 0
         then
           let fr = fresh-and-advance st
-          in DefSetup { expected-type = fr.var-type, remaining-type = fr.var-type, state = fr.state, env = builtin-type-env }
+          in DefSetup { expected-type = fr.var-type, remaining-type = fr.var-type, state = fr.state, env = env }
         else
           let ty = resolve-type-expr (list-at def.declared-type 0)
-          in DefSetup { expected-type = ty, remaining-type = ty, state = st, env = builtin-type-env }
+          in DefSetup { expected-type = ty, remaining-type = ty, state = st, env = env }
 
     DefParamResult = record {
       state : UnificationState,
