@@ -46,7 +46,7 @@ All of the following are ✅. See [08-MILESTONES.md](08-MILESTONES.md) for deliv
 | M3 | Execution via C# | IR, C# emitter, CLI (`codex check/build/run`) |
 | M9 | LSP & Editor | Diagnostics, completion, hover, go-to-def, symbols, semantic tokens |
 | M12 | JS & Rust backends | 3 backends total, 39 integration tests, TCO in all three |
-| M13 | Self-hosting | Stage 0 → output.cs → Stage 1 → compiles Codex. C# generics. |
+| M13 | Self-hosting | Stage 0 → output.cs → Stage 1 → compiles Codex. C# generics in both stages. |
 | M10 | Proofs | Refl, sym, trans, cong (bidirectional), induction with IH, lemma application |
 | — | 8 more backends | Python, C++, Go, Java, Ada, Babbage, Fortran, COBOL. 165 integration tests. |
 | — | IDE / syntax | TextMate grammar, VS 2022 `.pkgdef`, `codex.project.json`, `codex init` |
@@ -82,10 +82,11 @@ CDX1050 (bad type body), CDX1051 (bad record field), CDX1052 (bad variant ctor).
 ### Tier 2: Complete Partial Milestones
 
 **1. Effect handlers (M5)**
-`run-state` and user-defined effect handlers. The effect system already has
-row variables for polymorphism — handlers need to eliminate effects from
-the row. See [DECISIONS.md](DECISIONS.md): "Direct I/O for Effects."
-Estimated: medium-large.
+`run-state` effect handler is implemented: `get-state`, `set-state`, `run-state`
+built-ins with type checker support for effect elimination and C# mutable-cell
+emission. 12 tests. Remaining: user-defined effects and additional built-in
+handlers (e.g., `run-reader`, `run-writer`).
+Estimated: medium.
 
 **2. Views (M7)**
 The repository stores facts and resolves imports, but there's no view layer.

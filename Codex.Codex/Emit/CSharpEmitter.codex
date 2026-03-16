@@ -19,8 +19,9 @@ Section: Identifier Helpers
         if NothingTy -> "object"
         if ErrorTy -> "object"
         if FunTy (p) (r) -> "Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">"
+
         if ListTy (elem) -> "List<" ++ cs-type elem ++ ">"
-        if TypeVar (id) -> "object"
+        if TypeVar (id) -> "T" ++ integer-to-text id
         if ForAllTy (id) (body) -> cs-type body
         if SumTy (name) (ctors) -> sanitize name.value
         if RecordTy (name) (fields) -> sanitize name.value
@@ -57,10 +58,13 @@ Section: Expression Emission
       when op
         if IrAddInt -> "+"
         if IrSubInt -> "-"
+
         if IrMulInt -> "*"
         if IrDivInt -> "/"
         if IrPowInt -> "^"
         if IrAddNum -> "+"
+
+
         if IrSubNum -> "-"
         if IrMulNum -> "*"
         if IrDivNum -> "/"
@@ -68,8 +72,10 @@ Section: Expression Emission
         if IrNotEq -> "!="
         if IrLt -> "<"
         if IrGt -> ">"
+
         if IrLtEq -> "<="
         if IrGtEq -> ">="
+
         if IrAnd -> "&&"
         if IrOr -> "||"
         if IrAppendText -> "+"
@@ -170,40 +176,67 @@ Section: Type Definition Emission
     emit-type-def (td) =
       when td
         if ARecordTypeDef (name) (tparams) (fields) ->
-          "public sealed record " ++ sanitize name.value ++ "(" ++ emit-record-field-defs fields 0 ++ ");\n"
+          let gen = emit-tparam-suffix tparams
+          in "public sealed record " ++ sanitize name.value ++ gen ++ "(" ++ emit-record-field-defs fields tparams 0 ++ ");\n"
         if AVariantTypeDef (name) (tparams) (ctors) ->
-          "public abstract record " ++ sanitize name.value ++ ";\n" ++ emit-variant-ctors ctors name 0 ++ "\n"
+          let gen = emit-tparam-suffix tparams
+          in "public abstract record " ++ sanitize name.value ++ gen ++ ";\n" ++ emit-variant-ctors ctors name tparams 0 ++ "\n"
 
-    emit-record-field-defs : List ARecordFieldDef -> Integer -> Text
-    emit-record-field-defs (fields) (i) =
+    emit-tparam-suffix : List Name -> Text
+    emit-tparam-suffix (tparams) =
+      if list-length tparams == 0 then ""
+      else "<" ++ emit-tparam-names tparams 0 ++ ">"
+
+    emit-tparam-names : List Name -> Integer -> Text
+    emit-tparam-names (tparams) (i) =
+      if i == list-length tparams then ""
+      else if i == list-length tparams - 1 then "T" ++ integer-to-text i
+        else "T" ++ integer-to-text i ++ ", " ++ emit-tparam-names tparams (i + 1)
+
+    emit-record-field-defs : List ARecordFieldDef -> List Name -> Integer -> Text
+    emit-record-field-defs (fields) (tparams) (i) =
       if i == list-length fields then ""
       else let f = list-at fields i
-        in emit-type-expr f.type-expr ++ " " ++ sanitize f.name.value ++ (if i < list-length fields - 1 then ", " else "") ++ emit-record-field-defs fields (i + 1)
+        in emit-type-expr-tp f.type-expr tparams ++ " " ++ sanitize f.name.value ++ (if i < list-length fields - 1 then ", " else "") ++ emit-record-field-defs fields tparams (i + 1)
 
-    emit-variant-ctors : List AVariantCtorDef -> Name -> Integer -> Text
-    emit-variant-ctors (ctors) (base-name) (i) =
+    emit-variant-ctors : List AVariantCtorDef -> Name -> List Name -> Integer -> Text
+    emit-variant-ctors (ctors) (base-name) (tparams) (i) =
       if i == list-length ctors then ""
       else let c = list-at ctors i
-        in emit-variant-ctor c base-name ++ emit-variant-ctors ctors base-name (i + 1)
+        in emit-variant-ctor c base-name tparams ++ emit-variant-ctors ctors base-name tparams (i + 1)
 
-    emit-variant-ctor : AVariantCtorDef -> Name -> Text
-    emit-variant-ctor (c) (base-name) =
-      if list-length c.fields == 0
-        then "public sealed record " ++ sanitize c.name.value ++ " : " ++ sanitize base-name.value ++ ";\n"
-        else "public sealed record " ++ sanitize c.name.value ++ "(" ++ emit-ctor-fields c.fields 0 ++ ") : " ++ sanitize base-name.value ++ ";\n"
+    emit-variant-ctor : AVariantCtorDef -> Name -> List Name -> Text
+    emit-variant-ctor (c) (base-name) (tparams) =
+      let gen = emit-tparam-suffix tparams
+      in if list-length c.fields == 0
+        then "public sealed record " ++ sanitize c.name.value ++ gen ++ " : " ++ sanitize base-name.value ++ gen ++ ";\n"
+        else "public sealed record " ++ sanitize c.name.value ++ gen ++ "(" ++ emit-ctor-fields c.fields tparams 0 ++ ") : " ++ sanitize base-name.value ++ gen ++ ";\n"
 
-    emit-ctor-fields : List ATypeExpr -> Integer -> Text
-    emit-ctor-fields (fields) (i) =
+    emit-ctor-fields : List ATypeExpr -> List Name -> Integer -> Text
+    emit-ctor-fields (fields) (tparams) (i) =
       if i == list-length fields then ""
-      else emit-type-expr (list-at fields i) ++ " Field" ++ integer-to-text i ++ (if i < list-length fields - 1 then ", " else "") ++ emit-ctor-fields fields (i + 1)
+      else emit-type-expr-tp (list-at fields i) tparams ++ " Field" ++ integer-to-text i ++ (if i < list-length fields - 1 then ", " else "") ++ emit-ctor-fields fields tparams (i + 1)
 
     emit-type-expr : ATypeExpr -> Text
-    emit-type-expr (te) =
+    emit-type-expr (te) = emit-type-expr-tp te []
+
+    emit-type-expr-tp : ATypeExpr -> List Name -> Text
+    emit-type-expr-tp (te) (tparams) =
       when te
         if ANamedType (name) ->
-          when-type-name name.value
-        if AFunType (p) (r) -> "Func<" ++ emit-type-expr p ++ ", " ++ emit-type-expr r ++ ">"
-        if AAppType (base) (args) -> emit-type-expr base ++ "<" ++ emit-type-expr-list args 0 ++ ">"
+
+          let idx = find-tparam-index tparams name.value 0
+          in if idx >= 0 then "T" ++ integer-to-text idx
+            else when-type-name name.value
+        if AFunType (p) (r) -> "Func<" ++ emit-type-expr-tp p tparams ++ ", " ++ emit-type-expr-tp r tparams ++ ">"
+
+        if AAppType (base) (args) -> emit-type-expr-tp base tparams ++ "<" ++ emit-type-expr-list-tp args tparams 0 ++ ">"
+
+    find-tparam-index : List Name -> Text -> Integer -> Integer
+    find-tparam-index (tparams) (name) (i) =
+      if i == list-length tparams then 0 - 1
+      else if (list-at tparams i).value == name then i
+        else find-tparam-index tparams name (i + 1)
 
     when-type-name : Text -> Text
     when-type-name (n) =
@@ -219,11 +252,77 @@ Section: Type Definition Emission
       if i == list-length args then ""
       else emit-type-expr (list-at args i) ++ (if i < list-length args - 1 then ", " else "") ++ emit-type-expr-list args (i + 1)
 
+    emit-type-expr-list-tp : List ATypeExpr -> List Name -> Integer -> Text
+    emit-type-expr-list-tp (args) (tparams) (i) =
+      if i == list-length args then ""
+      else emit-type-expr-tp (list-at args i) tparams ++ (if i < list-length args - 1 then ", " else "") ++ emit-type-expr-list-tp args tparams (i + 1)
+
+Section: Generic Helpers
+
+    collect-type-var-ids : CodexType -> List Integer -> List Integer
+    collect-type-var-ids (ty) (acc) =
+      when ty
+        if TypeVar (id) -> if list-contains-int acc id then acc else list-append-int acc id
+        if FunTy (p) (r) -> collect-type-var-ids r (collect-type-var-ids p acc)
+        if ListTy (elem) -> collect-type-var-ids elem acc
+        if ForAllTy (id) (body) -> collect-type-var-ids body acc
+        if ConstructedTy (name) (args) -> collect-type-var-ids-list args acc
+        if _ -> acc
+
+    collect-type-var-ids-list : List CodexType -> List Integer -> List Integer
+    collect-type-var-ids-list (types) (acc) =
+      collect-type-var-ids-list-loop types acc 0 (list-length types)
+
+    collect-type-var-ids-list-loop : List CodexType -> List Integer -> Integer -> Integer -> List Integer
+    collect-type-var-ids-list-loop (types) (acc) (i) (len) =
+      if i == len then acc
+      else collect-type-var-ids-list-loop types (collect-type-var-ids (list-at types i) acc) (i + 1) len
+
+    list-contains-int : List Integer -> Integer -> Boolean
+    list-contains-int (xs) (n) =
+      list-contains-int-loop xs n 0 (list-length xs)
+
+    list-contains-int-loop : List Integer -> Integer -> Integer -> Integer -> Boolean
+    list-contains-int-loop (xs) (n) (i) (len) =
+      if i == len then False
+      else if list-at xs i == n then True
+        else list-contains-int-loop xs n (i + 1) len
+
+    list-append-int : List Integer -> Integer -> List Integer
+    list-append-int (xs) (n) = xs ++ [n]
+
+    generic-suffix : CodexType -> Text
+    generic-suffix (ty) =
+      let ids = collect-type-var-ids ty []
+      in if list-length ids == 0 then ""
+        else "<" ++ emit-type-params ids 0 ++ ">"
+
+    emit-type-params : List Integer -> Integer -> Text
+    emit-type-params (ids) (i) =
+      if i == list-length ids then ""
+      else if i == list-length ids - 1 then "T" ++ integer-to-text (list-at ids i)
+        else "T" ++ integer-to-text (list-at ids i) ++ ", " ++ emit-type-params ids (i + 1)
+
 Section: Definition Emission
 
     emit-def : IRDef -> Text
     emit-def (d) =
-      "    public static " ++ cs-type d.type-val ++ " " ++ sanitize d.name ++ "(" ++ emit-def-params d.params 0 ++ ") => " ++ emit-expr d.body ++ ";\n"
+      let ret = get-return-type d.type-val (list-length d.params)
+      in let gen = generic-suffix d.type-val
+        in "    public static " ++ cs-type ret ++ " " ++ sanitize d.name ++ gen ++ "(" ++ emit-def-params d.params 0 ++ ") => " ++ emit-expr d.body ++ ";\n"
+
+    get-return-type : CodexType -> Integer -> CodexType
+    get-return-type (ty) (n) =
+      if n == 0 then strip-forall ty
+      else when (strip-forall ty)
+        if FunTy (p) (r) -> get-return-type r (n - 1)
+        if _ -> ty
+
+    strip-forall : CodexType -> CodexType
+    strip-forall (ty) =
+      when ty
+        if ForAllTy (id) (body) -> strip-forall body
+        if _ -> ty
 
     emit-def-params : List IRParam -> Integer -> Text
     emit-def-params (params) (i) =

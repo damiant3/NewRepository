@@ -214,3 +214,21 @@ Significant design and engineering decisions are recorded here in chronological 
 **Rationale**: The Roslyn approach — the parser always produces a tree, even for broken code. Every definition gets a node. The desugarer maps `ErrorTypeBody` to an empty `RecordTypeDef` so the type name is visible to downstream passes. The key insight: once we've seen `TypeId =`, that IS a type definition — the question is only what the body looks like.
 **Implementation**: Three new diagnostic codes: CDX1050 (bad type body after `=`), CDX1051 (bad field in record body), CDX1052 (bad constructor in variant body). 11 new tests. `SkipToNextDefinition` used as the recovery strategy at the definition level.
 **Consequences**: LSP can now show type names, definition names, and partial type annotations even in files with syntax errors. Multiple definitions after an error are all parsed. The parser never backtracks after committing to a definition shape.
+
+---
+
+## Decision: run-state Effect Handler — Built-in with Mutable-Cell C# Emission
+**Date**: 2026-03
+**Context**: The effect system had effect types, checking, and polymorphism, but no effect handlers. `run-state` was the first handler needed — it eliminates `State s` from the effect row.
+**Decision**: Implement `run-state`, `get-state`, `set-state` as built-in functions (same pattern as `print-line`, `read-line`). The type checker detects when a function parameter has effectful type and temporarily allows those effects while checking the argument (the handler's computation). The return type is unwrapped if the handler eliminates all effects. The C# emitter emits a closure with a mutable `__state` variable.
+**Rationale**: This is the direct I/O approach extended to state — no algebraic effect runtime, no continuation-passing transform, no monadic encoding. The language semantics are purely functional (run-state returns a value), but the C# backend uses mutation under the hood. The `do` keyword was added to `IsApplicationStart()` so `run-state init do ...` parses correctly.
+**Consequences**: `run-state 0 do ... get-state ... set-state x ...` works end-to-end. The State effect is eliminated from the return type, so `main : Integer` + `run-state` is valid. User-defined effect handlers deferred — they require a more general mechanism (continuations or CPS transform).
+
+---
+
+## Decision: Codex-Side Emitter Generics — Closing the Stage 1 Gap
+**Date**: 2026-06
+**Context**: Stage 0 (C# compiler) emitted polymorphic functions as C# generic methods (`map_list<T0, T1>`). Stage 1 (Codex-in-Codex compiler) emitted `object` for all type variables, causing type degradation — Stage 1 output couldn't compile itself because generic type info was lost.
+**Decision**: Update the Codex-side C# emitter (`CSharpEmitter.codex`) to emit generics matching Stage 0: `TypeVar(id)` → `T{id}`, `generic-suffix` collects type variable IDs from a definition's type, `emit-def` appends `<T0, T1, ...>` after method names, type definitions thread `tparams` through to emit generic type parameter suffixes, `emit-type-expr-tp` maps type parameter names to `T{index}` via `find-tparam-index`.
+**Rationale**: The bootstrap requires Stage 1 output to have the same type fidelity as Stage 0. Without generics, `List<T0>` degrades to `List<object>`, `Func<T0, T1>` to `Func<object, object>`, and the Stage 2 output can't compile. The Codex-side emitter is purely functional — type variable collection uses index-based loops and list accumulation, following the project's coding patterns.
+**Consequences**: Stage 0 and Stage 1 now emit identical generic signatures (e.g., `map_list<T0, T1>(Func<T0, T1> f, List<T0> xs)`). `Codex.Codex/out/Codex.Codex.cs` has only 4 `object` references (all correct: `NothingTy` emission, effectful `main` return, `do` block wrapper). The remaining gap to full bootstrap is the Stage 1 type checker resolving concrete types — the emitter is no longer the bottleneck.

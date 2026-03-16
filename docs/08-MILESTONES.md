@@ -158,14 +158,16 @@ Chapter: Greeting
 - [x] Effect polymorphism: row variables (`[e]`), `map` propagates effects
 - [x] Built-in effects: `Console` (read/write console), `State`
 - [x] C# backend: effects encoded as contexts/interfaces
-- [ ] **Effect handlers**: `run-state`, user-defined effects
+- [x] **`run-state` effect handler**: `get-state`, `set-state`, `run-state` built-ins; type checker allows effects inside handler scope and eliminates them from return type; C# emitter emits mutable-cell closure; `do` blocks as handler arguments; 12 tests.
+- [ ] **User-defined effects**: general `handle` syntax, custom effect declarations
 
 ### Key Decisions
 - Direct I/O for effects, no monadic encoding. See [DECISIONS.md](DECISIONS.md): "Direct I/O for Effects."
+- `run-state` as built-in with mutable-cell C# emission. See [DECISIONS.md](DECISIONS.md): "run-state Effect Handler."
 
 ### Status
-Effect types, effect checking, effect polymorphism (row variables), Console/State effects, and C# emission
-all work. User-defined effect handlers deferred.
+Effect types, effect checking, effect polymorphism (row variables), Console/State effects, C# emission,
+and the `run-state` effect handler all work. User-defined effect handlers and custom effect declarations deferred.
 
 ---
 
@@ -384,7 +386,10 @@ Codex source → Stage 0 (C# compiler) → output.cs → dotnet build → Stage 
 ```
 
 Codex source: 21 files, ~2,600 lines. `output.cs`: ~286 records, ~310 functions. Zero C# errors.
-Byte-identical fixed-point not yet verified (Stage 1 output ≠ Stage 0 output due to minor formatting differences).
+Stage 1 emitter now outputs C# generics identical to Stage 0 (`map_list<T0, T1>`, `fold_list<T4, T5>`, etc.).
+Only 4 `object` references remain in Stage 1 output (all correct: `NothingTy`/effectful returns).
+Remaining gap to full fixed-point: Stage 1 type checker must resolve concrete types for the test program
+(currently infers `object` for `square : Integer -> Integer`).
 
 ---
 
