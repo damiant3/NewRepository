@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultNoneItems>false</EnableDefaultNoneItems>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <CodexTarget>csharp</CodexTarget>
-    <DefaultItemExcludes>$(DefaultItemExcludes);out\**;.codex-build\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);.codex-build\**</DefaultItemExcludes>
     <NoWarn>CS5001</NoWarn>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
@@ -19,6 +19,7 @@
     <None Include="**\*.codex" />
     <None Include="codex.project.json" />
     <Compile Remove="**\*" />
+    <Compile Include="out\**\*.cs" />
   </ItemGroup>
   <Target Name="CodexBuild" BeforeTargets="Build">
     <Exec Command="&quot;$(CodexCliExe)&quot; build ."

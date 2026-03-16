@@ -106,13 +106,57 @@ also depends on this. Estimated: medium.
 
 ### Tier 3: New Capabilities
 
-**5. Package manager / dependency resolution**
+**5. Direct IL emission (`Codex.Emit.IL`) — native .exe without C# transpile**
+The C# emitter produces text that must be fed to `dotnet build` to get an
+executable. This means Codex always depends on the C# toolchain at build time.
+A direct IL backend would emit a .NET PE assembly (`.exe` / `.dll`) from the
+IR, skipping the C# intermediary entirely.
+
+Pipeline today:
+```
+.codex → Lex → Parse → … → Lower → CSharpEmitter → .cs → dotnet build → .exe
+```
+
+Pipeline with IL emitter:
+```
+.codex → Lex → Parse → … → Lower → ILEmitter → .exe (directly)
+```
+
+**Approach:** Use `System.Reflection.Metadata` + `System.Reflection.PortableExecutable`
+(both in-box in .NET 8) to write raw IL bytes and PE headers. This is the same
+infrastructure Roslyn uses. No external dependencies.
+
+**New project:** `src/Codex.Emit.IL/` implementing a new `IAssemblyEmitter`
+interface (since `ICodeEmitter.Emit` returns `string`, and this returns `byte[]`
+or writes to a stream).
+
+**CLI integration:** `codex build . --target il` produces a runnable `.exe`
+directly. The existing `--target cs` continues to work for transpile scenarios.
+
+**Bootstrap significance:** Once the IL emitter can compile the full Codex
+source, the compiler can produce its own `.exe` without any C# toolchain
+dependency. That's the final step to true self-hosting — Codex compiles itself
+to an executable with no external compiler involved.
+
+**Incremental plan:**
+1. Scaffold `Codex.Emit.IL` project, `IAssemblyEmitter` interface, wire into CLI
+2. Emit a working `.exe` for a trivial `main = "Hello"` program
+3. Emit static methods (the module class pattern the C# emitter uses)
+4. Records and sum types (sealed record → IL class hierarchy)
+5. Pattern matching (the `switch` dispatch the C# emitter generates → IL branch tables)
+6. Generics (the C# emitter's generic function strategy → IL generic method defs)
+7. Tail call optimization (IL `tail.` prefix or loop conversion)
+8. Full bootstrap: `codex build codex-src --target il` produces `Codex.exe`
+
+Estimated: large (steps 1–3 are medium; 4–8 are individually medium-large).
+
+**6. Package manager / dependency resolution**
 The repository stores facts but there's no transitive dependency resolution
 across modules. `import` currently resolves one level deep — it needs to
 resolve transitively, handle version conflicts, and support views.
 Estimated: large.
 
-**6. Full `Vector` type (M8)**
+**7. Full `Vector` type (M8)**
 The dependent type infrastructure works. Wire it up end-to-end: `Vector n a`
 with `append : Vector m a → Vector n a → Vector (m + n) a`, compile and run.
 Estimated: medium.

@@ -111,7 +111,7 @@ public sealed partial class CSharpEmitter
 
     static string SanitizeIdentifier(string name)
     {
-        string sanitized = name.Replace('-', '_');
+        string sanitized = name.Replace('-', '_').Replace('.', '_');
 
         return sanitized switch
         {
