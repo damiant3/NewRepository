@@ -57,17 +57,23 @@ public sealed partial class Parser
             or DoExpressionNode;
         if (isCompound) return func;
 
-        while (IsApplicationStart())
+        while (true)
         {
-            ExpressionNode arg = ParseAtom();
-            func = new ApplicationExpressionNode(func, arg, func.Span.Through(arg.Span));
-        }
-
-        while (Current.Kind == TokenKind.Dot)
-        {
-            Advance();
-            Token field = Expect(TokenKind.Identifier);
-            func = new FieldAccessExpressionNode(func, field, func.Span.Through(field.Span));
+            if (IsApplicationStart())
+            {
+                ExpressionNode arg = ParseAtom();
+                func = new ApplicationExpressionNode(func, arg, func.Span.Through(arg.Span));
+            }
+            else if (Current.Kind == TokenKind.Dot)
+            {
+                Advance();
+                Token field = Expect(TokenKind.Identifier);
+                func = new FieldAccessExpressionNode(func, field, func.Span.Through(field.Span));
+            }
+            else
+            {
+                break;
+            }
         }
 
         return func;
