@@ -105,7 +105,15 @@ Section: Definition Desugaring
 
     desugar-def : Def -> ADef
     desugar-def (d) =
-      ADef { name = make-name d.name.text, params = map-list desugar-param d.params, declared-type = [], body = desugar-expr d.body }
+      let ann-types = desugar-annotations d.ann
+      in ADef { name = make-name d.name.text, params = map-list desugar-param d.params, declared-type = ann-types, body = desugar-expr d.body }
+
+    desugar-annotations : List TypeAnn -> List ATypeExpr
+    desugar-annotations (anns) =
+      if list-length anns == 0 then []
+      else
+        let a = list-at anns 0
+        in [desugar-type-expr a.type-expr]
 
     desugar-param : Token -> AParam
     desugar-param (tok) = AParam { name = make-name tok.text }
