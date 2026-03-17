@@ -102,6 +102,23 @@ Section: Binary Op Lowering
         if OpAnd -> IrAnd
         if OpOr -> IrOr
 
+    binary-result-type : BinaryOp -> CodexType -> CodexType -> CodexType
+    binary-result-type (op) (left-ty) (expected-ty) =
+      when op
+        if OpEq -> BooleanTy
+        if OpNotEq -> BooleanTy
+        if OpLt -> BooleanTy
+        if OpGt -> BooleanTy
+        if OpLtEq -> BooleanTy
+        if OpGtEq -> BooleanTy
+        if OpDefEq -> BooleanTy
+        if OpAnd -> BooleanTy
+        if OpOr -> BooleanTy
+        if OpAppend -> if is-text-type left-ty then TextTy
+                       else if is-text-type expected-ty then TextTy
+                       else left-ty
+        if _ -> left-ty
+
     is-text-type : CodexType -> Boolean
     is-text-type (ty) =
       when ty
@@ -118,10 +135,18 @@ Section: Expression Lowering
         if AApplyExpr (f) (a) -> lower-apply f a ty ctx
         if ABinaryExpr (l) (op) (r) ->
           let left-ir = lower-expr l ty ctx
+          in let left-ty = ir-expr-type left-ir
           in let right-ir = lower-expr r ty ctx
-          in IrBinary (lower-bin-op op (ir-expr-type left-ir)) left-ir right-ir ty
+          in IrBinary (lower-bin-op op left-ty) left-ir right-ir (binary-result-type op left-ty ty)
         if AUnaryExpr (operand) -> IrNegate (lower-expr operand IntegerTy ctx)
-        if AIfExpr (c) (t) (e2) -> IrIf (lower-expr c BooleanTy ctx) (lower-expr t ty ctx) (lower-expr e2 ty ctx) ty
+        if AIfExpr (c) (t) (e2) ->
+          let then-ir = lower-expr t ty ctx
+          in let then-ty = ir-expr-type then-ir
+          in let result-ty = when ty
+                if ErrorTy -> then-ty
+                if _ -> ty
+          in let else-ir = lower-expr e2 result-ty ctx
+          in IrIf (lower-expr c BooleanTy ctx) then-ir else-ir result-ty
         if ALetExpr (binds) (body) -> lower-let binds body ty ctx
         if ALambdaExpr (params) (body) -> lower-lambda params body ty ctx
         if AMatchExpr (scrut) (arms) -> lower-match scrut arms ty ctx
@@ -132,6 +157,14 @@ Section: Expression Lowering
           in let rec-ty = deep-resolve ctx.ust (ir-expr-type rec-ir)
           in let field-ty = when rec-ty
                 if RecordTy (rname) (rfields) -> lookup-record-field rfields field.value
+                if ConstructedTy (cname) (cargs) ->
+                  let ctor-raw = lookup-type ctx.types cname.value
+                  in let resolved-record = when ctor-raw
+                        if ErrorTy -> ErrorTy
+                        if _ -> strip-fun-args-lower (deep-resolve ctx.ust ctor-raw)
+                  in when resolved-record
+                    if RecordTy (rn) (rf) -> lookup-record-field rf field.value
+                    if _ -> ty
                 if _ -> ty
           in let actual-field-ty = when field-ty
                 if ErrorTy -> ty
@@ -225,7 +258,21 @@ Section: Expression Lowering
     lower-match (scrut) (arms) (ty) (ctx) =
       let scrut-ir = lower-expr scrut ErrorTy ctx
       in let scrut-ty = ir-expr-type scrut-ir
-      in IrMatch scrut-ir (lower-match-arms-loop arms ty scrut-ty ctx 0 (list-length arms)) ty
+      in let branches = lower-match-arms-loop arms ty scrut-ty ctx 0 (list-length arms)
+      in let result-ty = when ty
+            if ErrorTy -> infer-match-type branches 0 (list-length branches)
+            if _ -> ty
+      in IrMatch scrut-ir branches result-ty
+
+    infer-match-type : List IRBranch -> Integer -> Integer -> CodexType
+    infer-match-type (branches) (i) (len) =
+      if i == len then ErrorTy
+      else
+        let b = list-at branches i
+        in let body-ty = ir-expr-type b.body
+        in when body-ty
+          if ErrorTy -> infer-match-type branches (i + 1) len
+          if _ -> body-ty
 
     lower-match-arms-loop : List AMatchArm -> CodexType -> CodexType -> LowerCtx -> Integer -> Integer -> List IRBranch
     lower-match-arms-loop (arms) (ty) (scrut-ty) (ctx) (i) (len) =
@@ -291,14 +338,17 @@ Section: Expression Lowering
       in let actual-ty = when record-ty
             if ErrorTy -> ty
             if _ -> record-ty
-      in IrRecord name.value (lower-record-fields-loop fields actual-ty ctx 0 (list-length fields)) actual-ty
+      in IrRecord name.value (lower-record-fields-typed fields actual-ty ctx 0 (list-length fields)) actual-ty
 
-    lower-record-fields-loop : List AFieldExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRFieldVal
-    lower-record-fields-loop (fields) (ty) (ctx) (i) (len) =
+    lower-record-fields-typed : List AFieldExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRFieldVal
+    lower-record-fields-typed (fields) (record-ty) (ctx) (i) (len) =
       if i == len then []
       else
         let f = list-at fields i
-        in [IRFieldVal { name = f.name.value, value = lower-expr f.value ty ctx }] ++ lower-record-fields-loop fields ty ctx (i + 1) len
+        in let field-expected = when record-ty
+              if RecordTy (rname) (rfields) -> lookup-record-field rfields f.name.value
+              if _ -> ErrorTy
+        in [IRFieldVal { name = f.name.value, value = lower-expr f.value field-expected ctx }] ++ lower-record-fields-typed fields record-ty ctx (i + 1) len
 
     strip-fun-args-lower : CodexType -> CodexType
     strip-fun-args-lower (ty) =
