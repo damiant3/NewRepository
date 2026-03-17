@@ -2,7 +2,16 @@ Chapter: Lowering
 
   Transforms the typed AST into the intermediate representation.
   Each AST expression is lowered to an IR expression that carries
-  its resolved type.
+  its resolved type. A LowerCtx record threads the top-level type
+  bindings and unification state through the tree so that name
+  lookups produce correct types.
+
+Section: Lower Context
+
+    LowerCtx = record {
+      types : List TypeBinding,
+      ust : UnificationState
+    }
 
 Section: Type Lookup
 
@@ -68,23 +77,38 @@ Section: Binary Op Lowering
 
 Section: Expression Lowering
 
-    lower-expr : AExpr -> CodexType -> IRExpr
-    lower-expr (e) (ty) =
+    lower-expr : AExpr -> CodexType -> LowerCtx -> IRExpr
+    lower-expr (e) (ty) (ctx) =
       when e
         if ALitExpr (text) (kind) -> lower-literal text kind
-        if ANameExpr (name) -> IrName name.value ty
-        if AApplyExpr (f) (a) -> lower-apply f a ty
-        if ABinaryExpr (l) (op) (r) -> IrBinary (lower-bin-op op ty) (lower-expr l ty) (lower-expr r ty) ty
-        if AUnaryExpr (operand) -> IrNegate (lower-expr operand IntegerTy)
-        if AIfExpr (c) (t) (e2) -> IrIf (lower-expr c BooleanTy) (lower-expr t ty) (lower-expr e2 ty) ty
-        if ALetExpr (binds) (body) -> lower-let binds body ty
-        if ALambdaExpr (params) (body) -> lower-lambda params body ty
-        if AMatchExpr (scrut) (arms) -> lower-match scrut arms ty
-        if AListExpr (elems) -> lower-list elems ty
-        if ARecordExpr (name) (fields) -> lower-record name fields ty
-        if AFieldAccess (rec) (field) -> IrFieldAccess (lower-expr rec ty) field.value ty
-        if ADoExpr (stmts) -> lower-do stmts ty
+        if ANameExpr (name) -> lower-name name.value ty ctx
+        if AApplyExpr (f) (a) -> lower-apply f a ty ctx
+        if ABinaryExpr (l) (op) (r) ->
+          let left-ir = lower-expr l ty ctx
+          in let right-ir = lower-expr r ty ctx
+          in IrBinary (lower-bin-op op (ir-expr-type left-ir)) left-ir right-ir ty
+        if AUnaryExpr (operand) -> IrNegate (lower-expr operand IntegerTy ctx)
+        if AIfExpr (c) (t) (e2) -> IrIf (lower-expr c BooleanTy ctx) (lower-expr t ty ctx) (lower-expr e2 ty ctx) ty
+        if ALetExpr (binds) (body) -> lower-let binds body ty ctx
+        if ALambdaExpr (params) (body) -> lower-lambda params body ty ctx
+        if AMatchExpr (scrut) (arms) -> lower-match scrut arms ty ctx
+        if AListExpr (elems) -> lower-list elems ty ctx
+        if ARecordExpr (name) (fields) -> lower-record name fields ty ctx
+        if AFieldAccess (rec) (field) ->
+          let rec-ir = lower-expr rec ErrorTy ctx
+          in IrFieldAccess rec-ir field.value ty
+        if ADoExpr (stmts) -> lower-do stmts ty ctx
         if AErrorExpr (msg) -> IrError msg ty
+
+    lower-name : Text -> CodexType -> LowerCtx -> IRExpr
+    lower-name (name) (ty) (ctx) =
+      let raw = lookup-type ctx.types name
+      in when raw
+        if ErrorTy -> IrName name ty
+        if _ ->
+          let resolved = deep-resolve ctx.ust raw
+          in let stripped = strip-forall-ty resolved
+          in IrName name stripped
 
     lower-literal : Text -> LiteralKind -> IRExpr
     lower-literal (text) (kind) =
@@ -94,26 +118,52 @@ Section: Expression Lowering
         if TextLit -> IrTextLit text
         if BoolLit -> IrBoolLit (text == "True")
 
-    lower-apply : AExpr -> AExpr -> CodexType -> IRExpr
-    lower-apply (f) (a) (ty) =
-      IrApply (lower-expr f ty) (lower-expr a ty) ty
+    lower-apply : AExpr -> AExpr -> CodexType -> LowerCtx -> IRExpr
+    lower-apply (f) (a) (ty) (ctx) =
+      let func-ir = lower-expr f ErrorTy ctx
+      in let func-ty = ir-expr-type func-ir
+      in let arg-ty = peel-fun-param func-ty
+      in let ret-ty = peel-fun-return func-ty
+      in let actual-ret = when ret-ty
+            if ErrorTy -> ty
+            if _ -> ret-ty
+      in let arg-ir = lower-expr a arg-ty ctx
+      in IrApply func-ir arg-ir actual-ret
 
-    lower-let : List ALetBind -> AExpr -> CodexType -> IRExpr
-    lower-let (binds) (body) (ty) =
-      if list-length binds == 0 then lower-expr body ty
+    lower-let : List ALetBind -> AExpr -> CodexType -> LowerCtx -> IRExpr
+    lower-let (binds) (body) (ty) (ctx) =
+      if list-length binds == 0 then lower-expr body ty ctx
       else let b = list-at binds 0
-        in IrLet b.name.value ty (lower-expr b.value ErrorTy) (lower-let-rest binds body ty 1)
+        in let val-ir = lower-expr b.value ErrorTy ctx
+        in let val-ty = ir-expr-type val-ir
+        in let ctx2 = LowerCtx { types = [TypeBinding { name = b.name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
+        in IrLet b.name.value val-ty val-ir (lower-let-rest binds body ty ctx2 1)
 
-    lower-let-rest : List ALetBind -> AExpr -> CodexType -> Integer -> IRExpr
-    lower-let-rest (binds) (body) (ty) (i) =
-      if i == list-length binds then lower-expr body ty
+    lower-let-rest : List ALetBind -> AExpr -> CodexType -> LowerCtx -> Integer -> IRExpr
+    lower-let-rest (binds) (body) (ty) (ctx) (i) =
+      if i == list-length binds then lower-expr body ty ctx
       else let b = list-at binds i
-        in IrLet b.name.value ty (lower-expr b.value ErrorTy) (lower-let-rest binds body ty (i + 1))
+        in let val-ir = lower-expr b.value ErrorTy ctx
+        in let val-ty = ir-expr-type val-ir
+        in let ctx2 = LowerCtx { types = [TypeBinding { name = b.name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
+        in IrLet b.name.value val-ty val-ir (lower-let-rest binds body ty ctx2 (i + 1))
 
-    lower-lambda : List Name -> AExpr -> CodexType -> IRExpr
-    lower-lambda (params) (body) (ty) =
+    lower-lambda : List Name -> AExpr -> CodexType -> LowerCtx -> IRExpr
+    lower-lambda (params) (body) (ty) (ctx) =
       let stripped = strip-forall-ty ty
-      in IrLambda (lower-lambda-params params stripped 0) (lower-expr body (get-lambda-return stripped (list-length params))) ty
+      in let lparams = lower-lambda-params params stripped 0
+      in let lctx = bind-lambda-to-ctx ctx params stripped 0
+      in IrLambda lparams (lower-expr body (get-lambda-return stripped (list-length params)) lctx) ty
+
+    bind-lambda-to-ctx : LowerCtx -> List Name -> CodexType -> Integer -> LowerCtx
+    bind-lambda-to-ctx (ctx) (params) (ty) (i) =
+      if i == list-length params then ctx
+      else
+        let p = list-at params i
+        in let param-ty = peel-fun-param ty
+        in let rest-ty = peel-fun-return ty
+        in let ctx2 = LowerCtx { types = [TypeBinding { name = p.value, bound-type = param-ty }] ++ ctx.types, ust = ctx.ust }
+        in bind-lambda-to-ctx ctx2 params rest-ty (i + 1)
 
     lower-lambda-params : List Name -> CodexType -> Integer -> List IRParam
     lower-lambda-params (params) (ty) (i) =
@@ -130,13 +180,44 @@ Section: Expression Lowering
         if FunTy (p) (r) -> get-lambda-return r (n - 1)
         if _ -> ErrorTy
 
-    lower-match : AExpr -> List AMatchArm -> CodexType -> IRExpr
-    lower-match (scrut) (arms) (ty) =
-      IrMatch (lower-expr scrut ty) (map-list (lower-arm ty) arms) ty
+    lower-match : AExpr -> List AMatchArm -> CodexType -> LowerCtx -> IRExpr
+    lower-match (scrut) (arms) (ty) (ctx) =
+      let scrut-ir = lower-expr scrut ErrorTy ctx
+      in let scrut-ty = ir-expr-type scrut-ir
+      in IrMatch scrut-ir (lower-match-arms-loop arms ty scrut-ty ctx 0 (list-length arms)) ty
 
-    lower-arm : CodexType -> AMatchArm -> IRBranch
-    lower-arm (ty) (arm) =
-      IRBranch { pattern = lower-pattern arm.pattern, body = lower-expr arm.body ty }
+    lower-match-arms-loop : List AMatchArm -> CodexType -> CodexType -> LowerCtx -> Integer -> Integer -> List IRBranch
+    lower-match-arms-loop (arms) (ty) (scrut-ty) (ctx) (i) (len) =
+      if i == len then []
+      else
+        let arm = list-at arms i
+        in let arm-ctx = bind-pattern-to-ctx ctx arm.pattern scrut-ty
+        in [IRBranch { pattern = lower-pattern arm.pattern, body = lower-expr arm.body ty arm-ctx }] ++ lower-match-arms-loop arms ty scrut-ty ctx (i + 1) len
+
+    bind-pattern-to-ctx : LowerCtx -> APat -> CodexType -> LowerCtx
+    bind-pattern-to-ctx (ctx) (pat) (ty) =
+      when pat
+        if AVarPat (name) ->
+          LowerCtx { types = [TypeBinding { name = name.value, bound-type = ty }] ++ ctx.types, ust = ctx.ust }
+        if ACtorPat (ctor-name) (sub-pats) ->
+          let ctor-raw = lookup-type ctx.types ctor-name.value
+          in let ctor-ty = deep-resolve ctx.ust ctor-raw
+          in let ctor-stripped = strip-forall-ty ctor-ty
+          in bind-ctor-pattern-fields ctx sub-pats ctor-stripped 0 (list-length sub-pats)
+        if AWildPat -> ctx
+        if ALitPat (text) (kind) -> ctx
+
+    bind-ctor-pattern-fields : LowerCtx -> List APat -> CodexType -> Integer -> Integer -> LowerCtx
+    bind-ctor-pattern-fields (ctx) (sub-pats) (ctor-ty) (i) (len) =
+      if i == len then ctx
+      else
+        when ctor-ty
+          if FunTy (param-ty) (ret-ty) ->
+            let ctx2 = bind-pattern-to-ctx ctx (list-at sub-pats i) param-ty
+            in bind-ctor-pattern-fields ctx2 sub-pats ret-ty (i + 1) len
+          if _ ->
+            let ctx2 = bind-pattern-to-ctx ctx (list-at sub-pats i) ErrorTy
+            in bind-ctor-pattern-fields ctx2 sub-pats ctor-ty (i + 1) len
 
     lower-pattern : APat -> IRPat
     lower-pattern (p) =
@@ -146,33 +227,46 @@ Section: Expression Lowering
         if ACtorPat (name) (subs) -> IrCtorPat name.value (map-list lower-pattern subs) ErrorTy
         if AWildPat -> IrWildPat
 
-    lower-list : List AExpr -> CodexType -> IRExpr
-    lower-list (elems) (ty) =
+    lower-list : List AExpr -> CodexType -> LowerCtx -> IRExpr
+    lower-list (elems) (ty) (ctx) =
       let elem-ty = when ty
             if ListTy (e) -> e
             if _ -> ErrorTy
-      in IrList (map-list (lower-elem elem-ty) elems) elem-ty
+      in IrList (lower-list-elems-loop elems elem-ty ctx 0 (list-length elems)) elem-ty
 
-    lower-elem : CodexType -> AExpr -> IRExpr
-    lower-elem (ty) (e) = lower-expr e ty
+    lower-list-elems-loop : List AExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRExpr
+    lower-list-elems-loop (elems) (elem-ty) (ctx) (i) (len) =
+      if i == len then []
+      else [lower-expr (list-at elems i) elem-ty ctx] ++ lower-list-elems-loop elems elem-ty ctx (i + 1) len
 
-    lower-record : Name -> List AFieldExpr -> CodexType -> IRExpr
-    lower-record (name) (fields) (ty) =
-      IrRecord name.value (map-list (lower-field-val ty) fields) ty
+    lower-record : Name -> List AFieldExpr -> CodexType -> LowerCtx -> IRExpr
+    lower-record (name) (fields) (ty) (ctx) =
+      IrRecord name.value (lower-record-fields-loop fields ty ctx 0 (list-length fields)) ty
 
-    lower-field-val : CodexType -> AFieldExpr -> IRFieldVal
-    lower-field-val (ty) (f) =
-      IRFieldVal { name = f.name.value, value = lower-expr f.value ty }
+    lower-record-fields-loop : List AFieldExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRFieldVal
+    lower-record-fields-loop (fields) (ty) (ctx) (i) (len) =
+      if i == len then []
+      else
+        let f = list-at fields i
+        in [IRFieldVal { name = f.name.value, value = lower-expr f.value ty ctx }] ++ lower-record-fields-loop fields ty ctx (i + 1) len
 
-    lower-do : List ADoStmt -> CodexType -> IRExpr
-    lower-do (stmts) (ty) =
-      IrDo (map-list (lower-do-stmt ty) stmts) ty
+    lower-do : List ADoStmt -> CodexType -> LowerCtx -> IRExpr
+    lower-do (stmts) (ty) (ctx) =
+      IrDo (lower-do-stmts-loop stmts ty ctx 0 (list-length stmts)) ty
 
-    lower-do-stmt : CodexType -> ADoStmt -> IRDoStmt
-    lower-do-stmt (ty) (s) =
-      when s
-        if ADoBindStmt (name) (val) -> IrDoBind name.value ty (lower-expr val ty)
-        if ADoExprStmt (e) -> IrDoExec (lower-expr e ty)
+    lower-do-stmts-loop : List ADoStmt -> CodexType -> LowerCtx -> Integer -> Integer -> List IRDoStmt
+    lower-do-stmts-loop (stmts) (ty) (ctx) (i) (len) =
+      if i == len then []
+      else
+        let s = list-at stmts i
+        in when s
+          if ADoBindStmt (name) (val) ->
+            let val-ir = lower-expr val ty ctx
+            in let val-ty = ir-expr-type val-ir
+            in let ctx2 = LowerCtx { types = [TypeBinding { name = name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
+            in [IrDoBind name.value val-ty val-ir] ++ lower-do-stmts-loop stmts ty ctx2 (i + 1) len
+          if ADoExprStmt (e) ->
+            [IrDoExec (lower-expr e ty ctx)] ++ lower-do-stmts-loop stmts ty ctx (i + 1) len
 
 Section: Definition Lowering
 
@@ -183,7 +277,23 @@ Section: Definition Lowering
       in let stripped = strip-forall-ty full-type
       in let params = lower-def-params d.params stripped 0
       in let ret-type = get-return-type-n stripped (list-length d.params)
-      in IRDef { name = d.name.value, params = params, type-val = full-type, body = lower-expr d.body ret-type }
+      in let ctx = build-def-ctx types ust d.params stripped
+      in IRDef { name = d.name.value, params = params, type-val = full-type, body = lower-expr d.body ret-type ctx }
+
+    build-def-ctx : List TypeBinding -> UnificationState -> List AParam -> CodexType -> LowerCtx
+    build-def-ctx (types) (ust) (params) (ty) =
+      let base-ctx = LowerCtx { types = types, ust = ust }
+      in bind-params-to-ctx base-ctx params ty 0
+
+    bind-params-to-ctx : LowerCtx -> List AParam -> CodexType -> Integer -> LowerCtx
+    bind-params-to-ctx (ctx) (params) (ty) (i) =
+      if i == list-length params then ctx
+      else
+        let p = list-at params i
+        in let param-ty = peel-fun-param ty
+        in let rest-ty = peel-fun-return ty
+        in let ctx2 = LowerCtx { types = [TypeBinding { name = p.name.value, bound-type = param-ty }] ++ ctx.types, ust = ctx.ust }
+        in bind-params-to-ctx ctx2 params rest-ty (i + 1)
 
     lower-def-params : List AParam -> CodexType -> Integer -> List IRParam
     lower-def-params (params) (ty) (i) =
@@ -202,9 +312,64 @@ Section: Definition Lowering
 
     lower-module : AModule -> List TypeBinding -> UnificationState -> IRModule
     lower-module (m) (types) (ust) =
-      IRModule { name = m.name, defs = lower-defs m.defs types ust 0 }
+      let ctor-types = collect-ctor-bindings m.type-defs 0 (list-length m.type-defs) []
+      in let all-types = ctor-types ++ types
+      in IRModule { name = m.name, defs = lower-defs m.defs all-types ust 0 }
 
     lower-defs : List ADef -> List TypeBinding -> UnificationState -> Integer -> List IRDef
     lower-defs (defs) (types) (ust) (i) =
       if i == list-length defs then []
       else [lower-def (list-at defs i) types ust] ++ lower-defs defs types ust (i + 1)
+
+Section: Constructor Bindings
+
+    collect-ctor-bindings : List ATypeDef -> Integer -> Integer -> List TypeBinding -> List TypeBinding
+    collect-ctor-bindings (tdefs) (i) (len) (acc) =
+      if i == len then acc
+      else
+        let td = list-at tdefs i
+        in let bindings = ctor-bindings-for-typedef td
+        in collect-ctor-bindings tdefs (i + 1) len (acc ++ bindings)
+
+    ctor-bindings-for-typedef : ATypeDef -> List TypeBinding
+    ctor-bindings-for-typedef (td) =
+      when td
+        if AVariantTypeDef (name) (type-params) (ctors) ->
+          let result-ty = ConstructedTy name []
+          in collect-variant-ctor-bindings ctors result-ty 0 (list-length ctors) []
+        if ARecordTypeDef (name) (type-params) (fields) ->
+          let resolved-fields = build-record-fields-for-lower fields 0 (list-length fields) []
+          in let result-ty = RecordTy name resolved-fields
+          in let ctor-ty = build-record-ctor-type-for-lower fields result-ty 0 (list-length fields)
+          in [TypeBinding { name = name.value, bound-type = ctor-ty }]
+
+    collect-variant-ctor-bindings : List AVariantCtorDef -> CodexType -> Integer -> Integer -> List TypeBinding -> List TypeBinding
+    collect-variant-ctor-bindings (ctors) (result-ty) (i) (len) (acc) =
+      if i == len then acc
+      else
+        let ctor = list-at ctors i
+        in let ctor-ty = build-ctor-type-for-lower ctor.fields result-ty 0 (list-length ctor.fields)
+        in collect-variant-ctor-bindings ctors result-ty (i + 1) len (acc ++ [TypeBinding { name = ctor.name.value, bound-type = ctor-ty }])
+
+    build-ctor-type-for-lower : List ATypeExpr -> CodexType -> Integer -> Integer -> CodexType
+    build-ctor-type-for-lower (fields) (result) (i) (len) =
+      if i == len then result
+      else
+        let rest = build-ctor-type-for-lower fields result (i + 1) len
+        in FunTy (resolve-type-expr (list-at fields i)) rest
+
+    build-record-fields-for-lower : List ARecordFieldDef -> Integer -> Integer -> List RecordField -> List RecordField
+    build-record-fields-for-lower (fields) (i) (len) (acc) =
+      if i == len then acc
+      else
+        let f = list-at fields i
+        in let rfield = RecordField { name = f.name, type-val = resolve-type-expr f.type-expr }
+        in build-record-fields-for-lower fields (i + 1) len (acc ++ [rfield])
+
+    build-record-ctor-type-for-lower : List ARecordFieldDef -> CodexType -> Integer -> Integer -> CodexType
+    build-record-ctor-type-for-lower (fields) (result) (i) (len) =
+      if i == len then result
+      else
+        let f = list-at fields i
+        in let rest = build-record-ctor-type-for-lower fields result (i + 1) len
+        in FunTy (resolve-type-expr f.type-expr) rest

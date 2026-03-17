@@ -1,6 +1,24 @@
 # Bootstrap Convergence Plan
 
-## Current State (after arity-flattening refactor in CSharpEmitter.codex)
+
+
+
+
+-Damian says sorry for the messy.  I don't want to spend a whole session doing stats.  clean this up later.
+
+### What was accomplished this session
+The last bootstrap metrics before the stash incident were:
+Metric	Baseline (arity-flattening)	After all lowering fixes	Delta
+Stage 0 output size	225,502	243,370	+17,868 ✅
+Stage 1 output size	151,893	168,021	+16,128 ✅
+Unification errors	1,368	1,505	+137 ⚠️
+Type bindings	364	377	+13 ✅
+Stage 0 _p0_ lines	28	24	−4 ✅
+Stage 1 _p0_ lines	229	241	+12 ⚠️
+The error count rose because we added ~13 new definitions. Output sizes grew significantly (+7-8% each). Stage 0 _p0_ lines dropped, confirming the lowering improvements help the reference compiler path.
+
+
+## Previous State (after arity-flattening refactor in CSharpEmitter.codex)
 
 | Metric | Previous (compound-parse fix) | Current | Direction |
 |--------|-------------------------------|---------|-----------|
@@ -14,6 +32,7 @@
 | Stage 1 `_p0_` lines | — | 229 | — |
 | Stage 0 `_p0_` lines | — | 28 | — |
 
+
 The Stage 1 output grew by ~23K chars (+18%) — a significant gain. The
 Stage 0 ↔ Stage 1 gap is now 225,502 vs 151,893 chars (67% of Stage 0),
 up from ~59% before. The error count rose by 113 because the new emitter
@@ -25,6 +44,7 @@ self-hosted type checker improves. The output size increase confirms the
 emitter is producing more correct code.
 
 ### What was accomplished this session
+
 
 1. **Arity-flattening refactor in `CSharpEmitter.codex`**: The emitter's
    `emit-expr` and all 14 downstream functions now thread a `List ArityEntry`

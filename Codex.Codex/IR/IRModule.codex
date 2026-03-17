@@ -70,3 +70,26 @@ Section: IR Definitions
       name : Name,
       defs : List IRDef
     }
+
+Section: IR Expression Type
+
+    ir-expr-type : IRExpr -> CodexType
+    ir-expr-type (e) =
+      when e
+        if IrIntLit (v) -> IntegerTy
+        if IrNumLit (v) -> IntegerTy
+        if IrTextLit (v) -> TextTy
+        if IrBoolLit (v) -> BooleanTy
+        if IrName (n) (t) -> t
+        if IrBinary (op) (l) (r) (t) -> t
+        if IrNegate (x) -> IntegerTy
+        if IrIf (c) (th) (el) (t) -> t
+        if IrLet (n) (t) (v) (b) -> ir-expr-type b
+        if IrApply (f) (a) (t) -> t
+        if IrLambda (ps) (b) (t) -> t
+        if IrList (es) (t) -> ListTy t
+        if IrMatch (s) (bs) (t) -> t
+        if IrDo (ss) (t) -> t
+        if IrRecord (n) (fs) (t) -> t
+        if IrFieldAccess (r) (f) (t) -> t
+        if IrError (m) (t) -> t

@@ -71,6 +71,28 @@ class Program
             Console.WriteLine($"  Type bindings: {checkResult.types.Count}");
             Console.WriteLine($"  Unification errors: {checkResult.state.errors.Count}");
 
+            // Dump ALL type bindings to a diagnostics file
+            var diagLines = new List<string>();
+            int errorTyCount = 0;
+            int funcObjectCount = 0;
+            for (int i = 0; i < checkResult.types.Count; i++)
+            {
+                var tb = checkResult.types[i];
+                var resolved = Codex_Codex_Codex.deep_resolve(checkResult.state, tb.bound_type);
+                string csType = Codex_Codex_Codex.cs_type(resolved);
+                bool isErrorTy = resolved is ErrorTy;
+                bool hasObject = csType.Contains("object");
+                if (isErrorTy) errorTyCount++;
+                if (hasObject) funcObjectCount++;
+                string marker = isErrorTy ? " [ERRORTY]" : (hasObject ? " [HAS-OBJECT]" : "");
+                diagLines.Add($"{i}: {tb.name} : {csType}{marker}");
+            }
+            string diagPath = Path.Combine(codexDir, "type-diag.txt");
+            File.WriteAllLines(diagPath, diagLines);
+            Console.WriteLine($"  ErrorTy bindings: {errorTyCount}");
+            Console.WriteLine($"  Has-object bindings: {funcObjectCount}");
+            Console.WriteLine($"  Type diagnostics written to: {diagPath}");
+
             // Show first 20 type bindings
             for (int i = 0; i < Math.Min(20, checkResult.types.Count); i++)
             {
