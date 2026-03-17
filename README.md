@@ -20,9 +20,11 @@ Section: Functions
     main = greet "World"
 ```
 
-> **Status**: Self-hosting bootstrap complete. The Codex compiler, written in Codex,
-> compiles its own source through Stage 0 (C#) to produce a Stage 1 binary that
-> compiles the same source — 264/264 type definitions, 0 missing functions.
+> **Status (March 15 2026):** Self-hosting achieved. The Codex compiler (3,386 lines
+> of Codex across 21 source files) compiles itself through a two-stage bootstrap.
+> Stage 1 output compiles to valid C#, serves as its own Stage 0, and produces
+> functionally identical Stage 2 output. 700 tests pass. See [Opus.md](Opus.md)
+> for the story.
 
 ---
 
@@ -31,10 +33,10 @@ Section: Functions
 **Prerequisites**: [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
 ```sh
-# Build
+# Build everything
 dotnet build Codex.sln
 
-# Run tests (246 tests)
+# Run tests (700 tests across 7 projects)
 dotnet test Codex.sln
 
 # Compile and run a program
@@ -44,8 +46,7 @@ dotnet run --project tools/Codex.Cli -- run samples/hello.codex
 dotnet run --project tools/Codex.Cli -- build samples/hello.codex
 
 # Bootstrap: compile the compiler with itself
-dotnet run --project tools/Codex.Cli -- build codex-src
-dotnet run --project tools/Codex.Bootstrap -- build codex-src
+dotnet run --project tools/Codex.Bootstrap
 ```
 
 ---
@@ -70,9 +71,9 @@ area (s) = when s
   if Circle (r) -> 3.14 * r * r
   if Rectangle (w) (h) -> w * h
 
--- Higher-order functions
-apply-twice : (a -> a) -> a -> a
-apply-twice (f) (x) = f (f x)
+-- Polymorphism
+map-list : (a -> b) -> List a -> List b
+map-list (f) (xs) = map-list-loop f xs 0 (list-length xs) []
 
 -- Let bindings
 hypotenuse : Number -> Number -> Number
@@ -84,6 +85,11 @@ hypotenuse (a) (b) =
 -- Field access
 greet : Person -> Text
 greet (p) = "Hello, " ++ p.name ++ "!"
+
+-- Do notation (effects)
+main : [Console] Nothing
+main = do
+  print-line (greet Person { name = "World", age = 0 })
 ```
 
 ---
@@ -98,11 +104,11 @@ Source (.codex)
     → NameResolver  (Codex.Semantics)    resolved names
     → TypeChecker   (Codex.Types)        bidirectional type inference
     → Lowering      (Codex.IR)           typed intermediate representation
-    → CSharpEmitter (Codex.Emit.CSharp)  C# source text
-    → dotnet                             executable
+    → Emitter       (Codex.Emit.*)       target source text
+    → toolchain                          executable
 ```
 
-The entire pipeline (Lexer through CSharpEmitter) also exists in Codex in `codex-src/`
+The entire pipeline also exists in Codex (`Codex.Codex/`, 21 files, 3,386 lines)
 and compiles itself — see [Bootstrap](#bootstrap) below.
 
 ---
@@ -124,80 +130,103 @@ codex version                    Print version
 ```
 Codex.sln
 ├── src/
-│   ├── Codex.Core             SourceText, Span, Diagnostic, DiagnosticBag
-│   ├── Codex.Syntax           Lexer, Parser, ProseParser, Token, CST nodes
-│   ├── Codex.Ast              Desugarer, AST nodes (Module, Definition, Expr)
-│   ├── Codex.Semantics        Name resolution, scope analysis
-│   ├── Codex.Types            Bidirectional type checker, unification
-│   ├── Codex.IR               IR nodes, Lowering (AST → IR)
-│   ├── Codex.Emit             ICodeEmitter interface
-│   ├── Codex.Emit.CSharp      C# backend
-│   ├── Codex.Lsp              Language Server Protocol implementation
-│   ├── Codex.Repository       Content-addressed fact store
-│   ├── Codex.Narration        Prose rendering
-│   └── Codex.Proofs           Proof terms and verification
+│   ├── Codex.Core               SourceText, Span, Diagnostic, DiagnosticBag
+│   ├── Codex.Syntax             Lexer, Parser, ProseParser, Token, CST nodes
+│   ├── Codex.Ast                Desugarer, AST nodes (Module, Definition, Expr)
+│   ├── Codex.Semantics          Name resolution, scope analysis
+│   ├── Codex.Types              Bidirectional type checker, unification
+│   ├── Codex.IR                 IR nodes, Lowering (AST → IR)
+│   ├── Codex.Emit               ICodeEmitter interface
+│   ├── Codex.Emit.CSharp        C# backend
+│   ├── Codex.Emit.Python        Python backend
+│   ├── Codex.Emit.JavaScript    JavaScript backend
+│   ├── Codex.Emit.Java          Java backend
+│   ├── Codex.Emit.Rust          Rust backend
+│   ├── Codex.Emit.Go            Go backend
+│   ├── Codex.Emit.Cpp           C++ backend
+│   ├── Codex.Emit.IL            .NET IL backend
+│   ├── Codex.Emit.Ada           Ada backend
+│   ├── Codex.Emit.Fortran       Fortran backend
+│   ├── Codex.Emit.Cobol         COBOL backend
+│   ├── Codex.Emit.Babbage       Babbage backend
+│   ├── Codex.Lsp                Language Server Protocol implementation
+│   ├── Codex.Repository         Content-addressed fact store
+│   ├── Codex.Narration          Prose rendering
+│   └── Codex.Proofs             Proof terms and verification
 ├── tests/
-│   ├── Codex.Core.Tests       (16 tests)
-│   ├── Codex.Syntax.Tests     (63 tests)
-│   ├── Codex.Ast.Tests        (11 tests)
-│   ├── Codex.Semantics.Tests  (10 tests)
-│   ├── Codex.Types.Tests      (109 tests)
-│   ├── Codex.Repository.Tests (23 tests)
-│   └── Codex.Lsp.Tests        (14 tests)
+│   ├── Codex.Core.Tests         (16 tests)
+│   ├── Codex.Syntax.Tests       (88 tests)
+│   ├── Codex.Ast.Tests          (11 tests)
+│   ├── Codex.Semantics.Tests    (15 tests)
+│   ├── Codex.Types.Tests        (529 tests)
+│   ├── Codex.Repository.Tests   (23 tests)
+│   └── Codex.Lsp.Tests          (18 tests)
 ├── tools/
-│   ├── Codex.Cli              Command-line compiler
-│   └── Codex.Bootstrap        Stage 1 bootstrap harness
-├── codex-src/                 The compiler written in Codex
-│   ├── Core/                  Diagnostics, Name, SourceText, Collections
-│   ├── Syntax/                TokenKind, Lexer, Parser, SyntaxNodes
-│   ├── Ast/                   AstNodes, Desugarer
-│   ├── IR/                    IRModule, Lowering
-│   └── Emit/                  CSharpEmitter
+│   ├── Codex.Cli                Command-line compiler
+│   ├── Codex.Bootstrap          Stage 1 bootstrap harness
+│   └── Codex.VsExtension        Visual Studio extension
+├── Codex.Codex/                 The compiler written in Codex (self-hosting)
+│   ├── Core/                    Diagnostics, Name, SourceText, Collections
+│   ├── Syntax/                  TokenKind, Lexer, Parser, SyntaxNodes
+│   ├── Ast/                     AstNodes, Desugarer
+│   ├── Semantics/               NameResolver
+│   ├── Types/                   CodexType, TypeChecker, Unifier, TypeEnv
+│   ├── IR/                      IRModule, Lowering
+│   ├── Emit/                    CSharpEmitter
+│   └── main.codex               Entry point
 ├── editors/
-│   └── vscode/                VS Code extension (syntax highlighting + LSP)
-├── samples/                   Example programs
-└── docs/                      Design documents and reflections
+│   └── vscode/                  VS Code extension (syntax highlighting + LSP)
+├── samples/                     Example programs
+└── docs/                        Design documents (00-OVERVIEW through 10-PRINCIPLES)
 ```
 
 ---
 
 ## Bootstrap
 
-Codex is self-hosting. The compiler written in Codex (`codex-src/`, ~2,500 lines
-across 14 files) compiles itself through a two-stage bootstrap:
+Codex is self-hosting. The compiler written in Codex (`Codex.Codex/`, 3,386 lines
+across 21 files) compiles itself through a two-stage bootstrap:
 
 | Stage | Description | Compiled By |
 |-------|-------------|-------------|
-| **Stage 0** | C# implementation in `src/` | `dotnet build` |
-| **Stage 1** | Codex source compiled to C# | Stage 0 |
-| **Stage 2** | Same source compiled again | Stage 1 |
+| **Stage 0** | Reference C# implementation in `src/` | `dotnet build` |
+| **Stage 1** | Codex source compiled to C# | Stage 0 (via `Codex.Bootstrap`) |
+| **Stage 2** | Same source compiled again | Stage 1 (used as Stage 0) |
 
-**Current status** (March 2026):
+Stage 1 compiles to valid C#. Stage 2 is functionally identical to Stage 1.
+The compiler has reached a fixed point — it can compile itself.
 
-| Metric | Stage 0 | Stage 1 | Gap |
-|--------|---------|---------|-----|
-| Type definitions | 264 | 264 | **0** |
-| Function definitions | 222 | 220 | **0** |
-| Missing functions | — | 0 | **0** |
+```sh
+# Run the bootstrap (Stage 0 → Stage 1)
+dotnet run --project tools/Codex.Bootstrap
 
-See [docs/M13-BOOTSTRAP-PLAN.md](docs/M13-BOOTSTRAP-PLAN.md) for details and
-[docs/Reflections2.md](docs/Reflections2.md) for the story of closing the gap.
+# Verify: swap Stage 1 in as Stage 0, produce Stage 2
+cp Codex.Codex/stage1-output.cs tools/Codex.Bootstrap/CodexLib.g.cs
+dotnet run --project tools/Codex.Bootstrap
+# Stage 2 output matches Stage 1 functionally
+```
+
+The self-hosted compiler covers: lexing (247 lines), parsing (698 lines),
+desugaring (117 lines), name resolution (230 lines), bidirectional type checking
+with polymorphic instantiation (548 lines), IR lowering (326 lines), and
+C# emission (413 lines).
 
 ---
 
 ## Samples
 
-| File | Description | Output |
-|------|-------------|--------|
-| `hello.codex` | `square 5` | `25` |
-| `factorial.codex` | `factorial 10` | `3628800` |
-| `fibonacci.codex` | `fib 20` | `6765` |
-| `greeting.codex` | `greeting "World"` | `Hello, World!` |
-| `shapes.codex` | Sum types + pattern matching | `78.5` |
-| `person.codex` | Record types + field access | `Hello, Alice!` |
-| `prose-greeting.codex` | Literate prose format | `Hello, World!` |
-| `safe-divide.codex` | Option type | `Just 5` |
-| `effects-demo.codex` | Effect types | — |
+| File | Description |
+|------|-------------|
+| `hello.codex` | `square 5` → `25` |
+| `factorial.codex` | `factorial 10` → `3628800` |
+| `fibonacci.codex` | `fib 20` → `6765` |
+| `greeting.codex` | Literate document, `greet "World"` → `Hello, World!` |
+| `shapes.codex` | Sum types + pattern matching |
+| `person.codex` | Record types + field access |
+| `safe-divide.codex` | Option type |
+| `effects-demo.codex` | Effect types |
+| `tco-stress.codex` | Tail-call optimization stress test |
+| `mini-bootstrap.codex` | All-features smoke test for self-hosting |
 
 ---
 
@@ -208,13 +237,13 @@ See [docs/M13-BOOTSTRAP-PLAN.md](docs/M13-BOOTSTRAP-PLAN.md) for details and
 ```sh
 cd editors/vscode
 npm install
-# Then in VS Code: F5 to launch Extension Development Host
-# Or: npx vsce package && code --install-extension codex-lang-0.1.0.vsix
+npx vsce package && code --install-extension codex-lang-0.1.0.vsix
 ```
 
-Features: syntax highlighting in VS Code (keywords, types, operators, prose structure,
-strings, numbers), bracket matching, auto-indentation, and LSP integration
-for diagnostics and hover.
+Features: syntax highlighting, bracket matching, auto-indentation, and LSP
+integration for diagnostics and hover.
+
+**Visual Studio**: Extension project at `tools/Codex.VsExtension/`.
 
 ---
 
@@ -226,13 +255,25 @@ for diagnostics and hover.
 | M1: Notation (lexer + parser) | ✅ |
 | M2: Type Checking | ✅ |
 | M3: Execution via C# | ✅ |
-| M4–M12: Type system, IR, effects, proofs, LSP | ✅ |
+| M4–M12: Type system, IR, effects, proofs, LSP, backends | ✅ |
 | M13: Self-hosting bootstrap | ✅ |
+
+---
+
+## Documentation
+
+Architecture and design docs live in `docs/`:
+
+- [00-OVERVIEW.md](docs/00-OVERVIEW.md) — Project vision
+- [01-ARCHITECTURE.md](docs/01-ARCHITECTURE.md) — System architecture
+- [02-LANGUAGE-DESIGN.md](docs/02-LANGUAGE-DESIGN.md) — Language design
+- [03-TYPE-SYSTEM.md](docs/03-TYPE-SYSTEM.md) — Type system
+- [04-COMPILER-PIPELINE.md](docs/04-COMPILER-PIPELINE.md) — Compiler pipeline
+- [10-PRINCIPLES.md](docs/10-PRINCIPLES.md) — Engineering principles
+- [Opus.md](Opus.md) — The self-hosting story
 
 ---
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for coding standards and agent instructions.
-
-See [docs/10-PRINCIPLES.md](docs/10-PRINCIPLES.md) for engineering principles.
