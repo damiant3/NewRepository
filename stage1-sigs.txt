@@ -1,0 +1,30 @@
+﻿public static AExpr desugar_expr(Expr node) => node switch
+public static AExpr desugar_literal(Token tok)
+public static LiteralKind classify_literal(TokenKind k) => k switch
+public static ALetBind desugar_let_bind(LetBind b)
+public static AMatchArm desugar_match_arm(MatchArm arm)
+public static AFieldExpr desugar_field_expr(RecordFieldExpr f)
+public static ADoStmt desugar_do_stmt(DoStmt s) => s switch
+public static BinaryOp desugar_bin_op(TokenKind k) => k switch
+public static APat desugar_pattern(Pat p) => p switch
+public static ATypeExpr desugar_type_expr(TypeExpr t) => t switch
+public static ADef desugar_def(Def d)
+public static List<ATypeExpr> desugar_annotations(List<TypeAnn> anns) => ((list_length(anns) == 0) ? new List<ATypeExpr>() : ((List<ATypeExpr> a = list_at(anns(0))) is var _ ? new List<ATypeExpr>
+public static AParam desugar_param(Token tok)
+public static ATypeDef desugar_type_def(TypeDef td) => td.body switch
+public static Name make_type_param_name(Token tok)
+public static ARecordFieldDef desugar_record_field_def(RecordFieldDef f)
+public static AVariantCtorDef desugar_variant_ctor_def(VariantCtorDef c)
+public static AModule desugar_document(Document doc, string module_name)
+public static List<b> map_list(Func<a, b> f, List<a> xs)
+public static List<b> map_list_loop(Func<a, b> f, List<a> xs, long i, long len, List<b> acc) => ((i == len) ? acc : map_list_loop(f(xs((i + 1))(len((acc + new List<b>
+public static b fold_list(Func<b, Func<a, b>> f, b z, List<a> xs)
+public static b fold_list_loop(Func<b, Func<a, b>> f, b z, List<a> xs, long i, long len)
+public static Diagnostic make_error(string code, string msg)
+public static Diagnostic make_warning(string code, string msg)
+public static string severity_label(DiagnosticSeverity s) => s switch
+public static string diagnostic_display(Diagnostic d)
+public static Name make_name(string s)
+public static string name_value(Name n)
+public static SourcePosition make_position(long line, long col, long offset)
+public static SourceSpan make_span(SourcePosition s, SourcePosition e, string f)
