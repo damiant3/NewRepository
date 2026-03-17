@@ -357,37 +357,49 @@ Section: Infer Expression (dispatch)
 
 Section: Resolve Type Expression
 
-    resolve-type-expr : ATypeExpr -> CodexType
-    resolve-type-expr (texpr) =
+    resolve-type-expr : List TypeBinding -> ATypeExpr -> CodexType
+    resolve-type-expr (tdm) (texpr) =
       when texpr
-        if ANamedType (name) -> resolve-type-name name.value
-        if AFunType (param) (ret) -> FunTy (resolve-type-expr param) (resolve-type-expr ret)
-        if AAppType (ctor) (args) -> resolve-applied-type ctor args
+        if ANamedType (name) -> resolve-type-name tdm name.value
+        if AFunType (param) (ret) -> FunTy (resolve-type-expr tdm param) (resolve-type-expr tdm ret)
+        if AAppType (ctor) (args) -> resolve-applied-type tdm ctor args
 
-    resolve-applied-type : ATypeExpr -> List ATypeExpr -> CodexType
-    resolve-applied-type (ctor) (args) =
+    resolve-applied-type : List TypeBinding -> ATypeExpr -> List ATypeExpr -> CodexType
+    resolve-applied-type (tdm) (ctor) (args) =
       when ctor
         if ANamedType (name) ->
           if name.value == "List"
             then if list-length args == 1
-              then ListTy (resolve-type-expr (list-at args 0))
+              then ListTy (resolve-type-expr tdm (list-at args 0))
               else ListTy ErrorTy
-            else ConstructedTy name (resolve-type-expr-list args 0 (list-length args) [])
-        if _ -> resolve-type-expr ctor
+            else ConstructedTy name (resolve-type-expr-list tdm args 0 (list-length args) [])
+        if _ -> resolve-type-expr tdm ctor
 
-    resolve-type-expr-list : List ATypeExpr -> Integer -> Integer -> List CodexType -> List CodexType
-    resolve-type-expr-list (args) (i) (len) (acc) =
+    resolve-type-expr-list : List TypeBinding -> List ATypeExpr -> Integer -> Integer -> List CodexType -> List CodexType
+    resolve-type-expr-list (tdm) (args) (i) (len) (acc) =
       if i == len then acc
-      else resolve-type-expr-list args (i + 1) len (acc ++ [resolve-type-expr (list-at args i)])
+      else resolve-type-expr-list tdm args (i + 1) len (acc ++ [resolve-type-expr tdm (list-at args i)])
 
-    resolve-type-name : Text -> CodexType
-    resolve-type-name (name) =
+    resolve-type-name : List TypeBinding -> Text -> CodexType
+    resolve-type-name (tdm) (name) =
       if name == "Integer" then IntegerTy
       else if name == "Number" then NumberTy
       else if name == "Text" then TextTy
       else if name == "Boolean" then BooleanTy
       else if name == "Nothing" then NothingTy
-      else ConstructedTy (Name { value = name }) []
+      else lookup-type-def tdm name
+
+    lookup-type-def : List TypeBinding -> Text -> CodexType
+    lookup-type-def (tdm) (name) =
+      lookup-type-def-loop tdm name 0 (list-length tdm)
+
+    lookup-type-def-loop : List TypeBinding -> Text -> Integer -> Integer -> CodexType
+    lookup-type-def-loop (tdm) (name) (i) (len) =
+      if i == len then ConstructedTy (Name { value = name }) []
+      else
+        let b = list-at tdm i
+        in if b.name == name then b.bound-type
+        else lookup-type-def-loop tdm name (i + 1) len
 
 Section: Parameterize Type
 
@@ -536,12 +548,13 @@ Section: Check Module
 
     check-module : AModule -> ModuleResult
     check-module (mod) =
-      let tenv = register-type-defs empty-unification-state builtin-type-env mod.type-defs 0 (list-length mod.type-defs)
-      in let env = register-all-defs tenv.state tenv.env mod.defs 0 (list-length mod.defs)
+      let tdm = build-type-def-map mod.type-defs 0 (list-length mod.type-defs) []
+      in let tenv = register-type-defs empty-unification-state builtin-type-env tdm mod.type-defs 0 (list-length mod.type-defs)
+      in let env = register-all-defs tenv.state tenv.env tdm mod.defs 0 (list-length mod.defs)
       in check-all-defs env.state env.env mod.defs 0 (list-length mod.defs) []
 
-    register-all-defs : UnificationState -> TypeEnv -> List ADef -> Integer -> Integer -> LetBindResult
-    register-all-defs (st) (env) (defs) (i) (len) =
+    register-all-defs : UnificationState -> TypeEnv -> List TypeBinding -> List ADef -> Integer -> Integer -> LetBindResult
+    register-all-defs (st) (env) (tdm) (defs) (i) (len) =
       if i == len then LetBindResult { state = st, env = env }
       else
         let def = list-at defs i
@@ -549,10 +562,10 @@ Section: Check Module
              then let fr = fresh-and-advance st
                   in let env2 = env-bind env def.name.value fr.var-type
                   in LetBindResult { state = fr.state, env = env2 }
-             else let resolved = resolve-type-expr (list-at def.declared-type 0)
+             else let resolved = resolve-type-expr tdm (list-at def.declared-type 0)
                   in let pr = parameterize-type st resolved
                   in LetBindResult { state = pr.state, env = env-bind env def.name.value pr.parameterized }
-        in register-all-defs ty.state ty.env defs (i + 1) len
+        in register-all-defs ty.state ty.env tdm defs (i + 1) len
 
     check-all-defs : UnificationState -> TypeEnv -> List ADef -> Integer -> Integer -> List TypeBinding -> ModuleResult
     check-all-defs (st) (env) (defs) (i) (len) (acc) =
@@ -566,33 +579,69 @@ Section: Check Module
 
 Section: Register Type Definitions
 
-    register-type-defs : UnificationState -> TypeEnv -> List ATypeDef -> Integer -> Integer -> LetBindResult
-    register-type-defs (st) (env) (tdefs) (i) (len) =
-      if i == len then LetBindResult { state = st, env = env }
+    build-type-def-map : List ATypeDef -> Integer -> Integer -> List TypeBinding -> List TypeBinding
+    build-type-def-map (tdefs) (i) (len) (acc) =
+      if i == len then acc
       else
         let td = list-at tdefs i
-        in let r = register-one-type-def st env td
-        in register-type-defs r.state r.env tdefs (i + 1) len
+        in let entry = when td
+              if AVariantTypeDef (name) (type-params) (ctors) ->
+                let sum-ctors = build-sum-ctors tdefs ctors 0 (list-length ctors) [] acc
+                in TypeBinding { name = name.value, bound-type = SumTy name sum-ctors }
+              if ARecordTypeDef (name) (type-params) (fields) ->
+                let rec-fields = build-record-fields-for-map tdefs fields 0 (list-length fields) [] acc
+                in TypeBinding { name = name.value, bound-type = RecordTy name rec-fields }
+        in build-type-def-map tdefs (i + 1) len (acc ++ [entry])
 
-    register-one-type-def : UnificationState -> TypeEnv -> ATypeDef -> LetBindResult
-    register-one-type-def (st) (env) (td) =
-      when td
-        if AVariantTypeDef (name) (type-params) (ctors) ->
-          let result-ty = ConstructedTy name []
-          in register-variant-ctors st env ctors result-ty 0 (list-length ctors)
-        if ARecordTypeDef (name) (type-params) (fields) ->
-          let resolved-fields = build-record-fields fields 0 (list-length fields) []
-          in let result-ty = RecordTy name resolved-fields
-          in let ctor-ty = build-record-ctor-type fields result-ty 0 (list-length fields)
-          in LetBindResult { state = st, env = env-bind env name.value ctor-ty }
+    build-sum-ctors : List ATypeDef -> List AVariantCtorDef -> Integer -> Integer -> List SumCtor -> List TypeBinding -> List SumCtor
+    build-sum-ctors (tdefs) (ctors) (i) (len) (acc) (partial-tdm) =
+      if i == len then acc
+      else
+        let c = list-at ctors i
+        in let field-types = resolve-type-expr-list-for-map tdefs c.fields 0 (list-length c.fields) [] partial-tdm
+        in let sc = SumCtor { name = c.name, fields = field-types }
+        in build-sum-ctors tdefs ctors (i + 1) len (acc ++ [sc]) partial-tdm
 
-    build-record-fields : List ARecordFieldDef -> Integer -> Integer -> List RecordField -> List RecordField
-    build-record-fields (fields) (i) (len) (acc) =
+    build-record-fields-for-map : List ATypeDef -> List ARecordFieldDef -> Integer -> Integer -> List RecordField -> List TypeBinding -> List RecordField
+    build-record-fields-for-map (tdefs) (fields) (i) (len) (acc) (partial-tdm) =
       if i == len then acc
       else
         let f = list-at fields i
-        in let rfield = RecordField { name = f.name, type-val = resolve-type-expr f.type-expr }
-        in build-record-fields fields (i + 1) len (acc ++ [rfield])
+        in let rfield = RecordField { name = f.name, type-val = resolve-type-expr partial-tdm f.type-expr }
+        in build-record-fields-for-map tdefs fields (i + 1) len (acc ++ [rfield]) partial-tdm
+
+    resolve-type-expr-list-for-map : List ATypeDef -> List ATypeExpr -> Integer -> Integer -> List CodexType -> List TypeBinding -> List CodexType
+    resolve-type-expr-list-for-map (tdefs) (args) (i) (len) (acc) (partial-tdm) =
+      if i == len then acc
+      else resolve-type-expr-list-for-map tdefs args (i + 1) len (acc ++ [resolve-type-expr partial-tdm (list-at args i)]) partial-tdm
+
+    register-type-defs : UnificationState -> TypeEnv -> List TypeBinding -> List ATypeDef -> Integer -> Integer -> LetBindResult
+    register-type-defs (st) (env) (tdm) (tdefs) (i) (len) =
+      if i == len then LetBindResult { state = st, env = env }
+      else
+        let td = list-at tdefs i
+        in let r = register-one-type-def st env tdm td
+        in register-type-defs r.state r.env tdm tdefs (i + 1) len
+
+    register-one-type-def : UnificationState -> TypeEnv -> List TypeBinding -> ATypeDef -> LetBindResult
+    register-one-type-def (st) (env) (tdm) (td) =
+      when td
+        if AVariantTypeDef (name) (type-params) (ctors) ->
+          let result-ty = lookup-type-def tdm name.value
+          in register-variant-ctors st env tdm ctors result-ty 0 (list-length ctors)
+        if ARecordTypeDef (name) (type-params) (fields) ->
+          let resolved-fields = build-record-fields tdm fields 0 (list-length fields) []
+          in let result-ty = RecordTy name resolved-fields
+          in let ctor-ty = build-record-ctor-type tdm fields result-ty 0 (list-length fields)
+          in LetBindResult { state = st, env = env-bind env name.value ctor-ty }
+
+    build-record-fields : List TypeBinding -> List ARecordFieldDef -> Integer -> Integer -> List RecordField -> List RecordField
+    build-record-fields (tdm) (fields) (i) (len) (acc) =
+      if i == len then acc
+      else
+        let f = list-at fields i
+        in let rfield = RecordField { name = f.name, type-val = resolve-type-expr tdm f.type-expr }
+        in build-record-fields tdm fields (i + 1) len (acc ++ [rfield])
 
     lookup-record-field : List RecordField -> Text -> CodexType
     lookup-record-field (fields) (name) =
@@ -610,26 +659,26 @@ Section: Register Type Definitions
         in if f.name.value == name then f.type-val
         else lookup-record-field-loop fields name (i + 1) len
 
-    register-variant-ctors : UnificationState -> TypeEnv -> List AVariantCtorDef -> CodexType -> Integer -> Integer -> LetBindResult
-    register-variant-ctors (st) (env) (ctors) (result-ty) (i) (len) =
+    register-variant-ctors : UnificationState -> TypeEnv -> List TypeBinding -> List AVariantCtorDef -> CodexType -> Integer -> Integer -> LetBindResult
+    register-variant-ctors (st) (env) (tdm) (ctors) (result-ty) (i) (len) =
       if i == len then LetBindResult { state = st, env = env }
       else
         let ctor = list-at ctors i
-        in let ctor-ty = build-ctor-type ctor.fields result-ty 0 (list-length ctor.fields)
+        in let ctor-ty = build-ctor-type tdm ctor.fields result-ty 0 (list-length ctor.fields)
         in let env2 = env-bind env ctor.name.value ctor-ty
-        in register-variant-ctors st env2 ctors result-ty (i + 1) len
+        in register-variant-ctors st env2 tdm ctors result-ty (i + 1) len
 
-    build-ctor-type : List ATypeExpr -> CodexType -> Integer -> Integer -> CodexType
-    build-ctor-type (fields) (result) (i) (len) =
+    build-ctor-type : List TypeBinding -> List ATypeExpr -> CodexType -> Integer -> Integer -> CodexType
+    build-ctor-type (tdm) (fields) (result) (i) (len) =
       if i == len then result
       else
-        let rest = build-ctor-type fields result (i + 1) len
-        in FunTy (resolve-type-expr (list-at fields i)) rest
+        let rest = build-ctor-type tdm fields result (i + 1) len
+        in FunTy (resolve-type-expr tdm (list-at fields i)) rest
 
-    build-record-ctor-type : List ARecordFieldDef -> CodexType -> Integer -> Integer -> CodexType
-    build-record-ctor-type (fields) (result) (i) (len) =
+    build-record-ctor-type : List TypeBinding -> List ARecordFieldDef -> CodexType -> Integer -> Integer -> CodexType
+    build-record-ctor-type (tdm) (fields) (result) (i) (len) =
       if i == len then result
       else
         let f = list-at fields i
-        in let rest = build-record-ctor-type fields result (i + 1) len
-        in FunTy (resolve-type-expr f.type-expr) rest
+        in let rest = build-record-ctor-type tdm fields result (i + 1) len
+        in FunTy (resolve-type-expr tdm f.type-expr) rest

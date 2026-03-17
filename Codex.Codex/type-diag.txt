@@ -131,256 +131,263 @@
 130: build-ctor-type-for-lower : Func<List<ATypeExpr>, Func<CodexType, Func<long, Func<long, CodexType>>>>
 131: build-record-fields-for-lower : Func<List<ARecordFieldDef>, Func<long, Func<long, Func<List<RecordField>, List<RecordField>>>>>
 132: build-record-ctor-type-for-lower : Func<List<ARecordFieldDef>, Func<CodexType, Func<long, Func<long, CodexType>>>>
-133: empty-scope : Scope
-134: scope-has : Func<Scope, Func<string, bool>>
-135: scope-has-loop : Func<List<string>, Func<string, Func<long, Func<long, bool>>>>
-136: scope-add : Func<Scope, Func<string, Scope>>
-137: builtin-names : List<string>
-138: is-type-name : Func<string, bool>
-139: is-upper-char : Func<string, bool>
-140: collect-top-level-names : Func<List<ADef>, Func<long, Func<long, Func<List<string>, Func<List<Diagnostic>, CollectResult>>>>>
-141: list-contains : Func<List<string>, Func<string, bool>>
-142: list-contains-loop : Func<List<string>, Func<string, Func<long, Func<long, bool>>>>
-143: collect-ctor-names : Func<List<ATypeDef>, Func<long, Func<long, Func<List<string>, Func<List<string>, CtorCollectResult>>>>>
-144: collect-variant-ctors : Func<List<AVariantCtorDef>, Func<long, Func<long, Func<List<string>, List<string>>>>>
-145: build-all-names-scope : Func<List<string>, Func<List<string>, Func<List<string>, Scope>>>
-146: add-names-to-scope : Func<Scope, Func<List<string>, Func<long, Func<long, Scope>>>>
-147: resolve-expr : Func<Scope, Func<AExpr, List<Diagnostic>>>
-148: resolve-let : Func<Scope, Func<List<ALetBind>, Func<AExpr, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>>
-149: add-lambda-params : Func<Scope, Func<List<Name>, Func<long, Func<long, Scope>>>>
-150: resolve-match-arms : Func<Scope, Func<List<AMatchArm>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
-151: collect-pattern-names : Func<Scope, Func<APat, Scope>>
-152: collect-ctor-pat-names : Func<Scope, Func<List<APat>, Func<long, Func<long, Scope>>>>
-153: resolve-list-elems : Func<Scope, Func<List<AExpr>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
-154: resolve-record-fields : Func<Scope, Func<List<AFieldExpr>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
-155: resolve-do-stmts : Func<Scope, Func<List<ADoStmt>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
-156: resolve-all-defs : Func<Scope, Func<List<ADef>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
-157: add-def-params : Func<Scope, Func<List<AParam>, Func<long, Func<long, Scope>>>>
-158: resolve-module : Func<AModule, ResolveResult>
-159: make-lex-state : Func<string, LexState>
-160: is-at-end : Func<LexState, bool>
-161: peek-char : Func<LexState, string>
-162: advance-char : Func<LexState, LexState>
-163: skip-spaces : Func<LexState, LexState>
-164: scan-ident-rest : Func<LexState, LexState>
-165: scan-digits : Func<LexState, LexState>
-166: scan-string-body : Func<LexState, LexState>
-167: classify-word : Func<string, TokenKind>
-168: make-token : Func<TokenKind, Func<string, Func<LexState, Token>>>
-169: extract-text : Func<LexState, Func<long, Func<LexState, string>>>
-170: scan-token : Func<LexState, LexResult>
-171: scan-operator : Func<LexState, LexResult>
-172: scan-multi-char-operator : Func<LexState, LexResult>
-173: tokenize-loop : Func<LexState, Func<List<Token>, List<Token>>>
-174: tokenize : Func<string, List<Token>>
-175: make-parse-state : Func<List<Token>, ParseState>
-176: current : Func<ParseState, Token>
-177: current-kind : Func<ParseState, TokenKind>
-178: advance : Func<ParseState, ParseState>
-179: is-done : Func<ParseState, bool>
-180: peek-kind : Func<ParseState, Func<long, TokenKind>>
-181: is-ident : Func<TokenKind, bool>
-182: is-type-ident : Func<TokenKind, bool>
-183: is-arrow : Func<TokenKind, bool>
-184: is-equals : Func<TokenKind, bool>
-185: is-colon : Func<TokenKind, bool>
-186: is-comma : Func<TokenKind, bool>
-187: is-pipe : Func<TokenKind, bool>
-188: is-dot : Func<TokenKind, bool>
-189: is-left-paren : Func<TokenKind, bool>
-190: is-left-brace : Func<TokenKind, bool>
-191: is-left-bracket : Func<TokenKind, bool>
-192: is-right-brace : Func<TokenKind, bool>
-193: is-right-bracket : Func<TokenKind, bool>
-194: is-if-keyword : Func<TokenKind, bool>
-195: is-let-keyword : Func<TokenKind, bool>
-196: is-when-keyword : Func<TokenKind, bool>
-197: is-do-keyword : Func<TokenKind, bool>
-198: is-in-keyword : Func<TokenKind, bool>
-199: is-minus : Func<TokenKind, bool>
-200: is-dedent : Func<TokenKind, bool>
-201: is-left-arrow : Func<TokenKind, bool>
-202: is-record-keyword : Func<TokenKind, bool>
-203: is-underscore : Func<TokenKind, bool>
-204: is-literal : Func<TokenKind, bool>
-205: is-app-start : Func<TokenKind, bool>
-206: is-compound : Func<Expr, bool>
-207: is-type-arg-start : Func<TokenKind, bool>
-208: operator-precedence : Func<TokenKind, long>
-209: is-right-assoc : Func<TokenKind, bool>
-210: expect : Func<TokenKind, Func<ParseState, ParseState>>
-211: skip-newlines : Func<ParseState, ParseState>
-212: parse-type : Func<ParseState, ParseTypeResult>
-213: parse-type-continue : Func<TypeExpr, Func<ParseState, ParseTypeResult>>
-214: make-fun-type : Func<TypeExpr, Func<TypeExpr, Func<ParseState, ParseTypeResult>>>
-215: unwrap-type-ok : Func<ParseTypeResult, Func<Func<TypeExpr, Func<ParseState, ParseTypeResult>>, ParseTypeResult>>
-216: parse-type-atom : Func<ParseState, ParseTypeResult>
-217: parse-paren-type : Func<ParseState, ParseTypeResult>
-218: finish-paren-type : Func<TypeExpr, Func<ParseState, ParseTypeResult>>
-219: parse-type-args : Func<TypeExpr, Func<ParseState, ParseTypeResult>>
-220: parse-type-arg-next : Func<TypeExpr, Func<ParseState, ParseTypeResult>>
-221: continue-type-args : Func<TypeExpr, Func<TypeExpr, Func<ParseState, ParseTypeResult>>>
-222: parse-pattern : Func<ParseState, ParsePatResult>
-223: parse-ctor-pattern-fields : Func<Token, Func<List<Pat>, Func<ParseState, ParsePatResult>>>
-224: continue-ctor-fields : Func<Token, Func<List<Pat>, Func<Pat, Func<ParseState, ParsePatResult>>>>
-225: unwrap-pat-ok : Func<ParsePatResult, Func<Func<Pat, Func<ParseState, ParsePatResult>>, ParsePatResult>>
-226: parse-expr : Func<ParseState, ParseExprResult>
-227: unwrap-expr-ok : Func<ParseExprResult, Func<Func<Expr, Func<ParseState, ParseExprResult>>, ParseExprResult>>
-228: parse-binary : Func<ParseState, Func<long, ParseExprResult>>
-229: start-binary-loop : Func<long, Func<Expr, Func<ParseState, ParseExprResult>>>
-230: parse-binary-loop : Func<Expr, Func<ParseState, Func<long, ParseExprResult>>>
-231: continue-binary : Func<Expr, Func<Token, Func<long, Func<Expr, Func<ParseState, ParseExprResult>>>>>
-232: parse-unary : Func<ParseState, ParseExprResult>
-233: finish-unary : Func<Token, Func<Expr, Func<ParseState, ParseExprResult>>>
-234: parse-application : Func<ParseState, ParseExprResult>
-235: parse-app-loop : Func<Expr, Func<ParseState, ParseExprResult>>
-236: continue-app : Func<Expr, Func<Expr, Func<ParseState, ParseExprResult>>>
-237: parse-atom : Func<ParseState, ParseExprResult>
-238: parse-field-access : Func<Expr, Func<ParseState, ParseExprResult>>
-239: parse-dot-only : Func<Expr, Func<ParseState, ParseExprResult>>
-240: parse-atom-type-ident : Func<ParseState, ParseExprResult>
-241: parse-paren-expr : Func<ParseState, ParseExprResult>
-242: finish-paren-expr : Func<Expr, Func<ParseState, ParseExprResult>>
-243: parse-record-expr : Func<Token, Func<ParseState, ParseExprResult>>
-244: parse-record-expr-fields : Func<Token, Func<List<RecordFieldExpr>, Func<ParseState, ParseExprResult>>>
-245: parse-record-field : Func<Token, Func<List<RecordFieldExpr>, Func<ParseState, ParseExprResult>>>
-246: finish-record-field : Func<Token, Func<List<RecordFieldExpr>, Func<Token, Func<Expr, Func<ParseState, ParseExprResult>>>>>
-247: parse-list-expr : Func<ParseState, ParseExprResult>
-248: parse-list-elements : Func<List<Expr>, Func<ParseState, ParseExprResult>>
-249: finish-list-element : Func<List<Expr>, Func<Expr, Func<ParseState, ParseExprResult>>>
-250: parse-if-expr : Func<ParseState, ParseExprResult>
-251: parse-if-then : Func<Expr, Func<ParseState, ParseExprResult>>
-252: parse-if-else : Func<Expr, Func<Expr, Func<ParseState, ParseExprResult>>>
-253: finish-if : Func<Expr, Func<Expr, Func<Expr, Func<ParseState, ParseExprResult>>>>
-254: parse-let-expr : Func<ParseState, ParseExprResult>
-255: parse-let-bindings : Func<List<LetBind>, Func<ParseState, ParseExprResult>>
-256: finish-let : Func<List<LetBind>, Func<Expr, Func<ParseState, ParseExprResult>>>
-257: parse-let-binding : Func<List<LetBind>, Func<ParseState, ParseExprResult>>
-258: finish-let-binding : Func<List<LetBind>, Func<Token, Func<Expr, Func<ParseState, ParseExprResult>>>>
-259: parse-match-expr : Func<ParseState, ParseExprResult>
-260: start-match-branches : Func<Expr, Func<ParseState, ParseExprResult>>
-261: parse-match-branches : Func<Expr, Func<List<MatchArm>, Func<ParseState, ParseExprResult>>>
-262: unwrap-pat-for-expr : Func<ParsePatResult, Func<Func<Pat, Func<ParseState, ParseExprResult>>, ParseExprResult>>
-263: parse-one-match-branch : Func<Expr, Func<List<MatchArm>, Func<ParseState, ParseExprResult>>>
-264: parse-match-branch-body : Func<Expr, Func<List<MatchArm>, Func<Pat, Func<ParseState, ParseExprResult>>>>
-265: finish-match-branch : Func<Expr, Func<List<MatchArm>, Func<Pat, Func<Expr, Func<ParseState, ParseExprResult>>>>>
-266: parse-do-expr : Func<ParseState, ParseExprResult>
-267: parse-do-stmts : Func<List<DoStmt>, Func<ParseState, ParseExprResult>>
-268: is-do-bind : Func<ParseState, bool>
-269: parse-do-bind-stmt : Func<List<DoStmt>, Func<ParseState, ParseExprResult>>
-270: finish-do-bind : Func<List<DoStmt>, Func<Token, Func<Expr, Func<ParseState, ParseExprResult>>>>
-271: parse-do-expr-stmt : Func<List<DoStmt>, Func<ParseState, ParseExprResult>>
-272: finish-do-expr : Func<List<DoStmt>, Func<Expr, Func<ParseState, ParseExprResult>>>
-273: parse-type-annotation : Func<ParseState, ParseTypeResult>
-274: parse-definition : Func<ParseState, ParseDefResult>
-275: try-parse-def : Func<ParseState, ParseDefResult>
-276: unwrap-type-for-def : Func<ParseTypeResult, ParseDefResult>
-277: parse-def-body-with-ann : Func<List<TypeAnn>, Func<ParseState, ParseDefResult>>
-278: parse-def-params-then : Func<List<TypeAnn>, Func<Token, Func<List<Token>, Func<ParseState, ParseDefResult>>>>
-279: finish-def : Func<List<TypeAnn>, Func<Token, Func<List<Token>, Func<ParseState, ParseDefResult>>>>
-280: unwrap-def-body : Func<ParseExprResult, Func<List<TypeAnn>, Func<Token, Func<List<Token>, ParseDefResult>>>>
-281: parse-type-def : Func<ParseState, ParseTypeDefResult>
-282: parse-record-type : Func<Token, Func<ParseState, ParseTypeDefResult>>
-283: parse-record-fields-loop : Func<Token, Func<List<RecordFieldDef>, Func<ParseState, ParseTypeDefResult>>>
-284: parse-one-record-field : Func<Token, Func<List<RecordFieldDef>, Func<ParseState, ParseTypeDefResult>>>
-285: unwrap-record-field-type : Func<Token, Func<List<RecordFieldDef>, Func<Token, Func<ParseTypeResult, ParseTypeDefResult>>>>
-286: parse-variant-type : Func<Token, Func<ParseState, ParseTypeDefResult>>
-287: parse-variant-ctors : Func<Token, Func<List<VariantCtorDef>, Func<ParseState, ParseTypeDefResult>>>
-288: parse-ctor-fields : Func<Token, Func<List<TypeExpr>, Func<ParseState, Func<Token, Func<List<VariantCtorDef>, ParseTypeDefResult>>>>>
-289: unwrap-ctor-field : Func<ParseTypeResult, Func<Token, Func<List<TypeExpr>, Func<Token, Func<List<VariantCtorDef>, ParseTypeDefResult>>>>>
-290: parse-document : Func<ParseState, Document>
-291: parse-top-level : Func<List<Def>, Func<List<TypeDef>, Func<ParseState, Document>>>
-292: try-top-level-type-def : Func<List<Def>, Func<List<TypeDef>, Func<ParseState, Document>>>
-293: try-top-level-def : Func<List<Def>, Func<List<TypeDef>, Func<ParseState, Document>>>
-294: token-length : Func<Token, long>
-295: infer-literal : Func<UnificationState, Func<LiteralKind, CheckResult>>
-296: infer-name : Func<UnificationState, Func<TypeEnv, Func<string, CheckResult>>>
-297: instantiate-type : Func<UnificationState, Func<CodexType, FreshResult>>
-298: subst-type-var : Func<CodexType, Func<long, Func<CodexType, CodexType>>>
-299: map-subst-type-var : Func<List<CodexType>, Func<long, Func<CodexType, Func<long, Func<long, Func<List<CodexType>, List<CodexType>>>>>>>
-300: infer-binary : Func<UnificationState, Func<TypeEnv, Func<AExpr, Func<BinaryOp, Func<AExpr, CheckResult>>>>>
-301: infer-binary-op : Func<UnificationState, Func<CodexType, Func<CodexType, Func<BinaryOp, CheckResult>>>>
-302: infer-arithmetic : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
-303: infer-comparison : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
-304: infer-logical : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
-305: infer-append : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
-306: infer-cons : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
-307: infer-if : Func<UnificationState, Func<TypeEnv, Func<AExpr, Func<AExpr, Func<AExpr, CheckResult>>>>>
-308: infer-let : Func<UnificationState, Func<TypeEnv, Func<List<ALetBind>, Func<AExpr, CheckResult>>>>
-309: infer-let-bindings : Func<UnificationState, Func<TypeEnv, Func<List<ALetBind>, Func<long, Func<long, LetBindResult>>>>>
-310: infer-lambda : Func<UnificationState, Func<TypeEnv, Func<List<Name>, Func<AExpr, CheckResult>>>>
-311: bind-lambda-params : Func<UnificationState, Func<TypeEnv, Func<List<Name>, Func<long, Func<long, Func<List<CodexType>, LambdaBindResult>>>>>>
-312: wrap-fun-type : Func<List<CodexType>, Func<CodexType, CodexType>>
-313: wrap-fun-type-loop : Func<List<CodexType>, Func<CodexType, Func<long, CodexType>>>
-314: infer-application : Func<UnificationState, Func<TypeEnv, Func<AExpr, Func<AExpr, CheckResult>>>>
-315: infer-list : Func<UnificationState, Func<TypeEnv, Func<List<AExpr>, CheckResult>>>
-316: unify-list-elems : Func<UnificationState, Func<TypeEnv, Func<List<AExpr>, Func<CodexType, Func<long, Func<long, UnificationState>>>>>>
-317: infer-match : Func<UnificationState, Func<TypeEnv, Func<AExpr, Func<List<AMatchArm>, CheckResult>>>>
-318: infer-match-arms : Func<UnificationState, Func<TypeEnv, Func<CodexType, Func<CodexType, Func<List<AMatchArm>, Func<long, Func<long, UnificationState>>>>>>>
-319: bind-pattern : Func<UnificationState, Func<TypeEnv, Func<APat, Func<CodexType, PatBindResult>>>>
-320: bind-ctor-sub-patterns : Func<UnificationState, Func<TypeEnv, Func<List<APat>, Func<CodexType, Func<long, Func<long, PatBindResult>>>>>>
-321: infer-do : Func<UnificationState, Func<TypeEnv, Func<List<ADoStmt>, CheckResult>>>
-322: infer-do-loop : Func<UnificationState, Func<TypeEnv, Func<List<ADoStmt>, Func<long, Func<long, Func<CodexType, CheckResult>>>>>>
-323: infer-expr : Func<UnificationState, Func<TypeEnv, Func<AExpr, CheckResult>>>
-324: resolve-constructed-to-record : Func<TypeEnv, Func<string, CodexType>>
-325: infer-record-fields : Func<UnificationState, Func<TypeEnv, Func<List<AFieldExpr>, Func<long, Func<long, UnificationState>>>>>
-326: strip-fun-args : Func<CodexType, CodexType>
-327: resolve-type-expr : Func<ATypeExpr, CodexType>
-328: resolve-applied-type : Func<ATypeExpr, Func<List<ATypeExpr>, CodexType>>
-329: resolve-type-expr-list : Func<List<ATypeExpr>, Func<long, Func<long, Func<List<CodexType>, List<CodexType>>>>>
-330: resolve-type-name : Func<string, CodexType>
-331: is-value-name : Func<string, bool>
-332: parameterize-type : Func<UnificationState, Func<CodexType, ParamResult>>
-333: wrap-forall-from-entries : Func<CodexType, Func<List<ParamEntry>, Func<long, Func<long, CodexType>>>>
-334: parameterize-walk : Func<UnificationState, Func<List<ParamEntry>, Func<CodexType, WalkResult>>>
-335: find-param-entry : Func<List<ParamEntry>, Func<string, Func<long, Func<long, long>>>>
-336: parameterize-walk-list : Func<UnificationState, Func<List<ParamEntry>, Func<List<CodexType>, Func<long, Func<long, Func<List<CodexType>, WalkListResult>>>>>>
-337: check-def : Func<UnificationState, Func<TypeEnv, Func<ADef, CheckResult>>>
-338: resolve-declared-type : Func<UnificationState, Func<TypeEnv, Func<ADef, DefSetup>>>
-339: bind-def-params : Func<UnificationState, Func<TypeEnv, Func<List<AParam>, Func<CodexType, Func<long, Func<long, DefParamResult>>>>>>
-340: check-module : Func<AModule, ModuleResult>
-341: register-all-defs : Func<UnificationState, Func<TypeEnv, Func<List<ADef>, Func<long, Func<long, LetBindResult>>>>>
-342: check-all-defs : Func<UnificationState, Func<TypeEnv, Func<List<ADef>, Func<long, Func<long, Func<List<TypeBinding>, ModuleResult>>>>>>
-343: register-type-defs : Func<UnificationState, Func<TypeEnv, Func<List<ATypeDef>, Func<long, Func<long, LetBindResult>>>>>
-344: register-one-type-def : Func<UnificationState, Func<TypeEnv, Func<ATypeDef, LetBindResult>>>
-345: build-record-fields : Func<List<ARecordFieldDef>, Func<long, Func<long, Func<List<RecordField>, List<RecordField>>>>>
-346: lookup-record-field : Func<List<RecordField>, Func<string, CodexType>>
-347: lookup-record-field-loop : Func<List<RecordField>, Func<string, Func<long, Func<long, CodexType>>>>
-348: register-variant-ctors : Func<UnificationState, Func<TypeEnv, Func<List<AVariantCtorDef>, Func<CodexType, Func<long, Func<long, LetBindResult>>>>>>
-349: build-ctor-type : Func<List<ATypeExpr>, Func<CodexType, Func<long, Func<long, CodexType>>>>
-350: build-record-ctor-type : Func<List<ARecordFieldDef>, Func<CodexType, Func<long, Func<long, CodexType>>>>
-351: empty-type-env : TypeEnv
-352: env-lookup : Func<TypeEnv, Func<string, CodexType>>
-353: env-lookup-loop : Func<List<TypeBinding>, Func<string, Func<long, Func<long, CodexType>>>>
-354: env-has : Func<TypeEnv, Func<string, bool>>
-355: env-has-loop : Func<List<TypeBinding>, Func<string, Func<long, Func<long, bool>>>>
-356: env-bind : Func<TypeEnv, Func<string, Func<CodexType, TypeEnv>>>
-357: builtin-type-env : TypeEnv
-358: empty-unification-state : UnificationState
-359: fresh-var : Func<UnificationState, CodexType>
-360: advance-id : Func<UnificationState, UnificationState>
-361: fresh-and-advance : Func<UnificationState, FreshResult>
-362: subst-lookup : Func<long, Func<List<SubstEntry>, CodexType>>
-363: subst-lookup-loop : Func<long, Func<List<SubstEntry>, Func<long, Func<long, CodexType>>>>
-364: has-subst : Func<long, Func<List<SubstEntry>, bool>>
-365: has-subst-loop : Func<long, Func<List<SubstEntry>, Func<long, Func<long, bool>>>>
-366: resolve : Func<UnificationState, Func<CodexType, CodexType>>
-367: add-subst : Func<UnificationState, Func<long, Func<CodexType, UnificationState>>>
-368: add-unify-error : Func<UnificationState, Func<string, Func<string, UnificationState>>>
-369: occurs-in : Func<UnificationState, Func<long, Func<CodexType, bool>>>
-370: unify : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
-371: unify-resolved : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
-372: types-equal : Func<CodexType, Func<CodexType, bool>>
-373: unify-rhs : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
-374: unify-structural : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
-375: unify-constructed-args : Func<UnificationState, Func<List<CodexType>, Func<List<CodexType>, Func<long, Func<long, UnifyResult>>>>>
-376: unify-fun : Func<UnificationState, Func<CodexType, Func<CodexType, Func<CodexType, Func<CodexType, UnifyResult>>>>>
-377: unify-mismatch : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
-378: type-tag : Func<CodexType, string>
-379: deep-resolve : Func<UnificationState, Func<CodexType, CodexType>>
-380: deep-resolve-list : Func<UnificationState, Func<List<CodexType>, Func<long, Func<long, Func<List<CodexType>, List<CodexType>>>>>>
-381: compile : Func<string, Func<string, string>>
-382: compile-checked : Func<string, Func<string, CompileResult>>
-383: test-source : string
-384: Console : [
-385: main : object [HAS-OBJECT]
+133: resolve-type-expr-for-lower : Func<ATypeExpr, CodexType>
+134: empty-scope : Scope
+135: scope-has : Func<Scope, Func<string, bool>>
+136: scope-has-loop : Func<List<string>, Func<string, Func<long, Func<long, bool>>>>
+137: scope-add : Func<Scope, Func<string, Scope>>
+138: builtin-names : List<string>
+139: is-type-name : Func<string, bool>
+140: is-upper-char : Func<string, bool>
+141: collect-top-level-names : Func<List<ADef>, Func<long, Func<long, Func<List<string>, Func<List<Diagnostic>, CollectResult>>>>>
+142: list-contains : Func<List<string>, Func<string, bool>>
+143: list-contains-loop : Func<List<string>, Func<string, Func<long, Func<long, bool>>>>
+144: collect-ctor-names : Func<List<ATypeDef>, Func<long, Func<long, Func<List<string>, Func<List<string>, CtorCollectResult>>>>>
+145: collect-variant-ctors : Func<List<AVariantCtorDef>, Func<long, Func<long, Func<List<string>, List<string>>>>>
+146: build-all-names-scope : Func<List<string>, Func<List<string>, Func<List<string>, Scope>>>
+147: add-names-to-scope : Func<Scope, Func<List<string>, Func<long, Func<long, Scope>>>>
+148: resolve-expr : Func<Scope, Func<AExpr, List<Diagnostic>>>
+149: resolve-let : Func<Scope, Func<List<ALetBind>, Func<AExpr, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>>
+150: add-lambda-params : Func<Scope, Func<List<Name>, Func<long, Func<long, Scope>>>>
+151: resolve-match-arms : Func<Scope, Func<List<AMatchArm>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
+152: collect-pattern-names : Func<Scope, Func<APat, Scope>>
+153: collect-ctor-pat-names : Func<Scope, Func<List<APat>, Func<long, Func<long, Scope>>>>
+154: resolve-list-elems : Func<Scope, Func<List<AExpr>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
+155: resolve-record-fields : Func<Scope, Func<List<AFieldExpr>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
+156: resolve-do-stmts : Func<Scope, Func<List<ADoStmt>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
+157: resolve-all-defs : Func<Scope, Func<List<ADef>, Func<long, Func<long, Func<List<Diagnostic>, List<Diagnostic>>>>>>
+158: add-def-params : Func<Scope, Func<List<AParam>, Func<long, Func<long, Scope>>>>
+159: resolve-module : Func<AModule, ResolveResult>
+160: make-lex-state : Func<string, LexState>
+161: is-at-end : Func<LexState, bool>
+162: peek-char : Func<LexState, string>
+163: advance-char : Func<LexState, LexState>
+164: skip-spaces : Func<LexState, LexState>
+165: scan-ident-rest : Func<LexState, LexState>
+166: scan-digits : Func<LexState, LexState>
+167: scan-string-body : Func<LexState, LexState>
+168: classify-word : Func<string, TokenKind>
+169: make-token : Func<TokenKind, Func<string, Func<LexState, Token>>>
+170: extract-text : Func<LexState, Func<long, Func<LexState, string>>>
+171: scan-token : Func<LexState, LexResult>
+172: scan-operator : Func<LexState, LexResult>
+173: scan-multi-char-operator : Func<LexState, LexResult>
+174: tokenize-loop : Func<LexState, Func<List<Token>, List<Token>>>
+175: tokenize : Func<string, List<Token>>
+176: make-parse-state : Func<List<Token>, ParseState>
+177: current : Func<ParseState, Token>
+178: current-kind : Func<ParseState, TokenKind>
+179: advance : Func<ParseState, ParseState>
+180: is-done : Func<ParseState, bool>
+181: peek-kind : Func<ParseState, Func<long, TokenKind>>
+182: is-ident : Func<TokenKind, bool>
+183: is-type-ident : Func<TokenKind, bool>
+184: is-arrow : Func<TokenKind, bool>
+185: is-equals : Func<TokenKind, bool>
+186: is-colon : Func<TokenKind, bool>
+187: is-comma : Func<TokenKind, bool>
+188: is-pipe : Func<TokenKind, bool>
+189: is-dot : Func<TokenKind, bool>
+190: is-left-paren : Func<TokenKind, bool>
+191: is-left-brace : Func<TokenKind, bool>
+192: is-left-bracket : Func<TokenKind, bool>
+193: is-right-brace : Func<TokenKind, bool>
+194: is-right-bracket : Func<TokenKind, bool>
+195: is-if-keyword : Func<TokenKind, bool>
+196: is-let-keyword : Func<TokenKind, bool>
+197: is-when-keyword : Func<TokenKind, bool>
+198: is-do-keyword : Func<TokenKind, bool>
+199: is-in-keyword : Func<TokenKind, bool>
+200: is-minus : Func<TokenKind, bool>
+201: is-dedent : Func<TokenKind, bool>
+202: is-left-arrow : Func<TokenKind, bool>
+203: is-record-keyword : Func<TokenKind, bool>
+204: is-underscore : Func<TokenKind, bool>
+205: is-literal : Func<TokenKind, bool>
+206: is-app-start : Func<TokenKind, bool>
+207: is-compound : Func<Expr, bool>
+208: is-type-arg-start : Func<TokenKind, bool>
+209: operator-precedence : Func<TokenKind, long>
+210: is-right-assoc : Func<TokenKind, bool>
+211: expect : Func<TokenKind, Func<ParseState, ParseState>>
+212: skip-newlines : Func<ParseState, ParseState>
+213: parse-type : Func<ParseState, ParseTypeResult>
+214: parse-type-continue : Func<TypeExpr, Func<ParseState, ParseTypeResult>>
+215: make-fun-type : Func<TypeExpr, Func<TypeExpr, Func<ParseState, ParseTypeResult>>>
+216: unwrap-type-ok : Func<ParseTypeResult, Func<Func<TypeExpr, Func<ParseState, ParseTypeResult>>, ParseTypeResult>>
+217: parse-type-atom : Func<ParseState, ParseTypeResult>
+218: parse-paren-type : Func<ParseState, ParseTypeResult>
+219: finish-paren-type : Func<TypeExpr, Func<ParseState, ParseTypeResult>>
+220: parse-type-args : Func<TypeExpr, Func<ParseState, ParseTypeResult>>
+221: parse-type-arg-next : Func<TypeExpr, Func<ParseState, ParseTypeResult>>
+222: continue-type-args : Func<TypeExpr, Func<TypeExpr, Func<ParseState, ParseTypeResult>>>
+223: parse-pattern : Func<ParseState, ParsePatResult>
+224: parse-ctor-pattern-fields : Func<Token, Func<List<Pat>, Func<ParseState, ParsePatResult>>>
+225: continue-ctor-fields : Func<Token, Func<List<Pat>, Func<Pat, Func<ParseState, ParsePatResult>>>>
+226: unwrap-pat-ok : Func<ParsePatResult, Func<Func<Pat, Func<ParseState, ParsePatResult>>, ParsePatResult>>
+227: parse-expr : Func<ParseState, ParseExprResult>
+228: unwrap-expr-ok : Func<ParseExprResult, Func<Func<Expr, Func<ParseState, ParseExprResult>>, ParseExprResult>>
+229: parse-binary : Func<ParseState, Func<long, ParseExprResult>>
+230: start-binary-loop : Func<long, Func<Expr, Func<ParseState, ParseExprResult>>>
+231: parse-binary-loop : Func<Expr, Func<ParseState, Func<long, ParseExprResult>>>
+232: continue-binary : Func<Expr, Func<Token, Func<long, Func<Expr, Func<ParseState, ParseExprResult>>>>>
+233: parse-unary : Func<ParseState, ParseExprResult>
+234: finish-unary : Func<Token, Func<Expr, Func<ParseState, ParseExprResult>>>
+235: parse-application : Func<ParseState, ParseExprResult>
+236: parse-app-loop : Func<Expr, Func<ParseState, ParseExprResult>>
+237: continue-app : Func<Expr, Func<Expr, Func<ParseState, ParseExprResult>>>
+238: parse-atom : Func<ParseState, ParseExprResult>
+239: parse-field-access : Func<Expr, Func<ParseState, ParseExprResult>>
+240: parse-dot-only : Func<Expr, Func<ParseState, ParseExprResult>>
+241: parse-atom-type-ident : Func<ParseState, ParseExprResult>
+242: parse-paren-expr : Func<ParseState, ParseExprResult>
+243: finish-paren-expr : Func<Expr, Func<ParseState, ParseExprResult>>
+244: parse-record-expr : Func<Token, Func<ParseState, ParseExprResult>>
+245: parse-record-expr-fields : Func<Token, Func<List<RecordFieldExpr>, Func<ParseState, ParseExprResult>>>
+246: parse-record-field : Func<Token, Func<List<RecordFieldExpr>, Func<ParseState, ParseExprResult>>>
+247: finish-record-field : Func<Token, Func<List<RecordFieldExpr>, Func<Token, Func<Expr, Func<ParseState, ParseExprResult>>>>>
+248: parse-list-expr : Func<ParseState, ParseExprResult>
+249: parse-list-elements : Func<List<Expr>, Func<ParseState, ParseExprResult>>
+250: finish-list-element : Func<List<Expr>, Func<Expr, Func<ParseState, ParseExprResult>>>
+251: parse-if-expr : Func<ParseState, ParseExprResult>
+252: parse-if-then : Func<Expr, Func<ParseState, ParseExprResult>>
+253: parse-if-else : Func<Expr, Func<Expr, Func<ParseState, ParseExprResult>>>
+254: finish-if : Func<Expr, Func<Expr, Func<Expr, Func<ParseState, ParseExprResult>>>>
+255: parse-let-expr : Func<ParseState, ParseExprResult>
+256: parse-let-bindings : Func<List<LetBind>, Func<ParseState, ParseExprResult>>
+257: finish-let : Func<List<LetBind>, Func<Expr, Func<ParseState, ParseExprResult>>>
+258: parse-let-binding : Func<List<LetBind>, Func<ParseState, ParseExprResult>>
+259: finish-let-binding : Func<List<LetBind>, Func<Token, Func<Expr, Func<ParseState, ParseExprResult>>>>
+260: parse-match-expr : Func<ParseState, ParseExprResult>
+261: start-match-branches : Func<Expr, Func<ParseState, ParseExprResult>>
+262: parse-match-branches : Func<Expr, Func<List<MatchArm>, Func<ParseState, ParseExprResult>>>
+263: unwrap-pat-for-expr : Func<ParsePatResult, Func<Func<Pat, Func<ParseState, ParseExprResult>>, ParseExprResult>>
+264: parse-one-match-branch : Func<Expr, Func<List<MatchArm>, Func<ParseState, ParseExprResult>>>
+265: parse-match-branch-body : Func<Expr, Func<List<MatchArm>, Func<Pat, Func<ParseState, ParseExprResult>>>>
+266: finish-match-branch : Func<Expr, Func<List<MatchArm>, Func<Pat, Func<Expr, Func<ParseState, ParseExprResult>>>>>
+267: parse-do-expr : Func<ParseState, ParseExprResult>
+268: parse-do-stmts : Func<List<DoStmt>, Func<ParseState, ParseExprResult>>
+269: is-do-bind : Func<ParseState, bool>
+270: parse-do-bind-stmt : Func<List<DoStmt>, Func<ParseState, ParseExprResult>>
+271: finish-do-bind : Func<List<DoStmt>, Func<Token, Func<Expr, Func<ParseState, ParseExprResult>>>>
+272: parse-do-expr-stmt : Func<List<DoStmt>, Func<ParseState, ParseExprResult>>
+273: finish-do-expr : Func<List<DoStmt>, Func<Expr, Func<ParseState, ParseExprResult>>>
+274: parse-type-annotation : Func<ParseState, ParseTypeResult>
+275: parse-definition : Func<ParseState, ParseDefResult>
+276: try-parse-def : Func<ParseState, ParseDefResult>
+277: unwrap-type-for-def : Func<ParseTypeResult, ParseDefResult>
+278: parse-def-body-with-ann : Func<List<TypeAnn>, Func<ParseState, ParseDefResult>>
+279: parse-def-params-then : Func<List<TypeAnn>, Func<Token, Func<List<Token>, Func<ParseState, ParseDefResult>>>>
+280: finish-def : Func<List<TypeAnn>, Func<Token, Func<List<Token>, Func<ParseState, ParseDefResult>>>>
+281: unwrap-def-body : Func<ParseExprResult, Func<List<TypeAnn>, Func<Token, Func<List<Token>, ParseDefResult>>>>
+282: parse-type-def : Func<ParseState, ParseTypeDefResult>
+283: parse-record-type : Func<Token, Func<ParseState, ParseTypeDefResult>>
+284: parse-record-fields-loop : Func<Token, Func<List<RecordFieldDef>, Func<ParseState, ParseTypeDefResult>>>
+285: parse-one-record-field : Func<Token, Func<List<RecordFieldDef>, Func<ParseState, ParseTypeDefResult>>>
+286: unwrap-record-field-type : Func<Token, Func<List<RecordFieldDef>, Func<Token, Func<ParseTypeResult, ParseTypeDefResult>>>>
+287: parse-variant-type : Func<Token, Func<ParseState, ParseTypeDefResult>>
+288: parse-variant-ctors : Func<Token, Func<List<VariantCtorDef>, Func<ParseState, ParseTypeDefResult>>>
+289: parse-ctor-fields : Func<Token, Func<List<TypeExpr>, Func<ParseState, Func<Token, Func<List<VariantCtorDef>, ParseTypeDefResult>>>>>
+290: unwrap-ctor-field : Func<ParseTypeResult, Func<Token, Func<List<TypeExpr>, Func<Token, Func<List<VariantCtorDef>, ParseTypeDefResult>>>>>
+291: parse-document : Func<ParseState, Document>
+292: parse-top-level : Func<List<Def>, Func<List<TypeDef>, Func<ParseState, Document>>>
+293: try-top-level-type-def : Func<List<Def>, Func<List<TypeDef>, Func<ParseState, Document>>>
+294: try-top-level-def : Func<List<Def>, Func<List<TypeDef>, Func<ParseState, Document>>>
+295: token-length : Func<Token, long>
+296: infer-literal : Func<UnificationState, Func<LiteralKind, CheckResult>>
+297: infer-name : Func<UnificationState, Func<TypeEnv, Func<string, CheckResult>>>
+298: instantiate-type : Func<UnificationState, Func<CodexType, FreshResult>>
+299: subst-type-var : Func<CodexType, Func<long, Func<CodexType, CodexType>>>
+300: map-subst-type-var : Func<List<CodexType>, Func<long, Func<CodexType, Func<long, Func<long, Func<List<CodexType>, List<CodexType>>>>>>>
+301: infer-binary : Func<UnificationState, Func<TypeEnv, Func<AExpr, Func<BinaryOp, Func<AExpr, CheckResult>>>>>
+302: infer-binary-op : Func<UnificationState, Func<CodexType, Func<CodexType, Func<BinaryOp, CheckResult>>>>
+303: infer-arithmetic : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
+304: infer-comparison : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
+305: infer-logical : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
+306: infer-append : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
+307: infer-cons : Func<UnificationState, Func<CodexType, Func<CodexType, CheckResult>>>
+308: infer-if : Func<UnificationState, Func<TypeEnv, Func<AExpr, Func<AExpr, Func<AExpr, CheckResult>>>>>
+309: infer-let : Func<UnificationState, Func<TypeEnv, Func<List<ALetBind>, Func<AExpr, CheckResult>>>>
+310: infer-let-bindings : Func<UnificationState, Func<TypeEnv, Func<List<ALetBind>, Func<long, Func<long, LetBindResult>>>>>
+311: infer-lambda : Func<UnificationState, Func<TypeEnv, Func<List<Name>, Func<AExpr, CheckResult>>>>
+312: bind-lambda-params : Func<UnificationState, Func<TypeEnv, Func<List<Name>, Func<long, Func<long, Func<List<CodexType>, LambdaBindResult>>>>>>
+313: wrap-fun-type : Func<List<CodexType>, Func<CodexType, CodexType>>
+314: wrap-fun-type-loop : Func<List<CodexType>, Func<CodexType, Func<long, CodexType>>>
+315: infer-application : Func<UnificationState, Func<TypeEnv, Func<AExpr, Func<AExpr, CheckResult>>>>
+316: infer-list : Func<UnificationState, Func<TypeEnv, Func<List<AExpr>, CheckResult>>>
+317: unify-list-elems : Func<UnificationState, Func<TypeEnv, Func<List<AExpr>, Func<CodexType, Func<long, Func<long, UnificationState>>>>>>
+318: infer-match : Func<UnificationState, Func<TypeEnv, Func<AExpr, Func<List<AMatchArm>, CheckResult>>>>
+319: infer-match-arms : Func<UnificationState, Func<TypeEnv, Func<CodexType, Func<CodexType, Func<List<AMatchArm>, Func<long, Func<long, UnificationState>>>>>>>
+320: bind-pattern : Func<UnificationState, Func<TypeEnv, Func<APat, Func<CodexType, PatBindResult>>>>
+321: bind-ctor-sub-patterns : Func<UnificationState, Func<TypeEnv, Func<List<APat>, Func<CodexType, Func<long, Func<long, PatBindResult>>>>>>
+322: infer-do : Func<UnificationState, Func<TypeEnv, Func<List<ADoStmt>, CheckResult>>>
+323: infer-do-loop : Func<UnificationState, Func<TypeEnv, Func<List<ADoStmt>, Func<long, Func<long, Func<CodexType, CheckResult>>>>>>
+324: infer-expr : Func<UnificationState, Func<TypeEnv, Func<AExpr, CheckResult>>>
+325: resolve-constructed-to-record : Func<TypeEnv, Func<string, CodexType>>
+326: infer-record-fields : Func<UnificationState, Func<TypeEnv, Func<List<AFieldExpr>, Func<long, Func<long, UnificationState>>>>>
+327: strip-fun-args : Func<CodexType, CodexType>
+328: resolve-type-expr : Func<List<TypeBinding>, Func<ATypeExpr, CodexType>>
+329: resolve-applied-type : Func<List<TypeBinding>, Func<ATypeExpr, Func<List<ATypeExpr>, CodexType>>>
+330: resolve-type-expr-list : Func<List<TypeBinding>, Func<List<ATypeExpr>, Func<long, Func<long, Func<List<CodexType>, List<CodexType>>>>>>
+331: resolve-type-name : Func<List<TypeBinding>, Func<string, CodexType>>
+332: lookup-type-def : Func<List<TypeBinding>, Func<string, CodexType>>
+333: lookup-type-def-loop : Func<List<TypeBinding>, Func<string, Func<long, Func<long, CodexType>>>>
+334: is-value-name : Func<string, bool>
+335: parameterize-type : Func<UnificationState, Func<CodexType, ParamResult>>
+336: wrap-forall-from-entries : Func<CodexType, Func<List<ParamEntry>, Func<long, Func<long, CodexType>>>>
+337: parameterize-walk : Func<UnificationState, Func<List<ParamEntry>, Func<CodexType, WalkResult>>>
+338: find-param-entry : Func<List<ParamEntry>, Func<string, Func<long, Func<long, long>>>>
+339: parameterize-walk-list : Func<UnificationState, Func<List<ParamEntry>, Func<List<CodexType>, Func<long, Func<long, Func<List<CodexType>, WalkListResult>>>>>>
+340: check-def : Func<UnificationState, Func<TypeEnv, Func<ADef, CheckResult>>>
+341: resolve-declared-type : Func<UnificationState, Func<TypeEnv, Func<ADef, DefSetup>>>
+342: bind-def-params : Func<UnificationState, Func<TypeEnv, Func<List<AParam>, Func<CodexType, Func<long, Func<long, DefParamResult>>>>>>
+343: check-module : Func<AModule, ModuleResult>
+344: register-all-defs : Func<UnificationState, Func<TypeEnv, Func<List<TypeBinding>, Func<List<ADef>, Func<long, Func<long, LetBindResult>>>>>>
+345: check-all-defs : Func<UnificationState, Func<TypeEnv, Func<List<ADef>, Func<long, Func<long, Func<List<TypeBinding>, ModuleResult>>>>>>
+346: build-type-def-map : Func<List<ATypeDef>, Func<long, Func<long, Func<List<TypeBinding>, List<TypeBinding>>>>>
+347: build-sum-ctors : Func<List<ATypeDef>, Func<List<AVariantCtorDef>, Func<long, Func<long, Func<List<SumCtor>, Func<List<TypeBinding>, List<SumCtor>>>>>>>
+348: build-record-fields-for-map : Func<List<ATypeDef>, Func<List<ARecordFieldDef>, Func<long, Func<long, Func<List<RecordField>, Func<List<TypeBinding>, List<RecordField>>>>>>>
+349: resolve-type-expr-list-for-map : Func<List<ATypeDef>, Func<List<ATypeExpr>, Func<long, Func<long, Func<List<CodexType>, Func<List<TypeBinding>, List<CodexType>>>>>>>
+350: register-type-defs : Func<UnificationState, Func<TypeEnv, Func<List<TypeBinding>, Func<List<ATypeDef>, Func<long, Func<long, LetBindResult>>>>>>
+351: register-one-type-def : Func<UnificationState, Func<TypeEnv, Func<List<TypeBinding>, Func<ATypeDef, LetBindResult>>>>
+352: build-record-fields : Func<List<TypeBinding>, Func<List<ARecordFieldDef>, Func<long, Func<long, Func<List<RecordField>, List<RecordField>>>>>>
+353: lookup-record-field : Func<List<RecordField>, Func<string, CodexType>>
+354: lookup-record-field-loop : Func<List<RecordField>, Func<string, Func<long, Func<long, CodexType>>>>
+355: register-variant-ctors : Func<UnificationState, Func<TypeEnv, Func<List<TypeBinding>, Func<List<AVariantCtorDef>, Func<CodexType, Func<long, Func<long, LetBindResult>>>>>>>
+356: build-ctor-type : Func<List<TypeBinding>, Func<List<ATypeExpr>, Func<CodexType, Func<long, Func<long, CodexType>>>>>
+357: build-record-ctor-type : Func<List<TypeBinding>, Func<List<ARecordFieldDef>, Func<CodexType, Func<long, Func<long, CodexType>>>>>
+358: empty-type-env : TypeEnv
+359: env-lookup : Func<TypeEnv, Func<string, CodexType>>
+360: env-lookup-loop : Func<List<TypeBinding>, Func<string, Func<long, Func<long, CodexType>>>>
+361: env-has : Func<TypeEnv, Func<string, bool>>
+362: env-has-loop : Func<List<TypeBinding>, Func<string, Func<long, Func<long, bool>>>>
+363: env-bind : Func<TypeEnv, Func<string, Func<CodexType, TypeEnv>>>
+364: builtin-type-env : TypeEnv
+365: empty-unification-state : UnificationState
+366: fresh-var : Func<UnificationState, CodexType>
+367: advance-id : Func<UnificationState, UnificationState>
+368: fresh-and-advance : Func<UnificationState, FreshResult>
+369: subst-lookup : Func<long, Func<List<SubstEntry>, CodexType>>
+370: subst-lookup-loop : Func<long, Func<List<SubstEntry>, Func<long, Func<long, CodexType>>>>
+371: has-subst : Func<long, Func<List<SubstEntry>, bool>>
+372: has-subst-loop : Func<long, Func<List<SubstEntry>, Func<long, Func<long, bool>>>>
+373: resolve : Func<UnificationState, Func<CodexType, CodexType>>
+374: add-subst : Func<UnificationState, Func<long, Func<CodexType, UnificationState>>>
+375: add-unify-error : Func<UnificationState, Func<string, Func<string, UnificationState>>>
+376: occurs-in : Func<UnificationState, Func<long, Func<CodexType, bool>>>
+377: unify : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+378: unify-resolved : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+379: types-equal : Func<CodexType, Func<CodexType, bool>>
+380: unify-rhs : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+381: unify-structural : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+382: unify-constructed-args : Func<UnificationState, Func<List<CodexType>, Func<List<CodexType>, Func<long, Func<long, UnifyResult>>>>>
+383: unify-fun : Func<UnificationState, Func<CodexType, Func<CodexType, Func<CodexType, Func<CodexType, UnifyResult>>>>>
+384: unify-mismatch : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+385: type-tag : Func<CodexType, string>
+386: deep-resolve : Func<UnificationState, Func<CodexType, CodexType>>
+387: deep-resolve-list : Func<UnificationState, Func<List<CodexType>, Func<long, Func<long, Func<List<CodexType>, List<CodexType>>>>>>
+388: compile : Func<string, Func<string, string>>
+389: compile-checked : Func<string, Func<string, CompileResult>>
+390: test-source : string
+391: Console : [
+392: main : object [HAS-OBJECT]
