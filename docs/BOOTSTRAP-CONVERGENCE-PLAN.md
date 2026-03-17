@@ -1,20 +1,32 @@
 # Bootstrap Convergence Plan
 
-## Current State (after field-access fix)
+## Current State (after compound-parse fix, commit 5b8d78d)
 
-| Metric | Before fix | After fix | Direction |
-|--------|-----------|-----------|-----------|
+| Metric | Previous (field-access fix) | Current | Direction |
+|--------|---------------------------|---------|-----------|
 | Stage 0 | ✅ Clean | ✅ Clean | — |
 | dotnet test | ✅ 689 pass | ✅ 689 pass | — |
-| Unification errors | 1317 | 1337 | +20 (noise) |
-| Stage 1 output size | 139,327 | 141,028 | +1,701 ✅ |
+| Unification errors | 1337 | 1255 | −82 ✅ |
+| Stage 1 output size | 141,028 | 129,085 | −11,943 ⚠️ |
+| Stage 0 output size | — | 219,586 | — |
+| Type bindings | — | 354 | — |
 
-The error count rose slightly because `RecordTy` is more specific than
-the old `ConstructedTy` placeholder, causing a few new mismatches. But
-Stage 1 output grew, meaning more definitions typed successfully. Net
-positive.
+The error count dropped by 82 — a solid improvement. The Stage 1 output
+size shrank because the parser fix stopped it from greedily consuming
+subsequent definitions as arguments. This means fewer (but more correct)
+definitions are emitted. The Stage 0 ↔ Stage 1 gap is 219,586 vs
+129,085 chars — the self-hosted compiler still loses ~41% of output.
 
-### What was accomplished this session
+### What was accomplished this session (commit 5b8d78d)
+
+1. **Compound-expression parse fix**: `parse-field-access` on compound
+   expressions (match/when) was greedily eating the next definition's
+   name token as an argument when `is-app-start` returned true. Fixed
+   so compound expressions only allow `.field` access, not application.
+   This prevented cascading token-stream corruption that lost type
+   annotations for subsequent definitions.
+
+### What was accomplished in prior sessions
 
 1. **Diagnostic improvement**: `SourceSpan` carries `FileName` (required).
 2. **Definition-level error context**: `CDX2099 info` names the definition.
@@ -23,14 +35,9 @@ positive.
 5. **Field access typing**: Self-hosted type checker now resolves record
    field types via `RecordTy` instead of returning fresh type variables.
    Added `build-record-fields`, `lookup-record-field`, `strip-fun-args`.
-
-### What previous agents accomplished (commit ebee4c6)
-
-CSharpEmitter.codex grew from 342 → 768 lines with arity tracking, TCO,
-match emission, effectful detection, partial application, builtin
-special-casing — all phases 2-7 of the original plan. The reference
-compiler output is already good. The gap is in the self-hosted type
-checker, not the emitter.
+6. **CSharpEmitter.codex** grew from 342 → 768 lines with arity tracking,
+   TCO, match emission, effectful detection, partial application, builtin
+   special-casing — all phases 2-7 of the original plan. (commit ebee4c6)
 
 ---
 
@@ -124,6 +131,7 @@ fc.exe Codex.Codex\out\Codex.Codex.cs Codex.Codex\stage1-output.cs
 | ebee4c6 + old CodexLib | 1946 | — | New emitter, old self-hosted compiler |
 | ebee4c6 + new CodexLib | 1317 | 139,327 | New emitter, new self-hosted compiler |
 | Field access fix + new CodexLib | 1337 | 141,028 | RecordTy, field resolution |
+| 5b8d78d compound-parse fix | 1255 | 129,085 | Parser stops eating next def's name |
 
 ---
 
