@@ -47,6 +47,39 @@ Section: Type Lookup
         if ForAllTy (id) (body) -> strip-forall-ty body
         if _ -> ty
 
+    subst-type-vars-from-arg : CodexType -> CodexType -> CodexType -> CodexType
+    subst-type-vars-from-arg (param-ty) (arg-ty) (target) =
+      when param-ty
+        if TypeVar (id) -> subst-type-var-in-target target id arg-ty
+        if ListTy (pe) -> subst-from-list pe arg-ty target
+        if FunTy (pp) (pr) -> subst-from-fun pp pr arg-ty target
+        if _ -> target
+
+    subst-from-list : CodexType -> CodexType -> CodexType -> CodexType
+    subst-from-list (pe) (arg-ty) (target) =
+      when arg-ty
+        if ListTy (ae) -> subst-type-vars-from-arg pe ae target
+        if _ -> target
+
+    subst-from-fun : CodexType -> CodexType -> CodexType -> CodexType -> CodexType
+    subst-from-fun (pp) (pr) (arg-ty) (target) =
+      when arg-ty
+        if FunTy (ap) (ar) ->
+          let t2 = subst-type-vars-from-arg pp ap target
+          in subst-type-vars-from-arg pr ar t2
+        if _ -> target
+
+    subst-type-var-in-target : CodexType -> Integer -> CodexType -> CodexType
+    subst-type-var-in-target (ty) (var-id) (replacement) =
+      when ty
+        if TypeVar (id) -> if id == var-id then replacement else ty
+        if FunTy (p) (r) -> FunTy (subst-type-var-in-target p var-id replacement) (subst-type-var-in-target r var-id replacement)
+        if ListTy (elem) -> ListTy (subst-type-var-in-target elem var-id replacement)
+        if ForAllTy (fid) (body) ->
+          if fid == var-id then ty
+          else ForAllTy fid (subst-type-var-in-target body var-id replacement)
+        if _ -> ty
+
 Section: Binary Op Lowering
 
     lower-bin-op : BinaryOp -> CodexType -> IRBinaryOp
@@ -96,7 +129,14 @@ Section: Expression Lowering
         if ARecordExpr (name) (fields) -> lower-record name fields ty ctx
         if AFieldAccess (rec) (field) ->
           let rec-ir = lower-expr rec ErrorTy ctx
-          in IrFieldAccess rec-ir field.value ty
+          in let rec-ty = deep-resolve ctx.ust (ir-expr-type rec-ir)
+          in let field-ty = when rec-ty
+                if RecordTy (rname) (rfields) -> lookup-record-field rfields field.value
+                if _ -> ty
+          in let actual-field-ty = when field-ty
+                if ErrorTy -> ty
+                if _ -> field-ty
+          in IrFieldAccess rec-ir field.value actual-field-ty
         if ADoExpr (stmts) -> lower-do stmts ty ctx
         if AErrorExpr (msg) -> IrError msg ty
 
@@ -124,10 +164,11 @@ Section: Expression Lowering
       in let func-ty = deep-resolve ctx.ust (ir-expr-type func-ir)
       in let arg-ty = peel-fun-param func-ty
       in let ret-ty = peel-fun-return func-ty
-      in let actual-ret = when ret-ty
-            if ErrorTy -> ty
-            if _ -> ret-ty
       in let arg-ir = lower-expr a arg-ty ctx
+      in let resolved-ret = subst-type-vars-from-arg arg-ty (ir-expr-type arg-ir) ret-ty
+      in let actual-ret = when resolved-ret
+            if ErrorTy -> ty
+            if _ -> resolved-ret
       in IrApply func-ir arg-ir actual-ret
 
     lower-let : List ALetBind -> AExpr -> CodexType -> LowerCtx -> IRExpr
@@ -135,7 +176,7 @@ Section: Expression Lowering
       if list-length binds == 0 then lower-expr body ty ctx
       else let b = list-at binds 0
         in let val-ir = lower-expr b.value ErrorTy ctx
-        in let val-ty = ir-expr-type val-ir
+        in let val-ty = deep-resolve ctx.ust (ir-expr-type val-ir)
         in let ctx2 = LowerCtx { types = [TypeBinding { name = b.name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
         in IrLet b.name.value val-ty val-ir (lower-let-rest binds body ty ctx2 1)
 
@@ -144,7 +185,7 @@ Section: Expression Lowering
       if i == list-length binds then lower-expr body ty ctx
       else let b = list-at binds i
         in let val-ir = lower-expr b.value ErrorTy ctx
-        in let val-ty = ir-expr-type val-ir
+        in let val-ty = deep-resolve ctx.ust (ir-expr-type val-ir)
         in let ctx2 = LowerCtx { types = [TypeBinding { name = b.name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
         in IrLet b.name.value val-ty val-ir (lower-let-rest binds body ty ctx2 (i + 1))
 
@@ -231,7 +272,9 @@ Section: Expression Lowering
     lower-list (elems) (ty) (ctx) =
       let elem-ty = when ty
             if ListTy (e) -> e
-            if _ -> ErrorTy
+            if _ ->
+              if list-length elems == 0 then ErrorTy
+              else ir-expr-type (lower-expr (list-at elems 0) ErrorTy ctx)
       in IrList (lower-list-elems-loop elems elem-ty ctx 0 (list-length elems)) elem-ty
 
     lower-list-elems-loop : List AExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRExpr
@@ -241,7 +284,14 @@ Section: Expression Lowering
 
     lower-record : Name -> List AFieldExpr -> CodexType -> LowerCtx -> IRExpr
     lower-record (name) (fields) (ty) (ctx) =
-      IrRecord name.value (lower-record-fields-loop fields ty ctx 0 (list-length fields)) ty
+      let ctor-raw = lookup-type ctx.types name.value
+      in let record-ty = when ctor-raw
+            if ErrorTy -> ty
+            if _ -> strip-fun-args-lower (deep-resolve ctx.ust ctor-raw)
+      in let actual-ty = when record-ty
+            if ErrorTy -> ty
+            if _ -> record-ty
+      in IrRecord name.value (lower-record-fields-loop fields actual-ty ctx 0 (list-length fields)) actual-ty
 
     lower-record-fields-loop : List AFieldExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRFieldVal
     lower-record-fields-loop (fields) (ty) (ctx) (i) (len) =
@@ -249,6 +299,13 @@ Section: Expression Lowering
       else
         let f = list-at fields i
         in [IRFieldVal { name = f.name.value, value = lower-expr f.value ty ctx }] ++ lower-record-fields-loop fields ty ctx (i + 1) len
+
+    strip-fun-args-lower : CodexType -> CodexType
+    strip-fun-args-lower (ty) =
+      when ty
+        if FunTy (p) (r) -> strip-fun-args-lower r
+        if ForAllTy (id) (body) -> strip-fun-args-lower body
+        if _ -> ty
 
     lower-do : List ADoStmt -> CodexType -> LowerCtx -> IRExpr
     lower-do (stmts) (ty) (ctx) =
@@ -313,7 +370,7 @@ Section: Definition Lowering
     lower-module : AModule -> List TypeBinding -> UnificationState -> IRModule
     lower-module (m) (types) (ust) =
       let ctor-types = collect-ctor-bindings m.type-defs 0 (list-length m.type-defs) []
-      in let all-types = ctor-types ++ types
+      in let all-types = ctor-types ++ types ++ builtin-type-env.bindings
       in IRModule { name = m.name, defs = lower-defs m.defs all-types ust 0 }
 
     lower-defs : List ADef -> List TypeBinding -> UnificationState -> Integer -> List IRDef
