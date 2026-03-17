@@ -13,10 +13,10 @@ public class Factorial {
     }
 
     public static long factorial(long n) {
-        return ((n == 0L) ? 1L : (n * factorial.apply((n - 1L))));
+        return ((n == 0L) ? 1L : (n * factorial((n - 1L))));
     }
 
     public static void main(String[] args) {
-        System.out.println(factorial.apply(10L));
+        System.out.println(factorial(10L));
     }
 }

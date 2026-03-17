@@ -9,8 +9,8 @@ public class Effects_demo {
     }
 
     public static void main(String[] args) {
-        greet.apply("Alice");
-        greet.apply("Bob");
+        greet("Alice");
+        greet("Bob");
         System.out.println("Done!");
     }
 }

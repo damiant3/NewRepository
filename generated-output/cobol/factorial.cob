@@ -18,52 +18,55 @@
        01 WS-TEXT-RESULT     PIC X(256).
 
        PROCEDURE DIVISION.
+      *> abs
        ABS-PARA.
            IF WS-X < 0
-             MOVE 1 TO WS-V0001
+             MOVE 1 TO WS-ABS-CMP-1
            ELSE
-             MOVE 0 TO WS-V0001
+             MOVE 0 TO WS-ABS-CMP-1
            END-IF
-           IF WS-V0001 NOT = 0
-           MULTIPLY WS-X BY -1 GIVING WS-V0003
-             MOVE WS-V0003 TO WS-V0002
+           IF WS-ABS-CMP-1 NOT = 0
+           MULTIPLY WS-X BY -1 GIVING WS-ABS-NEG-3
+             MOVE WS-ABS-NEG-3 TO WS-ABS-BRANCH-2
            ELSE
-             MOVE WS-X TO WS-V0002
+             MOVE WS-X TO WS-ABS-BRANCH-2
            END-IF
-           MOVE WS-V0002 TO WS-ABS-RET
+           MOVE WS-ABS-BRANCH-2 TO WS-ABS-RET
 
+      *> max
        MAX-PARA.
            IF WS-X > WS-Y
-             MOVE 1 TO WS-V0004
+             MOVE 1 TO WS-MAX-CMP-4
            ELSE
-             MOVE 0 TO WS-V0004
+             MOVE 0 TO WS-MAX-CMP-4
            END-IF
-           IF WS-V0004 NOT = 0
-             MOVE WS-X TO WS-V0005
+           IF WS-MAX-CMP-4 NOT = 0
+             MOVE WS-X TO WS-MAX-BRANCH-5
            ELSE
-             MOVE WS-Y TO WS-V0005
+             MOVE WS-Y TO WS-MAX-BRANCH-5
            END-IF
-           MOVE WS-V0005 TO WS-MAX-RET
+           MOVE WS-MAX-BRANCH-5 TO WS-MAX-RET
 
+      *> factorial
        FACTORIAL-PARA.
            IF WS-N = 0
-             MOVE 1 TO WS-V0006
+             MOVE 1 TO WS-FACTORIAL-EQ-6
            ELSE
-             MOVE 0 TO WS-V0006
+             MOVE 0 TO WS-FACTORIAL-EQ-6
            END-IF
-           IF WS-V0006 NOT = 0
-             MOVE 1 TO WS-V0007
+           IF WS-FACTORIAL-EQ-6 NOT = 0
+             MOVE 1 TO WS-FACTORIAL-BRANCH-7
            ELSE
-           SUBTRACT 1 FROM WS-N GIVING WS-V0008
-           MOVE WS-V0008 TO WS-FACTORIAL-ARG0
+           SUBTRACT 1 FROM WS-N GIVING WS-FACTORIAL-DIFF-8
+           MOVE WS-FACTORIAL-DIFF-8 TO WS-FACTORIAL-N
            PERFORM FACTORIAL-PARA
-           MULTIPLY WS-N BY WS-FACTORIAL-RET GIVING WS-V0009
-             MOVE WS-V0009 TO WS-V0007
+           MULTIPLY WS-N BY WS-FACTORIAL-RET GIVING WS-FACTORIAL-PROD-9
+             MOVE WS-FACTORIAL-PROD-9 TO WS-FACTORIAL-BRANCH-7
            END-IF
-           MOVE WS-V0007 TO WS-FACTORIAL-RET
+           MOVE WS-FACTORIAL-BRANCH-7 TO WS-FACTORIAL-RET
 
        MAIN-LOGIC.
-           MOVE 10 TO WS-FACTORIAL-ARG0
+           MOVE 10 TO WS-FACTORIAL-N
            PERFORM FACTORIAL-PARA
            DISPLAY WS-FACTORIAL-RET
            STOP RUN.

@@ -13,38 +13,39 @@
        01 WS-TEXT-RESULT     PIC X(256).
 
        PROCEDURE DIVISION.
+      *> fib
        FIB-PARA.
            IF WS-N = 0
-             MOVE 1 TO WS-V0001
+             MOVE 1 TO WS-FIB-EQ-1
            ELSE
-             MOVE 0 TO WS-V0001
+             MOVE 0 TO WS-FIB-EQ-1
            END-IF
-           IF WS-V0001 NOT = 0
-             MOVE 0 TO WS-V0002
+           IF WS-FIB-EQ-1 NOT = 0
+             MOVE 0 TO WS-FIB-BRANCH-2
            ELSE
            IF WS-N = 1
-             MOVE 1 TO WS-V0003
+             MOVE 1 TO WS-FIB-EQ-3
            ELSE
-             MOVE 0 TO WS-V0003
+             MOVE 0 TO WS-FIB-EQ-3
            END-IF
-           IF WS-V0003 NOT = 0
-             MOVE 1 TO WS-V0004
+           IF WS-FIB-EQ-3 NOT = 0
+             MOVE 1 TO WS-FIB-BRANCH-4
            ELSE
-           SUBTRACT 1 FROM WS-N GIVING WS-V0005
-           MOVE WS-V0005 TO WS-FIB-ARG0
+           SUBTRACT 1 FROM WS-N GIVING WS-FIB-DIFF-5
+           MOVE WS-FIB-DIFF-5 TO WS-FIB-N
            PERFORM FIB-PARA
-           SUBTRACT 2 FROM WS-N GIVING WS-V0006
-           MOVE WS-V0006 TO WS-FIB-ARG0
+           SUBTRACT 2 FROM WS-N GIVING WS-FIB-DIFF-6
+           MOVE WS-FIB-DIFF-6 TO WS-FIB-N
            PERFORM FIB-PARA
-           ADD WS-FIB-RET WS-FIB-RET GIVING WS-V0007
-             MOVE WS-V0007 TO WS-V0004
+           ADD WS-FIB-RET WS-FIB-RET GIVING WS-FIB-SUM-7
+             MOVE WS-FIB-SUM-7 TO WS-FIB-BRANCH-4
            END-IF
-             MOVE WS-V0004 TO WS-V0002
+             MOVE WS-FIB-BRANCH-4 TO WS-FIB-BRANCH-2
            END-IF
-           MOVE WS-V0002 TO WS-FIB-RET
+           MOVE WS-FIB-BRANCH-2 TO WS-FIB-RET
 
        MAIN-LOGIC.
-           MOVE 20 TO WS-FIB-ARG0
+           MOVE 20 TO WS-FIB-N
            PERFORM FIB-PARA
            DISPLAY WS-FIB-RET
            STOP RUN.

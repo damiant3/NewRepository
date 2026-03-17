@@ -6,15 +6,15 @@
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
-       01 WS-POINT.
-         05 WS-POINT-X PIC S9(18).
-         05 WS-POINT-Y PIC S9(18).
        01 WS-COLOR.
          05 WS-COLOR-TAG    PIC 9(2).
          05 WS-COLOR-F0     PIC S9(18).
        01 TAG-RED      PIC 9(2) VALUE 1.
        01 TAG-GREEN      PIC 9(2) VALUE 2.
        01 TAG-BLUE      PIC 9(2) VALUE 3.
+       01 WS-POINT.
+         05 WS-POINT-X PIC S9(18).
+         05 WS-POINT-Y PIC S9(18).
        01 WS-SHOW_COLOR-C  PIC S9(18).
        01 WS-SHOW_COLOR-RET     PIC X(256).
        01 WS-GET_X-P  PIC S9(18).
@@ -38,56 +38,72 @@
        01 WS-TEXT-RESULT     PIC X(256).
 
        PROCEDURE DIVISION.
+      *> show-color
        SHOW_COLOR-PARA.
-           MOVE 0 TO WS-SHOW_COLOR-RET
+           EVALUATE WS-C-TAG
+             WHEN TAG-RED
+               MOVE "red" TO WS-SHOW_COLOR-MATCH-1
+             WHEN TAG-GREEN
+               MOVE "green" TO WS-SHOW_COLOR-MATCH-1
+             WHEN TAG-BLUE
+               MOVE "blue" TO WS-SHOW_COLOR-MATCH-1
+           END-EVALUATE
+           MOVE WS-SHOW_COLOR-MATCH-1 TO WS-SHOW_COLOR-RET
 
+      *> get-x
        GET_X-PARA.
-           MOVE WS-P TO WS-GET_X-RET
+           MOVE WS-P-X TO WS-GET_X-RET
 
+      *> add-points
        ADD_POINTS-PARA.
-           MOVE 0 TO WS-V0001
-      *>   Record Point construction
-           MOVE WS-V0001 TO WS-ADD_POINTS-RET
+           ADD WS-A-X WS-B-X GIVING WS-ADD_POINTS-SUM-2
+           MOVE WS-ADD_POINTS-SUM-2 TO WS-POINT-X
+           ADD WS-A-Y WS-B-Y GIVING WS-ADD_POINTS-SUM-3
+           MOVE WS-ADD_POINTS-SUM-3 TO WS-POINT-Y
+           MOVE WS-POINT TO WS-ADD_POINTS-RET
 
+      *> map-list
        MAP_LIST-PARA.
-           MOVE WS-F TO WS-MAP_LIST_LOOP-ARG0
-           MOVE WS-XS TO WS-MAP_LIST_LOOP-ARG1
-           MOVE 0 TO WS-MAP_LIST_LOOP-ARG2
-           MOVE WS-XS TO WS-MAP_LIST_LOOP-ARG3
-           MOVE 0 TO WS-MAP_LIST_LOOP-ARG4
+           MOVE WS-F TO WS-MAP_LIST_LOOP-F
+           MOVE WS-XS TO WS-MAP_LIST_LOOP-XS
+           MOVE 0 TO WS-MAP_LIST_LOOP-I
+           MOVE WS-XS TO WS-MAP_LIST_LOOP-LEN
+           MOVE 0 TO WS-MAP_LIST_LOOP-ACC
            PERFORM MAP_LIST_LOOP-PARA
            MOVE WS-MAP_LIST_LOOP-RET TO WS-MAP_LIST-RET
 
+      *> map-list-loop
        MAP_LIST_LOOP-PARA.
        MAP_LIST_LOOP-LOOP.
            IF WS-I = WS-LEN
-             MOVE 1 TO WS-V0002
+             MOVE 1 TO WS-MAP_LIST_LOOP-EQ-4
            ELSE
-             MOVE 0 TO WS-V0002
+             MOVE 0 TO WS-MAP_LIST_LOOP-EQ-4
            END-IF
-           IF WS-V0002 NOT = 0
+           IF WS-MAP_LIST_LOOP-EQ-4 NOT = 0
            MOVE WS-ACC TO WS-MAP_LIST_LOOP-RET
            GO TO MAP_LIST_LOOP-END
            ELSE
            MOVE WS-F TO WS-MAP_LIST_LOOP-F
            MOVE WS-XS TO WS-MAP_LIST_LOOP-XS
-           ADD WS-I 1 GIVING WS-V0003
-           MOVE WS-V0003 TO WS-MAP_LIST_LOOP-I
+           ADD WS-I 1 GIVING WS-MAP_LIST_LOOP-SUM-5
+           MOVE WS-MAP_LIST_LOOP-SUM-5 TO WS-MAP_LIST_LOOP-I
            MOVE WS-LEN TO WS-MAP_LIST_LOOP-LEN
-           ADD WS-ACC 0 GIVING WS-V0004
-           MOVE WS-V0004 TO WS-MAP_LIST_LOOP-ACC
+           ADD WS-ACC 0 GIVING WS-MAP_LIST_LOOP-RESULT-6
+           MOVE WS-MAP_LIST_LOOP-RESULT-6 TO WS-MAP_LIST_LOOP-ACC
            GO TO MAP_LIST_LOOP-LOOP
            END-IF
        MAP_LIST_LOOP-END.
 
+      *> use-map
        USE_MAP-PARA.
-           MOVE WS-GET_X TO WS-MAP_LIST-ARG0
-           MOVE WS-PTS TO WS-MAP_LIST-ARG1
+           MOVE WS-GET_X TO WS-MAP_LIST-F
+           MOVE WS-PTS TO WS-MAP_LIST-XS
            PERFORM MAP_LIST-PARA
            MOVE WS-MAP_LIST-RET TO WS-USE_MAP-RET
 
        MAIN-LOGIC.
-           MOVE 0 TO WS-USE_MAP-ARG0
+           MOVE 0 TO WS-USE_MAP-PTS
            PERFORM USE_MAP-PARA
            DISPLAY WS-USE_MAP-RET
            STOP RUN.

@@ -22,5 +22,10 @@ end module codex_shapes
 program main_program
   use codex_shapes
   implicit none
-  print *, 0
+  select case (Circle(5.0d0)%tag)
+    case (TAG_Circle)
+      print * ((3.14d0 * Circle(5.0d0)%field0) * Circle(5.0d0)%field0)
+    case (TAG_Rectangle)
+      print * (Circle(5.0d0)%field0 * Circle(5.0d0)%field1)
+  end select
 end program main_program

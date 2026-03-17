@@ -13,20 +13,21 @@
        01 WS-TEXT-RESULT     PIC X(256).
 
        PROCEDURE DIVISION.
+      *> greet
        GREET-PARA.
            STRING WS-NAME DELIMITED BY SPACE
                   "!" DELIMITED BY SPACE
-                  INTO WS-T0002
+                  INTO WS-GREET-JOINED-2
            STRING "Hello, " DELIMITED BY SPACE
-                  WS-T0002 DELIMITED BY SPACE
-                  INTO WS-T0004
-           DISPLAY WS-T0004
+                  WS-GREET-JOINED-2 DELIMITED BY SPACE
+                  INTO WS-GREET-JOINED-4
+           DISPLAY WS-GREET-JOINED-4
            MOVE 0 TO WS-GREET-RET
 
        MAIN-LOGIC.
-           MOVE "Alice" TO WS-GREET-ARG0
+           MOVE "Alice" TO WS-GREET-NAME
            PERFORM GREET-PARA
-           MOVE "Bob" TO WS-GREET-ARG0
+           MOVE "Bob" TO WS-GREET-NAME
            PERFORM GREET-PARA
            DISPLAY "Done!"
            STOP RUN.

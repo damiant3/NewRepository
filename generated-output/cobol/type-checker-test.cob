@@ -22,37 +22,42 @@
        01 WS-TEXT-RESULT     PIC X(256).
 
        PROCEDURE DIVISION.
+      *> add-one
        ADD_ONE-PARA.
-           ADD WS-X 1 GIVING WS-V0001
-           MOVE WS-V0001 TO WS-ADD_ONE-RET
+           ADD WS-X 1 GIVING WS-ADD_ONE-SUM-1
+           MOVE WS-ADD_ONE-SUM-1 TO WS-ADD_ONE-RET
 
+      *> double
        DOUBLE-PARA.
-           MULTIPLY WS-X BY 2 GIVING WS-V0002
-           MOVE WS-V0002 TO WS-DOUBLE-RET
+           MULTIPLY WS-X BY 2 GIVING WS-DOUBLE-PROD-2
+           MOVE WS-DOUBLE-PROD-2 TO WS-DOUBLE-RET
 
+      *> greet
        GREET-PARA.
            STRING WS-NAME DELIMITED BY SPACE
                   "!" DELIMITED BY SPACE
-                  INTO WS-T0004
+                  INTO WS-GREET-JOINED-4
            STRING "Hello, " DELIMITED BY SPACE
-                  WS-T0004 DELIMITED BY SPACE
-                  INTO WS-T0006
-           MOVE WS-T0006 TO WS-GREET-RET
+                  WS-GREET-JOINED-4 DELIMITED BY SPACE
+                  INTO WS-GREET-JOINED-6
+           MOVE WS-GREET-JOINED-6 TO WS-GREET-RET
 
+      *> is-positive
        IS_POSITIVE-PARA.
            IF WS-X > 0
-             MOVE 1 TO WS-V0007
+             MOVE 1 TO WS-IS_POSITIVE-CMP-7
            ELSE
-             MOVE 0 TO WS-V0007
+             MOVE 0 TO WS-IS_POSITIVE-CMP-7
            END-IF
-           MOVE WS-V0007 TO WS-IS_POSITIVE-RET
+           MOVE WS-IS_POSITIVE-CMP-7 TO WS-IS_POSITIVE-RET
 
+      *> apply-twice
        APPLY_TWICE-PARA.
            MOVE WS-X TO WS-APPLY_TWICE-RET
 
        MAIN-LOGIC.
-           MOVE WS-ADD_ONE TO WS-APPLY_TWICE-ARG0
-           MOVE 40 TO WS-APPLY_TWICE-ARG1
+           MOVE WS-ADD_ONE TO WS-APPLY_TWICE-F
+           MOVE 40 TO WS-APPLY_TWICE-X
            PERFORM APPLY_TWICE-PARA
            DISPLAY WS-APPLY_TWICE-RET
            STOP RUN.

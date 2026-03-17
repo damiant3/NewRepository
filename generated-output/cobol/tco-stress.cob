@@ -14,28 +14,29 @@
        01 WS-TEXT-RESULT     PIC X(256).
 
        PROCEDURE DIVISION.
+      *> sum-to
        SUM_TO-PARA.
        SUM_TO-LOOP.
            IF WS-N = 0
-             MOVE 1 TO WS-V0001
+             MOVE 1 TO WS-SUM_TO-EQ-1
            ELSE
-             MOVE 0 TO WS-V0001
+             MOVE 0 TO WS-SUM_TO-EQ-1
            END-IF
-           IF WS-V0001 NOT = 0
+           IF WS-SUM_TO-EQ-1 NOT = 0
            MOVE WS-ACC TO WS-SUM_TO-RET
            GO TO SUM_TO-END
            ELSE
-           SUBTRACT 1 FROM WS-N GIVING WS-V0002
-           MOVE WS-V0002 TO WS-SUM_TO-N
-           ADD WS-ACC WS-N GIVING WS-V0003
-           MOVE WS-V0003 TO WS-SUM_TO-ACC
+           SUBTRACT 1 FROM WS-N GIVING WS-SUM_TO-DIFF-2
+           MOVE WS-SUM_TO-DIFF-2 TO WS-SUM_TO-N
+           ADD WS-ACC WS-N GIVING WS-SUM_TO-SUM-3
+           MOVE WS-SUM_TO-SUM-3 TO WS-SUM_TO-ACC
            GO TO SUM_TO-LOOP
            END-IF
        SUM_TO-END.
 
        MAIN-LOGIC.
-           MOVE 1000000 TO WS-SUM_TO-ARG0
-           MOVE 0 TO WS-SUM_TO-ARG1
+           MOVE 1000000 TO WS-SUM_TO-N
+           MOVE 0 TO WS-SUM_TO-ACC
            PERFORM SUM_TO-PARA
            DISPLAY WS-SUM_TO-RET
            STOP RUN.

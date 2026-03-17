@@ -26,22 +26,7 @@ contains
         count_letters = acc
         return
       else
-        block
-          character(len=256) :: ch
-          ch = char_at(s)(i)
-          if (is_letter(ch)) then
-            s = s
-            i = (i + 1_8)
-            acc = (acc + 1_8)
-            cycle
-          else
-            s = s
-            i = (i + 1_8)
-            acc = acc
-            cycle
-          end if
-        end block
-      end if
+merge(count_letters(s, (i + 1_8), (acc + 1_8)), count_letters(s, (i + 1_8), acc), is_letter(ch))      end if
     end do
   end function count_letters
 

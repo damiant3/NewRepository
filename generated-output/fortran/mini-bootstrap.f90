@@ -4,11 +4,6 @@
 module codex_mini_bootstrap
   implicit none
 
-  type :: Point
-    integer(8) :: x
-    integer(8) :: y
-  end type Point
-
   ! Sum type: Color
   ! Tag constants:
   integer, parameter :: TAG_Red = 1
@@ -20,11 +15,23 @@ module codex_mini_bootstrap
     integer(8) :: field0
   end type Color
 
+  type :: Point
+    integer(8) :: x
+    integer(8) :: y
+  end type Point
+
 contains
 
   character(len=256) function show_color(c)
     type(Color), intent(in) :: c
-    show_color = 0
+    select case (c%tag)
+      case (TAG_Red)
+        show_color = 'red'
+      case (TAG_Green)
+        show_color = 'green'
+      case (TAG_Blue)
+        show_color = 'blue'
+    end select
   end function show_color
 
   integer(8) function get_x(p)

@@ -24,7 +24,12 @@ contains
 
   character(len=256) function describe(result_v)
     type(Result), intent(in) :: result_v
-    describe = 0
+    select case (result_v%tag)
+      case (TAG_Success)
+        describe = trim('got ') // trim('<value>')
+      case (TAG_Failure)
+        describe = trim('error: ') // trim(result_v%field0)
+    end select
   end function describe
 
 end module codex_safe_divide

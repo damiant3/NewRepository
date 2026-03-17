@@ -21,28 +21,42 @@
        01 WS-TEXT-RESULT     PIC X(256).
 
        PROCEDURE DIVISION.
+      *> safe-divide
        SAFE_DIVIDE-PARA.
            IF WS-Y = 0
-             MOVE 1 TO WS-V0001
+             MOVE 1 TO WS-SAFE_DIVIDE-EQ-1
            ELSE
-             MOVE 0 TO WS-V0001
+             MOVE 0 TO WS-SAFE_DIVIDE-EQ-1
            END-IF
-           IF WS-V0001 NOT = 0
-             MOVE "division by zero" TO WS-V0002
+           IF WS-SAFE_DIVIDE-EQ-1 NOT = 0
+             MOVE "division by zero" TO WS-SAFE_DIVIDE-BRANCH-2
            ELSE
-           DIVIDE WS-X BY WS-Y GIVING WS-V0003
-             MOVE WS-V0003 TO WS-V0002
+           DIVIDE WS-X BY WS-Y GIVING WS-SAFE_DIVIDE-QUOT-3
+             MOVE WS-SAFE_DIVIDE-QUOT-3 TO WS-SAFE_DIVIDE-BRANCH-2
            END-IF
-           MOVE WS-V0002 TO WS-SAFE_DIVIDE-RET
+           MOVE WS-SAFE_DIVIDE-BRANCH-2 TO WS-SAFE_DIVIDE-RET
 
+      *> describe
        DESCRIBE-PARA.
-           MOVE 0 TO WS-DESCRIBE-RET
+           EVALUATE WS-RESULT-TAG
+             WHEN TAG-SUCCESS
+           STRING "got " DELIMITED BY SPACE
+                  WS-N DELIMITED BY SPACE
+                  INTO WS-DESCRIBE-JOINED-6
+               MOVE WS-DESCRIBE-JOINED-6 TO WS-DESCRIBE-MATCH-4
+             WHEN TAG-FAILURE
+           STRING "error: " DELIMITED BY SPACE
+                  WS-MSG DELIMITED BY SPACE
+                  INTO WS-DESCRIBE-JOINED-8
+               MOVE WS-DESCRIBE-JOINED-8 TO WS-DESCRIBE-MATCH-4
+           END-EVALUATE
+           MOVE WS-DESCRIBE-MATCH-4 TO WS-DESCRIBE-RET
 
        MAIN-LOGIC.
-           MOVE 42 TO WS-SAFE_DIVIDE-ARG0
-           MOVE 7 TO WS-SAFE_DIVIDE-ARG1
+           MOVE 42 TO WS-SAFE_DIVIDE-X
+           MOVE 7 TO WS-SAFE_DIVIDE-Y
            PERFORM SAFE_DIVIDE-PARA
-           MOVE WS-SAFE_DIVIDE-RET TO WS-DESCRIBE-ARG0
+           MOVE WS-SAFE_DIVIDE-RET TO WS-DESCRIBE-RESULT
            PERFORM DESCRIBE-PARA
            DISPLAY WS-DESCRIBE-RET
            STOP RUN.

@@ -10,7 +10,10 @@ public sealed class CobolEmitter : ICodeEmitter
 {
     Set<string> m_constructorNames = Set<string>.s_empty;
     ValueMap<string, int> m_definitionArity = ValueMap<string, int>.s_empty;
+    Map<string, string> m_ctorToTag = Map<string, string>.s_empty;
+    Map<string, IRDefinition> m_definitions = Map<string, IRDefinition>.s_empty;
     int m_varCounter;
+    string m_currentFunc = "";
     List<string> m_workingStorage = [];
 
     public string TargetName => "COBOL";
@@ -19,12 +22,16 @@ public sealed class CobolEmitter : ICodeEmitter
     public string Emit(IRModule module)
     {
         m_constructorNames = CollectConstructorNames(module);
+        m_ctorToTag = BuildCtorTagMap(module);
         m_definitionArity = ValueMap<string, int>.s_empty;
         m_varCounter = 0;
         m_workingStorage = [];
 
         foreach (IRDefinition d in module.Definitions)
+        {
             m_definitionArity = m_definitionArity.Set(d.Name, d.Parameters.Length);
+            m_definitions = m_definitions.Set(d.Name, d);
+        }
 
         string programId = Sanitize(module.Name.Parts.Count > 0
             ? module.Name.Parts[module.Name.Parts.Count - 1].Value : "MAIN").ToUpper();
@@ -145,6 +152,9 @@ public sealed class CobolEmitter : ICodeEmitter
     void EmitDefinitionParagraph(StringBuilder sb, IRDefinition def)
     {
         string name = Sanitize(def.Name).ToUpper();
+        m_currentFunc = $"WS-{name}";
+
+        sb.AppendLine($"      *> {def.Name}");
         sb.AppendLine($"       {name}-PARA.");
 
         if (HasSelfTailCall(def))
@@ -158,6 +168,8 @@ public sealed class CobolEmitter : ICodeEmitter
             string resVar = EmitExprToVar(sb, def.Body);
             sb.AppendLine($"           MOVE {resVar} TO WS-{name}-RET");
         }
+
+        m_currentFunc = "";
     }
 
     void EmitTailCallBodyCobol(
@@ -196,8 +208,9 @@ public sealed class CobolEmitter : ICodeEmitter
             case IRLet let:
             {
                 string letVar = EmitExprToVar(sb, let.Value);
-                string letName = AllocVar();
-                m_workingStorage.Add($"       01 {letName}       PIC S9(18).");
+                string letName = AllocVar(Sanitize(let.Name).ToUpper());
+                string pic = PicClause(let.NameType);
+                m_workingStorage.Add($"       01 {letName}       {pic}.");
                 sb.AppendLine($"           MOVE {letVar} TO {letName}");
                 EmitTailCallBodyCobol(sb, let.Body, funcName, parameters);
                 break;
@@ -239,7 +252,17 @@ public sealed class CobolEmitter : ICodeEmitter
             {
                 string left = EmitExprToVar(sb, bin.Left);
                 string right = EmitExprToVar(sb, bin.Right);
-                string resultVar = AllocVar();
+                string hint = bin.Op switch
+                {
+                    IRBinaryOp.AddInt or IRBinaryOp.AddNum => "SUM",
+                    IRBinaryOp.SubInt or IRBinaryOp.SubNum => "DIFF",
+                    IRBinaryOp.MulInt or IRBinaryOp.MulNum => "PROD",
+                    IRBinaryOp.DivInt or IRBinaryOp.DivNum => "QUOT",
+                    IRBinaryOp.Eq or IRBinaryOp.NotEq => "EQ",
+                    IRBinaryOp.Lt or IRBinaryOp.Gt or IRBinaryOp.LtEq or IRBinaryOp.GtEq => "CMP",
+                    _ => "RESULT"
+                };
+                string resultVar = AllocVar(hint);
                 m_workingStorage.Add($"       01 {resultVar}       PIC S9(18).");
 
                 switch (bin.Op)
@@ -300,7 +323,7 @@ public sealed class CobolEmitter : ICodeEmitter
                         break;
                     case IRBinaryOp.AppendText:
                     {
-                        string txtVar = AllocTextVar();
+                        string txtVar = AllocTextVar("JOINED");
                         m_workingStorage.Add($"       01 {txtVar}       PIC X(256).");
                         sb.AppendLine($"           STRING {left} DELIMITED BY SPACE");
                         sb.AppendLine($"                  {right} DELIMITED BY SPACE");
@@ -317,7 +340,7 @@ public sealed class CobolEmitter : ICodeEmitter
             case IRNegate neg:
             {
                 string inner = EmitExprToVar(sb, neg.Operand);
-                string resultVar = AllocVar();
+                string resultVar = AllocVar("NEG");
                 m_workingStorage.Add($"       01 {resultVar}       PIC S9(18).");
                 sb.AppendLine($"           MULTIPLY {inner} BY -1 GIVING {resultVar}");
                 return resultVar;
@@ -326,7 +349,7 @@ public sealed class CobolEmitter : ICodeEmitter
             case IRIf iff:
             {
                 string condVar = EmitExprToVar(sb, iff.Condition);
-                string resultVar = AllocVar();
+                string resultVar = AllocVar("BRANCH");
                 m_workingStorage.Add($"       01 {resultVar}       PIC S9(18).");
                 sb.AppendLine($"           IF {condVar} NOT = 0");
                 string thenVar = EmitExprToVar(sb, iff.Then);
@@ -341,8 +364,9 @@ public sealed class CobolEmitter : ICodeEmitter
             case IRLet let:
             {
                 string letVar = EmitExprToVar(sb, let.Value);
-                string letName = AllocVar();
-                m_workingStorage.Add($"       01 {letName}       PIC S9(18).");
+                string letName = AllocVar(Sanitize(let.Name).ToUpper());
+                string pic = PicClause(let.NameType);
+                m_workingStorage.Add($"       01 {letName}       {pic}.");
                 sb.AppendLine($"           MOVE {letVar} TO {letName}");
                 return EmitExprToVar(sb, let.Body);
             }
@@ -352,17 +376,49 @@ public sealed class CobolEmitter : ICodeEmitter
 
             case IRRecord rec:
             {
-                string resultVar = AllocVar();
-                m_workingStorage.Add($"       01 {resultVar}       PIC S9(18).");
-                sb.AppendLine($"           MOVE 0 TO {resultVar}");
-                sb.AppendLine($"      *>   Record {rec.TypeName} construction");
+                string recName = Sanitize(rec.TypeName).ToUpper();
+                string resultVar = $"WS-{recName}";
+                for (int i = 0; i < rec.Fields.Length; i++)
+                {
+                    string fieldVal = EmitExprToVar(sb, rec.Fields[i].Value);
+                    string fieldName = Sanitize(rec.Fields[i].FieldName).ToUpper();
+                    sb.AppendLine($"           MOVE {fieldVal} TO WS-{recName}-{fieldName}");
+                }
                 return resultVar;
             }
 
             case IRFieldAccess fa:
             {
                 string recVar = EmitExprToVar(sb, fa.Record);
-                return $"{recVar}";
+                string fieldName = Sanitize(fa.FieldName).ToUpper();
+                return $"{recVar}-{fieldName}";
+            }
+
+            case IRMatch match:
+            {
+                string scrutVar = EmitExprToVar(sb, match.Scrutinee);
+                string resultVar = AllocVar("MATCH");
+                string pic = PicClause(match.Type);
+                m_workingStorage.Add($"       01 {resultVar}       {pic}.");
+                sb.AppendLine($"           EVALUATE {scrutVar}-TAG");
+                foreach (IRMatchBranch branch in match.Branches)
+                {
+                    if (branch.Pattern is IRCtorPattern ctorPat)
+                    {
+                        string ctorName = Sanitize(ctorPat.Name).ToUpper();
+                        sb.AppendLine($"             WHEN TAG-{ctorName}");
+                        string branchVar = EmitExprToVar(sb, branch.Body);
+                        sb.AppendLine($"               MOVE {branchVar} TO {resultVar}");
+                    }
+                    else
+                    {
+                        sb.AppendLine("             WHEN OTHER");
+                        string branchVar = EmitExprToVar(sb, branch.Body);
+                        sb.AppendLine($"               MOVE {branchVar} TO {resultVar}");
+                    }
+                }
+                sb.AppendLine("           END-EVALUATE");
+                return resultVar;
             }
 
             default:
@@ -385,7 +441,7 @@ public sealed class CobolEmitter : ICodeEmitter
         else if (app.Function is IRName fn3 && fn3.Name == "negate")
         {
             string argVar = EmitExprToVar(sb, app.Argument);
-            string resultVar = AllocVar();
+            string resultVar = AllocVar("NEG");
             m_workingStorage.Add($"       01 {resultVar}       PIC S9(18).");
             sb.AppendLine($"           MULTIPLY {argVar} BY -1 GIVING {resultVar}");
             return resultVar;
@@ -399,10 +455,13 @@ public sealed class CobolEmitter : ICodeEmitter
             CollectApplyArgs(app, args);
             string name = Sanitize(defName).ToUpper();
 
+            IRDefinition? targetDef = m_definitions[defName];
             for (int i = 0; i < args.Count && i < arity; i++)
             {
                 string argVar = EmitExprToVar(sb, args[i]);
-                string pname = "ARG" + i;
+                string pname = targetDef is not null && i < targetDef.Parameters.Length
+                    ? Sanitize(targetDef.Parameters[i].Name).ToUpper()
+                    : $"ARG{i}";
                 sb.AppendLine($"           MOVE {argVar} TO WS-{name}-{pname}");
             }
             sb.AppendLine($"           PERFORM {name}-PARA");
@@ -436,16 +495,18 @@ public sealed class CobolEmitter : ICodeEmitter
         }
     }
 
-    string AllocVar()
+    string AllocVar(string hint = "TEMP")
     {
         m_varCounter++;
-        return $"WS-V{m_varCounter:D4}";
+        string prefix = m_currentFunc.Length > 0 ? m_currentFunc : "WS";
+        return $"{prefix}-{hint}-{m_varCounter}";
     }
 
-    string AllocTextVar()
+    string AllocTextVar(string hint = "TEXT")
     {
         m_varCounter++;
-        return $"WS-T{m_varCounter:D4}";
+        string prefix = m_currentFunc.Length > 0 ? m_currentFunc : "WS";
+        return $"{prefix}-{hint}-{m_varCounter}";
     }
 
     static string PicClause(CodexType type) => type switch
@@ -531,4 +592,15 @@ public sealed class CobolEmitter : ICodeEmitter
     static string Sanitize(string name) => name.Replace('-', '_');
 
     static string EscapeString(string value) => value.Replace("\"", "\"\"");
+
+    static Map<string, string> BuildCtorTagMap(IRModule module)
+    {
+        Map<string, string> map = Map<string, string>.s_empty;
+        int tagCounter = 0;
+        foreach (KeyValuePair<string, CodexType> kv in module.TypeDefinitions)
+            if (kv.Value is SumType sum)
+                foreach (SumConstructorType ctor in sum.Constructors)
+                    map = map.Set(ctor.Name.Value, (++tagCounter).ToString());
+        return map;
+    }
 }

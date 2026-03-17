@@ -9,6 +9,6 @@ public class Prose_greeting {
     }
 
     public static void main(String[] args) {
-        System.out.println(greet.apply("World"));
+        System.out.println(greet("World"));
     }
 }

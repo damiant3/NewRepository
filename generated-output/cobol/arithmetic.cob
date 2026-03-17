@@ -20,67 +20,70 @@
        01 WS-TEXT-RESULT     PIC X(256).
 
        PROCEDURE DIVISION.
+      *> max
        MAX-PARA.
            IF WS-X > WS-Y
-             MOVE 1 TO WS-V0001
+             MOVE 1 TO WS-MAX-CMP-1
            ELSE
-             MOVE 0 TO WS-V0001
+             MOVE 0 TO WS-MAX-CMP-1
            END-IF
-           IF WS-V0001 NOT = 0
-             MOVE WS-X TO WS-V0002
+           IF WS-MAX-CMP-1 NOT = 0
+             MOVE WS-X TO WS-MAX-BRANCH-2
            ELSE
-             MOVE WS-Y TO WS-V0002
+             MOVE WS-Y TO WS-MAX-BRANCH-2
            END-IF
-           MOVE WS-V0002 TO WS-MAX-RET
+           MOVE WS-MAX-BRANCH-2 TO WS-MAX-RET
 
+      *> abs
        ABS-PARA.
            IF WS-X < 0
-             MOVE 1 TO WS-V0003
+             MOVE 1 TO WS-ABS-CMP-3
            ELSE
-             MOVE 0 TO WS-V0003
+             MOVE 0 TO WS-ABS-CMP-3
            END-IF
-           IF WS-V0003 NOT = 0
-           MULTIPLY WS-X BY -1 GIVING WS-V0005
-             MOVE WS-V0005 TO WS-V0004
+           IF WS-ABS-CMP-3 NOT = 0
+           MULTIPLY WS-X BY -1 GIVING WS-ABS-NEG-5
+             MOVE WS-ABS-NEG-5 TO WS-ABS-BRANCH-4
            ELSE
-             MOVE WS-X TO WS-V0004
+             MOVE WS-X TO WS-ABS-BRANCH-4
            END-IF
-           MOVE WS-V0004 TO WS-ABS-RET
+           MOVE WS-ABS-BRANCH-4 TO WS-ABS-RET
 
+      *> clamp
        CLAMP-PARA.
            IF WS-X < WS-LO
-             MOVE 1 TO WS-V0006
+             MOVE 1 TO WS-CLAMP-CMP-6
            ELSE
-             MOVE 0 TO WS-V0006
+             MOVE 0 TO WS-CLAMP-CMP-6
            END-IF
-           IF WS-V0006 NOT = 0
-             MOVE WS-LO TO WS-V0007
+           IF WS-CLAMP-CMP-6 NOT = 0
+             MOVE WS-LO TO WS-CLAMP-BRANCH-7
            ELSE
            IF WS-X > WS-HI
-             MOVE 1 TO WS-V0008
+             MOVE 1 TO WS-CLAMP-CMP-8
            ELSE
-             MOVE 0 TO WS-V0008
+             MOVE 0 TO WS-CLAMP-CMP-8
            END-IF
-           IF WS-V0008 NOT = 0
-             MOVE WS-HI TO WS-V0009
+           IF WS-CLAMP-CMP-8 NOT = 0
+             MOVE WS-HI TO WS-CLAMP-BRANCH-9
            ELSE
-             MOVE WS-X TO WS-V0009
+             MOVE WS-X TO WS-CLAMP-BRANCH-9
            END-IF
-             MOVE WS-V0009 TO WS-V0007
+             MOVE WS-CLAMP-BRANCH-9 TO WS-CLAMP-BRANCH-7
            END-IF
-           MOVE WS-V0007 TO WS-V0010
+           MOVE WS-CLAMP-BRANCH-7 TO WS-CLAMP-CLAMPED-10
            MOVE WS-CLAMPED TO WS-CLAMP-RET
 
        MAIN-LOGIC.
-           MOVE 0 TO WS-CLAMP-ARG0
-           MOVE 100 TO WS-CLAMP-ARG1
-           MULTIPLY 42 BY -1 GIVING WS-V0011
-           MOVE WS-V0011 TO WS-MAX-ARG0
-           MOVE 37 TO WS-MAX-ARG1
+           MOVE 0 TO WS-CLAMP-LO
+           MOVE 100 TO WS-CLAMP-HI
+           MULTIPLY 42 BY -1 GIVING WS-NEG-11
+           MOVE WS-NEG-11 TO WS-MAX-X
+           MOVE 37 TO WS-MAX-Y
            PERFORM MAX-PARA
-           MOVE WS-MAX-RET TO WS-ABS-ARG0
+           MOVE WS-MAX-RET TO WS-ABS-X
            PERFORM ABS-PARA
-           MOVE WS-ABS-RET TO WS-CLAMP-ARG2
+           MOVE WS-ABS-RET TO WS-CLAMP-X
            PERFORM CLAMP-PARA
            DISPLAY WS-CLAMP-RET
            STOP RUN.

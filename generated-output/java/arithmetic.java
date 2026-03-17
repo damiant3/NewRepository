@@ -17,6 +17,6 @@ public class Arithmetic {
     }
 
     public static void main(String[] args) {
-        System.out.println(clamp(0L, 100L, abs.apply(max((-42L), 37L))));
+        System.out.println(clamp(0L, 100L, abs(max((-42L), 37L))));
     }
 }

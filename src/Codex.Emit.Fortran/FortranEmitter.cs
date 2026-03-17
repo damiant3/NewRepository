@@ -70,28 +70,13 @@ public sealed class FortranEmitter : ICodeEmitter
 
         if (mainDef is not null)
         {
-            CodexType retType = GetReturnType(mainDef);
             if (IsEffectfulDefinition(mainDef))
             {
                 EmitStatement(sb, mainDef.Body, 1);
             }
-            else if (retType is IntegerType)
+            else if (mainDef.Body is IRMatch match)
             {
-                sb.Append("  print *, ");
-                EmitExpr(sb, mainDef.Body, 1);
-                sb.AppendLine();
-            }
-            else if (retType is NumberType)
-            {
-                sb.Append("  print *, ");
-                EmitExpr(sb, mainDef.Body, 1);
-                sb.AppendLine();
-            }
-            else if (retType is TextType)
-            {
-                sb.Append("  print *, ");
-                EmitExpr(sb, mainDef.Body, 1);
-                sb.AppendLine();
+                EmitMatchStatement(sb, match, "print *", 1);
             }
             else
             {
@@ -203,9 +188,16 @@ public sealed class FortranEmitter : ICodeEmitter
             for (int i = 0; i < def.Parameters.Length; i++)
                 sb.AppendLine(
                     $"    {EmitType(def.Parameters[i].Type)}, intent(in) :: {SanitizeUpper(def.Parameters[i].Name)}");
-            sb.Append($"    {name} = ");
-            EmitExpr(sb, def.Body, 2);
-            sb.AppendLine();
+            if (def.Body is IRMatch bodyMatch)
+            {
+                EmitMatchStatement(sb, bodyMatch, $"{name} =", 2);
+            }
+            else
+            {
+                sb.Append($"    {name} = ");
+                EmitExpr(sb, def.Body, 2);
+                sb.AppendLine();
+            }
             sb.AppendLine($"  end function {name}");
         }
     }
@@ -256,13 +248,7 @@ public sealed class FortranEmitter : ICodeEmitter
                 break;
 
             case IRLet let:
-                sb.AppendLine($"{pad}block");
-                sb.AppendLine($"{pad}  {EmitType(let.NameType)} :: {SanitizeUpper(let.Name)}");
-                sb.Append($"{pad}  {SanitizeUpper(let.Name)} = ");
-                EmitExpr(sb, let.Value, indent + 1);
-                sb.AppendLine();
-                EmitTailCallBody(sb, let.Body, funcName, parameters, indent + 1);
-                sb.AppendLine($"{pad}end block");
+                EmitExpr(sb, let.Body, indent);
                 break;
 
             case IRApply app when IsSelfCall(app, funcName):
@@ -365,6 +351,14 @@ public sealed class FortranEmitter : ICodeEmitter
                 sb.Append($"%{SanitizeUpper(fa.FieldName)}");
                 break;
 
+            case IRMatch match:
+                EmitFortranMatch(sb, match, indent);
+                break;
+
+            case IRList list:
+                sb.Append("0");
+                break;
+
             case IRError err:
                 sb.Append("0");
                 break;
@@ -372,6 +366,47 @@ public sealed class FortranEmitter : ICodeEmitter
             default:
                 sb.Append("0");
                 break;
+        }
+    }
+
+    void EmitFortranMatch(StringBuilder sb, IRMatch match, int indent)
+    {
+        // Fortran has no expression-level match. Emit nested merge() calls:
+        // merge(body1, merge(body2, 0, scrutinee%tag == TAG_Ctor2), scrutinee%tag == TAG_Ctor1)
+        ImmutableArray<IRMatchBranch> branches = match.Branches;
+        if (branches.Length == 0)
+        {
+            sb.Append("0");
+            return;
+        }
+
+        for (int i = 0; i < branches.Length - 1; i++)
+            sb.Append("merge(");
+
+        for (int i = 0; i < branches.Length; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            EmitExpr(sb, branches[i].Body, indent);
+            if (i < branches.Length - 1)
+            {
+                sb.Append(", ");
+            }
+        }
+
+        for (int i = branches.Length - 2; i >= 0; i--)
+        {
+            sb.Append(", ");
+            if (branches[i].Pattern is IRCtorPattern ctorPat
+                && m_ctorToTag.TryGet(ctorPat.Name, out string? tag))
+            {
+                EmitExpr(sb, match.Scrutinee, indent);
+                sb.Append($"%tag == TAG_{SanitizeUpper(ctorPat.Name)}");
+            }
+            else
+            {
+                sb.Append(".true.");
+            }
+            sb.Append(')');
         }
     }
 
@@ -508,6 +543,88 @@ public sealed class FortranEmitter : ICodeEmitter
             sb.Append(pad);
             EmitExpr(sb, expr, indent);
             sb.AppendLine();
+        }
+    }
+
+    void EmitMatchStatement(StringBuilder sb, IRMatch match, string assignTarget, int indent)
+    {
+        string pad = new(' ', indent * 2);
+
+        sb.Append($"{pad}select case (");
+        EmitExpr(sb, match.Scrutinee, indent);
+        sb.AppendLine($"%tag)");
+
+        foreach (IRMatchBranch branch in match.Branches)
+        {
+            if (branch.Pattern is IRCtorPattern ctorPat
+                && m_ctorToTag.TryGet(ctorPat.Name, out string? tag))
+            {
+                sb.AppendLine($"{pad}  case (TAG_{SanitizeUpper(ctorPat.Name)})");
+                sb.Append($"{pad}    {assignTarget} ");
+                EmitMatchBranchBody(sb, branch.Body, match.Scrutinee, ctorPat, indent + 2);
+                sb.AppendLine();
+            }
+            else if (branch.Pattern is IRWildcardPattern or IRVarPattern)
+            {
+                sb.AppendLine($"{pad}  case default");
+                sb.Append($"{pad}    {assignTarget} ");
+                EmitExpr(sb, branch.Body, indent + 2);
+                sb.AppendLine();
+            }
+        }
+        sb.AppendLine($"{pad}end select");
+    }
+
+    void EmitMatchBranchBody(StringBuilder sb, IRExpr body, IRExpr scrutinee, IRCtorPattern pattern, int indent)
+    {
+        IRExpr rewritten = RewritePatternVars(body, scrutinee, pattern);
+        EmitExpr(sb, rewritten, indent);
+    }
+
+    static IRExpr RewritePatternVars(IRExpr expr, IRExpr scrutinee, IRCtorPattern pattern)
+    {
+        Dictionary<string, int> varFields = [];
+        for (int i = 0; i < pattern.SubPatterns.Length; i++)
+        {
+            if (pattern.SubPatterns[i] is IRVarPattern vp)
+                varFields[vp.Name] = i;
+        }
+        return RewriteExpr(expr, scrutinee, varFields);
+    }
+
+    static IRExpr RewriteExpr(IRExpr expr, IRExpr scrutinee, Dictionary<string, int> varFields)
+    {
+        switch (expr)
+        {
+            case IRName name when varFields.TryGetValue(name.Name, out int fieldIdx):
+                return new IRFieldAccess(scrutinee, $"field{fieldIdx}", name.Type);
+
+            case IRBinary bin:
+                return new IRBinary(
+                    bin.Op,
+                    RewriteExpr(bin.Left, scrutinee, varFields),
+                    RewriteExpr(bin.Right, scrutinee, varFields),
+                    bin.Type);
+
+            case IRNegate neg:
+                return new IRNegate(
+                    RewriteExpr(neg.Operand, scrutinee, varFields));
+
+            case IRIf iff:
+                return new IRIf(
+                    RewriteExpr(iff.Condition, scrutinee, varFields),
+                    RewriteExpr(iff.Then, scrutinee, varFields),
+                    RewriteExpr(iff.Else, scrutinee, varFields),
+                    iff.Type);
+
+            case IRApply app:
+                return new IRApply(
+                    RewriteExpr(app.Function, scrutinee, varFields),
+                    RewriteExpr(app.Argument, scrutinee, varFields),
+                    app.Type);
+
+            default:
+                return expr;
         }
     }
 

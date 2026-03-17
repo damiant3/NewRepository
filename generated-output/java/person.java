@@ -5,12 +5,12 @@ import java.io.*;
 
 record Person(String name, long age) {}
 
-public class Person {
+public class PersonModule {
     public static String greet(Person p) {
         return ("Hello, " + (p.name() + "!"));
     }
 
     public static void main(String[] args) {
-        System.out.println(greet.apply(new Person("Alice", 30L)));
+        System.out.println(greet(new Person("Alice", 30L)));
     }
 }

@@ -16,10 +16,10 @@
       *>   bind: name
            STRING WS-NAME DELIMITED BY SPACE
                   "!" DELIMITED BY SPACE
-                  INTO WS-T0002
+                  INTO WS-JOINED-2
            STRING "Hello, " DELIMITED BY SPACE
-                  WS-T0002 DELIMITED BY SPACE
-                  INTO WS-T0004
-           DISPLAY WS-T0004
+                  WS-JOINED-2 DELIMITED BY SPACE
+                  INTO WS-JOINED-4
+           DISPLAY WS-JOINED-4
            STOP RUN.
 

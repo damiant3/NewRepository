@@ -18,6 +18,15 @@
 
        PROCEDURE DIVISION.
        MAIN-LOGIC.
-           DISPLAY 0
+           EVALUATE 5.0-TAG
+             WHEN TAG-CIRCLE
+           MULTIPLY 3.14 BY WS-R GIVING WS-PROD-2
+           MULTIPLY WS-PROD-2 BY WS-R GIVING WS-PROD-3
+               MOVE WS-PROD-3 TO WS-MATCH-1
+             WHEN TAG-RECTANGLE
+           MULTIPLY WS-W BY WS-H GIVING WS-PROD-4
+               MOVE WS-PROD-4 TO WS-MATCH-1
+           END-EVALUATE
+           DISPLAY WS-MATCH-1
            STOP RUN.
 

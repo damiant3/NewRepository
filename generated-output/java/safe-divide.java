@@ -17,6 +17,6 @@ public class Safe_divide {
     }
 
     public static void main(String[] args) {
-        System.out.println(describe.apply(safe_divide(42L, 7L)));
+        System.out.println(describe(safe_divide(42L, 7L)));
     }
 }

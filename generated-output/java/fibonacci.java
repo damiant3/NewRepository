@@ -5,10 +5,10 @@ import java.io.*;
 
 public class Fibonacci {
     public static long fib(long n) {
-        return ((n == 0L) ? 0L : ((n == 1L) ? 1L : (fib.apply((n - 1L)) + fib.apply((n - 2L)))));
+        return ((n == 0L) ? 0L : ((n == 1L) ? 1L : (fib((n - 1L)) + fib((n - 2L)))));
     }
 
     public static void main(String[] args) {
-        System.out.println(fib.apply(20L));
+        System.out.println(fib(20L));
     }
 }
