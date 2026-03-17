@@ -440,10 +440,7 @@ Section: Expression Parsing
           in let field = current st2
             in let st3 = advance st2
               in parse-field-access (FieldExpr node field) st3
-        else if is-app-start (current-kind st)
-          then let arg-result = parse-atom st
-            in unwrap-expr-ok arg-result (continue-app node)
-          else ExprOk node st
+        else ExprOk node st
 
     parse-dot-only : Expr -> ParseState -> ParseExprResult
     parse-dot-only (node) (st) =

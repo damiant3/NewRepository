@@ -18,7 +18,7 @@ public static class Codex_safe_divide
 
     public static string describe(Result result)
     {
-        return ((Func<Result, string>)((_scrutinee2_) => (_scrutinee2_ is Success _mSuccess2_ ? ((Func<long, string>)((n) => string.Concat("got ", Convert.ToString(n))))((long)_mSuccess2_.Field0) : (_scrutinee2_ is Failure _mFailure2_ ? ((Func<string, string>)((msg) => string.Concat("error: ", msg)))((string)_mFailure2_.Field0) : throw new InvalidOperationException("Non-exhaustive match")))))(result);
+        return ((Func<Result, string>)((_scrutinee4_) => (_scrutinee4_ is Success _mSuccess4_ ? ((Func<long, string>)((n) => string.Concat("got ", Convert.ToString(n))))((long)_mSuccess4_.Field0) : (_scrutinee4_ is Failure _mFailure4_ ? ((Func<string, string>)((msg) => string.Concat("error: ", msg)))((string)_mFailure4_.Field0) : throw new InvalidOperationException("Non-exhaustive match")))))(result);
     }
 
     public static string main()

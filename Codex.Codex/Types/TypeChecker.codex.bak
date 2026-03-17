@@ -315,15 +315,6 @@ Section: Infer Expression (dispatch)
             if RecordTy (rname) (rfields) ->
               let ftype = lookup-record-field rfields field.value
               in CheckResult { inferred-type = ftype, state = r.state }
-            if ConstructedTy (cname) (cargs) ->
-              let record-type = resolve-constructed-to-record env cname.value
-              in when record-type
-                if RecordTy (rname) (rfields) ->
-                  let ftype = lookup-record-field rfields field.value
-                  in CheckResult { inferred-type = ftype, state = r.state }
-                if _ ->
-                  let fr = fresh-and-advance r.state
-                  in CheckResult { inferred-type = fr.var-type, state = fr.state }
             if _ ->
               let fr = fresh-and-advance r.state
               in CheckResult { inferred-type = fr.var-type, state = fr.state }
@@ -334,12 +325,6 @@ Section: Infer Expression (dispatch)
           in let result-type = strip-fun-args ctor-type
           in CheckResult { inferred-type = result-type, state = st2 }
         if AErrorExpr (msg) -> CheckResult { inferred-type = ErrorTy, state = st }
-
-    resolve-constructed-to-record : TypeEnv -> Text -> CodexType
-    resolve-constructed-to-record (env) (name) =
-      if env-has env name
-        then strip-fun-args (env-lookup env name)
-        else ErrorTy
 
     infer-record-fields : UnificationState -> TypeEnv -> List AFieldExpr -> Integer -> Integer -> UnificationState
     infer-record-fields (st) (env) (fields) (i) (len) =
@@ -389,96 +374,6 @@ Section: Resolve Type Expression
       else if name == "Nothing" then NothingTy
       else ConstructedTy (Name { value = name }) []
 
-Section: Parameterize Type
-
-    is-value-name : Text -> Boolean
-    is-value-name (name) =
-      if text-length name == 0 then False
-      else let code = char-code (char-at name 0)
-           in code >= 97 & code <= 122
-
-    ParamEntry = record {
-      param-name : Text,
-      var-id : Integer
-    }
-
-    ParamResult = record {
-      parameterized : CodexType,
-      entries : List ParamEntry,
-      state : UnificationState
-    }
-
-    parameterize-type : UnificationState -> CodexType -> ParamResult
-    parameterize-type (st) (ty) =
-      let r = parameterize-walk st [] ty
-      in let wrapped = wrap-forall-from-entries r.walked r.entries 0 (list-length r.entries)
-      in ParamResult { parameterized = wrapped, entries = r.entries, state = r.state }
-
-    wrap-forall-from-entries : CodexType -> List ParamEntry -> Integer -> Integer -> CodexType
-    wrap-forall-from-entries (ty) (entries) (i) (len) =
-      if i == len then ty
-      else
-        let e = list-at entries i
-        in ForAllTy e.var-id (wrap-forall-from-entries ty entries (i + 1) len)
-
-    WalkResult = record {
-      walked : CodexType,
-      entries : List ParamEntry,
-      state : UnificationState
-    }
-
-    parameterize-walk : UnificationState -> List ParamEntry -> CodexType -> WalkResult
-    parameterize-walk (st) (entries) (ty) =
-      when ty
-        if ConstructedTy (name) (args) ->
-          if list-length args == 0 & is-value-name name.value
-            then
-              let looked = find-param-entry entries name.value 0 (list-length entries)
-              in if looked >= 0
-                then WalkResult { walked = TypeVar looked, entries = entries, state = st }
-                else
-                  let fr = fresh-and-advance st
-                  in when fr.var-type
-                    if TypeVar (new-id) ->
-                      let new-entry = ParamEntry { param-name = name.value, var-id = new-id }
-                      in WalkResult { walked = fr.var-type, entries = entries ++ [new-entry], state = fr.state }
-                    if _ -> WalkResult { walked = ty, entries = entries, state = fr.state }
-            else
-              let args-r = parameterize-walk-list st entries args 0 (list-length args) []
-              in WalkResult { walked = ConstructedTy name args-r.walked-list, entries = args-r.entries, state = args-r.state }
-        if FunTy (param) (ret) ->
-          let pr = parameterize-walk st entries param
-          in let rr = parameterize-walk pr.state pr.entries ret
-          in WalkResult { walked = FunTy pr.walked rr.walked, entries = rr.entries, state = rr.state }
-        if ListTy (elem) ->
-          let er = parameterize-walk st entries elem
-          in WalkResult { walked = ListTy er.walked, entries = er.entries, state = er.state }
-        if ForAllTy (id) (body) ->
-          let br = parameterize-walk st entries body
-          in WalkResult { walked = ForAllTy id br.walked, entries = br.entries, state = br.state }
-        if _ -> WalkResult { walked = ty, entries = entries, state = st }
-
-    find-param-entry : List ParamEntry -> Text -> Integer -> Integer -> Integer
-    find-param-entry (entries) (name) (i) (len) =
-      if i == len then 0 - 1
-      else
-        let e = list-at entries i
-        in if e.param-name == name then e.var-id
-           else find-param-entry entries name (i + 1) len
-
-    WalkListResult = record {
-      walked-list : List CodexType,
-      entries : List ParamEntry,
-      state : UnificationState
-    }
-
-    parameterize-walk-list : UnificationState -> List ParamEntry -> List CodexType -> Integer -> Integer -> List CodexType -> WalkListResult
-    parameterize-walk-list (st) (entries) (args) (i) (len) (acc) =
-      if i == len then WalkListResult { walked-list = acc, entries = entries, state = st }
-      else
-        let r = parameterize-walk st entries (list-at args i)
-        in parameterize-walk-list r.state r.entries args (i + 1) len (acc ++ [r.walked])
-
 Section: Check Definition
 
     check-def : UnificationState -> TypeEnv -> ADef -> CheckResult
@@ -503,9 +398,8 @@ Section: Check Definition
           let fr = fresh-and-advance st
           in DefSetup { expected-type = fr.var-type, remaining-type = fr.var-type, state = fr.state, env = env }
         else
-          let env-type = env-lookup env def.name.value
-          in let inst = instantiate-type st env-type
-          in DefSetup { expected-type = inst.var-type, remaining-type = inst.var-type, state = inst.state, env = env }
+          let ty = resolve-type-expr (list-at def.declared-type 0)
+          in DefSetup { expected-type = ty, remaining-type = ty, state = st, env = env }
 
     DefParamResult = record {
       state : UnificationState,
@@ -550,8 +444,7 @@ Section: Check Module
                   in let env2 = env-bind env def.name.value fr.var-type
                   in LetBindResult { state = fr.state, env = env2 }
              else let resolved = resolve-type-expr (list-at def.declared-type 0)
-                  in let pr = parameterize-type st resolved
-                  in LetBindResult { state = pr.state, env = env-bind env def.name.value pr.parameterized }
+                  in LetBindResult { state = st, env = env-bind env def.name.value resolved }
         in register-all-defs ty.state ty.env defs (i + 1) len
 
     check-all-defs : UnificationState -> TypeEnv -> List ADef -> Integer -> Integer -> List TypeBinding -> ModuleResult

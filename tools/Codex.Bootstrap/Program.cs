@@ -18,6 +18,9 @@ class Program
 
     static int Run(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--mini" && args.Length > 1)
+            return RunMini(args[1]);
+
         string codexDir = args.Length > 0 ? args[0] : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "Codex.Codex"));
 
         if (!Directory.Exists(codexDir))
@@ -92,6 +95,16 @@ class Program
             Console.WriteLine($"  ErrorTy bindings: {errorTyCount}");
             Console.WriteLine($"  Has-object bindings: {funcObjectCount}");
             Console.WriteLine($"  Type diagnostics written to: {diagPath}");
+
+            string errPath = Path.Combine(codexDir, "unify-errors.txt");
+            var errLines = new List<string>();
+            for (int ei = 0; ei < checkResult.state.errors.Count; ei++)
+            {
+                Diagnostic diag = checkResult.state.errors[ei];
+                errLines.Add($"{ei}: [{diag.code}] {diag.message}");
+            }
+            File.WriteAllLines(errPath, errLines);
+            Console.WriteLine($"  Unification error log: {errPath}");
 
             // Show first 20 type bindings
             for (int i = 0; i < Math.Min(20, checkResult.types.Count); i++)
@@ -238,5 +251,75 @@ class Program
             else break;
         }
         return count;
+    }
+
+    static int RunMini(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.Error.WriteLine($"File not found: {filePath}");
+            return 1;
+        }
+
+        string rawContent = File.ReadAllText(filePath);
+        string source;
+        if (IsProseDocument(rawContent))
+        {
+            source = ExtractCodeBlocks(rawContent);
+            Console.WriteLine($"Mini compile (prose): {filePath} ({source.Length} chars from {rawContent.Length})");
+        }
+        else
+        {
+            source = rawContent;
+            Console.WriteLine($"Mini compile: {filePath} ({source.Length} chars)");
+        }
+
+        try
+        {
+            List<Token> tokens = Codex_Codex_Codex.tokenize(source);
+            ParseState st = Codex_Codex_Codex.make_parse_state(tokens);
+            Document doc = Codex_Codex_Codex.parse_document(st);
+            AModule ast = Codex_Codex_Codex.desugar_document(doc, "MiniTest");
+
+            Console.WriteLine($"  Defs: {ast.defs.Count}, TypeDefs: {ast.type_defs.Count}");
+
+            ModuleResult checkResult = Codex_Codex_Codex.check_module(ast);
+            Console.WriteLine($"  Type bindings: {checkResult.types.Count}");
+            Console.WriteLine($"  Unification errors: {checkResult.state.errors.Count}");
+
+            for (int i = 0; i < checkResult.types.Count; i++)
+            {
+                TypeBinding tb = checkResult.types[i];
+                CodexType resolved = Codex_Codex_Codex.deep_resolve(checkResult.state, tb.bound_type);
+                string csType = Codex_Codex_Codex.cs_type(resolved);
+                bool isErr = resolved is ErrorTy;
+                Console.WriteLine($"    {tb.name} : {csType}{(isErr ? " [ERRORTY]" : "")}");
+            }
+
+            for (int ei = 0; ei < checkResult.state.errors.Count; ei++)
+            {
+                Diagnostic diag = checkResult.state.errors[ei];
+                Console.WriteLine($"  ERR {ei}: [{diag.code}] {diag.message}");
+            }
+
+            IRModule ir = Codex_Codex_Codex.lower_module(ast, checkResult.types, checkResult.state);
+            string output = Codex_Codex_Codex.emit_full_module(ir, ast.type_defs);
+
+            string outPath = Path.ChangeExtension(filePath, ".g.cs");
+            File.WriteAllText(outPath, output);
+            Console.WriteLine($"  Output: {outPath} ({output.Length} chars)");
+
+            int p0Count = output.Split('\n').Count(l => l.Contains("_p0_"));
+            int objCount = output.Split('\n').Count(l => l.Contains("object"));
+            Console.WriteLine($"  _p0_ lines: {p0Count}, object lines: {objCount}");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed: {ex.GetType().Name}: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
+            return 1;
+        }
     }
 }

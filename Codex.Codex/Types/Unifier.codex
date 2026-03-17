@@ -32,7 +32,7 @@ Section: Construction
 
     empty-unification-state : UnificationState
     empty-unification-state =
-      UnificationState { substitutions = [], next-id = 0, errors = [] }
+      UnificationState { substitutions = [], next-id = 2, errors = [] }
 
 Section: Fresh Variables
 
@@ -130,12 +130,42 @@ Section: Unify
 
     unify-resolved : UnificationState -> CodexType -> CodexType -> UnifyResult
     unify-resolved (st) (a) (b) =
-      when a
+      if types-equal a b then UnifyResult { success = True, state = st }
+      else when a
         if TypeVar (id-a) ->
           if occurs-in st id-a b
             then UnifyResult { success = False, state = add-unify-error st "CDX2010" "Infinite type" }
             else UnifyResult { success = True, state = add-subst st id-a b }
         if _ -> unify-rhs st a b
+
+    types-equal : CodexType -> CodexType -> Boolean
+    types-equal (a) (b) =
+      when a
+        if TypeVar (id-a) -> when b
+          if TypeVar (id-b) -> id-a == id-b
+          if _ -> False
+        if IntegerTy -> when b
+          if IntegerTy -> True
+          if _ -> False
+        if NumberTy -> when b
+          if NumberTy -> True
+          if _ -> False
+        if TextTy -> when b
+          if TextTy -> True
+          if _ -> False
+        if BooleanTy -> when b
+          if BooleanTy -> True
+          if _ -> False
+        if NothingTy -> when b
+          if NothingTy -> True
+          if _ -> False
+        if VoidTy -> when b
+          if VoidTy -> True
+          if _ -> False
+        if ErrorTy -> when b
+          if ErrorTy -> True
+          if _ -> False
+        if _ -> False
 
     unify-rhs : UnificationState -> CodexType -> CodexType -> UnifyResult
     unify-rhs (st) (a) (b) =
@@ -236,7 +266,25 @@ Section: Unify
 
     unify-mismatch : UnificationState -> CodexType -> CodexType -> UnifyResult
     unify-mismatch (st) (a) (b) =
-      UnifyResult { success = False, state = add-unify-error st "CDX2001" "Type mismatch" }
+      UnifyResult { success = False, state = add-unify-error st "CDX2001" ("Type mismatch: " ++ type-tag a ++ " vs " ++ type-tag b) }
+
+    type-tag : CodexType -> Text
+    type-tag (ty) =
+      when ty
+        if IntegerTy -> "Integer"
+        if NumberTy -> "Number"
+        if TextTy -> "Text"
+        if BooleanTy -> "Boolean"
+        if VoidTy -> "Void"
+        if NothingTy -> "Nothing"
+        if ErrorTy -> "Error"
+        if FunTy (p) (r) -> "Fun"
+        if ListTy (e) -> "List"
+        if TypeVar (id) -> "T" ++ integer-to-text id
+        if ForAllTy (id) (body) -> "ForAll"
+        if SumTy (name) (ctors) -> "Sum:" ++ name.value
+        if RecordTy (name) (fields) -> "Rec:" ++ name.value
+        if ConstructedTy (name) (args) -> "Con:" ++ name.value
 
 Section: Deep Resolve
 
