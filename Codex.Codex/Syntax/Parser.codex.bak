@@ -229,6 +229,14 @@ Section: TokenKind Predicates
       if Pipe -> 2
       if _ -> 0 - 1
 
+    is-right-assoc : TokenKind -> Boolean
+    is-right-assoc (k) = when k
+      if PlusPlus -> True
+      if ColonColon -> True
+      if Caret -> True
+      if Arrow -> True
+      if _ -> False
+
 Section: Token Helpers
 
     expect : TokenKind -> ParseState -> ParseState
@@ -366,8 +374,9 @@ Section: Expression Parsing
         in if prec < min-prec then ExprOk left st
           else let op = current st
             in let st2 = skip-newlines (advance st)
-              in let right-result = parse-binary st2 (prec + 1)
-                in unwrap-expr-ok right-result (continue-binary left op min-prec)
+              in let next-min = if is-right-assoc op.kind then prec else prec + 1
+                in let right-result = parse-binary st2 next-min
+                  in unwrap-expr-ok right-result (continue-binary left op min-prec)
 
     continue-binary : Expr -> Token -> Integer -> Expr -> ParseState -> ParseExprResult
     continue-binary (left) (op) (min-prec) (right) (st) =
@@ -431,7 +440,10 @@ Section: Expression Parsing
           in let field = current st2
             in let st3 = advance st2
               in parse-field-access (FieldExpr node field) st3
-        else ExprOk node st
+        else if is-app-start (current-kind st)
+          then let arg-result = parse-atom st
+            in unwrap-expr-ok arg-result (continue-app node)
+          else ExprOk node st
 
     parse-atom-type-ident : ParseState -> ParseExprResult
     parse-atom-type-ident (st) =

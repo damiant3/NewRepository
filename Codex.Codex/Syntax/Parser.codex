@@ -400,7 +400,7 @@ Section: Expression Parsing
 
     parse-app-loop : Expr -> ParseState -> ParseExprResult
     parse-app-loop (func) (st) =
-      if is-compound func then parse-field-access func st
+      if is-compound func then parse-dot-only func st
       else if is-done st then ExprOk func st
         else if is-app-start (current-kind st)
           then let arg-result = parse-atom st
@@ -444,6 +444,15 @@ Section: Expression Parsing
           then let arg-result = parse-atom st
             in unwrap-expr-ok arg-result (continue-app node)
           else ExprOk node st
+
+    parse-dot-only : Expr -> ParseState -> ParseExprResult
+    parse-dot-only (node) (st) =
+      if is-dot (current-kind st)
+        then let st2 = advance st
+          in let field = current st2
+            in let st3 = advance st2
+              in parse-dot-only (FieldExpr node field) st3
+        else ExprOk node st
 
     parse-atom-type-ident : ParseState -> ParseExprResult
     parse-atom-type-ident (st) =
