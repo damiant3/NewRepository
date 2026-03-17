@@ -2,16 +2,16 @@
 #![allow(non_snake_case, unused_variables, dead_code)]
 
 #[derive(Debug, Clone, PartialEq)]
+struct Point {
+    x: i64,
+    y: i64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 enum Color {
     Red,
     Green,
     Blue(i64),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct Point {
-    x: i64,
-    y: i64,
 }
 
 fn show_color(c: Color) -> String {
