@@ -605,12 +605,18 @@ Section: Compound Expression Parsing
     start-match-branches : Expr -> ParseState -> ParseExprResult
     start-match-branches (s) (st) =
       let st2 = skip-newlines st
-      in parse-match-branches s [] st2
+      in let tok = current st2
+        in parse-match-branches s [] tok.column tok.line st2
 
-    parse-match-branches : Expr -> List MatchArm -> ParseState -> ParseExprResult
-    parse-match-branches (scrut) (acc) (st) =
+    parse-match-branches : Expr -> List MatchArm -> Integer -> Integer -> ParseState -> ParseExprResult
+    parse-match-branches (scrut) (acc) (col) (ln) (st) =
       if is-if-keyword (current-kind st)
-        then parse-one-match-branch scrut acc st
+        then let tok = current st
+          in if tok.line == ln
+            then parse-one-match-branch scrut acc col ln st
+            else if tok.column == col
+              then parse-one-match-branch scrut acc col ln st
+              else ExprOk (MatchExpr scrut acc) st
         else ExprOk (MatchExpr scrut acc) st
 
     unwrap-pat-for-expr : ParsePatResult -> (Pat -> ParseState -> ParseExprResult) -> ParseExprResult
@@ -618,24 +624,24 @@ Section: Compound Expression Parsing
       when r
         if PatOk (p) (st) -> f p st
 
-    parse-one-match-branch : Expr -> List MatchArm -> ParseState -> ParseExprResult
-    parse-one-match-branch (scrut) (acc) (st) =
+    parse-one-match-branch : Expr -> List MatchArm -> Integer -> Integer -> ParseState -> ParseExprResult
+    parse-one-match-branch (scrut) (acc) (col) (ln) (st) =
       let st2 = advance st
       in let pat = parse-pattern st2
-        in unwrap-pat-for-expr pat (parse-match-branch-body scrut acc)
+        in unwrap-pat-for-expr pat (parse-match-branch-body scrut acc col ln)
 
-    parse-match-branch-body : Expr -> List MatchArm -> Pat -> ParseState -> ParseExprResult
-    parse-match-branch-body (scrut) (acc) (p) (st) =
+    parse-match-branch-body : Expr -> List MatchArm -> Integer -> Integer -> Pat -> ParseState -> ParseExprResult
+    parse-match-branch-body (scrut) (acc) (col) (ln) (p) (st) =
       let st2 = expect Arrow st
       in let st3 = skip-newlines st2
         in let body = parse-expr st3
-          in unwrap-expr-ok body (finish-match-branch scrut acc p)
+          in unwrap-expr-ok body (finish-match-branch scrut acc col ln p)
 
-    finish-match-branch : Expr -> List MatchArm -> Pat -> Expr -> ParseState -> ParseExprResult
-    finish-match-branch (scrut) (acc) (p) (b) (st) =
+    finish-match-branch : Expr -> List MatchArm -> Integer -> Integer -> Pat -> Expr -> ParseState -> ParseExprResult
+    finish-match-branch (scrut) (acc) (col) (ln) (p) (b) (st) =
       let arm = MatchArm { pattern = p, body = b }
       in let st2 = skip-newlines st
-        in parse-match-branches scrut (acc ++ [arm]) st2
+        in parse-match-branches scrut (acc ++ [arm]) col ln st2
 
     parse-do-expr : ParseState -> ParseExprResult
     parse-do-expr (st) =
