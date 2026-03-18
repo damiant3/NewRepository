@@ -1,6 +1,10 @@
 # Iteration 3 — Handoff Summary
 
-**Date**: 2025-06-21  
+> **Date correction (2026-03-18)**: The original date `2025-06-21` was hallucinated
+> by the agent from training data. The actual date of this work was `2026-03-14`
+> based on git commit `05a40ea` (timestamp `2026-03-14 07:29:57 -0700`).
+
+**Date**: 2026-03-14  
 **Commit**: `05a40ea` feat: Milestone 3 — IR, C# emitter, codex build/run commands  
 **Branch**: `master`  
 **Remote**: https://github.com/damiant3/NewRepository  

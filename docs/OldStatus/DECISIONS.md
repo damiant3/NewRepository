@@ -1,11 +1,18 @@
 # Decision Log
 
+> **Date correction (2026-03-18)**: Several dates in this file were hallucinated by
+> the agent from training data. Dates originally showing `2025-06`, `2025-07`,
+> `2025-08`, `2025-09`, and `2026-06` have been corrected based on git commit
+> timestamps. The Codex project began on 2026-03-14; all pre-2026 dates were errors,
+> and `2026-06` dates were future-hallucinated (today is 2026-03-18).
+> Milestone references (M3, M5, etc.) were correct — only the dates were wrong.
+
 Significant design and engineering decisions are recorded here in chronological order.
 
 ---
 
 ## Decision: Bootstrap Language is C# on .NET 8
-**Date**: 2025-06-20
+**Date**: 2026-03-14
 **Context**: We need a language to write the first Codex compiler in. The compiler must be correct, maintainable, and productive to develop in.
 **Options considered**: C#, Rust, Haskell, TypeScript, F#
 **Decision**: C# 12 on .NET 8
@@ -24,7 +31,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: Hand-Written Lexer and Parser
-**Date**: 2025-06-20
+**Date**: 2026-03-14
 **Context**: We need to tokenize and parse Codex source, which has an unusual structure (prose/notation mode switching, indentation sensitivity).
 **Options considered**: Hand-written, ANTLR, parser combinators (Sprache/Pidgin), tree-sitter
 **Decision**: Hand-written lexer and recursive descent parser
@@ -42,7 +49,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: Solution Structure — Multi-Project with Layer Separation
-**Date**: 2025-06-20
+**Date**: 2026-03-14
 **Context**: The compiler has many distinct phases that should be testable independently.
 **Options considered**: Monolithic project, multi-project layered, microservice (rejected immediately)
 **Decision**: Multi-project solution with one project per compiler phase
@@ -58,12 +65,8 @@ Significant design and engineering decisions are recorded here in chronological 
 
 ---
 
-*Further decisions will be appended as they are made during implementation*
-
----
-
 ## Decision: IR is Not A-Normal Form
-**Date**: 2025-07 (M3)
+**Date**: 2026-03-14 (M3)
 **Context**: The original spec called for A-Normal Form IR where all intermediate values are named. During implementation, this added complexity with no benefit — each backend emits differently, and ANF forced premature linearization.
 **Decision**: Let IR expressions nest freely. `IRApply(IRApply(f, x), y)` is valid.
 **Rationale**: Simpler lowering pass, each backend handles linearization if needed. C# and JS both naturally nest expressions. Rust handles it with blocks.
@@ -72,7 +75,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: Curried Application in IR
-**Date**: 2025-07 (M3)
+**Date**: 2026-03-14 (M3)
 **Context**: Codex functions are curried: `f a b` is `(f a) b`. The IR could flatten this to multi-arg calls or keep it curried.
 **Decision**: IR uses single-arg `IRApply`. Multi-arg calls are nested: `IRApply(IRApply(f, a), b)`.
 **Rationale**: Matches the language semantics. Each backend decides how to collapse curried calls — C# and JS emit multi-arg calls for known-arity functions, Rust does the same. The emitter has `CollectApplyArgs` to flatten when useful.
@@ -81,7 +84,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: No Separate Runtime Library
-**Date**: 2025-08 (M3–M5)
+**Date**: 2026-03-14 (M3–M5)
 **Context**: The original design called for a hand-written runtime library per backend (Unit.cs, Maybe.cs, etc.).
 **Decision**: No separate runtime. Built-in functions are emitted inline. Type definitions come from user code, not a library.
 **Rationale**: The Codex type system is expressive enough that users define their own `Maybe`, `Result`, etc. Built-ins like `print-line`, `char-at`, `text-length` are simple enough to emit inline in each backend.
@@ -90,7 +93,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: Direct I/O for Effects (No Monadic Encoding)
-**Date**: 2025-09 (M5)
+**Date**: 2026-03-14 (M5)
 **Context**: Effects could be encoded as monads (Reader/Writer), interface injection, or direct I/O.
 **Decision**: Direct I/O. `print-line` emits `Console.WriteLine` (C#), `console.log` (JS), `println!` (Rust). The effect type annotation is checked but not reified at runtime.
 **Rationale**: Simple, working, and sufficient for the bootstrap. The effect type system prevents pure functions from calling effectful ones — that's the safety guarantee. Full algebraic effect handlers can be added later without changing existing code.
@@ -99,7 +102,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: long/double Instead of BigInteger/decimal
-**Date**: 2025-08 (M3)
+**Date**: 2026-03-14 (M3)
 **Context**: The original design used `BigInteger` for Integer and `decimal` for Number.
 **Decision**: Use `long` for Integer and `double` for Number.
 **Rationale**: 64-bit primitives are fast and sufficient for the bootstrap. The compiler itself doesn't need arbitrary precision. Upgrading to BigInteger/BigRational later is a backend change, not a language change.
@@ -208,7 +211,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: Parser Error Recovery — Commit-Then-Recover
-**Date**: 2026-06
+**Date**: 2026-03-15
 **Context**: The parser stopped at the first error in most cases. `TryParseTypeDefinition` backtracked to `savedPos` on any failure after `=`, losing the type name entirely. `TryParseDefinition` similarly lost partial results. The LSP got nothing for definitions with syntax errors — no hover, no completion, no go-to-def.
 **Decision**: Once the parser has consumed enough tokens to commit (e.g., `TypeId =` for type defs, `name (params) =` for defs), it must produce a partial node rather than backtrack. New node: `ErrorTypeBody` for type definitions. Definitions with missing `=` produce `DefinitionNode` with `ErrorExpressionNode` body. Record/variant bodies skip bad fields/constructors and continue.
 **Rationale**: The Roslyn approach — the parser always produces a tree, even for broken code. Every definition gets a node. The desugarer maps `ErrorTypeBody` to an empty `RecordTypeDef` so the type name is visible to downstream passes. The key insight: once we've seen `TypeId =`, that IS a type definition — the question is only what the body looks like.
@@ -227,7 +230,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: Codex-Side Emitter Generics — Closing the Stage 1 Gap
-**Date**: 2026-06
+**Date**: 2026-03-16
 **Context**: Stage 0 (C# compiler) emitted polymorphic functions as C# generic methods (`map_list<T0, T1>`). Stage 1 (Codex-in-Codex compiler) emitted `object` for all type variables, causing type degradation — Stage 1 output couldn't compile itself because generic type info was lost.
 **Decision**: Update the Codex-side C# emitter (`CSharpEmitter.codex`) to emit generics matching Stage 0: `TypeVar(id)` → `T{id}`, `generic-suffix` collects type variable IDs from a definition's type, `emit-def` appends `<T0, T1, ...>` after method names, type definitions thread `tparams` through to emit generic type parameter suffixes, `emit-type-expr-tp` maps type parameter names to `T{index}` via `find-tparam-index`.
 **Rationale**: The bootstrap requires Stage 1 output to have the same type fidelity as Stage 0. Without generics, `List<T0>` degrades to `List<object>`, `Func<T0, T1>` to `Func<object, object>`, and the Stage 2 output can't compile. The Codex-side emitter is purely functional — type variable collection uses index-based loops and list accumulation, following the project's coding patterns.
@@ -236,7 +239,7 @@ Significant design and engineering decisions are recorded here in chronological 
 ---
 
 ## Decision: Column-Based `when` Branch Scoping
-**Date**: 2026-06
+**Date**: 2026-03-16
 **Context**: Nested `when` expressions (e.g., `when a if X -> when b if Y -> …`) had the inner match greedily consuming branches belonging to the outer match. This produced incorrect C# where only the first outer branch was emitted — a critical bug for self-hosting since the Codex source uses nested matches heavily (e.g., `unify_structural`).
 **Decision**: The parser now records the column of the first `if` keyword in a `when` expression and only accepts subsequent `if` keywords at the same column (or on the same line for inline matches). This distinguishes inner vs outer branches without requiring explicit delimiters.
 **Rationale**: Column-based scoping is consistent with Codex's existing indentation sensitivity. Alternatives considered: (1) explicit `end` keyword — verbose and un-Codex-like; (2) parenthesization — adds noise. The column rule is invisible to the programmer when code is properly formatted, which is always the case in practice.

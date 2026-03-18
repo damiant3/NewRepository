@@ -35,7 +35,7 @@ Do not leave dead code. If you add a field, use it. If you remove a usage, remov
 
 ## Test Expectations
 
-The test suite has 654+ tests across multiple projects:
+The test suite has 722+ tests across multiple projects:
 
 | Test Project | Covers |
 |-------------|--------|
