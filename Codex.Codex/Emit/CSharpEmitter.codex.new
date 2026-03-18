@@ -284,8 +284,9 @@ Section: Expression Emission
     has-any-catch-all : List IRBranch -> Integer -> Boolean
     has-any-catch-all (branches) (i) =
       if i == list-length branches then False
-      else if is-catch-all (list-at branches i).pattern then True
-      else has-any-catch-all branches (i + 1)
+      else let b = list-at branches i
+        in if is-catch-all b.pattern then True
+          else has-any-catch-all branches (i + 1)
     emit-pattern : IRPat -> Text
     emit-pattern (p) =
       when p

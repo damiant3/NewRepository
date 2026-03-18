@@ -184,7 +184,7 @@ Section: Expression Emission
         if IrNumLit (n) -> integer-to-text n
         if IrTextLit (s) -> "\"" ++ escape-text s ++ "\""
         if IrBoolLit (b) -> if b then "true" else "false"
-        if IrName (n) (ty) -> if text-length n > 0 & is-upper-letter (char-at n 0) then "new " ++ sanitize n ++ "()" else if lookup-arity arities n == 0 then sanitize n ++ "()" else sanitize n
+        if IrName (n) (ty) -> if text-length n > 0 & is-upper-letter (char-at n 0) then "new " ++ sanitize n ++ "()" else sanitize n
         if IrBinary (op) (l) (r) (ty) -> emit-binary op l r ty arities
         if IrNegate (operand) -> "(-" ++ emit-expr operand arities ++ ")"
         if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c arities ++ " ? " ++ emit-expr t arities ++ " : " ++ emit-expr el arities ++ ")"
@@ -262,30 +262,14 @@ Section: Expression Emission
 
     emit-match : IRExpr -> List IRBranch -> CodexType -> List ArityEntry -> Text
     emit-match (scrut) (branches) (ty) (arities) =
-      let arms = emit-match-arms branches 0 arities
-      in let needs-wild = if has-any-catch-all branches 0 then False else True
-        in emit-expr scrut arities ++ " switch { " ++ arms ++ (if needs-wild then "_ => throw new InvalidOperationException(\"Non-exhaustive match\"), " else "") ++ "}"
+      emit-expr scrut arities ++ " switch { " ++ emit-match-arms branches 0 arities ++ " }"
 
     emit-match-arms : List IRBranch -> Integer -> List ArityEntry -> Text
     emit-match-arms (branches) (i) (arities) =
       if i == list-length branches then ""
       else let arm = list-at branches i
-        in let this-arm = emit-pattern arm.pattern ++ " => " ++ emit-expr arm.body arities ++ ", "
-          in if is-catch-all arm.pattern then this-arm
-            else this-arm ++ emit-match-arms branches (i + 1) arities
+        in emit-pattern arm.pattern ++ " => " ++ emit-expr arm.body arities ++ ", " ++ emit-match-arms branches (i + 1) arities
 
-    is-catch-all : IRPat -> Boolean
-    is-catch-all (p) =
-      when p
-        if IrWildPat -> True
-        if IrVarPat (name) (ty) -> True
-        if _ -> False
-
-    has-any-catch-all : List IRBranch -> Integer -> Boolean
-    has-any-catch-all (branches) (i) =
-      if i == list-length branches then False
-      else if is-catch-all (list-at branches i).pattern then True
-      else has-any-catch-all branches (i + 1)
     emit-pattern : IRPat -> Text
     emit-pattern (p) =
       when p
