@@ -403,7 +403,95 @@ public sealed record CompileError(List<Diagnostic> Field0) : CompileResult;
 
 public static class Codex_Codex_Codex
 {
-    public static AExpr desugar_expr(Expr node) => node switch { LitExpr(var tok) => desugar_literal(tok), NameExpr(var tok) => new ANameExpr(make_name(tok.text)), AppExpr(var f, var a) => new AApplyExpr(desugar_expr(f), desugar_expr(a)), BinExpr(var l, var op, var r) => new ABinaryExpr(desugar_expr(l), desugar_bin_op(op.kind), desugar_expr(r)), UnaryExpr(var op, var operand) => new AUnaryExpr(desugar_expr(operand)), IfExpr(var c, var t, var e) => new AIfExpr(desugar_expr(c), desugar_expr(t), desugar_expr(e)), LetExpr(var bindings, var body) => new ALetExpr(map_list(desugar_let_bind, bindings), desugar_expr(body)), MatchExpr(var scrut, var arms) => new AMatchExpr(desugar_expr(scrut), map_list(desugar_match_arm, arms)), ListExpr(var elems) => new AListExpr(map_list(desugar_expr, elems)), RecordExpr(var type_tok, var fields) => new ARecordExpr(make_name(type_tok.text), map_list(desugar_field_expr, fields)), FieldExpr(var rec, var field_tok) => new AFieldAccess(desugar_expr(rec), make_name(field_tok.text)), ParenExpr(var inner) => desugar_expr(inner), DoExpr(var stmts) => new ADoExpr(map_list(desugar_do_stmt, stmts)), ErrExpr(var tok) => new AErrorExpr(tok.text), _ => throw new InvalidOperationException("Non-exhaustive match"), };
+    public static AExpr desugar_expr(Expr node)
+    {
+        while (true)
+        {
+            var _tco_s = node;
+            if (_tco_s is LitExpr _tco_m0)
+            {
+                var tok = _tco_m0.Field0;
+            return desugar_literal(tok);
+            }
+            else if (_tco_s is NameExpr _tco_m1)
+            {
+                var tok = _tco_m1.Field0;
+            return new ANameExpr(make_name(tok.text));
+            }
+            else if (_tco_s is AppExpr _tco_m2)
+            {
+                var f = _tco_m2.Field0;
+                var a = _tco_m2.Field1;
+            return new AApplyExpr(desugar_expr(f), desugar_expr(a));
+            }
+            else if (_tco_s is BinExpr _tco_m3)
+            {
+                var l = _tco_m3.Field0;
+                var op = _tco_m3.Field1;
+                var r = _tco_m3.Field2;
+            return new ABinaryExpr(desugar_expr(l), desugar_bin_op(op.kind), desugar_expr(r));
+            }
+            else if (_tco_s is UnaryExpr _tco_m4)
+            {
+                var op = _tco_m4.Field0;
+                var operand = _tco_m4.Field1;
+            return new AUnaryExpr(desugar_expr(operand));
+            }
+            else if (_tco_s is IfExpr _tco_m5)
+            {
+                var c = _tco_m5.Field0;
+                var t = _tco_m5.Field1;
+                var e = _tco_m5.Field2;
+            return new AIfExpr(desugar_expr(c), desugar_expr(t), desugar_expr(e));
+            }
+            else if (_tco_s is LetExpr _tco_m6)
+            {
+                var bindings = _tco_m6.Field0;
+                var body = _tco_m6.Field1;
+            return new ALetExpr(map_list(desugar_let_bind, bindings), desugar_expr(body));
+            }
+            else if (_tco_s is MatchExpr _tco_m7)
+            {
+                var scrut = _tco_m7.Field0;
+                var arms = _tco_m7.Field1;
+            return new AMatchExpr(desugar_expr(scrut), map_list(desugar_match_arm, arms));
+            }
+            else if (_tco_s is ListExpr _tco_m8)
+            {
+                var elems = _tco_m8.Field0;
+            return new AListExpr(map_list(desugar_expr, elems));
+            }
+            else if (_tco_s is RecordExpr _tco_m9)
+            {
+                var type_tok = _tco_m9.Field0;
+                var fields = _tco_m9.Field1;
+            return new ARecordExpr(make_name(type_tok.text), map_list(desugar_field_expr, fields));
+            }
+            else if (_tco_s is FieldExpr _tco_m10)
+            {
+                var rec = _tco_m10.Field0;
+                var field_tok = _tco_m10.Field1;
+            return new AFieldAccess(desugar_expr(rec), make_name(field_tok.text));
+            }
+            else if (_tco_s is ParenExpr _tco_m11)
+            {
+                var inner = _tco_m11.Field0;
+            var _tco_0 = inner;
+            node = _tco_0;
+            continue;
+            }
+            else if (_tco_s is DoExpr _tco_m12)
+            {
+                var stmts = _tco_m12.Field0;
+            return new ADoExpr(map_list(desugar_do_stmt, stmts));
+            }
+            else if (_tco_s is ErrExpr _tco_m13)
+            {
+                var tok = _tco_m13.Field0;
+            return new AErrorExpr(tok.text);
+            }
+        }
+    }
 
     public static AExpr desugar_literal(Token tok) => (is_literal(tok.kind) ? new ALitExpr(tok.text, classify_literal(tok.kind)) : new AErrorExpr(tok.text));
 
@@ -421,7 +509,49 @@ public static class Codex_Codex_Codex
 
     public static APat desugar_pattern(Pat p) => p switch { VarPat(var tok) => new AVarPat(make_name(tok.text)), LitPat(var tok) => new ALitPat(tok.text, classify_literal(tok.kind)), CtorPat(var tok, var subs) => new ACtorPat(make_name(tok.text), map_list(desugar_pattern, subs)), WildPat(var tok) => new AWildPat(), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static ATypeExpr desugar_type_expr(TypeExpr t) => t switch { NamedType(var tok) => new ANamedType(make_name(tok.text)), FunType(var param, var ret) => new AFunType(desugar_type_expr(param), desugar_type_expr(ret)), AppType(var ctor, var args) => new AAppType(desugar_type_expr(ctor), map_list(desugar_type_expr, args)), ParenType(var inner) => desugar_type_expr(inner), ListType(var elem) => new AAppType(new ANamedType(make_name("List")), new List<ATypeExpr> { desugar_type_expr(elem) }), LinearTypeExpr(var inner) => desugar_type_expr(inner), _ => throw new InvalidOperationException("Non-exhaustive match"), };
+    public static ATypeExpr desugar_type_expr(TypeExpr t)
+    {
+        while (true)
+        {
+            var _tco_s = t;
+            if (_tco_s is NamedType _tco_m0)
+            {
+                var tok = _tco_m0.Field0;
+            return new ANamedType(make_name(tok.text));
+            }
+            else if (_tco_s is FunType _tco_m1)
+            {
+                var param = _tco_m1.Field0;
+                var ret = _tco_m1.Field1;
+            return new AFunType(desugar_type_expr(param), desugar_type_expr(ret));
+            }
+            else if (_tco_s is AppType _tco_m2)
+            {
+                var ctor = _tco_m2.Field0;
+                var args = _tco_m2.Field1;
+            return new AAppType(desugar_type_expr(ctor), map_list(desugar_type_expr, args));
+            }
+            else if (_tco_s is ParenType _tco_m3)
+            {
+                var inner = _tco_m3.Field0;
+            var _tco_0 = inner;
+            t = _tco_0;
+            continue;
+            }
+            else if (_tco_s is ListType _tco_m4)
+            {
+                var elem = _tco_m4.Field0;
+            return new AAppType(new ANamedType(make_name("List")), new List<ATypeExpr> { desugar_type_expr(elem) });
+            }
+            else if (_tco_s is LinearTypeExpr _tco_m5)
+            {
+                var inner = _tco_m5.Field0;
+            var _tco_0 = inner;
+            t = _tco_0;
+            continue;
+            }
+        }
+    }
 
     public static ADef desugar_def(Def d) => ((Func<List<ATypeExpr>, ADef>)((ann_types) => new ADef(name: make_name(d.name.text), @params: map_list(desugar_param, d.@params), declared_type: ann_types, body: desugar_expr(d.body))))(desugar_annotations(d.ann));
 
@@ -441,11 +571,57 @@ public static class Codex_Codex_Codex
 
     public static List<T190> map_list<T180, T190>(Func<T180, T190> f, List<T180> xs) => map_list_loop(f, xs, 0, list_length(xs), new List<T190>());
 
-    public static List<T203> map_list_loop<T202, T203>(Func<T202, T203> f, List<T202> xs, long i, long len, List<T203> acc) => ((i == len) ? acc : map_list_loop(f, xs, (i + 1), len, Enumerable.Concat(acc, new List<T203> { f(list_at(xs)(i)) }).ToList()));
+    public static List<T203> map_list_loop<T202, T203>(Func<T202, T203> f, List<T202> xs, long i, long len, List<T203> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var _tco_0 = f;
+            var _tco_1 = xs;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(acc, new List<T203> { f(list_at(xs)(i)) }).ToList();
+            f = _tco_0;
+            xs = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            acc = _tco_4;
+            continue;
+            }
+        }
+    }
 
     public static T215 fold_list<T215, T206>(Func<T215, Func<T206, T215>> f, T215 z, List<T206> xs) => fold_list_loop(f, z, xs, 0, list_length(xs));
 
-    public static T229 fold_list_loop<T229, T224>(Func<T229, Func<T224, T229>> f, T229 z, List<T224> xs, long i, long len) => ((i == len) ? z : fold_list_loop(f, f(z)(list_at(xs)(i)), xs, (i + 1), len));
+    public static T229 fold_list_loop<T229, T224>(Func<T229, Func<T224, T229>> f, T229 z, List<T224> xs, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return z;
+            }
+            else
+            {
+            var _tco_0 = f;
+            var _tco_1 = f(z)(list_at(xs)(i));
+            var _tco_2 = xs;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            f = _tco_0;
+            z = _tco_1;
+            xs = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            continue;
+            }
+        }
+    }
 
     public static Diagnostic make_error(string code, string msg) => new Diagnostic(code: code, message: msg, severity: new Error());
 
@@ -471,15 +647,140 @@ public static class Codex_Codex_Codex
 
     public static bool is_cs_member_name(string n) => ((n == "Equals") ? true : ((n == "GetHashCode") ? true : ((n == "ToString") ? true : ((n == "GetType") ? true : ((n == "MemberwiseClone") ? true : false)))));
 
-    public static string cs_type(CodexType ty) => ty switch { IntegerTy { } => "long", NumberTy { } => "decimal", TextTy { } => "string", BooleanTy { } => "bool", VoidTy { } => "void", NothingTy { } => "object", ErrorTy { } => "object", FunTy(var p, var r) => ("Func<" + (cs_type(p) + (", " + (cs_type(r) + ">")))), ListTy(var elem) => ("List<" + (cs_type(elem) + ">")), TypeVar(var id) => ("T" + integer_to_text(id)), ForAllTy(var id, var body) => cs_type(body), SumTy(var name, var ctors) => sanitize(name.value), RecordTy(var name, var fields) => sanitize(name.value), ConstructedTy(var name, var args) => sanitize(name.value), _ => throw new InvalidOperationException("Non-exhaustive match"), };
+    public static string cs_type(CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is IntegerTy _tco_m0)
+            {
+            return "long";
+            }
+            else if (_tco_s is NumberTy _tco_m1)
+            {
+            return "decimal";
+            }
+            else if (_tco_s is TextTy _tco_m2)
+            {
+            return "string";
+            }
+            else if (_tco_s is BooleanTy _tco_m3)
+            {
+            return "bool";
+            }
+            else if (_tco_s is VoidTy _tco_m4)
+            {
+            return "void";
+            }
+            else if (_tco_s is NothingTy _tco_m5)
+            {
+            return "object";
+            }
+            else if (_tco_s is ErrorTy _tco_m6)
+            {
+            return "object";
+            }
+            else if (_tco_s is FunTy _tco_m7)
+            {
+                var p = _tco_m7.Field0;
+                var r = _tco_m7.Field1;
+            return ("Func<" + (cs_type(p) + (", " + (cs_type(r) + ">"))));
+            }
+            else if (_tco_s is ListTy _tco_m8)
+            {
+                var elem = _tco_m8.Field0;
+            return ("List<" + (cs_type(elem) + ">"));
+            }
+            else if (_tco_s is TypeVar _tco_m9)
+            {
+                var id = _tco_m9.Field0;
+            return ("T" + integer_to_text(id));
+            }
+            else if (_tco_s is ForAllTy _tco_m10)
+            {
+                var id = _tco_m10.Field0;
+                var body = _tco_m10.Field1;
+            var _tco_0 = body;
+            ty = _tco_0;
+            continue;
+            }
+            else if (_tco_s is SumTy _tco_m11)
+            {
+                var name = _tco_m11.Field0;
+                var ctors = _tco_m11.Field1;
+            return sanitize(name.value);
+            }
+            else if (_tco_s is RecordTy _tco_m12)
+            {
+                var name = _tco_m12.Field0;
+                var fields = _tco_m12.Field1;
+            return sanitize(name.value);
+            }
+            else if (_tco_s is ConstructedTy _tco_m13)
+            {
+                var name = _tco_m13.Field0;
+                var args = _tco_m13.Field1;
+            return sanitize(name.value);
+            }
+        }
+    }
 
     public static List<ArityEntry> build_arity_map(List<IRDef> defs, long i) => ((i == list_length(defs)) ? new List<ArityEntry>() : ((Func<IRDef, List<ArityEntry>>)((d) => Enumerable.Concat(new List<ArityEntry> { new ArityEntry(name: d.name, arity: list_length(d.@params)) }, build_arity_map(defs, (i + 1))).ToList()))(list_at(defs)(i)));
 
     public static long lookup_arity(List<ArityEntry> entries, string name) => lookup_arity_loop(entries, name, 0, list_length(entries));
 
-    public static long lookup_arity_loop(List<ArityEntry> entries, string name, long i, long len) => ((i == len) ? (0 - 1) : ((Func<ArityEntry, long>)((e) => ((e.name == name) ? e.arity : lookup_arity_loop(entries, name, (i + 1), len))))(list_at(entries)(i)));
+    public static long lookup_arity_loop(List<ArityEntry> entries, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return (0 - 1);
+            }
+            else
+            {
+            var e = list_at(entries)(i);
+            if ((e.name == name))
+            {
+            return e.arity;
+            }
+            else
+            {
+            var _tco_0 = entries;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            entries = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
-    public static ApplyChain collect_apply_chain(IRExpr e, List<IRExpr> acc) => e switch { IrApply(var f, var a, var ty) => collect_apply_chain(f, Enumerable.Concat(new List<IRExpr> { a }, acc).ToList()), _ => new ApplyChain(root: e, args: acc), };
+    public static ApplyChain collect_apply_chain(IRExpr e, List<IRExpr> acc)
+    {
+        while (true)
+        {
+            var _tco_s = e;
+            if (_tco_s is IrApply _tco_m0)
+            {
+                var f = _tco_m0.Field0;
+                var a = _tco_m0.Field1;
+                var ty = _tco_m0.Field2;
+            var _tco_0 = f;
+            var _tco_1 = Enumerable.Concat(new List<IRExpr> { a }, acc).ToList();
+            e = _tco_0;
+            acc = _tco_1;
+            continue;
+            }
+            {
+            return new ApplyChain(root: e, args: acc);
+            }
+        }
+    }
 
     public static bool is_upper_letter(string c) => ((Func<long, bool>)((code) => ((code >= 65) && (code <= 90))))(char_code(c));
 
@@ -515,7 +816,32 @@ public static class Codex_Codex_Codex
 
     public static bool is_catch_all(IRPat p) => p switch { IrWildPat { } => true, IrVarPat(var name, var ty) => true, _ => false, };
 
-    public static bool has_any_catch_all(List<IRBranch> branches, long i) => ((i == list_length(branches)) ? false : ((Func<IRBranch, bool>)((b) => (is_catch_all(b.pattern) ? true : has_any_catch_all(branches, (i + 1)))))(list_at(branches)(i)));
+    public static bool has_any_catch_all(List<IRBranch> branches, long i)
+    {
+        while (true)
+        {
+            if ((i == list_length(branches)))
+            {
+            return false;
+            }
+            else
+            {
+            var b = list_at(branches)(i);
+            if (is_catch_all(b.pattern))
+            {
+            return true;
+            }
+            else
+            {
+            var _tco_0 = branches;
+            var _tco_1 = (i + 1);
+            branches = _tco_0;
+            i = _tco_1;
+            continue;
+            }
+            }
+        }
+    }
 
     public static string emit_pattern(IRPat p) => p switch { IrVarPat(var name, var ty) => (cs_type(ty) + (" " + sanitize(name))), IrLitPat(var text, var ty) => text, IrCtorPat(var name, var subs, var ty) => ((list_length(subs) == 0) ? (sanitize(name) + " { }") : (sanitize(name) + ("(" + (emit_sub_patterns(subs, 0) + ")")))), IrWildPat { } => "_", _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
@@ -553,7 +879,33 @@ public static class Codex_Codex_Codex
 
     public static string emit_type_expr_tp(ATypeExpr te, List<Name> tparams) => te switch { ANamedType(var name) => ((Func<long, string>)((idx) => ((idx >= 0) ? ("T" + integer_to_text(idx)) : when_type_name(name.value))))(find_tparam_index(tparams, name.value, 0)), AFunType(var p, var r) => ("Func<" + (emit_type_expr_tp(p, tparams) + (", " + (emit_type_expr_tp(r, tparams) + ">")))), AAppType(var @base, var args) => (emit_type_expr_tp(@base, tparams) + ("<" + (emit_type_expr_list_tp(args, tparams, 0) + ">"))), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static long find_tparam_index(List<Name> tparams, string name, long i) => ((i == list_length(tparams)) ? (0 - 1) : ((list_at(tparams)(i).value == name) ? i : find_tparam_index(tparams, name, (i + 1))));
+    public static long find_tparam_index(List<Name> tparams, string name, long i)
+    {
+        while (true)
+        {
+            if ((i == list_length(tparams)))
+            {
+            return (0 - 1);
+            }
+            else
+            {
+            if ((list_at(tparams)(i).value == name))
+            {
+            return i;
+            }
+            else
+            {
+            var _tco_0 = tparams;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            tparams = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            continue;
+            }
+            }
+        }
+    }
 
     public static string when_type_name(string n) => ((n == "Integer") ? "long" : ((n == "Number") ? "decimal" : ((n == "Text") ? "string" : ((n == "Boolean") ? "bool" : ((n == "List") ? "List" : sanitize(n))))));
 
@@ -561,15 +913,120 @@ public static class Codex_Codex_Codex
 
     public static string emit_type_expr_list_tp(List<ATypeExpr> args, List<Name> tparams, long i) => ((i == list_length(args)) ? "" : (emit_type_expr_tp(list_at(args)(i), tparams) + (((i < (list_length(args) - 1)) ? ", " : "") + emit_type_expr_list_tp(args, tparams, (i + 1)))));
 
-    public static List<long> collect_type_var_ids(CodexType ty, List<long> acc) => ty switch { TypeVar(var id) => (list_contains_int(acc, id) ? acc : list_append_int(acc, id)), FunTy(var p, var r) => collect_type_var_ids(r, collect_type_var_ids(p, acc)), ListTy(var elem) => collect_type_var_ids(elem, acc), ForAllTy(var id, var body) => collect_type_var_ids(body, acc), ConstructedTy(var name, var args) => collect_type_var_ids_list(args, acc), _ => acc, };
+    public static List<long> collect_type_var_ids(CodexType ty, List<long> acc)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is TypeVar _tco_m0)
+            {
+                var id = _tco_m0.Field0;
+            if (list_contains_int(acc, id))
+            {
+            return acc;
+            }
+            else
+            {
+            return list_append_int(acc, id);
+            }
+            }
+            else if (_tco_s is FunTy _tco_m1)
+            {
+                var p = _tco_m1.Field0;
+                var r = _tco_m1.Field1;
+            var _tco_0 = r;
+            var _tco_1 = collect_type_var_ids(p, acc);
+            ty = _tco_0;
+            acc = _tco_1;
+            continue;
+            }
+            else if (_tco_s is ListTy _tco_m2)
+            {
+                var elem = _tco_m2.Field0;
+            var _tco_0 = elem;
+            var _tco_1 = acc;
+            ty = _tco_0;
+            acc = _tco_1;
+            continue;
+            }
+            else if (_tco_s is ForAllTy _tco_m3)
+            {
+                var id = _tco_m3.Field0;
+                var body = _tco_m3.Field1;
+            var _tco_0 = body;
+            var _tco_1 = acc;
+            ty = _tco_0;
+            acc = _tco_1;
+            continue;
+            }
+            else if (_tco_s is ConstructedTy _tco_m4)
+            {
+                var name = _tco_m4.Field0;
+                var args = _tco_m4.Field1;
+            return collect_type_var_ids_list(args, acc);
+            }
+            {
+            return acc;
+            }
+        }
+    }
 
     public static List<long> collect_type_var_ids_list(List<CodexType> types, List<long> acc) => collect_type_var_ids_list_loop(types, acc, 0, list_length(types));
 
-    public static List<long> collect_type_var_ids_list_loop(List<CodexType> types, List<long> acc, long i, long len) => ((i == len) ? acc : collect_type_var_ids_list_loop(types, collect_type_var_ids(list_at(types)(i), acc), (i + 1), len));
+    public static List<long> collect_type_var_ids_list_loop(List<CodexType> types, List<long> acc, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var _tco_0 = types;
+            var _tco_1 = collect_type_var_ids(list_at(types)(i), acc);
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            types = _tco_0;
+            acc = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+        }
+    }
 
     public static bool list_contains_int(List<long> xs, long n) => list_contains_int_loop(xs, n, 0, list_length(xs));
 
-    public static bool list_contains_int_loop(List<long> xs, long n, long i, long len) => ((i == len) ? false : ((list_at(xs)(i) == n) ? true : list_contains_int_loop(xs, n, (i + 1), len)));
+    public static bool list_contains_int_loop(List<long> xs, long n, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return false;
+            }
+            else
+            {
+            if ((list_at(xs)(i) == n))
+            {
+            return true;
+            }
+            else
+            {
+            var _tco_0 = xs;
+            var _tco_1 = n;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            xs = _tco_0;
+            n = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
     public static List<long> list_append_int(List<long> xs, long n) => Enumerable.Concat(xs, new List<long> { n }).ToList();
 
@@ -577,11 +1034,160 @@ public static class Codex_Codex_Codex
 
     public static string emit_type_params(List<long> ids, long i) => ((i == list_length(ids)) ? "" : ((i == (list_length(ids) - 1)) ? ("T" + integer_to_text(list_at(ids)(i))) : ("T" + (integer_to_text(list_at(ids)(i)) + (", " + emit_type_params(ids, (i + 1)))))));
 
-    public static string emit_def(IRDef d, List<ArityEntry> arities) => ((Func<CodexType, string>)((ret) => ((Func<string, string>)((gen) => ("    public static " + (cs_type(ret) + (" " + (sanitize(d.name) + (gen + ("(" + (emit_def_params(d.@params, 0) + (") => " + (emit_expr(d.body, arities) + ";\n")))))))))))(generic_suffix(d.type_val))))(get_return_type(d.type_val, list_length(d.@params)));
+    public static bool is_self_call(IRExpr e, string func_name) => ((Func<ApplyChain, bool>)((chain) => is_self_call_root(chain.root, func_name)))(collect_apply_chain(e, new List<IRExpr>()));
 
-    public static CodexType get_return_type(CodexType ty, long n) => ((n == 0) ? strip_forall(ty) : strip_forall(ty) switch { FunTy(var p, var r) => get_return_type(r, (n - 1)), _ => ty, });
+    public static bool is_self_call_root(IRExpr e, string func_name) => e switch { IrName(var n, var ty) => (n == func_name), _ => false, };
 
-    public static CodexType strip_forall(CodexType ty) => ty switch { ForAllTy(var id, var body) => strip_forall(body), _ => ty, };
+    public static bool has_tail_call(IRExpr e, string func_name)
+    {
+        while (true)
+        {
+            var _tco_s = e;
+            if (_tco_s is IrIf _tco_m0)
+            {
+                var c = _tco_m0.Field0;
+                var t = _tco_m0.Field1;
+                var el = _tco_m0.Field2;
+                var ty = _tco_m0.Field3;
+            return (has_tail_call(t, func_name) || has_tail_call(el, func_name));
+            }
+            else if (_tco_s is IrLet _tco_m1)
+            {
+                var name = _tco_m1.Field0;
+                var ty = _tco_m1.Field1;
+                var val = _tco_m1.Field2;
+                var body = _tco_m1.Field3;
+            var _tco_0 = body;
+            var _tco_1 = func_name;
+            e = _tco_0;
+            func_name = _tco_1;
+            continue;
+            }
+            else if (_tco_s is IrMatch _tco_m2)
+            {
+                var scrut = _tco_m2.Field0;
+                var branches = _tco_m2.Field1;
+                var ty = _tco_m2.Field2;
+            return has_tail_call_branches(branches, func_name, 0);
+            }
+            else if (_tco_s is IrApply _tco_m3)
+            {
+                var f = _tco_m3.Field0;
+                var a = _tco_m3.Field1;
+                var ty = _tco_m3.Field2;
+            return is_self_call(e, func_name);
+            }
+            {
+            return false;
+            }
+        }
+    }
+
+    public static bool has_tail_call_branches(List<IRBranch> branches, string func_name, long i)
+    {
+        while (true)
+        {
+            if ((i == list_length(branches)))
+            {
+            return false;
+            }
+            else
+            {
+            var b = list_at(branches)(i);
+            if (has_tail_call(b.body, func_name))
+            {
+            return true;
+            }
+            else
+            {
+            var _tco_0 = branches;
+            var _tco_1 = func_name;
+            var _tco_2 = (i + 1);
+            branches = _tco_0;
+            func_name = _tco_1;
+            i = _tco_2;
+            continue;
+            }
+            }
+        }
+    }
+
+    public static bool should_tco(IRDef d) => ((list_length(d.@params) == 0) ? false : has_tail_call(d.body, d.name));
+
+    public static string emit_tco_def(IRDef d, List<ArityEntry> arities) => ((Func<CodexType, string>)((ret) => ((Func<string, string>)((gen) => ("    public static " + (cs_type(ret) + (" " + (sanitize(d.name) + (gen + ("(" + (emit_def_params(d.@params, 0) + (")\n    {\n        while (true)\n        {\n" + (emit_tco_body(d.body, d.name, d.@params, arities) + "        }\n    }\n")))))))))))(generic_suffix(d.type_val))))(get_return_type(d.type_val, list_length(d.@params)));
+
+    public static string emit_tco_body(IRExpr e, string func_name, List<IRParam> @params, List<ArityEntry> arities) => e switch { IrIf(var c, var t, var el, var ty) => emit_tco_if(c, t, el, func_name, @params, arities), IrLet(var name, var ty, var val, var body) => emit_tco_let(name, ty, val, body, func_name, @params, arities), IrMatch(var scrut, var branches, var ty) => emit_tco_match(scrut, branches, func_name, @params, arities), IrApply(var f, var a, var rty) => emit_tco_apply(e, func_name, @params, arities), _ => ("            return " + (emit_expr(e, arities) + ";\n")), };
+
+    public static string emit_tco_apply(IRExpr e, string func_name, List<IRParam> @params, List<ArityEntry> arities) => (is_self_call(e, func_name) ? emit_tco_jump(e, @params, arities) : ("            return " + (emit_expr(e, arities) + ";\n")));
+
+    public static string emit_tco_if(IRExpr cond, IRExpr t, IRExpr el, string func_name, List<IRParam> @params, List<ArityEntry> arities) => ("            if (" + (emit_expr(cond, arities) + (")\n            {\n" + (emit_tco_body(t, func_name, @params, arities) + ("            }\n            else\n            {\n" + (emit_tco_body(el, func_name, @params, arities) + "            }\n"))))));
+
+    public static string emit_tco_let(string name, CodexType ty, IRExpr val, IRExpr body, string func_name, List<IRParam> @params, List<ArityEntry> arities) => ("            var " + (sanitize(name) + (" = " + (emit_expr(val, arities) + (";\n" + emit_tco_body(body, func_name, @params, arities))))));
+
+    public static string emit_tco_match(IRExpr scrut, List<IRBranch> branches, string func_name, List<IRParam> @params, List<ArityEntry> arities) => ("            var _tco_s = " + (emit_expr(scrut, arities) + (";\n" + emit_tco_match_branches(branches, func_name, @params, arities, 0, true))));
+
+    public static string emit_tco_match_branches(List<IRBranch> branches, string func_name, List<IRParam> @params, List<ArityEntry> arities, long i, bool is_first) => ((i == list_length(branches)) ? "" : ((Func<IRBranch, string>)((b) => (emit_tco_match_branch(b, func_name, @params, arities, i, is_first) + emit_tco_match_branches(branches, func_name, @params, arities, (i + 1), false))))(list_at(branches)(i)));
+
+    public static string emit_tco_match_branch(IRBranch b, string func_name, List<IRParam> @params, List<ArityEntry> arities, long idx, bool is_first) => b.pattern switch { IrWildPat { } => ("            {\n" + (emit_tco_body(b.body, func_name, @params, arities) + "            }\n")), IrVarPat(var name, var ty) => ("            {\n                var " + (sanitize(name) + (" = _tco_s;\n" + (emit_tco_body(b.body, func_name, @params, arities) + "            }\n")))), IrCtorPat(var name, var subs, var ty) => ((Func<string, string>)((keyword) => ((Func<string, string>)((match_var) => ("            " + (keyword + (" (_tco_s is " + (sanitize(name) + (" " + (match_var + (")\n            {\n" + (emit_tco_ctor_bindings(subs, match_var, 0) + (emit_tco_body(b.body, func_name, @params, arities) + "            }\n")))))))))))(("_tco_m" + integer_to_text(idx)))))((is_first ? "if" : "else if")), IrLitPat(var text, var ty) => ((Func<string, string>)((keyword) => ("            " + (keyword + (" (object.Equals(_tco_s, " + (text + ("))\n            {\n" + (emit_tco_body(b.body, func_name, @params, arities) + "            }\n"))))))))((is_first ? "if" : "else if")), _ => throw new InvalidOperationException("Non-exhaustive match"), };
+
+    public static string emit_tco_ctor_bindings(List<IRPat> subs, string match_var, long i) => ((i == list_length(subs)) ? "" : ((Func<IRPat, string>)((sub) => (emit_tco_ctor_binding(sub, match_var, i) + emit_tco_ctor_bindings(subs, match_var, (i + 1)))))(list_at(subs)(i)));
+
+    public static string emit_tco_ctor_binding(IRPat sub, string match_var, long i) => sub switch { IrVarPat(var name, var ty) => ("                var " + (sanitize(name) + (" = " + (match_var + (".Field" + (integer_to_text(i) + ";\n")))))), _ => "", };
+
+    public static string emit_tco_jump(IRExpr e, List<IRParam> @params, List<ArityEntry> arities) => ((Func<ApplyChain, string>)((chain) => (emit_tco_temps(chain.args, arities, 0) + (emit_tco_assigns(@params, 0) + "            continue;\n"))))(collect_apply_chain(e, new List<IRExpr>()));
+
+    public static string emit_tco_temps(List<IRExpr> args, List<ArityEntry> arities, long i) => ((i == list_length(args)) ? "" : ("            var _tco_" + (integer_to_text(i) + (" = " + (emit_expr(list_at(args)(i), arities) + (";\n" + emit_tco_temps(args, arities, (i + 1))))))));
+
+    public static string emit_tco_assigns(List<IRParam> @params, long i) => ((i == list_length(@params)) ? "" : ((Func<IRParam, string>)((p) => ("            " + (sanitize(p.name) + (" = _tco_" + (integer_to_text(i) + (";\n" + emit_tco_assigns(@params, (i + 1)))))))))(list_at(@params)(i)));
+
+    public static string emit_def(IRDef d, List<ArityEntry> arities) => (should_tco(d) ? emit_tco_def(d, arities) : ((Func<CodexType, string>)((ret) => ((Func<string, string>)((gen) => ("    public static " + (cs_type(ret) + (" " + (sanitize(d.name) + (gen + ("(" + (emit_def_params(d.@params, 0) + (") => " + (emit_expr(d.body, arities) + ";\n")))))))))))(generic_suffix(d.type_val))))(get_return_type(d.type_val, list_length(d.@params))));
+
+    public static CodexType get_return_type(CodexType ty, long n)
+    {
+        while (true)
+        {
+            if ((n == 0))
+            {
+            return strip_forall(ty);
+            }
+            else
+            {
+            var _tco_s = strip_forall(ty);
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var p = _tco_m0.Field0;
+                var r = _tco_m0.Field1;
+            var _tco_0 = r;
+            var _tco_1 = (n - 1);
+            ty = _tco_0;
+            n = _tco_1;
+            continue;
+            }
+            {
+            return ty;
+            }
+            }
+        }
+    }
+
+    public static CodexType strip_forall(CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is ForAllTy _tco_m0)
+            {
+                var id = _tco_m0.Field0;
+                var body = _tco_m0.Field1;
+            var _tco_0 = body;
+            ty = _tco_0;
+            continue;
+            }
+            {
+            return ty;
+            }
+        }
+    }
 
     public static string emit_def_params(List<IRParam> @params, long i) => ((i == list_length(@params)) ? "" : ((Func<IRParam, string>)((p) => (cs_type(p.type_val) + (" " + (sanitize(p.name) + (((i < (list_length(@params) - 1)) ? ", " : "") + emit_def_params(@params, (i + 1))))))))(list_at(@params)(i)));
 
@@ -593,17 +1199,225 @@ public static class Codex_Codex_Codex
 
     public static string emit_defs(List<IRDef> defs, long i, List<ArityEntry> arities) => ((i == list_length(defs)) ? "" : (emit_def(list_at(defs)(i), arities) + ("\n" + emit_defs(defs, (i + 1), arities))));
 
-    public static CodexType ir_expr_type(IRExpr e) => e switch { IrIntLit(var v) => new IntegerTy(), IrNumLit(var v) => new IntegerTy(), IrTextLit(var v) => new TextTy(), IrBoolLit(var v) => new BooleanTy(), IrName(var n, var t) => t, IrBinary(var op, var l, var r, var t) => t, IrNegate(var x) => new IntegerTy(), IrIf(var c, var th, var el, var t) => t, IrLet(var n, var t, var v, var b) => ir_expr_type(b), IrApply(var f, var a, var t) => t, IrLambda(var ps, var b, var t) => t, IrList(var es, var t) => new ListTy(t), IrMatch(var s, var bs, var t) => t, IrDo(var ss, var t) => t, IrRecord(var n, var fs, var t) => t, IrFieldAccess(var r, var f, var t) => t, IrError(var m, var t) => t, _ => throw new InvalidOperationException("Non-exhaustive match"), };
+    public static CodexType ir_expr_type(IRExpr e)
+    {
+        while (true)
+        {
+            var _tco_s = e;
+            if (_tco_s is IrIntLit _tco_m0)
+            {
+                var v = _tco_m0.Field0;
+            return new IntegerTy();
+            }
+            else if (_tco_s is IrNumLit _tco_m1)
+            {
+                var v = _tco_m1.Field0;
+            return new IntegerTy();
+            }
+            else if (_tco_s is IrTextLit _tco_m2)
+            {
+                var v = _tco_m2.Field0;
+            return new TextTy();
+            }
+            else if (_tco_s is IrBoolLit _tco_m3)
+            {
+                var v = _tco_m3.Field0;
+            return new BooleanTy();
+            }
+            else if (_tco_s is IrName _tco_m4)
+            {
+                var n = _tco_m4.Field0;
+                var t = _tco_m4.Field1;
+            return t;
+            }
+            else if (_tco_s is IrBinary _tco_m5)
+            {
+                var op = _tco_m5.Field0;
+                var l = _tco_m5.Field1;
+                var r = _tco_m5.Field2;
+                var t = _tco_m5.Field3;
+            return t;
+            }
+            else if (_tco_s is IrNegate _tco_m6)
+            {
+                var x = _tco_m6.Field0;
+            return new IntegerTy();
+            }
+            else if (_tco_s is IrIf _tco_m7)
+            {
+                var c = _tco_m7.Field0;
+                var th = _tco_m7.Field1;
+                var el = _tco_m7.Field2;
+                var t = _tco_m7.Field3;
+            return t;
+            }
+            else if (_tco_s is IrLet _tco_m8)
+            {
+                var n = _tco_m8.Field0;
+                var t = _tco_m8.Field1;
+                var v = _tco_m8.Field2;
+                var b = _tco_m8.Field3;
+            var _tco_0 = b;
+            e = _tco_0;
+            continue;
+            }
+            else if (_tco_s is IrApply _tco_m9)
+            {
+                var f = _tco_m9.Field0;
+                var a = _tco_m9.Field1;
+                var t = _tco_m9.Field2;
+            return t;
+            }
+            else if (_tco_s is IrLambda _tco_m10)
+            {
+                var ps = _tco_m10.Field0;
+                var b = _tco_m10.Field1;
+                var t = _tco_m10.Field2;
+            return t;
+            }
+            else if (_tco_s is IrList _tco_m11)
+            {
+                var es = _tco_m11.Field0;
+                var t = _tco_m11.Field1;
+            return new ListTy(t);
+            }
+            else if (_tco_s is IrMatch _tco_m12)
+            {
+                var s = _tco_m12.Field0;
+                var bs = _tco_m12.Field1;
+                var t = _tco_m12.Field2;
+            return t;
+            }
+            else if (_tco_s is IrDo _tco_m13)
+            {
+                var ss = _tco_m13.Field0;
+                var t = _tco_m13.Field1;
+            return t;
+            }
+            else if (_tco_s is IrRecord _tco_m14)
+            {
+                var n = _tco_m14.Field0;
+                var fs = _tco_m14.Field1;
+                var t = _tco_m14.Field2;
+            return t;
+            }
+            else if (_tco_s is IrFieldAccess _tco_m15)
+            {
+                var r = _tco_m15.Field0;
+                var f = _tco_m15.Field1;
+                var t = _tco_m15.Field2;
+            return t;
+            }
+            else if (_tco_s is IrError _tco_m16)
+            {
+                var m = _tco_m16.Field0;
+                var t = _tco_m16.Field1;
+            return t;
+            }
+        }
+    }
 
     public static CodexType lookup_type(List<TypeBinding> bindings, string name) => lookup_type_loop(bindings, name, 0, list_length(bindings));
 
-    public static CodexType lookup_type_loop(List<TypeBinding> bindings, string name, long i, long len) => ((i == len) ? new ErrorTy() : ((Func<TypeBinding, CodexType>)((b) => ((b.name == name) ? b.bound_type : lookup_type_loop(bindings, name, (i + 1), len))))(list_at(bindings)(i)));
+    public static CodexType lookup_type_loop(List<TypeBinding> bindings, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new ErrorTy();
+            }
+            else
+            {
+            var b = list_at(bindings)(i);
+            if ((b.name == name))
+            {
+            return b.bound_type;
+            }
+            else
+            {
+            var _tco_0 = bindings;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            bindings = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
-    public static CodexType peel_fun_param(CodexType ty) => ty switch { FunTy(var p, var r) => p, ForAllTy(var id, var body) => peel_fun_param(body), _ => new ErrorTy(), };
+    public static CodexType peel_fun_param(CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var p = _tco_m0.Field0;
+                var r = _tco_m0.Field1;
+            return p;
+            }
+            else if (_tco_s is ForAllTy _tco_m1)
+            {
+                var id = _tco_m1.Field0;
+                var body = _tco_m1.Field1;
+            var _tco_0 = body;
+            ty = _tco_0;
+            continue;
+            }
+            {
+            return new ErrorTy();
+            }
+        }
+    }
 
-    public static CodexType peel_fun_return(CodexType ty) => ty switch { FunTy(var p, var r) => r, ForAllTy(var id, var body) => peel_fun_return(body), _ => new ErrorTy(), };
+    public static CodexType peel_fun_return(CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var p = _tco_m0.Field0;
+                var r = _tco_m0.Field1;
+            return r;
+            }
+            else if (_tco_s is ForAllTy _tco_m1)
+            {
+                var id = _tco_m1.Field0;
+                var body = _tco_m1.Field1;
+            var _tco_0 = body;
+            ty = _tco_0;
+            continue;
+            }
+            {
+            return new ErrorTy();
+            }
+        }
+    }
 
-    public static CodexType strip_forall_ty(CodexType ty) => ty switch { ForAllTy(var id, var body) => strip_forall_ty(body), _ => ty, };
+    public static CodexType strip_forall_ty(CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is ForAllTy _tco_m0)
+            {
+                var id = _tco_m0.Field0;
+                var body = _tco_m0.Field1;
+            var _tco_0 = body;
+            ty = _tco_0;
+            continue;
+            }
+            {
+            return ty;
+            }
+        }
+    }
 
     public static CodexType subst_type_vars_from_arg(CodexType param_ty, CodexType arg_ty, CodexType target) => param_ty switch { TypeVar(var id) => subst_type_var_in_target(target, id, arg_ty), ListTy(var pe) => subst_from_list(pe, arg_ty, target), FunTy(var pp, var pr) => subst_from_fun(pp, pr, arg_ty, target), _ => target, };
 
@@ -633,21 +1447,144 @@ public static class Codex_Codex_Codex
 
     public static IRExpr lower_lambda(List<Name> @params, AExpr body, CodexType ty, LowerCtx ctx) => ((Func<CodexType, IRExpr>)((stripped) => ((Func<List<IRParam>, IRExpr>)((lparams) => ((Func<LowerCtx, IRExpr>)((lctx) => new IrLambda(lparams, lower_expr(body, get_lambda_return(stripped, list_length(@params)), lctx), ty)))(bind_lambda_to_ctx(ctx, @params, stripped, 0))))(lower_lambda_params(@params, stripped, 0))))(strip_forall_ty(ty));
 
-    public static LowerCtx bind_lambda_to_ctx(LowerCtx ctx, List<Name> @params, CodexType ty, long i) => ((i == list_length(@params)) ? ctx : ((Func<Name, LowerCtx>)((p) => ((Func<CodexType, LowerCtx>)((param_ty) => ((Func<CodexType, LowerCtx>)((rest_ty) => ((Func<LowerCtx, LowerCtx>)((ctx2) => bind_lambda_to_ctx(ctx2, @params, rest_ty, (i + 1))))(new LowerCtx(types: Enumerable.Concat(new List<TypeBinding> { new TypeBinding(name: p.value, bound_type: param_ty) }, ctx.types).ToList(), ust: ctx.ust))))(peel_fun_return(ty))))(peel_fun_param(ty))))(list_at(@params)(i)));
+    public static LowerCtx bind_lambda_to_ctx(LowerCtx ctx, List<Name> @params, CodexType ty, long i)
+    {
+        while (true)
+        {
+            if ((i == list_length(@params)))
+            {
+            return ctx;
+            }
+            else
+            {
+            var p = list_at(@params)(i);
+            var param_ty = peel_fun_param(ty);
+            var rest_ty = peel_fun_return(ty);
+            var ctx2 = new LowerCtx(types: Enumerable.Concat(new List<TypeBinding> { new TypeBinding(name: p.value, bound_type: param_ty) }, ctx.types).ToList(), ust: ctx.ust);
+            var _tco_0 = ctx2;
+            var _tco_1 = @params;
+            var _tco_2 = rest_ty;
+            var _tco_3 = (i + 1);
+            ctx = _tco_0;
+            @params = _tco_1;
+            ty = _tco_2;
+            i = _tco_3;
+            continue;
+            }
+        }
+    }
 
     public static List<IRParam> lower_lambda_params(List<Name> @params, CodexType ty, long i) => ((i == list_length(@params)) ? new List<IRParam>() : ((Func<Name, List<IRParam>>)((p) => ((Func<CodexType, List<IRParam>>)((param_ty) => ((Func<CodexType, List<IRParam>>)((rest_ty) => Enumerable.Concat(new List<IRParam> { new IRParam(name: p.value, type_val: param_ty) }, lower_lambda_params(@params, rest_ty, (i + 1))).ToList()))(peel_fun_return(ty))))(peel_fun_param(ty))))(list_at(@params)(i)));
 
-    public static CodexType get_lambda_return(CodexType ty, long n) => ((n == 0) ? ty : ty switch { FunTy(var p, var r) => get_lambda_return(r, (n - 1)), _ => new ErrorTy(), });
+    public static CodexType get_lambda_return(CodexType ty, long n)
+    {
+        while (true)
+        {
+            if ((n == 0))
+            {
+            return ty;
+            }
+            else
+            {
+            var _tco_s = ty;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var p = _tco_m0.Field0;
+                var r = _tco_m0.Field1;
+            var _tco_0 = r;
+            var _tco_1 = (n - 1);
+            ty = _tco_0;
+            n = _tco_1;
+            continue;
+            }
+            {
+            return new ErrorTy();
+            }
+            }
+        }
+    }
 
     public static IRExpr lower_match(AExpr scrut, List<AMatchArm> arms, CodexType ty, LowerCtx ctx) => ((Func<IRExpr, IRExpr>)((scrut_ir) => ((Func<CodexType, IRExpr>)((scrut_ty) => ((Func<List<IRBranch>, IRExpr>)((branches) => ((Func<CodexType, IRExpr>)((result_ty) => new IrMatch(scrut_ir, branches, result_ty)))(ty switch { ErrorTy { } => infer_match_type(branches, 0, list_length(branches)), _ => ty, })))(lower_match_arms_loop(arms, ty, scrut_ty, ctx, 0, list_length(arms)))))(ir_expr_type(scrut_ir))))(lower_expr(scrut, new ErrorTy(), ctx));
 
-    public static CodexType infer_match_type(List<IRBranch> branches, long i, long len) => ((i == len) ? new ErrorTy() : ((Func<IRBranch, CodexType>)((b) => ((Func<CodexType, CodexType>)((body_ty) => body_ty switch { ErrorTy { } => infer_match_type(branches, (i + 1), len), _ => body_ty, }))(ir_expr_type(b.body))))(list_at(branches)(i)));
+    public static CodexType infer_match_type(List<IRBranch> branches, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new ErrorTy();
+            }
+            else
+            {
+            var b = list_at(branches)(i);
+            var body_ty = ir_expr_type(b.body);
+            var _tco_s = body_ty;
+            if (_tco_s is ErrorTy _tco_m0)
+            {
+            var _tco_0 = branches;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            branches = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            continue;
+            }
+            {
+            return body_ty;
+            }
+            }
+        }
+    }
 
     public static List<IRBranch> lower_match_arms_loop(List<AMatchArm> arms, CodexType ty, CodexType scrut_ty, LowerCtx ctx, long i, long len) => ((i == len) ? new List<IRBranch>() : ((Func<AMatchArm, List<IRBranch>>)((arm) => ((Func<LowerCtx, List<IRBranch>>)((arm_ctx) => Enumerable.Concat(new List<IRBranch> { new IRBranch(pattern: lower_pattern(arm.pattern), body: lower_expr(arm.body, ty, arm_ctx)) }, lower_match_arms_loop(arms, ty, scrut_ty, ctx, (i + 1), len)).ToList()))(bind_pattern_to_ctx(ctx, arm.pattern, scrut_ty))))(list_at(arms)(i)));
 
     public static LowerCtx bind_pattern_to_ctx(LowerCtx ctx, APat pat, CodexType ty) => pat switch { AVarPat(var name) => new LowerCtx(types: Enumerable.Concat(new List<TypeBinding> { new TypeBinding(name: name.value, bound_type: ty) }, ctx.types).ToList(), ust: ctx.ust), ACtorPat(var ctor_name, var sub_pats) => ((Func<CodexType, LowerCtx>)((ctor_raw) => ((Func<CodexType, LowerCtx>)((ctor_ty) => ((Func<CodexType, LowerCtx>)((ctor_stripped) => bind_ctor_pattern_fields(ctx, sub_pats, ctor_stripped, 0, list_length(sub_pats))))(strip_forall_ty(ctor_ty))))(deep_resolve(ctx.ust, ctor_raw))))(lookup_type(ctx.types, ctor_name.value)), AWildPat { } => ctx, ALitPat(var text, var kind) => ctx, _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static LowerCtx bind_ctor_pattern_fields(LowerCtx ctx, List<APat> sub_pats, CodexType ctor_ty, long i, long len) => ((i == len) ? ctx : ctor_ty switch { FunTy(var param_ty, var ret_ty) => ((Func<LowerCtx, LowerCtx>)((ctx2) => bind_ctor_pattern_fields(ctx2, sub_pats, ret_ty, (i + 1), len)))(bind_pattern_to_ctx(ctx, list_at(sub_pats)(i), param_ty)), _ => ((Func<LowerCtx, LowerCtx>)((ctx2) => bind_ctor_pattern_fields(ctx2, sub_pats, ctor_ty, (i + 1), len)))(bind_pattern_to_ctx(ctx, list_at(sub_pats)(i), new ErrorTy())), });
+    public static LowerCtx bind_ctor_pattern_fields(LowerCtx ctx, List<APat> sub_pats, CodexType ctor_ty, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return ctx;
+            }
+            else
+            {
+            var _tco_s = ctor_ty;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var param_ty = _tco_m0.Field0;
+                var ret_ty = _tco_m0.Field1;
+            var ctx2 = bind_pattern_to_ctx(ctx, list_at(sub_pats)(i), param_ty);
+            var _tco_0 = ctx2;
+            var _tco_1 = sub_pats;
+            var _tco_2 = ret_ty;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            ctx = _tco_0;
+            sub_pats = _tco_1;
+            ctor_ty = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            continue;
+            }
+            {
+            var ctx2 = bind_pattern_to_ctx(ctx, list_at(sub_pats)(i), new ErrorTy());
+            var _tco_0 = ctx2;
+            var _tco_1 = sub_pats;
+            var _tco_2 = ctor_ty;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            ctx = _tco_0;
+            sub_pats = _tco_1;
+            ctor_ty = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            continue;
+            }
+            }
+        }
+    }
 
     public static IRPat lower_pattern(APat p) => p switch { AVarPat(var name) => new IrVarPat(name.value, new ErrorTy()), ALitPat(var text, var kind) => new IrLitPat(text, new ErrorTy()), ACtorPat(var name, var subs) => new IrCtorPat(name.value, map_list(lower_pattern, subs), new ErrorTy()), AWildPat { } => new IrWildPat(), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
@@ -659,7 +1596,32 @@ public static class Codex_Codex_Codex
 
     public static List<IRFieldVal> lower_record_fields_typed(List<AFieldExpr> fields, CodexType record_ty, LowerCtx ctx, long i, long len) => ((i == len) ? new List<IRFieldVal>() : ((Func<AFieldExpr, List<IRFieldVal>>)((f) => ((Func<CodexType, List<IRFieldVal>>)((field_expected) => Enumerable.Concat(new List<IRFieldVal> { new IRFieldVal(name: f.name.value, value: lower_expr(f.value, field_expected, ctx)) }, lower_record_fields_typed(fields, record_ty, ctx, (i + 1), len)).ToList()))(record_ty switch { RecordTy(var rname, var rfields) => lookup_record_field(rfields, f.name.value), _ => new ErrorTy(), })))(list_at(fields)(i)));
 
-    public static CodexType strip_fun_args_lower(CodexType ty) => ty switch { FunTy(var p, var r) => strip_fun_args_lower(r), ForAllTy(var id, var body) => strip_fun_args_lower(body), _ => ty, };
+    public static CodexType strip_fun_args_lower(CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var p = _tco_m0.Field0;
+                var r = _tco_m0.Field1;
+            var _tco_0 = r;
+            ty = _tco_0;
+            continue;
+            }
+            else if (_tco_s is ForAllTy _tco_m1)
+            {
+                var id = _tco_m1.Field0;
+                var body = _tco_m1.Field1;
+            var _tco_0 = body;
+            ty = _tco_0;
+            continue;
+            }
+            {
+            return ty;
+            }
+        }
+    }
 
     public static IRExpr lower_do(List<ADoStmt> stmts, CodexType ty, LowerCtx ctx) => new IrDo(lower_do_stmts_loop(stmts, ty, ctx, 0, list_length(stmts)), ty);
 
@@ -669,25 +1631,147 @@ public static class Codex_Codex_Codex
 
     public static LowerCtx build_def_ctx(List<TypeBinding> types, UnificationState ust, List<AParam> @params, CodexType ty) => ((Func<LowerCtx, LowerCtx>)((base_ctx) => bind_params_to_ctx(base_ctx, @params, ty, 0)))(new LowerCtx(types: types, ust: ust));
 
-    public static LowerCtx bind_params_to_ctx(LowerCtx ctx, List<AParam> @params, CodexType ty, long i) => ((i == list_length(@params)) ? ctx : ((Func<AParam, LowerCtx>)((p) => ((Func<CodexType, LowerCtx>)((param_ty) => ((Func<CodexType, LowerCtx>)((rest_ty) => ((Func<LowerCtx, LowerCtx>)((ctx2) => bind_params_to_ctx(ctx2, @params, rest_ty, (i + 1))))(new LowerCtx(types: Enumerable.Concat(new List<TypeBinding> { new TypeBinding(name: p.name.value, bound_type: param_ty) }, ctx.types).ToList(), ust: ctx.ust))))(peel_fun_return(ty))))(peel_fun_param(ty))))(list_at(@params)(i)));
+    public static LowerCtx bind_params_to_ctx(LowerCtx ctx, List<AParam> @params, CodexType ty, long i)
+    {
+        while (true)
+        {
+            if ((i == list_length(@params)))
+            {
+            return ctx;
+            }
+            else
+            {
+            var p = list_at(@params)(i);
+            var param_ty = peel_fun_param(ty);
+            var rest_ty = peel_fun_return(ty);
+            var ctx2 = new LowerCtx(types: Enumerable.Concat(new List<TypeBinding> { new TypeBinding(name: p.name.value, bound_type: param_ty) }, ctx.types).ToList(), ust: ctx.ust);
+            var _tco_0 = ctx2;
+            var _tco_1 = @params;
+            var _tco_2 = rest_ty;
+            var _tco_3 = (i + 1);
+            ctx = _tco_0;
+            @params = _tco_1;
+            ty = _tco_2;
+            i = _tco_3;
+            continue;
+            }
+        }
+    }
 
     public static List<IRParam> lower_def_params(List<AParam> @params, CodexType ty, long i) => ((i == list_length(@params)) ? new List<IRParam>() : ((Func<AParam, List<IRParam>>)((p) => ((Func<CodexType, List<IRParam>>)((param_ty) => ((Func<CodexType, List<IRParam>>)((rest_ty) => Enumerable.Concat(new List<IRParam> { new IRParam(name: p.name.value, type_val: param_ty) }, lower_def_params(@params, rest_ty, (i + 1))).ToList()))(peel_fun_return(ty))))(peel_fun_param(ty))))(list_at(@params)(i)));
 
-    public static CodexType get_return_type_n(CodexType ty, long n) => ((n == 0) ? ty : ty switch { FunTy(var p, var r) => get_return_type_n(r, (n - 1)), _ => new ErrorTy(), });
+    public static CodexType get_return_type_n(CodexType ty, long n)
+    {
+        while (true)
+        {
+            if ((n == 0))
+            {
+            return ty;
+            }
+            else
+            {
+            var _tco_s = ty;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var p = _tco_m0.Field0;
+                var r = _tco_m0.Field1;
+            var _tco_0 = r;
+            var _tco_1 = (n - 1);
+            ty = _tco_0;
+            n = _tco_1;
+            continue;
+            }
+            {
+            return new ErrorTy();
+            }
+            }
+        }
+    }
 
     public static IRModule lower_module(AModule m, List<TypeBinding> types, UnificationState ust) => ((Func<List<TypeBinding>, IRModule>)((ctor_types) => ((Func<List<TypeBinding>, IRModule>)((all_types) => new IRModule(name: m.name, defs: lower_defs(m.defs, all_types, ust, 0))))(Enumerable.Concat(ctor_types, Enumerable.Concat(types, builtin_type_env().bindings).ToList()).ToList())))(collect_ctor_bindings(m.type_defs, 0, list_length(m.type_defs), new List<TypeBinding>()));
 
     public static List<IRDef> lower_defs(List<ADef> defs, List<TypeBinding> types, UnificationState ust, long i) => ((i == list_length(defs)) ? new List<IRDef>() : Enumerable.Concat(new List<IRDef> { lower_def(list_at(defs)(i), types, ust) }, lower_defs(defs, types, ust, (i + 1))).ToList());
 
-    public static List<TypeBinding> collect_ctor_bindings(List<ATypeDef> tdefs, long i, long len, List<TypeBinding> acc) => ((i == len) ? acc : ((Func<ATypeDef, List<TypeBinding>>)((td) => ((Func<List<TypeBinding>, List<TypeBinding>>)((bindings) => collect_ctor_bindings(tdefs, (i + 1), len, Enumerable.Concat(acc, bindings).ToList())))(ctor_bindings_for_typedef(td))))(list_at(tdefs)(i)));
+    public static List<TypeBinding> collect_ctor_bindings(List<ATypeDef> tdefs, long i, long len, List<TypeBinding> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var td = list_at(tdefs)(i);
+            var bindings = ctor_bindings_for_typedef(td);
+            var _tco_0 = tdefs;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = Enumerable.Concat(acc, bindings).ToList();
+            tdefs = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+        }
+    }
 
     public static List<TypeBinding> ctor_bindings_for_typedef(ATypeDef td) => td switch { AVariantTypeDef(var name, var type_params, var ctors) => ((Func<CodexType, List<TypeBinding>>)((result_ty) => collect_variant_ctor_bindings(ctors, result_ty, 0, list_length(ctors), new List<TypeBinding>())))(new ConstructedTy(name, new List<CodexType>())), ARecordTypeDef(var name, var type_params, var fields) => ((Func<List<RecordField>, List<TypeBinding>>)((resolved_fields) => ((Func<CodexType, List<TypeBinding>>)((result_ty) => ((Func<CodexType, List<TypeBinding>>)((ctor_ty) => new List<TypeBinding> { new TypeBinding(name: name.value, bound_type: ctor_ty) }))(build_record_ctor_type_for_lower(fields, result_ty, 0, list_length(fields)))))(new RecordTy(name, resolved_fields))))(build_record_fields_for_lower(fields, 0, list_length(fields), new List<RecordField>())), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static List<TypeBinding> collect_variant_ctor_bindings(List<AVariantCtorDef> ctors, CodexType result_ty, long i, long len, List<TypeBinding> acc) => ((i == len) ? acc : ((Func<AVariantCtorDef, List<TypeBinding>>)((ctor) => ((Func<CodexType, List<TypeBinding>>)((ctor_ty) => collect_variant_ctor_bindings(ctors, result_ty, (i + 1), len, Enumerable.Concat(acc, new List<TypeBinding> { new TypeBinding(name: ctor.name.value, bound_type: ctor_ty) }).ToList())))(build_ctor_type_for_lower(ctor.fields, result_ty, 0, list_length(ctor.fields)))))(list_at(ctors)(i)));
+    public static List<TypeBinding> collect_variant_ctor_bindings(List<AVariantCtorDef> ctors, CodexType result_ty, long i, long len, List<TypeBinding> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var ctor = list_at(ctors)(i);
+            var ctor_ty = build_ctor_type_for_lower(ctor.fields, result_ty, 0, list_length(ctor.fields));
+            var _tco_0 = ctors;
+            var _tco_1 = result_ty;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(acc, new List<TypeBinding> { new TypeBinding(name: ctor.name.value, bound_type: ctor_ty) }).ToList();
+            ctors = _tco_0;
+            result_ty = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            acc = _tco_4;
+            continue;
+            }
+        }
+    }
 
     public static CodexType build_ctor_type_for_lower(List<ATypeExpr> fields, CodexType result, long i, long len) => ((i == len) ? result : ((Func<CodexType, CodexType>)((rest) => new FunTy(resolve_type_expr_for_lower(list_at(fields)(i)), rest)))(build_ctor_type_for_lower(fields, result, (i + 1), len)));
 
-    public static List<RecordField> build_record_fields_for_lower(List<ARecordFieldDef> fields, long i, long len, List<RecordField> acc) => ((i == len) ? acc : ((Func<ARecordFieldDef, List<RecordField>>)((f) => ((Func<RecordField, List<RecordField>>)((rfield) => build_record_fields_for_lower(fields, (i + 1), len, Enumerable.Concat(acc, new List<RecordField> { rfield }).ToList())))(new RecordField(name: f.name, type_val: resolve_type_expr_for_lower(f.type_expr)))))(list_at(fields)(i)));
+    public static List<RecordField> build_record_fields_for_lower(List<ARecordFieldDef> fields, long i, long len, List<RecordField> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var f = list_at(fields)(i);
+            var rfield = new RecordField(name: f.name, type_val: resolve_type_expr_for_lower(f.type_expr));
+            var _tco_0 = fields;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = Enumerable.Concat(acc, new List<RecordField> { rfield }).ToList();
+            fields = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+        }
+    }
 
     public static CodexType build_record_ctor_type_for_lower(List<ARecordFieldDef> fields, CodexType result, long i, long len) => ((i == len) ? result : ((Func<ARecordFieldDef, CodexType>)((f) => ((Func<CodexType, CodexType>)((rest) => new FunTy(resolve_type_expr_for_lower(f.type_expr), rest)))(build_record_ctor_type_for_lower(fields, result, (i + 1), len))))(list_at(fields)(i)));
 
@@ -697,7 +1781,35 @@ public static class Codex_Codex_Codex
 
     public static bool scope_has(Scope sc, string name) => scope_has_loop(sc.names, name, 0, list_length(sc.names));
 
-    public static bool scope_has_loop(List<string> names, string name, long i, long len) => ((i == len) ? false : ((list_at(names)(i) == name) ? true : scope_has_loop(names, name, (i + 1), len)));
+    public static bool scope_has_loop(List<string> names, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return false;
+            }
+            else
+            {
+            if ((list_at(names)(i) == name))
+            {
+            return true;
+            }
+            else
+            {
+            var _tco_0 = names;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            names = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
     public static Scope scope_add(Scope sc, string name) => new Scope(names: Enumerable.Concat(new List<string> { name }, sc.names).ToList());
 
@@ -707,41 +1819,554 @@ public static class Codex_Codex_Codex
 
     public static bool is_upper_char(string c) => ((Func<long, bool>)((code) => ((code >= 65) && (code <= 90))))(char_code(c));
 
-    public static CollectResult collect_top_level_names(List<ADef> defs, long i, long len, List<string> acc, List<Diagnostic> errs) => ((i == len) ? new CollectResult(names: acc, errors: errs) : ((Func<ADef, CollectResult>)((def) => ((Func<string, CollectResult>)((name) => (list_contains(acc, name) ? collect_top_level_names(defs, (i + 1), len, acc, Enumerable.Concat(errs, new List<Diagnostic> { make_error("CDX3001", ("Duplicate definition: " + name)) }).ToList()) : collect_top_level_names(defs, (i + 1), len, Enumerable.Concat(acc, new List<string> { name }).ToList(), errs))))(def.name.value)))(list_at(defs)(i)));
+    public static CollectResult collect_top_level_names(List<ADef> defs, long i, long len, List<string> acc, List<Diagnostic> errs)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new CollectResult(names: acc, errors: errs);
+            }
+            else
+            {
+            var def = list_at(defs)(i);
+            var name = def.name.value;
+            if (list_contains(acc, name))
+            {
+            var _tco_0 = defs;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = acc;
+            var _tco_4 = Enumerable.Concat(errs, new List<Diagnostic> { make_error("CDX3001", ("Duplicate definition: " + name)) }).ToList();
+            defs = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            errs = _tco_4;
+            continue;
+            }
+            else
+            {
+            var _tco_0 = defs;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = Enumerable.Concat(acc, new List<string> { name }).ToList();
+            var _tco_4 = errs;
+            defs = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            errs = _tco_4;
+            continue;
+            }
+            }
+        }
+    }
 
     public static bool list_contains(List<string> xs, string name) => list_contains_loop(xs, name, 0, list_length(xs));
 
-    public static bool list_contains_loop(List<string> xs, string name, long i, long len) => ((i == len) ? false : ((list_at(xs)(i) == name) ? true : list_contains_loop(xs, name, (i + 1), len)));
+    public static bool list_contains_loop(List<string> xs, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return false;
+            }
+            else
+            {
+            if ((list_at(xs)(i) == name))
+            {
+            return true;
+            }
+            else
+            {
+            var _tco_0 = xs;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            xs = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
-    public static CtorCollectResult collect_ctor_names(List<ATypeDef> type_defs, long i, long len, List<string> type_acc, List<string> ctor_acc) => ((i == len) ? new CtorCollectResult(type_names: type_acc, ctor_names: ctor_acc) : ((Func<ATypeDef, CtorCollectResult>)((td) => td switch { AVariantTypeDef(var name, var @params, var ctors) => ((Func<List<string>, CtorCollectResult>)((new_type_acc) => ((Func<List<string>, CtorCollectResult>)((new_ctor_acc) => collect_ctor_names(type_defs, (i + 1), len, new_type_acc, new_ctor_acc)))(collect_variant_ctors(ctors, 0, list_length(ctors), ctor_acc))))(Enumerable.Concat(type_acc, new List<string> { name.value }).ToList()), ARecordTypeDef(var name, var @params, var fields) => collect_ctor_names(type_defs, (i + 1), len, Enumerable.Concat(type_acc, new List<string> { name.value }).ToList(), ctor_acc), _ => throw new InvalidOperationException("Non-exhaustive match"), }))(list_at(type_defs)(i)));
+    public static CtorCollectResult collect_ctor_names(List<ATypeDef> type_defs, long i, long len, List<string> type_acc, List<string> ctor_acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new CtorCollectResult(type_names: type_acc, ctor_names: ctor_acc);
+            }
+            else
+            {
+            var td = list_at(type_defs)(i);
+            var _tco_s = td;
+            if (_tco_s is AVariantTypeDef _tco_m0)
+            {
+                var name = _tco_m0.Field0;
+                var @params = _tco_m0.Field1;
+                var ctors = _tco_m0.Field2;
+            var new_type_acc = Enumerable.Concat(type_acc, new List<string> { name.value }).ToList();
+            var new_ctor_acc = collect_variant_ctors(ctors, 0, list_length(ctors), ctor_acc);
+            var _tco_0 = type_defs;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = new_type_acc;
+            var _tco_4 = new_ctor_acc;
+            type_defs = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            type_acc = _tco_3;
+            ctor_acc = _tco_4;
+            continue;
+            }
+            else if (_tco_s is ARecordTypeDef _tco_m1)
+            {
+                var name = _tco_m1.Field0;
+                var @params = _tco_m1.Field1;
+                var fields = _tco_m1.Field2;
+            var _tco_0 = type_defs;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = Enumerable.Concat(type_acc, new List<string> { name.value }).ToList();
+            var _tco_4 = ctor_acc;
+            type_defs = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            type_acc = _tco_3;
+            ctor_acc = _tco_4;
+            continue;
+            }
+            }
+        }
+    }
 
-    public static List<string> collect_variant_ctors(List<AVariantCtorDef> ctors, long i, long len, List<string> acc) => ((i == len) ? acc : ((Func<AVariantCtorDef, List<string>>)((ctor) => collect_variant_ctors(ctors, (i + 1), len, Enumerable.Concat(acc, new List<string> { ctor.name.value }).ToList())))(list_at(ctors)(i)));
+    public static List<string> collect_variant_ctors(List<AVariantCtorDef> ctors, long i, long len, List<string> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var ctor = list_at(ctors)(i);
+            var _tco_0 = ctors;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = Enumerable.Concat(acc, new List<string> { ctor.name.value }).ToList();
+            ctors = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+        }
+    }
 
     public static Scope build_all_names_scope(List<string> top_names, List<string> ctor_names, List<string> builtins) => ((Func<Scope, Scope>)((sc) => ((Func<Scope, Scope>)((sc2) => add_names_to_scope(sc2, builtins, 0, list_length(builtins))))(add_names_to_scope(sc, ctor_names, 0, list_length(ctor_names)))))(add_names_to_scope(empty_scope(), top_names, 0, list_length(top_names)));
 
-    public static Scope add_names_to_scope(Scope sc, List<string> names, long i, long len) => ((i == len) ? sc : add_names_to_scope(scope_add(sc, list_at(names)(i)), names, (i + 1), len));
+    public static Scope add_names_to_scope(Scope sc, List<string> names, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return sc;
+            }
+            else
+            {
+            var _tco_0 = scope_add(sc, list_at(names)(i));
+            var _tco_1 = names;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            sc = _tco_0;
+            names = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+        }
+    }
 
-    public static List<Diagnostic> resolve_expr(Scope sc, AExpr expr) => expr switch { ALitExpr(var val, var kind) => new List<Diagnostic>(), ANameExpr(var name) => ((scope_has(sc, name.value) || is_type_name(name.value)) ? new List<Diagnostic>() : new List<Diagnostic> { make_error("CDX3002", ("Undefined name: " + name.value)) }), ABinaryExpr(var left, var op, var right) => Enumerable.Concat(resolve_expr(sc, left), resolve_expr(sc, right)).ToList(), AUnaryExpr(var operand) => resolve_expr(sc, operand), AApplyExpr(var func, var arg) => Enumerable.Concat(resolve_expr(sc, func), resolve_expr(sc, arg)).ToList(), AIfExpr(var cond, var then_e, var else_e) => Enumerable.Concat(resolve_expr(sc, cond), Enumerable.Concat(resolve_expr(sc, then_e), resolve_expr(sc, else_e)).ToList()).ToList(), ALetExpr(var bindings, var body) => resolve_let(sc, bindings, body, 0, list_length(bindings), new List<Diagnostic>()), ALambdaExpr(var @params, var body) => ((Func<Scope, List<Diagnostic>>)((sc2) => resolve_expr(sc2, body)))(add_lambda_params(sc, @params, 0, list_length(@params))), AMatchExpr(var scrutinee, var arms) => Enumerable.Concat(resolve_expr(sc, scrutinee), resolve_match_arms(sc, arms, 0, list_length(arms), new List<Diagnostic>())).ToList(), AListExpr(var elems) => resolve_list_elems(sc, elems, 0, list_length(elems), new List<Diagnostic>()), ARecordExpr(var name, var fields) => resolve_record_fields(sc, fields, 0, list_length(fields), new List<Diagnostic>()), AFieldAccess(var obj, var field) => resolve_expr(sc, obj), ADoExpr(var stmts) => resolve_do_stmts(sc, stmts, 0, list_length(stmts), new List<Diagnostic>()), AErrorExpr(var msg) => new List<Diagnostic>(), _ => throw new InvalidOperationException("Non-exhaustive match"), };
+    public static List<Diagnostic> resolve_expr(Scope sc, AExpr expr)
+    {
+        while (true)
+        {
+            var _tco_s = expr;
+            if (_tco_s is ALitExpr _tco_m0)
+            {
+                var val = _tco_m0.Field0;
+                var kind = _tco_m0.Field1;
+            return new List<Diagnostic>();
+            }
+            else if (_tco_s is ANameExpr _tco_m1)
+            {
+                var name = _tco_m1.Field0;
+            if ((scope_has(sc, name.value) || is_type_name(name.value)))
+            {
+            return new List<Diagnostic>();
+            }
+            else
+            {
+            return new List<Diagnostic> { make_error("CDX3002", ("Undefined name: " + name.value)) };
+            }
+            }
+            else if (_tco_s is ABinaryExpr _tco_m2)
+            {
+                var left = _tco_m2.Field0;
+                var op = _tco_m2.Field1;
+                var right = _tco_m2.Field2;
+            return Enumerable.Concat(resolve_expr(sc, left), resolve_expr(sc, right)).ToList();
+            }
+            else if (_tco_s is AUnaryExpr _tco_m3)
+            {
+                var operand = _tco_m3.Field0;
+            var _tco_0 = sc;
+            var _tco_1 = operand;
+            sc = _tco_0;
+            expr = _tco_1;
+            continue;
+            }
+            else if (_tco_s is AApplyExpr _tco_m4)
+            {
+                var func = _tco_m4.Field0;
+                var arg = _tco_m4.Field1;
+            return Enumerable.Concat(resolve_expr(sc, func), resolve_expr(sc, arg)).ToList();
+            }
+            else if (_tco_s is AIfExpr _tco_m5)
+            {
+                var cond = _tco_m5.Field0;
+                var then_e = _tco_m5.Field1;
+                var else_e = _tco_m5.Field2;
+            return Enumerable.Concat(resolve_expr(sc, cond), Enumerable.Concat(resolve_expr(sc, then_e), resolve_expr(sc, else_e)).ToList()).ToList();
+            }
+            else if (_tco_s is ALetExpr _tco_m6)
+            {
+                var bindings = _tco_m6.Field0;
+                var body = _tco_m6.Field1;
+            return resolve_let(sc, bindings, body, 0, list_length(bindings), new List<Diagnostic>());
+            }
+            else if (_tco_s is ALambdaExpr _tco_m7)
+            {
+                var @params = _tco_m7.Field0;
+                var body = _tco_m7.Field1;
+            var sc2 = add_lambda_params(sc, @params, 0, list_length(@params));
+            var _tco_0 = sc2;
+            var _tco_1 = body;
+            sc = _tco_0;
+            expr = _tco_1;
+            continue;
+            }
+            else if (_tco_s is AMatchExpr _tco_m8)
+            {
+                var scrutinee = _tco_m8.Field0;
+                var arms = _tco_m8.Field1;
+            return Enumerable.Concat(resolve_expr(sc, scrutinee), resolve_match_arms(sc, arms, 0, list_length(arms), new List<Diagnostic>())).ToList();
+            }
+            else if (_tco_s is AListExpr _tco_m9)
+            {
+                var elems = _tco_m9.Field0;
+            return resolve_list_elems(sc, elems, 0, list_length(elems), new List<Diagnostic>());
+            }
+            else if (_tco_s is ARecordExpr _tco_m10)
+            {
+                var name = _tco_m10.Field0;
+                var fields = _tco_m10.Field1;
+            return resolve_record_fields(sc, fields, 0, list_length(fields), new List<Diagnostic>());
+            }
+            else if (_tco_s is AFieldAccess _tco_m11)
+            {
+                var obj = _tco_m11.Field0;
+                var field = _tco_m11.Field1;
+            var _tco_0 = sc;
+            var _tco_1 = obj;
+            sc = _tco_0;
+            expr = _tco_1;
+            continue;
+            }
+            else if (_tco_s is ADoExpr _tco_m12)
+            {
+                var stmts = _tco_m12.Field0;
+            return resolve_do_stmts(sc, stmts, 0, list_length(stmts), new List<Diagnostic>());
+            }
+            else if (_tco_s is AErrorExpr _tco_m13)
+            {
+                var msg = _tco_m13.Field0;
+            return new List<Diagnostic>();
+            }
+        }
+    }
 
-    public static List<Diagnostic> resolve_let(Scope sc, List<ALetBind> bindings, AExpr body, long i, long len, List<Diagnostic> errs) => ((i == len) ? Enumerable.Concat(errs, resolve_expr(sc, body)).ToList() : ((Func<ALetBind, List<Diagnostic>>)((b) => ((Func<List<Diagnostic>, List<Diagnostic>>)((bind_errs) => ((Func<Scope, List<Diagnostic>>)((sc2) => resolve_let(sc2, bindings, body, (i + 1), len, Enumerable.Concat(errs, bind_errs).ToList())))(scope_add(sc, b.name.value))))(resolve_expr(sc, b.value))))(list_at(bindings)(i)));
+    public static List<Diagnostic> resolve_let(Scope sc, List<ALetBind> bindings, AExpr body, long i, long len, List<Diagnostic> errs)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return Enumerable.Concat(errs, resolve_expr(sc, body)).ToList();
+            }
+            else
+            {
+            var b = list_at(bindings)(i);
+            var bind_errs = resolve_expr(sc, b.value);
+            var sc2 = scope_add(sc, b.name.value);
+            var _tco_0 = sc2;
+            var _tco_1 = bindings;
+            var _tco_2 = body;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            var _tco_5 = Enumerable.Concat(errs, bind_errs).ToList();
+            sc = _tco_0;
+            bindings = _tco_1;
+            body = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            errs = _tco_5;
+            continue;
+            }
+        }
+    }
 
-    public static Scope add_lambda_params(Scope sc, List<Name> @params, long i, long len) => ((i == len) ? sc : ((Func<Name, Scope>)((p) => add_lambda_params(scope_add(sc, p.value), @params, (i + 1), len)))(list_at(@params)(i)));
+    public static Scope add_lambda_params(Scope sc, List<Name> @params, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return sc;
+            }
+            else
+            {
+            var p = list_at(@params)(i);
+            var _tco_0 = scope_add(sc, p.value);
+            var _tco_1 = @params;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            sc = _tco_0;
+            @params = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+        }
+    }
 
-    public static List<Diagnostic> resolve_match_arms(Scope sc, List<AMatchArm> arms, long i, long len, List<Diagnostic> errs) => ((i == len) ? errs : ((Func<AMatchArm, List<Diagnostic>>)((arm) => ((Func<Scope, List<Diagnostic>>)((sc2) => ((Func<List<Diagnostic>, List<Diagnostic>>)((arm_errs) => resolve_match_arms(sc, arms, (i + 1), len, Enumerable.Concat(errs, arm_errs).ToList())))(resolve_expr(sc2, arm.body))))(collect_pattern_names(sc, arm.pattern))))(list_at(arms)(i)));
+    public static List<Diagnostic> resolve_match_arms(Scope sc, List<AMatchArm> arms, long i, long len, List<Diagnostic> errs)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return errs;
+            }
+            else
+            {
+            var arm = list_at(arms)(i);
+            var sc2 = collect_pattern_names(sc, arm.pattern);
+            var arm_errs = resolve_expr(sc2, arm.body);
+            var _tco_0 = sc;
+            var _tco_1 = arms;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(errs, arm_errs).ToList();
+            sc = _tco_0;
+            arms = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            errs = _tco_4;
+            continue;
+            }
+        }
+    }
 
     public static Scope collect_pattern_names(Scope sc, APat pat) => pat switch { AVarPat(var name) => scope_add(sc, name.value), ACtorPat(var name, var subs) => collect_ctor_pat_names(sc, subs, 0, list_length(subs)), ALitPat(var val, var kind) => sc, AWildPat { } => sc, _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static Scope collect_ctor_pat_names(Scope sc, List<APat> subs, long i, long len) => ((i == len) ? sc : ((Func<APat, Scope>)((sub) => collect_ctor_pat_names(collect_pattern_names(sc, sub), subs, (i + 1), len)))(list_at(subs)(i)));
+    public static Scope collect_ctor_pat_names(Scope sc, List<APat> subs, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return sc;
+            }
+            else
+            {
+            var sub = list_at(subs)(i);
+            var _tco_0 = collect_pattern_names(sc, sub);
+            var _tco_1 = subs;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            sc = _tco_0;
+            subs = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+        }
+    }
 
-    public static List<Diagnostic> resolve_list_elems(Scope sc, List<AExpr> elems, long i, long len, List<Diagnostic> errs) => ((i == len) ? errs : ((Func<List<Diagnostic>, List<Diagnostic>>)((errs2) => resolve_list_elems(sc, elems, (i + 1), len, Enumerable.Concat(errs, errs2).ToList())))(resolve_expr(sc, list_at(elems)(i))));
+    public static List<Diagnostic> resolve_list_elems(Scope sc, List<AExpr> elems, long i, long len, List<Diagnostic> errs)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return errs;
+            }
+            else
+            {
+            var errs2 = resolve_expr(sc, list_at(elems)(i));
+            var _tco_0 = sc;
+            var _tco_1 = elems;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(errs, errs2).ToList();
+            sc = _tco_0;
+            elems = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            errs = _tco_4;
+            continue;
+            }
+        }
+    }
 
-    public static List<Diagnostic> resolve_record_fields(Scope sc, List<AFieldExpr> fields, long i, long len, List<Diagnostic> errs) => ((i == len) ? errs : ((Func<AFieldExpr, List<Diagnostic>>)((f) => ((Func<List<Diagnostic>, List<Diagnostic>>)((errs2) => resolve_record_fields(sc, fields, (i + 1), len, Enumerable.Concat(errs, errs2).ToList())))(resolve_expr(sc, f.value))))(list_at(fields)(i)));
+    public static List<Diagnostic> resolve_record_fields(Scope sc, List<AFieldExpr> fields, long i, long len, List<Diagnostic> errs)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return errs;
+            }
+            else
+            {
+            var f = list_at(fields)(i);
+            var errs2 = resolve_expr(sc, f.value);
+            var _tco_0 = sc;
+            var _tco_1 = fields;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(errs, errs2).ToList();
+            sc = _tco_0;
+            fields = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            errs = _tco_4;
+            continue;
+            }
+        }
+    }
 
-    public static List<Diagnostic> resolve_do_stmts(Scope sc, List<ADoStmt> stmts, long i, long len, List<Diagnostic> errs) => ((i == len) ? errs : ((Func<ADoStmt, List<Diagnostic>>)((stmt) => stmt switch { ADoExprStmt(var e) => ((Func<List<Diagnostic>, List<Diagnostic>>)((errs2) => resolve_do_stmts(sc, stmts, (i + 1), len, Enumerable.Concat(errs, errs2).ToList())))(resolve_expr(sc, e)), ADoBindStmt(var name, var e) => ((Func<List<Diagnostic>, List<Diagnostic>>)((errs2) => ((Func<Scope, List<Diagnostic>>)((sc2) => resolve_do_stmts(sc2, stmts, (i + 1), len, Enumerable.Concat(errs, errs2).ToList())))(scope_add(sc, name.value))))(resolve_expr(sc, e)), _ => throw new InvalidOperationException("Non-exhaustive match"), }))(list_at(stmts)(i)));
+    public static List<Diagnostic> resolve_do_stmts(Scope sc, List<ADoStmt> stmts, long i, long len, List<Diagnostic> errs)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return errs;
+            }
+            else
+            {
+            var stmt = list_at(stmts)(i);
+            var _tco_s = stmt;
+            if (_tco_s is ADoExprStmt _tco_m0)
+            {
+                var e = _tco_m0.Field0;
+            var errs2 = resolve_expr(sc, e);
+            var _tco_0 = sc;
+            var _tco_1 = stmts;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(errs, errs2).ToList();
+            sc = _tco_0;
+            stmts = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            errs = _tco_4;
+            continue;
+            }
+            else if (_tco_s is ADoBindStmt _tco_m1)
+            {
+                var name = _tco_m1.Field0;
+                var e = _tco_m1.Field1;
+            var errs2 = resolve_expr(sc, e);
+            var sc2 = scope_add(sc, name.value);
+            var _tco_0 = sc2;
+            var _tco_1 = stmts;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(errs, errs2).ToList();
+            sc = _tco_0;
+            stmts = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            errs = _tco_4;
+            continue;
+            }
+            }
+        }
+    }
 
-    public static List<Diagnostic> resolve_all_defs(Scope sc, List<ADef> defs, long i, long len, List<Diagnostic> errs) => ((i == len) ? errs : ((Func<ADef, List<Diagnostic>>)((def) => ((Func<Scope, List<Diagnostic>>)((def_scope) => ((Func<List<Diagnostic>, List<Diagnostic>>)((errs2) => resolve_all_defs(sc, defs, (i + 1), len, Enumerable.Concat(errs, errs2).ToList())))(resolve_expr(def_scope, def.body))))(add_def_params(sc, def.@params, 0, list_length(def.@params)))))(list_at(defs)(i)));
+    public static List<Diagnostic> resolve_all_defs(Scope sc, List<ADef> defs, long i, long len, List<Diagnostic> errs)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return errs;
+            }
+            else
+            {
+            var def = list_at(defs)(i);
+            var def_scope = add_def_params(sc, def.@params, 0, list_length(def.@params));
+            var errs2 = resolve_expr(def_scope, def.body);
+            var _tco_0 = sc;
+            var _tco_1 = defs;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(errs, errs2).ToList();
+            sc = _tco_0;
+            defs = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            errs = _tco_4;
+            continue;
+            }
+        }
+    }
 
-    public static Scope add_def_params(Scope sc, List<AParam> @params, long i, long len) => ((i == len) ? sc : ((Func<AParam, Scope>)((p) => add_def_params(scope_add(sc, p.name.value), @params, (i + 1), len)))(list_at(@params)(i)));
+    public static Scope add_def_params(Scope sc, List<AParam> @params, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return sc;
+            }
+            else
+            {
+            var p = list_at(@params)(i);
+            var _tco_0 = scope_add(sc, p.name.value);
+            var _tco_1 = @params;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            sc = _tco_0;
+            @params = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+        }
+    }
 
     public static ResolveResult resolve_module(AModule mod) => ((Func<CollectResult, ResolveResult>)((top) => ((Func<CtorCollectResult, ResolveResult>)((ctors) => ((Func<Scope, ResolveResult>)((sc) => ((Func<List<Diagnostic>, ResolveResult>)((expr_errs) => new ResolveResult(errors: Enumerable.Concat(top.errors, expr_errs).ToList(), top_level_names: top.names, type_names: ctors.type_names, ctor_names: ctors.ctor_names)))(resolve_all_defs(sc, mod.defs, 0, list_length(mod.defs), new List<Diagnostic>()))))(build_all_names_scope(top.names, ctors.ctor_names, builtin_names()))))(collect_ctor_names(mod.type_defs, 0, list_length(mod.type_defs), new List<string>(), new List<string>()))))(collect_top_level_names(mod.defs, 0, list_length(mod.defs), new List<string>(), new List<Diagnostic>()));
 
@@ -753,15 +2378,302 @@ public static class Codex_Codex_Codex
 
     public static LexState advance_char(LexState st) => ((peek_char(st) == "\n") ? new LexState(source: st.source, offset: (st.offset + 1), line: (st.line + 1), column: 1) : new LexState(source: st.source, offset: (st.offset + 1), line: st.line, column: (st.column + 1)));
 
-    public static LexState skip_spaces(LexState st) => (is_at_end(st) ? st : ((peek_char(st) == " ") ? skip_spaces(advance_char(st)) : st));
+    public static LexState skip_spaces(LexState st)
+    {
+        while (true)
+        {
+            if (is_at_end(st))
+            {
+            return st;
+            }
+            else
+            {
+            if ((peek_char(st) == " "))
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            if ((peek_char(st) == "\r"))
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            return st;
+            }
+            }
+            }
+        }
+    }
 
-    public static LexState scan_ident_rest(LexState st) => (is_at_end(st) ? st : ((Func<string, LexState>)((ch) => (is_letter(ch) ? scan_ident_rest(advance_char(st)) : (is_digit(ch) ? scan_ident_rest(advance_char(st)) : ((ch == "_") ? scan_ident_rest(advance_char(st)) : ((ch == "-") ? ((Func<LexState, LexState>)((next) => (is_at_end(next) ? st : (is_letter(peek_char(next)) ? scan_ident_rest(next) : st))))(advance_char(st)) : st))))))(peek_char(st)));
+    public static LexState scan_ident_rest(LexState st)
+    {
+        while (true)
+        {
+            if (is_at_end(st))
+            {
+            return st;
+            }
+            else
+            {
+            var ch = peek_char(st);
+            if (is_letter(ch))
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            if (is_digit(ch))
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            if ((ch == "_"))
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            if ((ch == "-"))
+            {
+            var next = advance_char(st);
+            if (is_at_end(next))
+            {
+            return st;
+            }
+            else
+            {
+            if (is_letter(peek_char(next)))
+            {
+            var _tco_0 = next;
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            return st;
+            }
+            }
+            }
+            else
+            {
+            return st;
+            }
+            }
+            }
+            }
+            }
+        }
+    }
 
-    public static LexState scan_digits(LexState st) => (is_at_end(st) ? st : ((Func<string, LexState>)((ch) => (is_digit(ch) ? scan_digits(advance_char(st)) : ((ch == "_") ? scan_digits(advance_char(st)) : st))))(peek_char(st)));
+    public static LexState scan_digits(LexState st)
+    {
+        while (true)
+        {
+            if (is_at_end(st))
+            {
+            return st;
+            }
+            else
+            {
+            var ch = peek_char(st);
+            if (is_digit(ch))
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            if ((ch == "_"))
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            return st;
+            }
+            }
+            }
+        }
+    }
 
-    public static LexState scan_string_body(LexState st) => (is_at_end(st) ? st : ((Func<string, LexState>)((ch) => ((ch == "\"") ? advance_char(st) : ((ch == "\n") ? st : ((ch == "\\") ? scan_string_body(advance_char(advance_char(st))) : scan_string_body(advance_char(st)))))))(peek_char(st)));
+    public static LexState scan_string_body(LexState st)
+    {
+        while (true)
+        {
+            if (is_at_end(st))
+            {
+            return st;
+            }
+            else
+            {
+            var ch = peek_char(st);
+            if ((ch == "\""))
+            {
+            return advance_char(st);
+            }
+            else
+            {
+            if ((ch == "\n"))
+            {
+            return st;
+            }
+            else
+            {
+            if ((ch == "\\"))
+            {
+            var _tco_0 = advance_char(advance_char(st));
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            }
+            }
+            }
+        }
+    }
 
-    public static string process_escapes(string s, long i, long len, string acc) => ((i >= len) ? acc : ((Func<string, string>)((ch) => ((ch == "\\") ? (((i + 1) < len) ? ((Func<string, string>)((next) => ((next == "n") ? process_escapes(s, (i + 2), len, (acc + code_to_char(10))) : ((next == "t") ? process_escapes(s, (i + 2), len, (acc + code_to_char(9))) : ((next == "r") ? process_escapes(s, (i + 2), len, (acc + code_to_char(13))) : ((next == "\\") ? process_escapes(s, (i + 2), len, (acc + "\\")) : ((next == "\"") ? process_escapes(s, (i + 2), len, (acc + "\"")) : process_escapes(s, (i + 2), len, (acc + next)))))))))(char_at(s)((i + 1))) : (acc + ch)) : process_escapes(s, (i + 1), len, (acc + ch)))))(char_at(s)(i)));
+    public static string process_escapes(string s, long i, long len, string acc)
+    {
+        while (true)
+        {
+            if ((i >= len))
+            {
+            return acc;
+            }
+            else
+            {
+            var ch = char_at(s)(i);
+            if ((ch == "\\"))
+            {
+            if (((i + 1) < len))
+            {
+            var next = char_at(s)((i + 1));
+            if ((next == "n"))
+            {
+            var _tco_0 = s;
+            var _tco_1 = (i + 2);
+            var _tco_2 = len;
+            var _tco_3 = (acc + code_to_char(10));
+            s = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+            else
+            {
+            if ((next == "t"))
+            {
+            var _tco_0 = s;
+            var _tco_1 = (i + 2);
+            var _tco_2 = len;
+            var _tco_3 = (acc + code_to_char(9));
+            s = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+            else
+            {
+            if ((next == "r"))
+            {
+            var _tco_0 = s;
+            var _tco_1 = (i + 2);
+            var _tco_2 = len;
+            var _tco_3 = (acc + code_to_char(13));
+            s = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+            else
+            {
+            if ((next == "\\"))
+            {
+            var _tco_0 = s;
+            var _tco_1 = (i + 2);
+            var _tco_2 = len;
+            var _tco_3 = (acc + "\\");
+            s = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+            else
+            {
+            if ((next == "\""))
+            {
+            var _tco_0 = s;
+            var _tco_1 = (i + 2);
+            var _tco_2 = len;
+            var _tco_3 = (acc + "\"");
+            s = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+            else
+            {
+            var _tco_0 = s;
+            var _tco_1 = (i + 2);
+            var _tco_2 = len;
+            var _tco_3 = (acc + next);
+            s = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+            }
+            }
+            }
+            }
+            }
+            else
+            {
+            return (acc + ch);
+            }
+            }
+            else
+            {
+            var _tco_0 = s;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = (acc + ch);
+            s = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
     public static TokenKind classify_word(string w) => ((w == "let") ? new LetKeyword() : ((w == "in") ? new InKeyword() : ((w == "if") ? new IfKeyword() : ((w == "then") ? new ThenKeyword() : ((w == "else") ? new ElseKeyword() : ((w == "when") ? new WhenKeyword() : ((w == "where") ? new WhereKeyword() : ((w == "do") ? new DoKeyword() : ((w == "record") ? new RecordKeyword() : ((w == "import") ? new ImportKeyword() : ((w == "export") ? new ExportKeyword() : ((w == "claim") ? new ClaimKeyword() : ((w == "proof") ? new ProofKeyword() : ((w == "forall") ? new ForAllKeyword() : ((w == "exists") ? new ThereExistsKeyword() : ((w == "linear") ? new LinearKeyword() : ((w == "True") ? new TrueKeyword() : ((w == "False") ? new FalseKeyword() : ((Func<long, TokenKind>)((first_code) => ((first_code >= 65) ? ((first_code <= 90) ? new TypeIdentifier() : new Identifier()) : new Identifier())))(char_code(char_at(w)(0)))))))))))))))))))));
 
@@ -775,7 +2687,34 @@ public static class Codex_Codex_Codex
 
     public static LexResult scan_multi_char_operator(LexState s) => ((Func<string, LexResult>)((ch) => ((Func<LexState, LexResult>)((next) => ((Func<string, LexResult>)((next_ch) => ((ch == "+") ? ((next_ch == "+") ? new LexToken(make_token(new PlusPlus(), "++", s), advance_char(next)) : new LexToken(make_token(new Plus(), "+", s), next)) : ((ch == "-") ? ((next_ch == ">") ? new LexToken(make_token(new Arrow(), "->", s), advance_char(next)) : new LexToken(make_token(new Minus(), "-", s), next)) : ((ch == "*") ? new LexToken(make_token(new Star(), "*", s), next) : ((ch == "/") ? ((next_ch == "=") ? new LexToken(make_token(new NotEquals(), "/=", s), advance_char(next)) : new LexToken(make_token(new Slash(), "/", s), next)) : ((ch == "=") ? ((next_ch == "=") ? ((Func<LexState, LexResult>)((next2) => ((Func<string, LexResult>)((next2_ch) => ((next2_ch == "=") ? new LexToken(make_token(new TripleEquals(), "===", s), advance_char(next2)) : new LexToken(make_token(new DoubleEquals(), "==", s), next2))))((is_at_end(next2) ? "" : peek_char(next2)))))(advance_char(next)) : new LexToken(make_token(new Equals_(), "=", s), next)) : ((ch == ":") ? ((next_ch == ":") ? new LexToken(make_token(new ColonColon(), "::", s), advance_char(next)) : new LexToken(make_token(new Colon(), ":", s), next)) : ((ch == "|") ? ((next_ch == "-") ? new LexToken(make_token(new Turnstile(), "|-", s), advance_char(next)) : new LexToken(make_token(new Pipe(), "|", s), next)) : ((ch == "<") ? ((next_ch == "=") ? new LexToken(make_token(new LessOrEqual(), "<=", s), advance_char(next)) : ((next_ch == "-") ? new LexToken(make_token(new LeftArrow(), "<-", s), advance_char(next)) : new LexToken(make_token(new LessThan(), "<", s), next))) : ((ch == ">") ? ((next_ch == "=") ? new LexToken(make_token(new GreaterOrEqual(), ">=", s), advance_char(next)) : new LexToken(make_token(new GreaterThan(), ">", s), next)) : new LexToken(make_token(new ErrorToken(), char_at(s.source)(s.offset), s), next))))))))))))((is_at_end(next) ? "" : peek_char(next)))))(advance_char(s))))(peek_char(s));
 
-    public static List<Token> tokenize_loop(LexState st, List<Token> acc) => scan_token(st) switch { LexToken(var tok, var next) => ((tok.kind == new EndOfFile()) ? Enumerable.Concat(acc, new List<Token> { tok }).ToList() : tokenize_loop(next, Enumerable.Concat(acc, new List<Token> { tok }).ToList())), LexEnd { } => Enumerable.Concat(acc, new List<Token> { make_token(new EndOfFile(), "", st) }).ToList(), _ => throw new InvalidOperationException("Non-exhaustive match"), };
+    public static List<Token> tokenize_loop(LexState st, List<Token> acc)
+    {
+        while (true)
+        {
+            var _tco_s = scan_token(st);
+            if (_tco_s is LexToken _tco_m0)
+            {
+                var tok = _tco_m0.Field0;
+                var next = _tco_m0.Field1;
+            if ((tok.kind == new EndOfFile()))
+            {
+            return Enumerable.Concat(acc, new List<Token> { tok }).ToList();
+            }
+            else
+            {
+            var _tco_0 = next;
+            var _tco_1 = Enumerable.Concat(acc, new List<Token> { tok }).ToList();
+            st = _tco_0;
+            acc = _tco_1;
+            continue;
+            }
+            }
+            else if (_tco_s is LexEnd _tco_m1)
+            {
+            return Enumerable.Concat(acc, new List<Token> { make_token(new EndOfFile(), "", st) }).ToList();
+            }
+        }
+    }
 
     public static List<Token> tokenize(string src) => tokenize_loop(make_lex_state(src), new List<Token>());
 
@@ -851,7 +2790,41 @@ public static class Codex_Codex_Codex
 
     public static ParseState expect(TokenKind kind, ParseState st) => (is_done(st) ? st : advance(st));
 
-    public static ParseState skip_newlines(ParseState st) => (is_done(st) ? st : current_kind(st) switch { Newline { } => skip_newlines(advance(st)), Indent { } => skip_newlines(advance(st)), Dedent { } => skip_newlines(advance(st)), _ => st, });
+    public static ParseState skip_newlines(ParseState st)
+    {
+        while (true)
+        {
+            if (is_done(st))
+            {
+            return st;
+            }
+            else
+            {
+            var _tco_s = current_kind(st);
+            if (_tco_s is Newline _tco_m0)
+            {
+            var _tco_0 = advance(st);
+            st = _tco_0;
+            continue;
+            }
+            else if (_tco_s is Indent _tco_m1)
+            {
+            var _tco_0 = advance(st);
+            st = _tco_0;
+            continue;
+            }
+            else if (_tco_s is Dedent _tco_m2)
+            {
+            var _tco_0 = advance(st);
+            st = _tco_0;
+            continue;
+            }
+            {
+            return st;
+            }
+            }
+        }
+    }
 
     public static ParseTypeResult parse_type(ParseState st) => ((Func<ParseTypeResult, ParseTypeResult>)((result) => unwrap_type_ok(result, (_p0_) => (_p1_) => parse_type_continue(_p0_, _p1_))))(parse_type_atom(st));
 
@@ -869,7 +2842,29 @@ public static class Codex_Codex_Codex
 
     public static ParseTypeResult parse_effect_type(ParseState st) => ((Func<ParseState, ParseTypeResult>)((st2) => parse_type(st2)))(skip_effect_contents(st));
 
-    public static ParseState skip_effect_contents(ParseState st) => (is_done(st) ? st : (is_right_bracket(current_kind(st)) ? advance(st) : skip_effect_contents(advance(st))));
+    public static ParseState skip_effect_contents(ParseState st)
+    {
+        while (true)
+        {
+            if (is_done(st))
+            {
+            return st;
+            }
+            else
+            {
+            if (is_right_bracket(current_kind(st)))
+            {
+            return advance(st);
+            }
+            else
+            {
+            var _tco_0 = advance(st);
+            st = _tco_0;
+            continue;
+            }
+            }
+        }
+    }
 
     public static ParseTypeResult parse_type_args(TypeExpr base_type, ParseState st) => (is_done(st) ? new TypeOk(base_type, st) : (is_type_arg_start(current_kind(st)) ? parse_type_arg_next(base_type, st) : new TypeOk(base_type, st)));
 
@@ -909,9 +2904,49 @@ public static class Codex_Codex_Codex
 
     public static ParseExprResult parse_atom(ParseState st) => (is_literal(current_kind(st)) ? new ExprOk(new LitExpr(current(st)), advance(st)) : (is_ident(current_kind(st)) ? parse_field_access(new NameExpr(current(st)), advance(st)) : (is_type_ident(current_kind(st)) ? parse_atom_type_ident(st) : (is_left_paren(current_kind(st)) ? parse_paren_expr(advance(st)) : (is_left_bracket(current_kind(st)) ? parse_list_expr(st) : (is_if_keyword(current_kind(st)) ? parse_if_expr(st) : (is_let_keyword(current_kind(st)) ? parse_let_expr(st) : (is_when_keyword(current_kind(st)) ? parse_match_expr(st) : (is_do_keyword(current_kind(st)) ? parse_do_expr(st) : new ExprOk(new ErrExpr(current(st)), advance(st)))))))))));
 
-    public static ParseExprResult parse_field_access(Expr node, ParseState st) => (is_dot(current_kind(st)) ? ((Func<ParseState, ParseExprResult>)((st2) => ((Func<Token, ParseExprResult>)((field) => ((Func<ParseState, ParseExprResult>)((st3) => parse_field_access(new FieldExpr(node, field), st3)))(advance(st2))))(current(st2))))(advance(st)) : new ExprOk(node, st));
+    public static ParseExprResult parse_field_access(Expr node, ParseState st)
+    {
+        while (true)
+        {
+            if (is_dot(current_kind(st)))
+            {
+            var st2 = advance(st);
+            var field = current(st2);
+            var st3 = advance(st2);
+            var _tco_0 = new FieldExpr(node, field);
+            var _tco_1 = st3;
+            node = _tco_0;
+            st = _tco_1;
+            continue;
+            }
+            else
+            {
+            return new ExprOk(node, st);
+            }
+        }
+    }
 
-    public static ParseExprResult parse_dot_only(Expr node, ParseState st) => (is_dot(current_kind(st)) ? ((Func<ParseState, ParseExprResult>)((st2) => ((Func<Token, ParseExprResult>)((field) => ((Func<ParseState, ParseExprResult>)((st3) => parse_dot_only(new FieldExpr(node, field), st3)))(advance(st2))))(current(st2))))(advance(st)) : new ExprOk(node, st));
+    public static ParseExprResult parse_dot_only(Expr node, ParseState st)
+    {
+        while (true)
+        {
+            if (is_dot(current_kind(st)))
+            {
+            var st2 = advance(st);
+            var field = current(st2);
+            var st3 = advance(st2);
+            var _tco_0 = new FieldExpr(node, field);
+            var _tco_1 = st3;
+            node = _tco_0;
+            st = _tco_1;
+            continue;
+            }
+            else
+            {
+            return new ExprOk(node, st);
+            }
+        }
+    }
 
     public static ParseExprResult parse_atom_type_ident(ParseState st) => ((Func<Token, ParseExprResult>)((tok) => ((Func<ParseState, ParseExprResult>)((st2) => (is_left_brace(current_kind(st2)) ? parse_record_expr(tok, st2) : new ExprOk(new NameExpr(tok), st2))))(advance(st))))(current(st));
 
@@ -989,7 +3024,39 @@ public static class Codex_Codex_Codex
 
     public static ParseDefResult parse_def_body_with_ann(List<TypeAnn> ann, ParseState st) => ((Func<Token, ParseDefResult>)((name_tok) => ((Func<ParseState, ParseDefResult>)((st2) => parse_def_params_then(ann, name_tok, new List<Token>(), st2)))(advance(st))))(current(st));
 
-    public static ParseDefResult parse_def_params_then(List<TypeAnn> ann, Token name_tok, List<Token> acc, ParseState st) => (is_left_paren(current_kind(st)) ? ((Func<ParseState, ParseDefResult>)((st2) => (is_ident(current_kind(st2)) ? ((Func<Token, ParseDefResult>)((param) => ((Func<ParseState, ParseDefResult>)((st3) => ((Func<ParseState, ParseDefResult>)((st4) => parse_def_params_then(ann, name_tok, Enumerable.Concat(acc, new List<Token> { param }).ToList(), st4)))(expect(new RightParen(), st3))))(advance(st2))))(current(st2)) : finish_def(ann, name_tok, acc, st))))(advance(st)) : finish_def(ann, name_tok, acc, st));
+    public static ParseDefResult parse_def_params_then(List<TypeAnn> ann, Token name_tok, List<Token> acc, ParseState st)
+    {
+        while (true)
+        {
+            if (is_left_paren(current_kind(st)))
+            {
+            var st2 = advance(st);
+            if (is_ident(current_kind(st2)))
+            {
+            var param = current(st2);
+            var st3 = advance(st2);
+            var st4 = expect(new RightParen(), st3);
+            var _tco_0 = ann;
+            var _tco_1 = name_tok;
+            var _tco_2 = Enumerable.Concat(acc, new List<Token> { param }).ToList();
+            var _tco_3 = st4;
+            ann = _tco_0;
+            name_tok = _tco_1;
+            acc = _tco_2;
+            st = _tco_3;
+            continue;
+            }
+            else
+            {
+            return finish_def(ann, name_tok, acc, st);
+            }
+            }
+            else
+            {
+            return finish_def(ann, name_tok, acc, st);
+            }
+        }
+    }
 
     public static ParseDefResult finish_def(List<TypeAnn> ann, Token name_tok, List<Token> @params, ParseState st) => ((Func<ParseState, ParseDefResult>)((st2) => ((Func<ParseState, ParseDefResult>)((st3) => ((Func<ParseExprResult, ParseDefResult>)((body_result) => unwrap_def_body(body_result, ann, name_tok, @params)))(parse_expr(st3))))(skip_newlines(st2))))(expect(new Equals_(), st));
 
@@ -1027,11 +3094,57 @@ public static class Codex_Codex_Codex
 
     public static CheckResult infer_name(UnificationState st, TypeEnv env, string name) => (env_has(env, name) ? ((Func<CodexType, CheckResult>)((raw) => ((Func<FreshResult, CheckResult>)((inst) => new CheckResult(inferred_type: inst.var_type, state: inst.state)))(instantiate_type(st, raw))))(env_lookup(env, name)) : new CheckResult(inferred_type: new ErrorTy(), state: add_unify_error(st, "CDX2002", ("Unknown name: " + name))));
 
-    public static FreshResult instantiate_type(UnificationState st, CodexType ty) => ty switch { ForAllTy(var var_id, var body) => ((Func<FreshResult, FreshResult>)((fr) => ((Func<CodexType, FreshResult>)((substituted) => instantiate_type(fr.state, substituted)))(subst_type_var(body, var_id, fr.var_type))))(fresh_and_advance(st)), _ => new FreshResult(var_type: ty, state: st), };
+    public static FreshResult instantiate_type(UnificationState st, CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is ForAllTy _tco_m0)
+            {
+                var var_id = _tco_m0.Field0;
+                var body = _tco_m0.Field1;
+            var fr = fresh_and_advance(st);
+            var substituted = subst_type_var(body, var_id, fr.var_type);
+            var _tco_0 = fr.state;
+            var _tco_1 = substituted;
+            st = _tco_0;
+            ty = _tco_1;
+            continue;
+            }
+            {
+            return new FreshResult(var_type: ty, state: st);
+            }
+        }
+    }
 
     public static CodexType subst_type_var(CodexType ty, long var_id, CodexType replacement) => ty switch { TypeVar(var id) => ((id == var_id) ? replacement : ty), FunTy(var param, var ret) => new FunTy(subst_type_var(param, var_id, replacement), subst_type_var(ret, var_id, replacement)), ListTy(var elem) => new ListTy(subst_type_var(elem, var_id, replacement)), ForAllTy(var inner_id, var body) => ((inner_id == var_id) ? ty : new ForAllTy(inner_id, subst_type_var(body, var_id, replacement))), ConstructedTy(var name, var args) => new ConstructedTy(name, map_subst_type_var(args, var_id, replacement, 0, list_length(args), new List<CodexType>())), SumTy(var name, var ctors) => ty, RecordTy(var name, var fields) => ty, _ => ty, };
 
-    public static List<CodexType> map_subst_type_var(List<CodexType> args, long var_id, CodexType replacement, long i, long len, List<CodexType> acc) => ((i == len) ? acc : map_subst_type_var(args, var_id, replacement, (i + 1), len, Enumerable.Concat(acc, new List<CodexType> { subst_type_var(list_at(args)(i), var_id, replacement) }).ToList()));
+    public static List<CodexType> map_subst_type_var(List<CodexType> args, long var_id, CodexType replacement, long i, long len, List<CodexType> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var _tco_0 = args;
+            var _tco_1 = var_id;
+            var _tco_2 = replacement;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            var _tco_5 = Enumerable.Concat(acc, new List<CodexType> { subst_type_var(list_at(args)(i), var_id, replacement) }).ToList();
+            args = _tco_0;
+            var_id = _tco_1;
+            replacement = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            acc = _tco_5;
+            continue;
+            }
+        }
+    }
 
     public static CheckResult infer_binary(UnificationState st, TypeEnv env, AExpr left, BinaryOp op, AExpr right) => ((Func<CheckResult, CheckResult>)((lr) => ((Func<CheckResult, CheckResult>)((rr) => infer_binary_op(rr.state, lr.inferred_type, rr.inferred_type, op)))(infer_expr(lr.state, env, right))))(infer_expr(st, env, left));
 
@@ -1051,53 +3164,379 @@ public static class Codex_Codex_Codex
 
     public static CheckResult infer_let(UnificationState st, TypeEnv env, List<ALetBind> bindings, AExpr body) => ((Func<LetBindResult, CheckResult>)((env2) => infer_expr(env2.state, env2.env, body)))(infer_let_bindings(st, env, bindings, 0, list_length(bindings)));
 
-    public static LetBindResult infer_let_bindings(UnificationState st, TypeEnv env, List<ALetBind> bindings, long i, long len) => ((i == len) ? new LetBindResult(state: st, env: env) : ((Func<ALetBind, LetBindResult>)((b) => ((Func<CheckResult, LetBindResult>)((vr) => ((Func<TypeEnv, LetBindResult>)((env2) => infer_let_bindings(vr.state, env2, bindings, (i + 1), len)))(env_bind(env, b.name.value, vr.inferred_type))))(infer_expr(st, env, b.value))))(list_at(bindings)(i)));
+    public static LetBindResult infer_let_bindings(UnificationState st, TypeEnv env, List<ALetBind> bindings, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new LetBindResult(state: st, env: env);
+            }
+            else
+            {
+            var b = list_at(bindings)(i);
+            var vr = infer_expr(st, env, b.value);
+            var env2 = env_bind(env, b.name.value, vr.inferred_type);
+            var _tco_0 = vr.state;
+            var _tco_1 = env2;
+            var _tco_2 = bindings;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            st = _tco_0;
+            env = _tco_1;
+            bindings = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            continue;
+            }
+        }
+    }
 
     public static CheckResult infer_lambda(UnificationState st, TypeEnv env, List<Name> @params, AExpr body) => ((Func<LambdaBindResult, CheckResult>)((pr) => ((Func<CheckResult, CheckResult>)((br) => ((Func<CodexType, CheckResult>)((fun_ty) => new CheckResult(inferred_type: fun_ty, state: br.state)))(wrap_fun_type(pr.param_types, br.inferred_type))))(infer_expr(pr.state, pr.env, body))))(bind_lambda_params(st, env, @params, 0, list_length(@params), new List<CodexType>()));
 
-    public static LambdaBindResult bind_lambda_params(UnificationState st, TypeEnv env, List<Name> @params, long i, long len, List<CodexType> acc) => ((i == len) ? new LambdaBindResult(state: st, env: env, param_types: acc) : ((Func<Name, LambdaBindResult>)((p) => ((Func<FreshResult, LambdaBindResult>)((fr) => ((Func<TypeEnv, LambdaBindResult>)((env2) => bind_lambda_params(fr.state, env2, @params, (i + 1), len, Enumerable.Concat(acc, new List<CodexType> { fr.var_type }).ToList())))(env_bind(env, p.value, fr.var_type))))(fresh_and_advance(st))))(list_at(@params)(i)));
+    public static LambdaBindResult bind_lambda_params(UnificationState st, TypeEnv env, List<Name> @params, long i, long len, List<CodexType> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new LambdaBindResult(state: st, env: env, param_types: acc);
+            }
+            else
+            {
+            var p = list_at(@params)(i);
+            var fr = fresh_and_advance(st);
+            var env2 = env_bind(env, p.value, fr.var_type);
+            var _tco_0 = fr.state;
+            var _tco_1 = env2;
+            var _tco_2 = @params;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            var _tco_5 = Enumerable.Concat(acc, new List<CodexType> { fr.var_type }).ToList();
+            st = _tco_0;
+            env = _tco_1;
+            @params = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            acc = _tco_5;
+            continue;
+            }
+        }
+    }
 
     public static CodexType wrap_fun_type(List<CodexType> param_types, CodexType result) => wrap_fun_type_loop(param_types, result, (list_length(param_types) - 1));
 
-    public static CodexType wrap_fun_type_loop(List<CodexType> param_types, CodexType result, long i) => ((i < 0) ? result : wrap_fun_type_loop(param_types, new FunTy(list_at(param_types)(i), result), (i - 1)));
+    public static CodexType wrap_fun_type_loop(List<CodexType> param_types, CodexType result, long i)
+    {
+        while (true)
+        {
+            if ((i < 0))
+            {
+            return result;
+            }
+            else
+            {
+            var _tco_0 = param_types;
+            var _tco_1 = new FunTy(list_at(param_types)(i), result);
+            var _tco_2 = (i - 1);
+            param_types = _tco_0;
+            result = _tco_1;
+            i = _tco_2;
+            continue;
+            }
+        }
+    }
 
     public static CheckResult infer_application(UnificationState st, TypeEnv env, AExpr func, AExpr arg) => ((Func<CheckResult, CheckResult>)((fr) => ((Func<CheckResult, CheckResult>)((ar) => ((Func<FreshResult, CheckResult>)((ret) => ((Func<UnifyResult, CheckResult>)((r) => new CheckResult(inferred_type: ret.var_type, state: r.state)))(unify(ret.state, fr.inferred_type, new FunTy(ar.inferred_type, ret.var_type)))))(fresh_and_advance(ar.state))))(infer_expr(fr.state, env, arg))))(infer_expr(st, env, func));
 
     public static CheckResult infer_list(UnificationState st, TypeEnv env, List<AExpr> elems) => ((list_length(elems) == 0) ? ((Func<FreshResult, CheckResult>)((fr) => new CheckResult(inferred_type: new ListTy(fr.var_type), state: fr.state)))(fresh_and_advance(st)) : ((Func<CheckResult, CheckResult>)((first) => ((Func<UnificationState, CheckResult>)((st2) => new CheckResult(inferred_type: new ListTy(first.inferred_type), state: st2)))(unify_list_elems(first.state, env, elems, first.inferred_type, 1, list_length(elems)))))(infer_expr(st, env, list_at(elems)(0))));
 
-    public static UnificationState unify_list_elems(UnificationState st, TypeEnv env, List<AExpr> elems, CodexType elem_ty, long i, long len) => ((i == len) ? st : ((Func<CheckResult, UnificationState>)((er) => ((Func<UnifyResult, UnificationState>)((r) => unify_list_elems(r.state, env, elems, elem_ty, (i + 1), len)))(unify(er.state, er.inferred_type, elem_ty))))(infer_expr(st, env, list_at(elems)(i))));
+    public static UnificationState unify_list_elems(UnificationState st, TypeEnv env, List<AExpr> elems, CodexType elem_ty, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return st;
+            }
+            else
+            {
+            var er = infer_expr(st, env, list_at(elems)(i));
+            var r = unify(er.state, er.inferred_type, elem_ty);
+            var _tco_0 = r.state;
+            var _tco_1 = env;
+            var _tco_2 = elems;
+            var _tco_3 = elem_ty;
+            var _tco_4 = (i + 1);
+            var _tco_5 = len;
+            st = _tco_0;
+            env = _tco_1;
+            elems = _tco_2;
+            elem_ty = _tco_3;
+            i = _tco_4;
+            len = _tco_5;
+            continue;
+            }
+        }
+    }
 
     public static CheckResult infer_match(UnificationState st, TypeEnv env, AExpr scrutinee, List<AMatchArm> arms) => ((Func<CheckResult, CheckResult>)((sr) => ((Func<FreshResult, CheckResult>)((fr) => ((Func<UnificationState, CheckResult>)((st2) => new CheckResult(inferred_type: fr.var_type, state: st2)))(infer_match_arms(fr.state, env, sr.inferred_type, fr.var_type, arms, 0, list_length(arms)))))(fresh_and_advance(sr.state))))(infer_expr(st, env, scrutinee));
 
-    public static UnificationState infer_match_arms(UnificationState st, TypeEnv env, CodexType scrut_ty, CodexType result_ty, List<AMatchArm> arms, long i, long len) => ((i == len) ? st : ((Func<AMatchArm, UnificationState>)((arm) => ((Func<PatBindResult, UnificationState>)((pr) => ((Func<CheckResult, UnificationState>)((br) => ((Func<UnifyResult, UnificationState>)((r) => infer_match_arms(r.state, env, scrut_ty, result_ty, arms, (i + 1), len)))(unify(br.state, br.inferred_type, result_ty))))(infer_expr(pr.state, pr.env, arm.body))))(bind_pattern(st, env, arm.pattern, scrut_ty))))(list_at(arms)(i)));
+    public static UnificationState infer_match_arms(UnificationState st, TypeEnv env, CodexType scrut_ty, CodexType result_ty, List<AMatchArm> arms, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return st;
+            }
+            else
+            {
+            var arm = list_at(arms)(i);
+            var pr = bind_pattern(st, env, arm.pattern, scrut_ty);
+            var br = infer_expr(pr.state, pr.env, arm.body);
+            var r = unify(br.state, br.inferred_type, result_ty);
+            var _tco_0 = r.state;
+            var _tco_1 = env;
+            var _tco_2 = scrut_ty;
+            var _tco_3 = result_ty;
+            var _tco_4 = arms;
+            var _tco_5 = (i + 1);
+            var _tco_6 = len;
+            st = _tco_0;
+            env = _tco_1;
+            scrut_ty = _tco_2;
+            result_ty = _tco_3;
+            arms = _tco_4;
+            i = _tco_5;
+            len = _tco_6;
+            continue;
+            }
+        }
+    }
 
     public static PatBindResult bind_pattern(UnificationState st, TypeEnv env, APat pat, CodexType ty) => pat switch { AVarPat(var name) => new PatBindResult(state: st, env: env_bind(env, name.value, ty)), AWildPat { } => new PatBindResult(state: st, env: env), ALitPat(var val, var kind) => new PatBindResult(state: st, env: env), ACtorPat(var ctor_name, var sub_pats) => ((Func<FreshResult, PatBindResult>)((ctor_lookup) => bind_ctor_sub_patterns(ctor_lookup.state, env, sub_pats, ctor_lookup.var_type, 0, list_length(sub_pats))))(instantiate_type(st, env_lookup(env, ctor_name.value))), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static PatBindResult bind_ctor_sub_patterns(UnificationState st, TypeEnv env, List<APat> sub_pats, CodexType ctor_ty, long i, long len) => ((i == len) ? new PatBindResult(state: st, env: env) : ctor_ty switch { FunTy(var param_ty, var ret_ty) => ((Func<PatBindResult, PatBindResult>)((pr) => bind_ctor_sub_patterns(pr.state, pr.env, sub_pats, ret_ty, (i + 1), len)))(bind_pattern(st, env, list_at(sub_pats)(i), param_ty)), _ => ((Func<FreshResult, PatBindResult>)((fr) => ((Func<PatBindResult, PatBindResult>)((pr) => bind_ctor_sub_patterns(pr.state, pr.env, sub_pats, ctor_ty, (i + 1), len)))(bind_pattern(fr.state, env, list_at(sub_pats)(i), fr.var_type))))(fresh_and_advance(st)), });
+    public static PatBindResult bind_ctor_sub_patterns(UnificationState st, TypeEnv env, List<APat> sub_pats, CodexType ctor_ty, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new PatBindResult(state: st, env: env);
+            }
+            else
+            {
+            var _tco_s = ctor_ty;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var param_ty = _tco_m0.Field0;
+                var ret_ty = _tco_m0.Field1;
+            var pr = bind_pattern(st, env, list_at(sub_pats)(i), param_ty);
+            var _tco_0 = pr.state;
+            var _tco_1 = pr.env;
+            var _tco_2 = sub_pats;
+            var _tco_3 = ret_ty;
+            var _tco_4 = (i + 1);
+            var _tco_5 = len;
+            st = _tco_0;
+            env = _tco_1;
+            sub_pats = _tco_2;
+            ctor_ty = _tco_3;
+            i = _tco_4;
+            len = _tco_5;
+            continue;
+            }
+            {
+            var fr = fresh_and_advance(st);
+            var pr = bind_pattern(fr.state, env, list_at(sub_pats)(i), fr.var_type);
+            var _tco_0 = pr.state;
+            var _tco_1 = pr.env;
+            var _tco_2 = sub_pats;
+            var _tco_3 = ctor_ty;
+            var _tco_4 = (i + 1);
+            var _tco_5 = len;
+            st = _tco_0;
+            env = _tco_1;
+            sub_pats = _tco_2;
+            ctor_ty = _tco_3;
+            i = _tco_4;
+            len = _tco_5;
+            continue;
+            }
+            }
+        }
+    }
 
     public static CheckResult infer_do(UnificationState st, TypeEnv env, List<ADoStmt> stmts) => infer_do_loop(st, env, stmts, 0, list_length(stmts), new NothingTy());
 
-    public static CheckResult infer_do_loop(UnificationState st, TypeEnv env, List<ADoStmt> stmts, long i, long len, CodexType last_ty) => ((i == len) ? new CheckResult(inferred_type: last_ty, state: st) : ((Func<ADoStmt, CheckResult>)((stmt) => stmt switch { ADoExprStmt(var e) => ((Func<CheckResult, CheckResult>)((er) => infer_do_loop(er.state, env, stmts, (i + 1), len, er.inferred_type)))(infer_expr(st, env, e)), ADoBindStmt(var name, var e) => ((Func<CheckResult, CheckResult>)((er) => ((Func<TypeEnv, CheckResult>)((env2) => infer_do_loop(er.state, env2, stmts, (i + 1), len, er.inferred_type)))(env_bind(env, name.value, er.inferred_type))))(infer_expr(st, env, e)), _ => throw new InvalidOperationException("Non-exhaustive match"), }))(list_at(stmts)(i)));
+    public static CheckResult infer_do_loop(UnificationState st, TypeEnv env, List<ADoStmt> stmts, long i, long len, CodexType last_ty)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new CheckResult(inferred_type: last_ty, state: st);
+            }
+            else
+            {
+            var stmt = list_at(stmts)(i);
+            var _tco_s = stmt;
+            if (_tco_s is ADoExprStmt _tco_m0)
+            {
+                var e = _tco_m0.Field0;
+            var er = infer_expr(st, env, e);
+            var _tco_0 = er.state;
+            var _tco_1 = env;
+            var _tco_2 = stmts;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            var _tco_5 = er.inferred_type;
+            st = _tco_0;
+            env = _tco_1;
+            stmts = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            last_ty = _tco_5;
+            continue;
+            }
+            else if (_tco_s is ADoBindStmt _tco_m1)
+            {
+                var name = _tco_m1.Field0;
+                var e = _tco_m1.Field1;
+            var er = infer_expr(st, env, e);
+            var env2 = env_bind(env, name.value, er.inferred_type);
+            var _tco_0 = er.state;
+            var _tco_1 = env2;
+            var _tco_2 = stmts;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            var _tco_5 = er.inferred_type;
+            st = _tco_0;
+            env = _tco_1;
+            stmts = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            last_ty = _tco_5;
+            continue;
+            }
+            }
+        }
+    }
 
     public static CheckResult infer_expr(UnificationState st, TypeEnv env, AExpr expr) => expr switch { ALitExpr(var val, var kind) => infer_literal(st, kind), ANameExpr(var name) => infer_name(st, env, name.value), ABinaryExpr(var left, var op, var right) => infer_binary(st, env, left, op, right), AUnaryExpr(var operand) => ((Func<CheckResult, CheckResult>)((r) => ((Func<UnifyResult, CheckResult>)((u) => new CheckResult(inferred_type: new IntegerTy(), state: u.state)))(unify(r.state, r.inferred_type, new IntegerTy()))))(infer_expr(st, env, operand)), AApplyExpr(var func, var arg) => infer_application(st, env, func, arg), AIfExpr(var cond, var then_e, var else_e) => infer_if(st, env, cond, then_e, else_e), ALetExpr(var bindings, var body) => infer_let(st, env, bindings, body), ALambdaExpr(var @params, var body) => infer_lambda(st, env, @params, body), AMatchExpr(var scrutinee, var arms) => infer_match(st, env, scrutinee, arms), AListExpr(var elems) => infer_list(st, env, elems), ADoExpr(var stmts) => infer_do(st, env, stmts), AFieldAccess(var obj, var field) => ((Func<CheckResult, CheckResult>)((r) => ((Func<CodexType, CheckResult>)((resolved) => resolved switch { RecordTy(var rname, var rfields) => ((Func<CodexType, CheckResult>)((ftype) => new CheckResult(inferred_type: ftype, state: r.state)))(lookup_record_field(rfields, field.value)), ConstructedTy(var cname, var cargs) => ((Func<CodexType, CheckResult>)((record_type) => record_type switch { RecordTy(var rname, var rfields) => ((Func<CodexType, CheckResult>)((ftype) => new CheckResult(inferred_type: ftype, state: r.state)))(lookup_record_field(rfields, field.value)), _ => ((Func<FreshResult, CheckResult>)((fr) => new CheckResult(inferred_type: fr.var_type, state: fr.state)))(fresh_and_advance(r.state)), }))(resolve_constructed_to_record(env, cname.value)), _ => ((Func<FreshResult, CheckResult>)((fr) => new CheckResult(inferred_type: fr.var_type, state: fr.state)))(fresh_and_advance(r.state)), }))(deep_resolve(r.state, r.inferred_type))))(infer_expr(st, env, obj)), ARecordExpr(var name, var fields) => ((Func<UnificationState, CheckResult>)((st2) => ((Func<CodexType, CheckResult>)((ctor_type) => ((Func<CodexType, CheckResult>)((result_type) => new CheckResult(inferred_type: result_type, state: st2)))(strip_fun_args(ctor_type))))((env_has(env, name.value) ? env_lookup(env, name.value) : new ErrorTy()))))(infer_record_fields(st, env, fields, 0, list_length(fields))), AErrorExpr(var msg) => new CheckResult(inferred_type: new ErrorTy(), state: st), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
     public static CodexType resolve_constructed_to_record(TypeEnv env, string name) => (env_has(env, name) ? strip_fun_args(env_lookup(env, name)) : new ErrorTy());
 
-    public static UnificationState infer_record_fields(UnificationState st, TypeEnv env, List<AFieldExpr> fields, long i, long len) => ((i == len) ? st : ((Func<AFieldExpr, UnificationState>)((f) => ((Func<CheckResult, UnificationState>)((r) => infer_record_fields(r.state, env, fields, (i + 1), len)))(infer_expr(st, env, f.value))))(list_at(fields)(i)));
+    public static UnificationState infer_record_fields(UnificationState st, TypeEnv env, List<AFieldExpr> fields, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return st;
+            }
+            else
+            {
+            var f = list_at(fields)(i);
+            var r = infer_expr(st, env, f.value);
+            var _tco_0 = r.state;
+            var _tco_1 = env;
+            var _tco_2 = fields;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            st = _tco_0;
+            env = _tco_1;
+            fields = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            continue;
+            }
+        }
+    }
 
-    public static CodexType strip_fun_args(CodexType ty) => ty switch { FunTy(var p, var r) => strip_fun_args(r), _ => ty, };
+    public static CodexType strip_fun_args(CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var p = _tco_m0.Field0;
+                var r = _tco_m0.Field1;
+            var _tco_0 = r;
+            ty = _tco_0;
+            continue;
+            }
+            {
+            return ty;
+            }
+        }
+    }
 
     public static CodexType resolve_type_expr(List<TypeBinding> tdm, ATypeExpr texpr) => texpr switch { ANamedType(var name) => resolve_type_name(tdm, name.value), AFunType(var param, var ret) => new FunTy(resolve_type_expr(tdm, param), resolve_type_expr(tdm, ret)), AAppType(var ctor, var args) => resolve_applied_type(tdm, ctor, args), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
     public static CodexType resolve_applied_type(List<TypeBinding> tdm, ATypeExpr ctor, List<ATypeExpr> args) => ctor switch { ANamedType(var name) => ((name.value == "List") ? ((list_length(args) == 1) ? new ListTy(resolve_type_expr(tdm, list_at(args)(0))) : new ListTy(new ErrorTy())) : new ConstructedTy(name, resolve_type_expr_list(tdm, args, 0, list_length(args), new List<CodexType>()))), _ => resolve_type_expr(tdm, ctor), };
 
-    public static List<CodexType> resolve_type_expr_list(List<TypeBinding> tdm, List<ATypeExpr> args, long i, long len, List<CodexType> acc) => ((i == len) ? acc : resolve_type_expr_list(tdm, args, (i + 1), len, Enumerable.Concat(acc, new List<CodexType> { resolve_type_expr(tdm, list_at(args)(i)) }).ToList()));
+    public static List<CodexType> resolve_type_expr_list(List<TypeBinding> tdm, List<ATypeExpr> args, long i, long len, List<CodexType> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var _tco_0 = tdm;
+            var _tco_1 = args;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(acc, new List<CodexType> { resolve_type_expr(tdm, list_at(args)(i)) }).ToList();
+            tdm = _tco_0;
+            args = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            acc = _tco_4;
+            continue;
+            }
+        }
+    }
 
     public static CodexType resolve_type_name(List<TypeBinding> tdm, string name) => ((name == "Integer") ? new IntegerTy() : ((name == "Number") ? new NumberTy() : ((name == "Text") ? new TextTy() : ((name == "Boolean") ? new BooleanTy() : ((name == "Nothing") ? new NothingTy() : lookup_type_def(tdm, name))))));
 
     public static CodexType lookup_type_def(List<TypeBinding> tdm, string name) => lookup_type_def_loop(tdm, name, 0, list_length(tdm));
 
-    public static CodexType lookup_type_def_loop(List<TypeBinding> tdm, string name, long i, long len) => ((i == len) ? new ConstructedTy(new Name(value: name), new List<CodexType>()) : ((Func<TypeBinding, CodexType>)((b) => ((b.name == name) ? b.bound_type : lookup_type_def_loop(tdm, name, (i + 1), len))))(list_at(tdm)(i)));
+    public static CodexType lookup_type_def_loop(List<TypeBinding> tdm, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new ConstructedTy(new Name(value: name), new List<CodexType>());
+            }
+            else
+            {
+            var b = list_at(tdm)(i);
+            if ((b.name == name))
+            {
+            return b.bound_type;
+            }
+            else
+            {
+            var _tco_0 = tdm;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            tdm = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
     public static bool is_value_name(string name) => ((text_length(name) == 0) ? false : ((Func<long, bool>)((code) => ((code >= 97) && (code <= 122))))(char_code(char_at(name)(0))));
 
@@ -1107,41 +3546,416 @@ public static class Codex_Codex_Codex
 
     public static WalkResult parameterize_walk(UnificationState st, List<ParamEntry> entries, CodexType ty) => ty switch { ConstructedTy(var name, var args) => (((list_length(args) == 0) && is_value_name(name.value)) ? ((Func<long, WalkResult>)((looked) => ((looked >= 0) ? new WalkResult(walked: new TypeVar(looked), entries: entries, state: st) : ((Func<FreshResult, WalkResult>)((fr) => fr.var_type switch { TypeVar(var new_id) => ((Func<ParamEntry, WalkResult>)((new_entry) => new WalkResult(walked: fr.var_type, entries: Enumerable.Concat(entries, new List<ParamEntry> { new_entry }).ToList(), state: fr.state)))(new ParamEntry(param_name: name.value, var_id: new_id)), _ => new WalkResult(walked: ty, entries: entries, state: fr.state), }))(fresh_and_advance(st)))))(find_param_entry(entries, name.value, 0, list_length(entries))) : ((Func<WalkListResult, WalkResult>)((args_r) => new WalkResult(walked: new ConstructedTy(name, args_r.walked_list), entries: args_r.entries, state: args_r.state)))(parameterize_walk_list(st, entries, args, 0, list_length(args), new List<CodexType>()))), FunTy(var param, var ret) => ((Func<WalkResult, WalkResult>)((pr) => ((Func<WalkResult, WalkResult>)((rr) => new WalkResult(walked: new FunTy(pr.walked, rr.walked), entries: rr.entries, state: rr.state)))(parameterize_walk(pr.state, pr.entries, ret))))(parameterize_walk(st, entries, param)), ListTy(var elem) => ((Func<WalkResult, WalkResult>)((er) => new WalkResult(walked: new ListTy(er.walked), entries: er.entries, state: er.state)))(parameterize_walk(st, entries, elem)), ForAllTy(var id, var body) => ((Func<WalkResult, WalkResult>)((br) => new WalkResult(walked: new ForAllTy(id, br.walked), entries: br.entries, state: br.state)))(parameterize_walk(st, entries, body)), _ => new WalkResult(walked: ty, entries: entries, state: st), };
 
-    public static long find_param_entry(List<ParamEntry> entries, string name, long i, long len) => ((i == len) ? (0 - 1) : ((Func<ParamEntry, long>)((e) => ((e.param_name == name) ? e.var_id : find_param_entry(entries, name, (i + 1), len))))(list_at(entries)(i)));
+    public static long find_param_entry(List<ParamEntry> entries, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return (0 - 1);
+            }
+            else
+            {
+            var e = list_at(entries)(i);
+            if ((e.param_name == name))
+            {
+            return e.var_id;
+            }
+            else
+            {
+            var _tco_0 = entries;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            entries = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
-    public static WalkListResult parameterize_walk_list(UnificationState st, List<ParamEntry> entries, List<CodexType> args, long i, long len, List<CodexType> acc) => ((i == len) ? new WalkListResult(walked_list: acc, entries: entries, state: st) : ((Func<WalkResult, WalkListResult>)((r) => parameterize_walk_list(r.state, r.entries, args, (i + 1), len, Enumerable.Concat(acc, new List<CodexType> { r.walked }).ToList())))(parameterize_walk(st, entries, list_at(args)(i))));
+    public static WalkListResult parameterize_walk_list(UnificationState st, List<ParamEntry> entries, List<CodexType> args, long i, long len, List<CodexType> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new WalkListResult(walked_list: acc, entries: entries, state: st);
+            }
+            else
+            {
+            var r = parameterize_walk(st, entries, list_at(args)(i));
+            var _tco_0 = r.state;
+            var _tco_1 = r.entries;
+            var _tco_2 = args;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            var _tco_5 = Enumerable.Concat(acc, new List<CodexType> { r.walked }).ToList();
+            st = _tco_0;
+            entries = _tco_1;
+            args = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            acc = _tco_5;
+            continue;
+            }
+        }
+    }
 
     public static CheckResult check_def(UnificationState st, TypeEnv env, ADef def) => ((Func<DefSetup, CheckResult>)((declared) => ((Func<DefParamResult, CheckResult>)((env2) => ((Func<CheckResult, CheckResult>)((body_r) => ((Func<UnifyResult, CheckResult>)((u) => new CheckResult(inferred_type: declared.expected_type, state: u.state)))(unify(body_r.state, env2.remaining_type, body_r.inferred_type))))(infer_expr(env2.state, env2.env, def.body))))(bind_def_params(declared.state, declared.env, def.@params, declared.expected_type, 0, list_length(def.@params)))))(resolve_declared_type(st, env, def));
 
     public static DefSetup resolve_declared_type(UnificationState st, TypeEnv env, ADef def) => ((list_length(def.declared_type) == 0) ? ((Func<FreshResult, DefSetup>)((fr) => new DefSetup(expected_type: fr.var_type, remaining_type: fr.var_type, state: fr.state, env: env)))(fresh_and_advance(st)) : ((Func<CodexType, DefSetup>)((env_type) => ((Func<FreshResult, DefSetup>)((inst) => new DefSetup(expected_type: inst.var_type, remaining_type: inst.var_type, state: inst.state, env: env)))(instantiate_type(st, env_type))))(env_lookup(env, def.name.value)));
 
-    public static DefParamResult bind_def_params(UnificationState st, TypeEnv env, List<AParam> @params, CodexType remaining, long i, long len) => ((i == len) ? new DefParamResult(state: st, env: env, remaining_type: remaining) : ((Func<AParam, DefParamResult>)((p) => remaining switch { FunTy(var param_ty, var ret_ty) => ((Func<TypeEnv, DefParamResult>)((env2) => bind_def_params(st, env2, @params, ret_ty, (i + 1), len)))(env_bind(env, p.name.value, param_ty)), _ => ((Func<FreshResult, DefParamResult>)((fr) => ((Func<TypeEnv, DefParamResult>)((env2) => bind_def_params(fr.state, env2, @params, remaining, (i + 1), len)))(env_bind(env, p.name.value, fr.var_type))))(fresh_and_advance(st)), }))(list_at(@params)(i)));
+    public static DefParamResult bind_def_params(UnificationState st, TypeEnv env, List<AParam> @params, CodexType remaining, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new DefParamResult(state: st, env: env, remaining_type: remaining);
+            }
+            else
+            {
+            var p = list_at(@params)(i);
+            var _tco_s = remaining;
+            if (_tco_s is FunTy _tco_m0)
+            {
+                var param_ty = _tco_m0.Field0;
+                var ret_ty = _tco_m0.Field1;
+            var env2 = env_bind(env, p.name.value, param_ty);
+            var _tco_0 = st;
+            var _tco_1 = env2;
+            var _tco_2 = @params;
+            var _tco_3 = ret_ty;
+            var _tco_4 = (i + 1);
+            var _tco_5 = len;
+            st = _tco_0;
+            env = _tco_1;
+            @params = _tco_2;
+            remaining = _tco_3;
+            i = _tco_4;
+            len = _tco_5;
+            continue;
+            }
+            {
+            var fr = fresh_and_advance(st);
+            var env2 = env_bind(env, p.name.value, fr.var_type);
+            var _tco_0 = fr.state;
+            var _tco_1 = env2;
+            var _tco_2 = @params;
+            var _tco_3 = remaining;
+            var _tco_4 = (i + 1);
+            var _tco_5 = len;
+            st = _tco_0;
+            env = _tco_1;
+            @params = _tco_2;
+            remaining = _tco_3;
+            i = _tco_4;
+            len = _tco_5;
+            continue;
+            }
+            }
+        }
+    }
 
     public static ModuleResult check_module(AModule mod) => ((Func<List<TypeBinding>, ModuleResult>)((tdm) => ((Func<LetBindResult, ModuleResult>)((tenv) => ((Func<LetBindResult, ModuleResult>)((env) => check_all_defs(env.state, env.env, mod.defs, 0, list_length(mod.defs), new List<TypeBinding>())))(register_all_defs(tenv.state, tenv.env, tdm, mod.defs, 0, list_length(mod.defs)))))(register_type_defs(empty_unification_state(), builtin_type_env(), tdm, mod.type_defs, 0, list_length(mod.type_defs)))))(build_type_def_map(mod.type_defs, 0, list_length(mod.type_defs), new List<TypeBinding>()));
 
-    public static LetBindResult register_all_defs(UnificationState st, TypeEnv env, List<TypeBinding> tdm, List<ADef> defs, long i, long len) => ((i == len) ? new LetBindResult(state: st, env: env) : ((Func<ADef, LetBindResult>)((def) => ((Func<LetBindResult, LetBindResult>)((ty) => register_all_defs(ty.state, ty.env, tdm, defs, (i + 1), len)))(((list_length(def.declared_type) == 0) ? ((Func<FreshResult, LetBindResult>)((fr) => ((Func<TypeEnv, LetBindResult>)((env2) => new LetBindResult(state: fr.state, env: env2)))(env_bind(env, def.name.value, fr.var_type))))(fresh_and_advance(st)) : ((Func<CodexType, LetBindResult>)((resolved) => ((Func<ParamResult, LetBindResult>)((pr) => new LetBindResult(state: pr.state, env: env_bind(env, def.name.value, pr.parameterized))))(parameterize_type(st, resolved))))(resolve_type_expr(tdm, list_at(def.declared_type)(0)))))))(list_at(defs)(i)));
+    public static LetBindResult register_all_defs(UnificationState st, TypeEnv env, List<TypeBinding> tdm, List<ADef> defs, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new LetBindResult(state: st, env: env);
+            }
+            else
+            {
+            var def = list_at(defs)(i);
+            var ty = ((list_length(def.declared_type) == 0) ? ((Func<FreshResult, LetBindResult>)((fr) => ((Func<TypeEnv, LetBindResult>)((env2) => new LetBindResult(state: fr.state, env: env2)))(env_bind(env, def.name.value, fr.var_type))))(fresh_and_advance(st)) : ((Func<CodexType, LetBindResult>)((resolved) => ((Func<ParamResult, LetBindResult>)((pr) => new LetBindResult(state: pr.state, env: env_bind(env, def.name.value, pr.parameterized))))(parameterize_type(st, resolved))))(resolve_type_expr(tdm, list_at(def.declared_type)(0))));
+            var _tco_0 = ty.state;
+            var _tco_1 = ty.env;
+            var _tco_2 = tdm;
+            var _tco_3 = defs;
+            var _tco_4 = (i + 1);
+            var _tco_5 = len;
+            st = _tco_0;
+            env = _tco_1;
+            tdm = _tco_2;
+            defs = _tco_3;
+            i = _tco_4;
+            len = _tco_5;
+            continue;
+            }
+        }
+    }
 
-    public static ModuleResult check_all_defs(UnificationState st, TypeEnv env, List<ADef> defs, long i, long len, List<TypeBinding> acc) => ((i == len) ? new ModuleResult(types: acc, state: st) : ((Func<ADef, ModuleResult>)((def) => ((Func<CheckResult, ModuleResult>)((r) => ((Func<CodexType, ModuleResult>)((resolved) => ((Func<TypeBinding, ModuleResult>)((entry) => check_all_defs(r.state, env, defs, (i + 1), len, Enumerable.Concat(acc, new List<TypeBinding> { entry }).ToList())))(new TypeBinding(name: def.name.value, bound_type: resolved))))(deep_resolve(r.state, r.inferred_type))))(check_def(st, env, def))))(list_at(defs)(i)));
+    public static ModuleResult check_all_defs(UnificationState st, TypeEnv env, List<ADef> defs, long i, long len, List<TypeBinding> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new ModuleResult(types: acc, state: st);
+            }
+            else
+            {
+            var def = list_at(defs)(i);
+            var r = check_def(st, env, def);
+            var resolved = deep_resolve(r.state, r.inferred_type);
+            var entry = new TypeBinding(name: def.name.value, bound_type: resolved);
+            var _tco_0 = r.state;
+            var _tco_1 = env;
+            var _tco_2 = defs;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            var _tco_5 = Enumerable.Concat(acc, new List<TypeBinding> { entry }).ToList();
+            st = _tco_0;
+            env = _tco_1;
+            defs = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            acc = _tco_5;
+            continue;
+            }
+        }
+    }
 
-    public static List<TypeBinding> build_type_def_map(List<ATypeDef> tdefs, long i, long len, List<TypeBinding> acc) => ((i == len) ? acc : ((Func<ATypeDef, List<TypeBinding>>)((td) => ((Func<TypeBinding, List<TypeBinding>>)((entry) => build_type_def_map(tdefs, (i + 1), len, Enumerable.Concat(acc, new List<TypeBinding> { entry }).ToList())))(td switch { AVariantTypeDef(var name, var type_params, var ctors) => ((Func<List<SumCtor>, TypeBinding>)((sum_ctors) => new TypeBinding(name: name.value, bound_type: new SumTy(name, sum_ctors))))(build_sum_ctors(tdefs, ctors, 0, list_length(ctors), new List<SumCtor>(), acc)), ARecordTypeDef(var name, var type_params, var fields) => ((Func<List<RecordField>, TypeBinding>)((rec_fields) => new TypeBinding(name: name.value, bound_type: new RecordTy(name, rec_fields))))(build_record_fields_for_map(tdefs, fields, 0, list_length(fields), new List<RecordField>(), acc)), _ => throw new InvalidOperationException("Non-exhaustive match"), })))(list_at(tdefs)(i)));
+    public static List<TypeBinding> build_type_def_map(List<ATypeDef> tdefs, long i, long len, List<TypeBinding> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var td = list_at(tdefs)(i);
+            var entry = td switch { AVariantTypeDef(var name, var type_params, var ctors) => ((Func<List<SumCtor>, TypeBinding>)((sum_ctors) => new TypeBinding(name: name.value, bound_type: new SumTy(name, sum_ctors))))(build_sum_ctors(tdefs, ctors, 0, list_length(ctors), new List<SumCtor>(), acc)), ARecordTypeDef(var name, var type_params, var fields) => ((Func<List<RecordField>, TypeBinding>)((rec_fields) => new TypeBinding(name: name.value, bound_type: new RecordTy(name, rec_fields))))(build_record_fields_for_map(tdefs, fields, 0, list_length(fields), new List<RecordField>(), acc)), _ => throw new InvalidOperationException("Non-exhaustive match"), };
+            var _tco_0 = tdefs;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = Enumerable.Concat(acc, new List<TypeBinding> { entry }).ToList();
+            tdefs = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+        }
+    }
 
-    public static List<SumCtor> build_sum_ctors(List<ATypeDef> tdefs, List<AVariantCtorDef> ctors, long i, long len, List<SumCtor> acc, List<TypeBinding> partial_tdm) => ((i == len) ? acc : ((Func<AVariantCtorDef, List<SumCtor>>)((c) => ((Func<List<CodexType>, List<SumCtor>>)((field_types) => ((Func<SumCtor, List<SumCtor>>)((sc) => build_sum_ctors(tdefs, ctors, (i + 1), len, Enumerable.Concat(acc, new List<SumCtor> { sc }).ToList(), partial_tdm)))(new SumCtor(name: c.name, fields: field_types))))(resolve_type_expr_list_for_map(tdefs, c.fields, 0, list_length(c.fields), new List<CodexType>(), partial_tdm))))(list_at(ctors)(i)));
+    public static List<SumCtor> build_sum_ctors(List<ATypeDef> tdefs, List<AVariantCtorDef> ctors, long i, long len, List<SumCtor> acc, List<TypeBinding> partial_tdm)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var c = list_at(ctors)(i);
+            var field_types = resolve_type_expr_list_for_map(tdefs, c.fields, 0, list_length(c.fields), new List<CodexType>(), partial_tdm);
+            var sc = new SumCtor(name: c.name, fields: field_types);
+            var _tco_0 = tdefs;
+            var _tco_1 = ctors;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(acc, new List<SumCtor> { sc }).ToList();
+            var _tco_5 = partial_tdm;
+            tdefs = _tco_0;
+            ctors = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            acc = _tco_4;
+            partial_tdm = _tco_5;
+            continue;
+            }
+        }
+    }
 
-    public static List<RecordField> build_record_fields_for_map(List<ATypeDef> tdefs, List<ARecordFieldDef> fields, long i, long len, List<RecordField> acc, List<TypeBinding> partial_tdm) => ((i == len) ? acc : ((Func<ARecordFieldDef, List<RecordField>>)((f) => ((Func<RecordField, List<RecordField>>)((rfield) => build_record_fields_for_map(tdefs, fields, (i + 1), len, Enumerable.Concat(acc, new List<RecordField> { rfield }).ToList(), partial_tdm)))(new RecordField(name: f.name, type_val: resolve_type_expr(partial_tdm, f.type_expr)))))(list_at(fields)(i)));
+    public static List<RecordField> build_record_fields_for_map(List<ATypeDef> tdefs, List<ARecordFieldDef> fields, long i, long len, List<RecordField> acc, List<TypeBinding> partial_tdm)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var f = list_at(fields)(i);
+            var rfield = new RecordField(name: f.name, type_val: resolve_type_expr(partial_tdm, f.type_expr));
+            var _tco_0 = tdefs;
+            var _tco_1 = fields;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(acc, new List<RecordField> { rfield }).ToList();
+            var _tco_5 = partial_tdm;
+            tdefs = _tco_0;
+            fields = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            acc = _tco_4;
+            partial_tdm = _tco_5;
+            continue;
+            }
+        }
+    }
 
-    public static List<CodexType> resolve_type_expr_list_for_map(List<ATypeDef> tdefs, List<ATypeExpr> args, long i, long len, List<CodexType> acc, List<TypeBinding> partial_tdm) => ((i == len) ? acc : resolve_type_expr_list_for_map(tdefs, args, (i + 1), len, Enumerable.Concat(acc, new List<CodexType> { resolve_type_expr(partial_tdm, list_at(args)(i)) }).ToList(), partial_tdm));
+    public static List<CodexType> resolve_type_expr_list_for_map(List<ATypeDef> tdefs, List<ATypeExpr> args, long i, long len, List<CodexType> acc, List<TypeBinding> partial_tdm)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var _tco_0 = tdefs;
+            var _tco_1 = args;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(acc, new List<CodexType> { resolve_type_expr(partial_tdm, list_at(args)(i)) }).ToList();
+            var _tco_5 = partial_tdm;
+            tdefs = _tco_0;
+            args = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            acc = _tco_4;
+            partial_tdm = _tco_5;
+            continue;
+            }
+        }
+    }
 
-    public static LetBindResult register_type_defs(UnificationState st, TypeEnv env, List<TypeBinding> tdm, List<ATypeDef> tdefs, long i, long len) => ((i == len) ? new LetBindResult(state: st, env: env) : ((Func<ATypeDef, LetBindResult>)((td) => ((Func<LetBindResult, LetBindResult>)((r) => register_type_defs(r.state, r.env, tdm, tdefs, (i + 1), len)))(register_one_type_def(st, env, tdm, td))))(list_at(tdefs)(i)));
+    public static LetBindResult register_type_defs(UnificationState st, TypeEnv env, List<TypeBinding> tdm, List<ATypeDef> tdefs, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new LetBindResult(state: st, env: env);
+            }
+            else
+            {
+            var td = list_at(tdefs)(i);
+            var r = register_one_type_def(st, env, tdm, td);
+            var _tco_0 = r.state;
+            var _tco_1 = r.env;
+            var _tco_2 = tdm;
+            var _tco_3 = tdefs;
+            var _tco_4 = (i + 1);
+            var _tco_5 = len;
+            st = _tco_0;
+            env = _tco_1;
+            tdm = _tco_2;
+            tdefs = _tco_3;
+            i = _tco_4;
+            len = _tco_5;
+            continue;
+            }
+        }
+    }
 
     public static LetBindResult register_one_type_def(UnificationState st, TypeEnv env, List<TypeBinding> tdm, ATypeDef td) => td switch { AVariantTypeDef(var name, var type_params, var ctors) => ((Func<CodexType, LetBindResult>)((result_ty) => register_variant_ctors(st, env, tdm, ctors, result_ty, 0, list_length(ctors))))(lookup_type_def(tdm, name.value)), ARecordTypeDef(var name, var type_params, var fields) => ((Func<List<RecordField>, LetBindResult>)((resolved_fields) => ((Func<CodexType, LetBindResult>)((result_ty) => ((Func<CodexType, LetBindResult>)((ctor_ty) => new LetBindResult(state: st, env: env_bind(env, name.value, ctor_ty))))(build_record_ctor_type(tdm, fields, result_ty, 0, list_length(fields)))))(new RecordTy(name, resolved_fields))))(build_record_fields(tdm, fields, 0, list_length(fields), new List<RecordField>())), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static List<RecordField> build_record_fields(List<TypeBinding> tdm, List<ARecordFieldDef> fields, long i, long len, List<RecordField> acc) => ((i == len) ? acc : ((Func<ARecordFieldDef, List<RecordField>>)((f) => ((Func<RecordField, List<RecordField>>)((rfield) => build_record_fields(tdm, fields, (i + 1), len, Enumerable.Concat(acc, new List<RecordField> { rfield }).ToList())))(new RecordField(name: f.name, type_val: resolve_type_expr(tdm, f.type_expr)))))(list_at(fields)(i)));
+    public static List<RecordField> build_record_fields(List<TypeBinding> tdm, List<ARecordFieldDef> fields, long i, long len, List<RecordField> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var f = list_at(fields)(i);
+            var rfield = new RecordField(name: f.name, type_val: resolve_type_expr(tdm, f.type_expr));
+            var _tco_0 = tdm;
+            var _tco_1 = fields;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(acc, new List<RecordField> { rfield }).ToList();
+            tdm = _tco_0;
+            fields = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            acc = _tco_4;
+            continue;
+            }
+        }
+    }
 
     public static CodexType lookup_record_field(List<RecordField> fields, string name) => ((list_length(fields) == 0) ? new ErrorTy() : ((Func<RecordField, CodexType>)((f) => ((f.name.value == name) ? f.type_val : lookup_record_field_loop(fields, name, 1, list_length(fields)))))(list_at(fields)(0)));
 
-    public static CodexType lookup_record_field_loop(List<RecordField> fields, string name, long i, long len) => ((i == len) ? new ErrorTy() : ((Func<RecordField, CodexType>)((f) => ((f.name.value == name) ? f.type_val : lookup_record_field_loop(fields, name, (i + 1), len))))(list_at(fields)(i)));
+    public static CodexType lookup_record_field_loop(List<RecordField> fields, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new ErrorTy();
+            }
+            else
+            {
+            var f = list_at(fields)(i);
+            if ((f.name.value == name))
+            {
+            return f.type_val;
+            }
+            else
+            {
+            var _tco_0 = fields;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            fields = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
-    public static LetBindResult register_variant_ctors(UnificationState st, TypeEnv env, List<TypeBinding> tdm, List<AVariantCtorDef> ctors, CodexType result_ty, long i, long len) => ((i == len) ? new LetBindResult(state: st, env: env) : ((Func<AVariantCtorDef, LetBindResult>)((ctor) => ((Func<CodexType, LetBindResult>)((ctor_ty) => ((Func<TypeEnv, LetBindResult>)((env2) => register_variant_ctors(st, env2, tdm, ctors, result_ty, (i + 1), len)))(env_bind(env, ctor.name.value, ctor_ty))))(build_ctor_type(tdm, ctor.fields, result_ty, 0, list_length(ctor.fields)))))(list_at(ctors)(i)));
+    public static LetBindResult register_variant_ctors(UnificationState st, TypeEnv env, List<TypeBinding> tdm, List<AVariantCtorDef> ctors, CodexType result_ty, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new LetBindResult(state: st, env: env);
+            }
+            else
+            {
+            var ctor = list_at(ctors)(i);
+            var ctor_ty = build_ctor_type(tdm, ctor.fields, result_ty, 0, list_length(ctor.fields));
+            var env2 = env_bind(env, ctor.name.value, ctor_ty);
+            var _tco_0 = st;
+            var _tco_1 = env2;
+            var _tco_2 = tdm;
+            var _tco_3 = ctors;
+            var _tco_4 = result_ty;
+            var _tco_5 = (i + 1);
+            var _tco_6 = len;
+            st = _tco_0;
+            env = _tco_1;
+            tdm = _tco_2;
+            ctors = _tco_3;
+            result_ty = _tco_4;
+            i = _tco_5;
+            len = _tco_6;
+            continue;
+            }
+        }
+    }
 
     public static CodexType build_ctor_type(List<TypeBinding> tdm, List<ATypeExpr> fields, CodexType result, long i, long len) => ((i == len) ? result : ((Func<CodexType, CodexType>)((rest) => new FunTy(resolve_type_expr(tdm, list_at(fields)(i)), rest)))(build_ctor_type(tdm, fields, result, (i + 1), len)));
 
@@ -1151,11 +3965,69 @@ public static class Codex_Codex_Codex
 
     public static CodexType env_lookup(TypeEnv env, string name) => env_lookup_loop(env.bindings, name, 0, list_length(env.bindings));
 
-    public static CodexType env_lookup_loop(List<TypeBinding> bindings, string name, long i, long len) => ((i == len) ? new ErrorTy() : ((Func<TypeBinding, CodexType>)((b) => ((b.name == name) ? b.bound_type : env_lookup_loop(bindings, name, (i + 1), len))))(list_at(bindings)(i)));
+    public static CodexType env_lookup_loop(List<TypeBinding> bindings, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new ErrorTy();
+            }
+            else
+            {
+            var b = list_at(bindings)(i);
+            if ((b.name == name))
+            {
+            return b.bound_type;
+            }
+            else
+            {
+            var _tco_0 = bindings;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            bindings = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
     public static bool env_has(TypeEnv env, string name) => env_has_loop(env.bindings, name, 0, list_length(env.bindings));
 
-    public static bool env_has_loop(List<TypeBinding> bindings, string name, long i, long len) => ((i == len) ? false : ((Func<TypeBinding, bool>)((b) => ((b.name == name) ? true : env_has_loop(bindings, name, (i + 1), len))))(list_at(bindings)(i)));
+    public static bool env_has_loop(List<TypeBinding> bindings, string name, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return false;
+            }
+            else
+            {
+            var b = list_at(bindings)(i);
+            if ((b.name == name))
+            {
+            return true;
+            }
+            else
+            {
+            var _tco_0 = bindings;
+            var _tco_1 = name;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            bindings = _tco_0;
+            name = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
     public static TypeEnv env_bind(TypeEnv env, string name, CodexType ty) => new TypeEnv(bindings: Enumerable.Concat(new List<TypeBinding> { new TypeBinding(name: name, bound_type: ty) }, env.bindings).ToList());
 
@@ -1171,19 +4043,134 @@ public static class Codex_Codex_Codex
 
     public static CodexType subst_lookup(long var_id, List<SubstEntry> entries) => subst_lookup_loop(var_id, entries, 0, list_length(entries));
 
-    public static CodexType subst_lookup_loop(long var_id, List<SubstEntry> entries, long i, long len) => ((i == len) ? new ErrorTy() : ((Func<SubstEntry, CodexType>)((entry) => ((entry.var_id == var_id) ? entry.resolved_type : subst_lookup_loop(var_id, entries, (i + 1), len))))(list_at(entries)(i)));
+    public static CodexType subst_lookup_loop(long var_id, List<SubstEntry> entries, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new ErrorTy();
+            }
+            else
+            {
+            var entry = list_at(entries)(i);
+            if ((entry.var_id == var_id))
+            {
+            return entry.resolved_type;
+            }
+            else
+            {
+            var _tco_0 = var_id;
+            var _tco_1 = entries;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var_id = _tco_0;
+            entries = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
     public static bool has_subst(long var_id, List<SubstEntry> entries) => has_subst_loop(var_id, entries, 0, list_length(entries));
 
-    public static bool has_subst_loop(long var_id, List<SubstEntry> entries, long i, long len) => ((i == len) ? false : ((Func<SubstEntry, bool>)((entry) => ((entry.var_id == var_id) ? true : has_subst_loop(var_id, entries, (i + 1), len))))(list_at(entries)(i)));
+    public static bool has_subst_loop(long var_id, List<SubstEntry> entries, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return false;
+            }
+            else
+            {
+            var entry = list_at(entries)(i);
+            if ((entry.var_id == var_id))
+            {
+            return true;
+            }
+            else
+            {
+            var _tco_0 = var_id;
+            var _tco_1 = entries;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var_id = _tco_0;
+            entries = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            continue;
+            }
+            }
+        }
+    }
 
-    public static CodexType resolve(UnificationState st, CodexType ty) => ty switch { TypeVar(var id) => (has_subst(id, st.substitutions) ? resolve(st, subst_lookup(id, st.substitutions)) : ty), _ => ty, };
+    public static CodexType resolve(UnificationState st, CodexType ty)
+    {
+        while (true)
+        {
+            var _tco_s = ty;
+            if (_tco_s is TypeVar _tco_m0)
+            {
+                var id = _tco_m0.Field0;
+            if (has_subst(id, st.substitutions))
+            {
+            var _tco_0 = st;
+            var _tco_1 = subst_lookup(id, st.substitutions);
+            st = _tco_0;
+            ty = _tco_1;
+            continue;
+            }
+            else
+            {
+            return ty;
+            }
+            }
+            {
+            return ty;
+            }
+        }
+    }
 
     public static UnificationState add_subst(UnificationState st, long var_id, CodexType ty) => new UnificationState(substitutions: Enumerable.Concat(st.substitutions, new List<SubstEntry> { new SubstEntry(var_id: var_id, resolved_type: ty) }).ToList(), next_id: st.next_id, errors: st.errors);
 
     public static UnificationState add_unify_error(UnificationState st, string code, string msg) => new UnificationState(substitutions: st.substitutions, next_id: st.next_id, errors: Enumerable.Concat(st.errors, new List<Diagnostic> { make_error(code, msg) }).ToList());
 
-    public static bool occurs_in(UnificationState st, long var_id, CodexType ty) => ((Func<CodexType, bool>)((resolved) => resolved switch { TypeVar(var id) => (id == var_id), FunTy(var param, var ret) => (occurs_in(st, var_id, param) || occurs_in(st, var_id, ret)), ListTy(var elem) => occurs_in(st, var_id, elem), _ => false, }))(resolve(st, ty));
+    public static bool occurs_in(UnificationState st, long var_id, CodexType ty)
+    {
+        while (true)
+        {
+            var resolved = resolve(st, ty);
+            var _tco_s = resolved;
+            if (_tco_s is TypeVar _tco_m0)
+            {
+                var id = _tco_m0.Field0;
+            return (id == var_id);
+            }
+            else if (_tco_s is FunTy _tco_m1)
+            {
+                var param = _tco_m1.Field0;
+                var ret = _tco_m1.Field1;
+            return (occurs_in(st, var_id, param) || occurs_in(st, var_id, ret));
+            }
+            else if (_tco_s is ListTy _tco_m2)
+            {
+                var elem = _tco_m2.Field0;
+            var _tco_0 = st;
+            var _tco_1 = var_id;
+            var _tco_2 = elem;
+            st = _tco_0;
+            var_id = _tco_1;
+            ty = _tco_2;
+            continue;
+            }
+            {
+            return false;
+            }
+        }
+    }
 
     public static UnifyResult unify(UnificationState st, CodexType a, CodexType b) => ((Func<CodexType, UnifyResult>)((ra) => ((Func<CodexType, UnifyResult>)((rb) => unify_resolved(st, ra, rb)))(resolve(st, b))))(resolve(st, a));
 
@@ -1195,7 +4182,45 @@ public static class Codex_Codex_Codex
 
     public static UnifyResult unify_structural(UnificationState st, CodexType a, CodexType b) => a switch { IntegerTy { } => b switch { IntegerTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, NumberTy { } => b switch { NumberTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, TextTy { } => b switch { TextTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, BooleanTy { } => b switch { BooleanTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, NothingTy { } => b switch { NothingTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, VoidTy { } => b switch { VoidTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, ErrorTy { } => new UnifyResult(success: true, state: st), FunTy(var pa, var ra) => b switch { FunTy(var pb, var rb) => unify_fun(st, pa, ra, pb, rb), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, ListTy(var ea) => b switch { ListTy(var eb) => unify(st, ea, eb), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, ConstructedTy(var na, var args_a) => b switch { ConstructedTy(var nb, var args_b) => ((na.value == nb.value) ? unify_constructed_args(st, args_a, args_b, 0, list_length(args_a)) : unify_mismatch(st, a, b)), SumTy(var sb_name, var sb_ctors) => ((na.value == sb_name.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), RecordTy(var rb_name, var rb_fields) => ((na.value == rb_name.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, SumTy(var sa_name, var sa_ctors) => b switch { SumTy(var sb_name, var sb_ctors) => ((sa_name.value == sb_name.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ConstructedTy(var nb, var args_b) => ((sa_name.value == nb.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, RecordTy(var ra_name, var ra_fields) => b switch { RecordTy(var rb_name, var rb_fields) => ((ra_name.value == rb_name.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ConstructedTy(var nb, var args_b) => ((ra_name.value == nb.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, ForAllTy(var id, var body) => unify(st, body, b), _ => b switch { ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, };
 
-    public static UnifyResult unify_constructed_args(UnificationState st, List<CodexType> args_a, List<CodexType> args_b, long i, long len) => ((i == len) ? new UnifyResult(success: true, state: st) : ((i >= list_length(args_b)) ? new UnifyResult(success: true, state: st) : ((Func<UnifyResult, UnifyResult>)((r) => (r.success ? unify_constructed_args(r.state, args_a, args_b, (i + 1), len) : r)))(unify(st, list_at(args_a)(i), list_at(args_b)(i)))));
+    public static UnifyResult unify_constructed_args(UnificationState st, List<CodexType> args_a, List<CodexType> args_b, long i, long len)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return new UnifyResult(success: true, state: st);
+            }
+            else
+            {
+            if ((i >= list_length(args_b)))
+            {
+            return new UnifyResult(success: true, state: st);
+            }
+            else
+            {
+            var r = unify(st, list_at(args_a)(i), list_at(args_b)(i));
+            if (r.success)
+            {
+            var _tco_0 = r.state;
+            var _tco_1 = args_a;
+            var _tco_2 = args_b;
+            var _tco_3 = (i + 1);
+            var _tco_4 = len;
+            st = _tco_0;
+            args_a = _tco_1;
+            args_b = _tco_2;
+            i = _tco_3;
+            len = _tco_4;
+            continue;
+            }
+            else
+            {
+            return r;
+            }
+            }
+            }
+        }
+    }
 
     public static UnifyResult unify_fun(UnificationState st, CodexType pa, CodexType ra, CodexType pb, CodexType rb) => ((Func<UnifyResult, UnifyResult>)((r1) => (r1.success ? unify(r1.state, ra, rb) : r1)))(unify(st, pa, pb));
 
@@ -1205,7 +4230,30 @@ public static class Codex_Codex_Codex
 
     public static CodexType deep_resolve(UnificationState st, CodexType ty) => ((Func<CodexType, CodexType>)((resolved) => resolved switch { FunTy(var param, var ret) => new FunTy(deep_resolve(st, param), deep_resolve(st, ret)), ListTy(var elem) => new ListTy(deep_resolve(st, elem)), ConstructedTy(var name, var args) => new ConstructedTy(name, deep_resolve_list(st, args, 0, list_length(args), new List<CodexType>())), ForAllTy(var id, var body) => new ForAllTy(id, deep_resolve(st, body)), SumTy(var name, var ctors) => resolved, RecordTy(var name, var fields) => resolved, _ => resolved, }))(resolve(st, ty));
 
-    public static List<CodexType> deep_resolve_list(UnificationState st, List<CodexType> args, long i, long len, List<CodexType> acc) => ((i == len) ? acc : deep_resolve_list(st, args, (i + 1), len, Enumerable.Concat(acc, new List<CodexType> { deep_resolve(st, list_at(args)(i)) }).ToList()));
+    public static List<CodexType> deep_resolve_list(UnificationState st, List<CodexType> args, long i, long len, List<CodexType> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var _tco_0 = st;
+            var _tco_1 = args;
+            var _tco_2 = (i + 1);
+            var _tco_3 = len;
+            var _tco_4 = Enumerable.Concat(acc, new List<CodexType> { deep_resolve(st, list_at(args)(i)) }).ToList();
+            st = _tco_0;
+            args = _tco_1;
+            i = _tco_2;
+            len = _tco_3;
+            acc = _tco_4;
+            continue;
+            }
+        }
+    }
 
     public static string compile(string source, string module_name) => ((Func<List<Token>, string>)((tokens) => ((Func<ParseState, string>)((st) => ((Func<Document, string>)((doc) => ((Func<AModule, string>)((ast) => ((Func<ModuleResult, string>)((check_result) => ((Func<IRModule, string>)((ir) => emit_full_module(ir, ast.type_defs)))(lower_module(ast, check_result.types, check_result.state))))(check_module(ast))))(desugar_document(doc, module_name))))(parse_document(st))))(make_parse_state(tokens))))(tokenize(source));
 

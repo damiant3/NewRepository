@@ -49,7 +49,9 @@ Section: Whitespace
         then st
         else if peek-char st == " "
           then skip-spaces (advance-char st)
-          else st
+          else if peek-char st == "\r"
+            then skip-spaces (advance-char st)
+            else st
 
 Section: Character Scanning
 

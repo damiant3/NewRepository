@@ -2397,7 +2397,16 @@ public static class Codex_Codex_Codex
             }
             else
             {
+            if ((peek_char(st) == "\r"))
+            {
+            var _tco_0 = advance_char(st);
+            st = _tco_0;
+            continue;
+            }
+            else
+            {
             return st;
+            }
             }
             }
         }
