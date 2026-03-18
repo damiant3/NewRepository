@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-Codex_Codex_Codex.main();
 
 public abstract record LiteralKind;
 public sealed record IntLit : LiteralKind;

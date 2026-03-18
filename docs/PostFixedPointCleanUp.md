@@ -116,28 +116,37 @@ compiler works correctly when compiling *itself* (full type annotations).
 
 ### Tier 2: Convergence
 
-**3. Emission format alignment** — Stage 0 emits multi-line method bodies
-(4,925 lines). Stage 2 emits single-line expression bodies (1,205 lines).
-True fixed-point requires identical output. Options:
-- Make the C# reference emitter match the self-hosted style (expression bodies)
-- Make the self-hosted emitter match Stage 0 style (statement bodies)
-- Accept semantic equivalence without byte-for-byte match
-Damian Says: we don't need byte for byte.  we need semantic equivalence.
-- 
-**4. Type declaration ordering** — The reference compiler emits record types
+**3. ~~Fixed point / Stage 3~~** ✅ — **FIXED POINT ACHIEVED.**
+Stage 2 (227,097 chars) compiles itself, producing Stage 3 (227,097 chars).
+Stage 3 == Stage 2, byte-for-byte identical. The compiler produces itself.
+Key enabler: TCO in the self-hosted emitter — tail-recursive functions are
+emitted as `while (true) { ... continue; }` loops instead of expression-bodied
+recursion. Without TCO, the ~153K char source caused stack overflow.
+`.stage3-verify/` project independently verifies the fixed point.
+
+**4. ~~Emission format alignment~~** ✅ — Moot. Stage 2 ↔ Stage 3 are identical.
+Stage 0 ↔ Stage 2 differ in style (statement bodies vs expression bodies + TCO loops)
+but produce semantically equivalent compilers. Per Damian's directive: semantic
+equivalence is sufficient.
+
+**5. Type declaration ordering** — The reference compiler emits record types
 before sum types; the self-hosted compiler may emit them in definition order.
 The `generated-output/*/mini-bootstrap.*` files show this ordering difference
 across all 10 non-IL backends. Harmless but prevents exact diff.
 
+````````
+
+## Remaining Tasks (continued)
+
 ### Tier 3: Polish
 
-**5. `_p0_` proxy parameter names** — 17–23 lines use `_p0_`, `_p1_` as
+**6. `_p0_` proxy parameter names** — 17–23 lines use `_p0_`, `_p1_` as
 lambda parameter names from partial application wrapping. These work because
 C# infers the types from context, but they're ugly. Fix: in the emitter,
 when generating partial application wrappers, look up the target function's
 parameter types and emit typed lambdas like `(Expr _p0_) => ...`.
 
-**6. Generated output corpus refresh** — The `generated-output/` directory
+**7. Generated output corpus refresh** — The `generated-output/` directory
 has 10 changed `mini-bootstrap.*` files (type declaration ordering). These
 should be regenerated and committed to match the current compiler output:
 ```
@@ -146,7 +155,7 @@ codex build samples/mini-bootstrap.codex --targets cs,js,rust,py,cpp,go,java,ada
 
 ### Tier 4: Ecosystem
 
-**7. VS 2022 extension (VSIX)** — `tools/Codex.VsExtension/` has:
+**8. VS 2022 extension (VSIX)** — `tools/Codex.VsExtension/` has:
 - ✅ TextMate grammar (`codex.tmLanguage.json`) with all keywords
 - ✅ Language configuration (brackets, auto-close, indentation)
 - ✅ `.pkgdef` registration
@@ -155,7 +164,7 @@ codex build samples/mini-bootstrap.codex --targets cs,js,rust,py,cpp,go,java,ada
 - ⚠️ Not verified against current VS 2022 version
 - ⚠️ `Codex.VsExtension.csproj.Backup*.tmp` files should be cleaned
 
-**8. VS Code extension** — `editors/vscode/` has:
+**9. VS Code extension** — `editors/vscode/` has:
 - ✅ TextMate grammar (synced with VS 2022 version)
 - ✅ Language configuration
 - ✅ LSP client (`src/extension.ts`)
@@ -163,7 +172,7 @@ codex build samples/mini-bootstrap.codex --targets cs,js,rust,py,cpp,go,java,ada
 - ⚠️ Not verified against current VS Code version
 - ⚠️ `VSCODE-SETUP.md` in `docs/` — verify instructions still work
 
-**9. LSP server** — `src/Codex.Lsp/` provides:
+**10. LSP server** — `src/Codex.Lsp/` provides:
 - ✅ Diagnostics (errors + warnings in editor)
 - ✅ Hover (type information)
 - ✅ Completion
@@ -174,28 +183,28 @@ codex build samples/mini-bootstrap.codex --targets cs,js,rust,py,cpp,go,java,ada
 - ⚠️ Not tested with the new lowerer changes (shouldn't affect LSP since
   LSP uses the reference compiler pipeline, not the self-hosted one)
 
-**10. IL emitter** — `src/Codex.Emit.IL/` handles integers, text, booleans,
+**11. IL emitter** — `src/Codex.Emit.IL/` handles integers, text, booleans,
 numbers, static methods, if/else, let bindings, binary ops, function calls,
 records, sum types, field access, pattern matching. Produces runnable `.exe`.
 - ⚠️ Missing: generics, TCO, full bootstrap
 - ⚠️ No integration tests in the test suite (tests were in a separate run)
 
-**11. Babbage emitter** — `src/Codex.Emit.Babbage/` is the Analytical Engine
+**12. Babbage emitter** — `src/Codex.Emit.Babbage/` is the Analytical Engine
 backend. Intentionally limited. No action needed.
 
 ### Tier 5: Documentation
 
-**12. Update `08-MILESTONES.md`** — M13 still shows `[ ] Stage 1 output =
+**13. Update `08-MILESTONES.md`** — M13 still shows `[ ] Stage 1 output =
 Stage 2 output (full bootstrap fixed-point verification)` as unchecked.
 The functional fixed-point is achieved (Stage 2 compiles, types resolve
 correctly). Whether to check this off depends on whether "=" means
 byte-for-byte or semantic equivalence.
 
-**13. Update `FORWARD-PLAN.md`** — The "Bootstrap Status" section (lines
+**14. Update `FORWARD-PLAN.md`** — The "Bootstrap Status" section (lines
 109–142) has stale numbers (328 `object`, 1,863 unification errors). Update
 to reflect current state: 3 `object`, 1 error.
 
-**14. Opus.md addendum** — Consider appending a section on the post-fixed-
+**15. Opus.md addendum** — Consider appending a section on the post-fixed-
 point work: lowerer type inference (binary, if, match), `object` count
 reduction from 90 → 3.
 
