@@ -110,4 +110,58 @@ public class DesugarerTests
         Module module = ParseAndDesugar("p = Point { x = 1, y = 2 }");
         Assert.IsType<RecordExpr>(module.Definitions[0].Body);
     }
+
+    [Fact]
+    public void Desugar_interpolated_string_to_append_chain()
+    {
+        Module module = ParseAndDesugar("x = \"hello {name}!\"");
+        Expr body = module.Definitions[0].Body;
+        Assert.IsType<BinaryExpr>(body);
+        BinaryExpr outer = (BinaryExpr)body;
+        Assert.Equal(BinaryOp.Append, outer.Op);
+
+        Assert.IsType<BinaryExpr>(outer.Left);
+        BinaryExpr inner = (BinaryExpr)outer.Left;
+        Assert.Equal(BinaryOp.Append, inner.Op);
+
+        Assert.IsType<LiteralExpr>(inner.Left);
+        LiteralExpr hello = (LiteralExpr)inner.Left;
+        Assert.Equal("hello ", hello.Value);
+
+        Assert.IsType<NameExpr>(inner.Right);
+        NameExpr nameRef = (NameExpr)inner.Right;
+        Assert.Equal("name", nameRef.Name.Value);
+
+        Assert.IsType<LiteralExpr>(outer.Right);
+        LiteralExpr excl = (LiteralExpr)outer.Right;
+        Assert.Equal("!", excl.Value);
+    }
+
+    [Fact]
+    public void Desugar_interpolated_string_single_text_to_literal()
+    {
+        Module module = ParseAndDesugar("x = \"just text\"");
+        Expr body = module.Definitions[0].Body;
+        Assert.IsType<LiteralExpr>(body);
+        LiteralExpr lit = (LiteralExpr)body;
+        Assert.Equal("just text", lit.Value);
+    }
+
+    [Fact]
+    public void Desugar_interpolated_string_single_expr()
+    {
+        Module module = ParseAndDesugar("x = \"{name}\"");
+        Expr body = module.Definitions[0].Body;
+        Assert.IsType<NameExpr>(body);
+    }
+
+    [Fact]
+    public void Desugar_interpolated_string_empty()
+    {
+        Module module = ParseAndDesugar("x = \"\"");
+        Expr body = module.Definitions[0].Body;
+        Assert.IsType<LiteralExpr>(body);
+        LiteralExpr lit = (LiteralExpr)body;
+        Assert.Equal("", lit.Value);
+    }
 }

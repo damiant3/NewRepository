@@ -15,6 +15,13 @@ public enum TokenKind
     TrueKeyword,
     FalseKeyword,
 
+    // Interpolated strings
+    InterpolatedStart,      // opening " of an interpolated string
+    InterpolatedEnd,        // closing " of an interpolated string
+    TextFragment,           // literal text segment between { } holes
+    InterpolatedExprStart,  // { inside an interpolated string
+    InterpolatedExprEnd,    // } that closes an interpolated expression
+
     // Identifiers
     Identifier,         // lowercase-hyphenated
     TypeIdentifier,     // Capitalized

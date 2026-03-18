@@ -114,6 +114,8 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
             doExpr.Statements.Select(DesugarDoStatement).ToList(),
             doExpr.Span),
 
+        InterpolatedStringNode interp => DesugarInterpolatedString(interp),
+
         ErrorExpressionNode err => new ErrorExpr("parse error", err.Span),
 
         _ => new ErrorExpr($"unknown expression node: {node.Kind}", node.Span)
@@ -126,6 +128,41 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
         DoExprStatementNode expr => new DoExprStatement(DesugarExpr(expr.Expression), expr.Span),
         _ => new DoExprStatement(new ErrorExpr("unknown do statement", node.Span), node.Span)
     };
+
+    Expr DesugarInterpolatedString(InterpolatedStringNode node)
+    {
+        if (node.Parts.Count == 0)
+        {
+            return new LiteralExpr("", LiteralKind.Text, node.Span);
+        }
+
+        if (node.Parts.Count == 1 && node.Parts[0] is LiteralExpressionNode singleLit
+            && singleLit.Literal.Kind == TokenKind.TextLiteral)
+        {
+            return new LiteralExpr(
+                singleLit.Literal.LiteralValue ?? singleLit.Literal.Text,
+                LiteralKind.Text, node.Span);
+        }
+
+        Expr result = DesugarInterpolationPart(node.Parts[0], node.Span);
+        for (int i = 1; i < node.Parts.Count; i++)
+        {
+            Expr right = DesugarInterpolationPart(node.Parts[i], node.Span);
+            result = new BinaryExpr(result, BinaryOp.Append, right, node.Span);
+        }
+        return result;
+    }
+
+    Expr DesugarInterpolationPart(ExpressionNode part, SourceSpan fallbackSpan)
+    {
+        if (part is LiteralExpressionNode lit && lit.Literal.Kind == TokenKind.TextLiteral)
+        {
+            return new LiteralExpr(
+                lit.Literal.LiteralValue ?? lit.Literal.Text,
+                LiteralKind.Text, lit.Span);
+        }
+        return DesugarExpr(part);
+    }
 
     Pattern DesugarPattern(PatternNode node) => node switch
     {

@@ -129,6 +129,47 @@ public sealed class Lexer
     Token ScanTextLiteral()
     {
         SourcePosition start = MakePosition();
+        int savedPos = m_position;
+        int savedLine = m_line;
+        int savedCol = m_column;
+
+        // Peek ahead to determine if this string contains interpolation holes.
+        bool hasInterpolation = false;
+        Advance(); // skip opening "
+        while (!IsAtEnd && Current != '"' && Current != '\n')
+        {
+            if (Current == '\\' && m_position + 1 < m_text.Length)
+            {
+                Advance();
+                Advance();
+            }
+            else if (Current == '{')
+            {
+                hasInterpolation = true;
+                break;
+            }
+            else
+            {
+                Advance();
+            }
+        }
+
+        // Restore position and scan for real.
+        m_position = savedPos;
+        m_line = savedLine;
+        m_column = savedCol;
+
+        if (hasInterpolation)
+        {
+            return ScanInterpolatedString();
+        }
+
+        return ScanPlainTextLiteral();
+    }
+
+    Token ScanPlainTextLiteral()
+    {
+        SourcePosition start = MakePosition();
         Advance();
 
         System.Text.StringBuilder sb = new();
@@ -144,6 +185,7 @@ public sealed class Lexer
                     'r' => '\r',
                     '\\' => '\\',
                     '"' => '"',
+                    '{' => '{',
                     _ => Current
                 });
                 Advance();
@@ -169,6 +211,126 @@ public sealed class Lexer
         {
             LiteralValue = sb.ToString()
         };
+    }
+
+    Token ScanInterpolatedString()
+    {
+        SourcePosition start = MakePosition();
+        Advance(); // skip opening "
+
+        m_pending.Add(new Token(TokenKind.InterpolatedStart, "\"", MakeSpan(start)));
+
+        while (!IsAtEnd && Current != '"' && Current != '\n')
+        {
+            if (Current == '{')
+            {
+                SourcePosition braceStart = MakePosition();
+                Advance();
+                m_pending.Add(new Token(TokenKind.InterpolatedExprStart, "{", MakeSpan(braceStart)));
+
+                // Scan expression tokens until matching }.
+                int depth = 1;
+                while (!IsAtEnd && depth > 0)
+                {
+                    SkipSpaces();
+                    if (IsAtEnd) break;
+
+                    if (Current == '}')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            SourcePosition closeStart = MakePosition();
+                            Advance();
+                            m_pending.Add(new Token(TokenKind.InterpolatedExprEnd, "}", MakeSpan(closeStart)));
+                            break;
+                        }
+                    }
+
+                    if (depth > 0 && !IsAtEnd)
+                    {
+                        if (Current == '{') depth++;
+                        Token exprToken = ScanExpressionToken();
+                        m_pending.Add(exprToken);
+                    }
+                }
+
+                if (depth > 0)
+                {
+                    m_diagnostics.Error("CDX0004", "Unterminated interpolation expression", MakeSpan(start));
+                }
+            }
+            else
+            {
+                ScanTextFragment();
+            }
+        }
+
+        if (IsAtEnd || Current == '\n')
+        {
+            m_diagnostics.Error("CDX0001", "Unterminated text literal", MakeSpan(start));
+        }
+        else
+        {
+            SourcePosition endStart = MakePosition();
+            Advance();
+            m_pending.Add(new Token(TokenKind.InterpolatedEnd, "\"", MakeSpan(endStart)));
+        }
+
+        // Return the first pending token; the rest are queued.
+        Token first = m_pending[0];
+        m_pending.RemoveAt(0);
+        return first;
+    }
+
+    void ScanTextFragment()
+    {
+        SourcePosition start = MakePosition();
+        System.Text.StringBuilder sb = new();
+
+        while (!IsAtEnd && Current != '"' && Current != '{' && Current != '\n')
+        {
+            if (Current == '\\' && m_position + 1 < m_text.Length)
+            {
+                Advance();
+                sb.Append(Current switch
+                {
+                    'n' => '\n',
+                    't' => '\t',
+                    'r' => '\r',
+                    '\\' => '\\',
+                    '"' => '"',
+                    '{' => '{',
+                    _ => Current
+                });
+                Advance();
+            }
+            else
+            {
+                sb.Append(Current);
+                Advance();
+            }
+        }
+
+        if (sb.Length > 0)
+        {
+            SourceSpan span = MakeSpan(start);
+            m_pending.Add(new Token(TokenKind.TextFragment, m_text[start.Offset..span.End.Offset], span)
+            {
+                LiteralValue = sb.ToString()
+            });
+        }
+    }
+
+    Token ScanExpressionToken()
+    {
+        SkipSpaces();
+        char c = Current;
+
+        if (c == '"') return ScanPlainTextLiteral();
+        if (char.IsDigit(c)) return ScanNumber();
+        if (char.IsLetter(c) || c == '_') return ScanIdentifierOrKeyword();
+        return ScanOperator();
     }
 
     Token ScanNumber()
