@@ -76,8 +76,9 @@ public enum SyntaxKind
     // Parameters
     Parameter,
 
-    // Imports
+    // Imports and Exports
     Import,
+    Export,
 
     // Error recovery
     ErrorNode,
@@ -104,6 +105,7 @@ public sealed record DocumentNode(
     : SyntaxNode(SyntaxKind.Document, Span)
 {
     public IReadOnlyList<ImportNode> Imports { get; init; } = [];
+    public IReadOnlyList<ExportNode> Exports { get; init; } = [];
 
     public DocumentNode(IReadOnlyList<DefinitionNode> Definitions, SourceSpan Span)
         : this(Definitions, Array.Empty<TypeDefinitionNode>(), Array.Empty<ClaimNode>(),
@@ -118,6 +120,7 @@ public sealed record DocumentNode(
         get
         {
             foreach (ImportNode imp in Imports) yield return imp;
+            foreach (ExportNode exp in Exports) yield return exp;
             foreach (ChapterNode ch in Chapters) yield return ch;
             foreach (TypeDefinitionNode td in TypeDefinitions) yield return td;
             foreach (ClaimNode cl in Claims) yield return cl;
@@ -167,6 +170,12 @@ public sealed record NotationBlockNode(
 
 public sealed record ImportNode(Token Name, SourceSpan Span)
     : SyntaxNode(SyntaxKind.Import, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [];
+}
+
+public sealed record ExportNode(IReadOnlyList<Token> Names, SourceSpan Span)
+    : SyntaxNode(SyntaxKind.Export, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [];
 }

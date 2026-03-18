@@ -48,7 +48,8 @@ public static partial class Program
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        NameResolver resolver = CreateResolver(diagnostics);
+        NameResolver resolver = CreateResolver(diagnostics,
+            Path.GetDirectoryName(Path.GetFullPath(filePath)));
         ResolvedModule resolved = resolver.Resolve(module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
@@ -125,7 +126,10 @@ public static partial class Program
             allProofs,
             combinedSpan);
 
-        NameResolver resolver = CreateResolver(diagnostics);
+        string? baseDir = filePaths.Length > 0
+            ? Path.GetDirectoryName(Path.GetFullPath(filePaths[0]))
+            : null;
+        NameResolver resolver = CreateResolver(diagnostics, baseDir);
         ResolvedModule resolved = resolver.Resolve(combined);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
@@ -169,13 +173,16 @@ public static partial class Program
         }
     }
 
-    static NameResolver CreateResolver(DiagnosticBag diagnostics)
+    static NameResolver CreateResolver(DiagnosticBag diagnostics, string? baseDirectory = null)
     {
+        string dir = baseDirectory ?? Directory.GetCurrentDirectory();
+        List<IModuleLoader> loaders = [new FileModuleLoader(dir, diagnostics)];
+
         Codex.Repository.FactStore? store =
             Codex.Repository.FactStore.Open(Directory.GetCurrentDirectory());
         if (store is not null)
-            return new NameResolver(diagnostics,
-                new RepositoryModuleLoader(store, diagnostics));
-        return new(diagnostics);
+            loaders.Add(new RepositoryModuleLoader(store, diagnostics));
+
+        return new NameResolver(diagnostics, new CompositeModuleLoader([.. loaders]));
     }
 }

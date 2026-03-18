@@ -27,6 +27,8 @@ public sealed class Set<T> : IEnumerable<T>
 
     public Set<T> Union(Set<T> other) => new(m_inner.Union(other.m_inner));
 
+    public Set<T> Intersect(Set<T> other) => new(m_inner.Intersect(other.m_inner));
+
     public int Count => m_inner.Count;
 
     public IEnumerator<T> GetEnumerator() => m_inner.GetEnumerator();

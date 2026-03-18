@@ -11,6 +11,7 @@ public sealed record Module(
     SourceSpan Span)
 {
     public IReadOnlyList<ImportDecl> Imports { get; init; } = [];
+    public IReadOnlyList<ExportDecl> Exports { get; init; } = [];
 }
 
 public sealed record Definition(
@@ -23,6 +24,8 @@ public sealed record Definition(
 public sealed record Parameter(Name Name, TypeExpr? TypeAnnotation, SourceSpan Span);
 
 public sealed record ImportDecl(Name ModuleName, SourceSpan Span);
+
+public sealed record ExportDecl(IReadOnlyList<Name> Names, SourceSpan Span);
 
 public abstract record Expr(SourceSpan Span);
 
