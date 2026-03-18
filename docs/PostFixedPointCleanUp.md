@@ -39,7 +39,7 @@ return in `main()`, expected from effect syntax gap).
 |--------|---------------|----------------|
 | `object` references | 5 (all legitimate) | 3 (all legitimate) |
 | `_p0_` proxy params | 23 | 17 |
-| Unification errors | 0 | 1 |
+| Unification errors | 0 | 0 |
 | ErrorTy bindings | 0 | 0 |
 | Has-object bindings | 0 | 1 (`main` only) |
 
@@ -74,8 +74,8 @@ return variants (Stage 2 emits single-line bodies).
 |-----------|-----|-----|--------|
 | 90 `object` lines | 90 | **3** (Stage 2), **5** (Stage 0) | ✅ Fixed — all remaining are legitimate |
 | 17 `_p0_` proxy lines | 17 | **17** (Stage 2), **23** (Stage 0) | ⚠️ Cosmetic — partial application wrappers, C# infers types |
-| Byte-for-byte convergence | No | No | ⚠️ Stage 0 (4,925 lines) vs Stage 2 (1,203 lines) — different formatting |
-| Effect annotations | Missing | Missing | ⚠️ Parser doesn't handle `[Console]` syntax |
+| Byte-for-byte convergence | No | No | ⚠️ Stage 0 (4,925 lines) vs Stage 2 (1,205 lines) — different formatting |
+| Effect annotations | Missing | **Fixed** | ✅ Parser skips `[Console]` effect syntax, 0 unification errors |
 
 ---
 
@@ -83,14 +83,9 @@ return variants (Stage 2 emits single-line bodies).
 
 ### Tier 1: Correctness
 
-**1. Effect annotation parsing** — The self-hosted parser does not handle
-`[Console]` or `[State s]` effect syntax in type annotations. This causes:
-- 1 unification error: `Unknown name: Nothing` (from `main : [Console] Nothing`)
-- `main()` returns `object` instead of `void`
-
-Fix location: `Codex.Codex/Syntax/Parser.codex`, in the type annotation
-parsing section. Need to recognize `[` as start of an effect row and parse
-`[EffectName]` or `[EffectName param]` before the return type.
+**1. ~~Effect annotation parsing~~** ✅ — Fixed. `parse-effect-type` in
+`Parser.codex` skips `[...]` effect brackets and parses the return type.
+Self-hosted compiler now has 0 unification errors (was 1).
 
 **2. Verify Stage 2 compiles as C#** — Stage 2 output (`stage1-output.cs`)
 needs to be tested as a standalone C# program. Currently it is written out
@@ -100,7 +95,7 @@ by `Codex.Bootstrap` but not compiled. Create a test that builds it with
 ### Tier 2: Convergence
 
 **3. Emission format alignment** — Stage 0 emits multi-line method bodies
-(4,925 lines). Stage 2 emits single-line expression bodies (1,203 lines).
+(4,925 lines). Stage 2 emits single-line expression bodies (1,205 lines).
 True fixed-point requires identical output. Options:
 - Make the C# reference emitter match the self-hosted style (expression bodies)
 - Make the self-hosted emitter match Stage 0 style (statement bodies)

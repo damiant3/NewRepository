@@ -438,13 +438,13 @@ public static class Codex_Codex_Codex
 
     public static AModule desugar_document(Document doc, string module_name) => new AModule(name: make_name(module_name), defs: map_list(desugar_def, doc.defs), type_defs: map_list(desugar_type_def, doc.type_defs));
 
-    public static List<T191> map_list<T181, T191>(Func<T181, T191> f, List<T181> xs) => map_list_loop(f, xs, 0, list_length(xs), new List<T191>());
+    public static List<T190> map_list<T180, T190>(Func<T180, T190> f, List<T180> xs) => map_list_loop(f, xs, 0, list_length(xs), new List<T190>());
 
-    public static List<T204> map_list_loop<T203, T204>(Func<T203, T204> f, List<T203> xs, long i, long len, List<T204> acc) => ((i == len) ? acc : map_list_loop(f, xs, (i + 1), len, (acc + new List<T204> { f(list_at(xs)(i)) })));
+    public static List<T203> map_list_loop<T202, T203>(Func<T202, T203> f, List<T202> xs, long i, long len, List<T203> acc) => ((i == len) ? acc : map_list_loop(f, xs, (i + 1), len, (acc + new List<T203> { f(list_at(xs)(i)) })));
 
-    public static T216 fold_list<T216, T207>(Func<T216, Func<T207, T216>> f, T216 z, List<T207> xs) => fold_list_loop(f, z, xs, 0, list_length(xs));
+    public static T215 fold_list<T215, T206>(Func<T215, Func<T206, T215>> f, T215 z, List<T206> xs) => fold_list_loop(f, z, xs, 0, list_length(xs));
 
-    public static T230 fold_list_loop<T230, T225>(Func<T230, Func<T225, T230>> f, T230 z, List<T225> xs, long i, long len) => ((i == len) ? z : fold_list_loop(f, f(z)(list_at(xs)(i)), xs, (i + 1), len));
+    public static T229 fold_list_loop<T229, T224>(Func<T229, Func<T224, T229>> f, T229 z, List<T224> xs, long i, long len) => ((i == len) ? z : fold_list_loop(f, f(z)(list_at(xs)(i)), xs, (i + 1), len));
 
     public static Diagnostic make_error(string code, string msg) => new Diagnostic(code: code, message: msg, severity: Error);
 
@@ -850,11 +850,15 @@ public static class Codex_Codex_Codex
 
     public static ParseTypeResult unwrap_type_ok(ParseTypeResult r, Func<TypeExpr, Func<ParseState, ParseTypeResult>> f) => r switch { TypeOk(var t, var st) => f(t)(st),  };
 
-    public static ParseTypeResult parse_type_atom(ParseState st) => (is_ident(current_kind(st)) ? ((Token tok = current(st)) is var _ ? parse_type_args(new NamedType(tok), advance(st)) : default) : (is_type_ident(current_kind(st)) ? ((Token tok = current(st)) is var _ ? parse_type_args(new NamedType(tok), advance(st)) : default) : (is_left_paren(current_kind(st)) ? parse_paren_type(advance(st)) : ((Token tok = current(st)) is var _ ? new TypeOk(new NamedType(tok), advance(st)) : default))));
+    public static ParseTypeResult parse_type_atom(ParseState st) => (is_ident(current_kind(st)) ? ((Token tok = current(st)) is var _ ? parse_type_args(new NamedType(tok), advance(st)) : default) : (is_type_ident(current_kind(st)) ? ((Token tok = current(st)) is var _ ? parse_type_args(new NamedType(tok), advance(st)) : default) : (is_left_paren(current_kind(st)) ? parse_paren_type(advance(st)) : (is_left_bracket(current_kind(st)) ? parse_effect_type(advance(st)) : ((Token tok = current(st)) is var _ ? new TypeOk(new NamedType(tok), advance(st)) : default)))));
 
     public static ParseTypeResult parse_paren_type(ParseState st) => ((ParseTypeResult inner = parse_type(st)) is var _ ? unwrap_type_ok(inner, finish_paren_type) : default);
 
     public static ParseTypeResult finish_paren_type(TypeExpr t, ParseState st) => ((ParseState st2 = expect(RightParen, st)) is var _ ? new TypeOk(new ParenType(t), st2) : default);
+
+    public static ParseTypeResult parse_effect_type(ParseState st) => ((ParseState st2 = skip_effect_contents(st)) is var _ ? parse_type(st2) : default);
+
+    public static ParseState skip_effect_contents(ParseState st) => (is_done(st) ? st : (is_right_bracket(current_kind(st)) ? advance(st) : skip_effect_contents(advance(st))));
 
     public static ParseTypeResult parse_type_args(TypeExpr base_type, ParseState st) => (is_done(st) ? new TypeOk(base_type, st) : (is_type_arg_start(current_kind(st)) ? parse_type_arg_next(base_type, st) : new TypeOk(base_type, st)));
 
@@ -1197,8 +1201,6 @@ public static class Codex_Codex_Codex
     public static CompileResult compile_checked(string source, string module_name) => ((List<Token> tokens = tokenize(source)) is var _ ? ((ParseState st = make_parse_state(tokens)) is var _ ? ((Document doc = parse_document(st)) is var _ ? ((AModule ast = desugar_document(doc, module_name)) is var _ ? ((ResolveResult resolve_result = resolve_module(ast)) is var _ ? ((list_length(resolve_result.errors) > 0) ? new CompileError(resolve_result.errors) : ((ModuleResult check_result = check_module(ast)) is var _ ? ((IRModule ir = lower_module(ast, check_result.types, check_result.state)) is var _ ? new CompileOk(emit_full_module(ir, ast.type_defs), check_result) : default) : default)) : default) : default) : default) : default) : default);
 
     public static string test_source() => "square : Integer -> Integer\\nsquare (x) = x * x\\nmain = square 5";
-
-    public static [ Console() => Nothing;
 
     public static object main() => { print_line(compile(test_source, "test"));  };
 

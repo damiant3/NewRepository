@@ -17,7 +17,7 @@ Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
 
 ---
 
-## Non-Negotiable Code Rules
+## Non-Negotiable Code Rules for C#
 
 - **Private instance fields MUST use the `m_` prefix** — e.g. `m_diagnostics`, `m_localEnv`, `m_tokens`. `TreatWarningsAsErrors` is `true`; an unused field is a build failure.
 - **No XML doc comments.** Do not add `///` comments. Code should be self-documenting. Only add a comment if the agent genuinely needs it to avoid re-discovering a non-obvious decision.
@@ -34,17 +34,38 @@ Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
 ## Terminal Discipline
 
 - **Never run multi-line PowerShell scripts directly in the terminal.** Write a `.ps1` script file, then invoke it with `pwsh -File <path>`. Multi-line scripts cause the terminal to hang waiting for input the agent cannot provide.
-- **Never use `Write-Output`, `Write-Host`, or bare expressions for terminal feedback.** These are unreliable in the agent terminal. Write results to a temp file and read it back with `get_file`, or use `edit_file` / `create_file` directly.
-- **If a terminal command takes more than a few seconds, assume it is hung.** Switch to a file-based approach.
-- **Prefer `edit_file` and `create_file` over terminal commands for all file mutations.**
-- **Terminal is for read-only queries and build invocations only:** `dotnet build`, `dotnet test`, `Select-String`, `Get-ChildItem`, and similar one-liners.
+
+### File Editing Strategy (Mandatory for .codex files and any file > 100 lines)
+
+The `edit_file` tool is unreliable on large files. It silently corrupts unrelated lines —
+renaming variables (`def-result` → `def_result`), swapping function names
+(`skip-newlines` → `skip-until-right-bracket`), changing return types
+(`ParseExprResult` → `ParseDefResult`), and truncating files. These corruptions
+are silent and often not caught until build time.
+
+**Required workflow for all file edits:**
+
+1. **Write the complete new file** to `<filename>.new` using `create_file`.
+   Build the content by reading the original with `get_file`, making changes
+   in memory, and writing the full result.
+2. **Backup the current file** — copy `<filename>` to `<filename>.bak`.
+3. **Swap** — copy `<filename>.new` to `<filename>`.
+4. **Verify** — diff against `.bak` to confirm only intended changes exist.
+   Check line count: `$new.Count` should equal `$old.Count + expected delta`.
+5. **If the build fails** — restore from `.bak` immediately, inspect, and retry.
+6. **Clean up** — delete `.bak` and `.new` files when the task is complete.
+
+**Never use `edit_file` on a file longer than 100 lines.** Always use the
+write-full-file strategy above. For short files (< 100 lines), `edit_file`
+is acceptable but verify the result with `get_file` immediately after.
+
 
 ---
 
 ## File Editing Rules
 
 - **Always read a file before editing it** unless you just created it.  Always backup a file locally before editing it, unless it is fresh from the repo.  The file edit tool occasionally nukes stuff, and you need a quick plan rather than rewriting hundreds of lines of code.  Cleanup .bak files when done.
-- **Use `edit_file` with enough surrounding context** (unique lines above and below the change) so the tool can locate the edit site unambiguously. If an edit fails, re-read the file and provide more context lines.
+- **When Using `edit_file`, provide enough surrounding context** (unique lines above and below the change) so the tool can locate the edit site unambiguously. If an edit fails, re-read the file and provide more context lines.
 - **Never print out a full file as a code block and ask the user to paste it.** Use `edit_file` or `create_file`.
 
 ### Large File Editing Requirement

@@ -286,8 +286,10 @@ Section: Type Parsing
             in parse-type-args (NamedType tok) (advance st)
           else if is-left-paren (current-kind st)
             then parse-paren-type (advance st)
-            else let tok = current st
-              in TypeOk (NamedType tok) (advance st)
+            else if is-left-bracket (current-kind st)
+              then parse-effect-type (advance st)
+              else let tok = current st
+                in TypeOk (NamedType tok) (advance st)
 
     parse-paren-type : ParseState -> ParseTypeResult
     parse-paren-type (st) =
@@ -298,6 +300,17 @@ Section: Type Parsing
     finish-paren-type (t) (st) =
       let st2 = expect RightParen st
       in TypeOk (ParenType t) st2
+
+    parse-effect-type : ParseState -> ParseTypeResult
+    parse-effect-type (st) =
+      let st2 = skip-effect-contents st
+      in parse-type st2
+
+    skip-effect-contents : ParseState -> ParseState
+    skip-effect-contents (st) =
+      if is-done st then st
+      else if is-right-bracket (current-kind st) then advance st
+      else skip-effect-contents (advance st)
 
     parse-type-args : TypeExpr -> ParseState -> ParseTypeResult
     parse-type-args (base-type) (st) =
