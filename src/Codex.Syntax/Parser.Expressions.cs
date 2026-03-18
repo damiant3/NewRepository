@@ -108,6 +108,9 @@ public sealed partial class Parser
                 return new LiteralExpressionNode(token);
             }
 
+            case TokenKind.InterpolatedStart:
+                return ParseInterpolatedString();
+
             case TokenKind.Identifier:
             case TokenKind.TypeIdentifier:
             {
@@ -431,6 +434,45 @@ public sealed partial class Parser
 
         SourceSpan endSpan = statements.Count > 0 ? statements[^1].Span : start.Span;
         return new DoExpressionNode(statements, start.Span.Through(endSpan));
+    }
+
+    ExpressionNode ParseInterpolatedString()
+    {
+        Token start = Current;
+        Advance(); // skip InterpolatedStart
+
+        List<ExpressionNode> parts = [];
+        while (Current.Kind != TokenKind.InterpolatedEnd && !IsAtEnd)
+        {
+            if (Current.Kind == TokenKind.TextFragment)
+            {
+                Token frag = Current;
+                Advance();
+                parts.Add(new LiteralExpressionNode(frag with { Kind = TokenKind.TextLiteral }));
+            }
+            else if (Current.Kind == TokenKind.InterpolatedExprStart)
+            {
+                Advance(); // skip {
+                ExpressionNode expr = ParseExpression();
+                parts.Add(expr);
+                if (Current.Kind == TokenKind.InterpolatedExprEnd)
+                {
+                    Advance(); // skip }
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if (Current.Kind == TokenKind.InterpolatedEnd)
+        {
+            Advance();
+        }
+
+        SourceSpan span = start.Span.Through(Previous.Span);
+        return new InterpolatedStringNode(parts, span);
     }
 
     PatternNode ParsePattern()

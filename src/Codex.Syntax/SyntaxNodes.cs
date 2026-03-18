@@ -33,6 +33,7 @@ public enum SyntaxKind
     DoExpression,
     DoBindStatement,
     DoExprStatement,
+    InterpolatedStringExpression,
 
     // Patterns
     VariablePattern,
@@ -320,6 +321,12 @@ public sealed record DoExprStatementNode(ExpressionNode Expression, SourceSpan S
     : DoStatementNode(SyntaxKind.DoExprStatement, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [Expression];
+}
+
+public sealed record InterpolatedStringNode(IReadOnlyList<ExpressionNode> Parts, SourceSpan Span)
+    : ExpressionNode(SyntaxKind.InterpolatedStringExpression, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => Parts;
 }
 
 public abstract record PatternNode(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
