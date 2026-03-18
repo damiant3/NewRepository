@@ -102,8 +102,11 @@ GIT_AGE=$(git log -1 --pretty=format:"%ar" 2>/dev/null || echo "?")
 GIT_DIRTY=$(git diff --stat 2>/dev/null | grep '|' | wc -l)
 
 # Cognitive load estimate
-CONTEXT_BUDGET=80000
+# 60K is the honest effective working memory — not theoretical context window
+CONTEXT_BUDGET=60000
 HOT_PATH_FILES="Parser.codex TypeChecker.codex CSharpEmitter.codex Lowering.codex Unifier.codex Lexer.codex"
+# Cascade risk: upstream files affect all downstream stages
+CASCADE_FILES="Parser.codex Lexer.codex"
 HOT_CHARS=0
 HOT_COUNT=0
 HOT_LINES=0
@@ -117,6 +120,24 @@ for name in $HOT_PATH_FILES; do
         HOT_COUNT=$((HOT_COUNT + 1))
     fi
 done
+
+# Error state from diagnostic files (no build needed)
+UNIFY_ERRORS=0
+ERRORTYS=0
+DIAG_FILE="Codex.Codex/type-diag.txt"
+UNIFY_FILE="Codex.Codex/unify-errors.txt"
+if [ -f "$UNIFY_FILE" ]; then
+    UNIFY_ERRORS=$(grep -c . "$UNIFY_FILE" 2>/dev/null || true)
+    UNIFY_ERRORS=${UNIFY_ERRORS:-0}
+fi
+if [ -f "$DIAG_FILE" ]; then
+    ERRORTYS=$(grep -c "ERRORTY" "$DIAG_FILE" 2>/dev/null || true)
+    ERRORTYS=${ERRORTYS:-0}
+fi
+
+# Mini-file status
+HAS_MINI=false
+[ -f "samples/mini-bootstrap.codex" ] && HAS_MINI=true
 
 HOT_RATIO=$((HOT_CHARS * 100 / (CONTEXT_BUDGET > 0 ? CONTEXT_BUDGET : 1)))
 TYPE_DEBT=$((S0_OBJECTS + S0_P0))
@@ -152,6 +173,7 @@ if $JSON_MODE; then
   "convergence": { "s0": $S0_CHARS, "s1": $S1_CHARS, "s3": $S3_CHARS, "fixedPoint": $FIXED_POINT },
   "git": { "branch": "$GIT_BRANCH", "hash": "$GIT_HASH", "dirty": $GIT_DIRTY },
   "cognitive": { "budget": $CONTEXT_BUDGET, "hotChars": $HOT_CHARS, "hotFiles": $HOT_COUNT, "typeDebt": $TYPE_DEBT, "thrash": $THRASH, "risk": "$RISK" },
+  "errors": { "unification": $UNIFY_ERRORS, "errorTy": $ERRORTYS, "hasMiniFile": $HAS_MINI },
   "tests": { "files": $TEST_FILES, "methods": $TEST_COUNT }
 }
 ENDJSON
@@ -196,11 +218,28 @@ for name in $HOT_PATH_FILES; do
         l=$(wc -l < "$f")
         c=$(wc -c < "$f")
         pct=$((c * 100 / CONTEXT_BUDGET))
+        cascade=""
+        for cn in $CASCADE_FILES; do
+            [ "$name" = "$cn" ] && cascade="${RED}↯${RESET} "
+        done
         if [ "$pct" -gt 30 ]; then warn="${YELLOW} ⚠ ${pct}% of context${RESET}"
         else warn="${DIM} ${pct}% of context${RESET}"; fi
-        printf "      ${WHITE}%-35s${RESET} ${DIM}%5d${RESET} lines  ${DIM}%6d${RESET} chars %b\n" "$name" "$l" "$c" "$warn"
+        printf "      %b${WHITE}%-35s${RESET} ${DIM}%5d${RESET} lines  ${DIM}%6d${RESET} chars %b\n" "$cascade" "$name" "$l" "$c" "$warn"
     fi
 done
+echo -e "    ${DIM}↯ = cascade risk: bugs here affect all downstream stages${RESET}"
+echo -e "$SEP"
+
+# Error state (from diagnostic files — no build needed)
+echo ""
+echo -e "  ${BOLD}🔍 ERROR STATE${RESET}  ${DIM}(from diagnostic files)${RESET}"
+echo -e "    Unification errors  $(severity $UNIFY_ERRORS 0 5)"
+echo -e "    ErrorTy bindings    $(severity $ERRORTYS 0 3)"
+if $HAS_MINI; then
+    echo -e "    Mini repro file     ${GREEN}✓ samples/mini-bootstrap.codex${RESET}"
+else
+    echo -e "    Mini repro file     ${YELLOW}✗ not found — create one for focused debugging${RESET}"
+fi
 echo -e "$SEP"
 
 # Generated output
