@@ -87,14 +87,20 @@ return variants (Stage 2 emits single-line bodies).
 `Parser.codex` skips `[...]` effect brackets and parses the return type.
 Self-hosted compiler now has 0 unification errors (was 1).
 
-**2. ~~Verify Stage 2 compiles as C#~~** ⚠️ — **Stage 2 does NOT compile.**
-The self-hosted C# emitter (`CSharpEmitter.codex`) emits let-bindings as
-`(T x = value) is var _ ? body : default` — this is not valid C# syntax.
-Stage 0 uses `((Func<T,R>)((x) => body))(value)` which is valid.
-3,793 C# errors when building `stage1-output.cs` standalone. Root cause:
-`emit-let` in `CSharpEmitter.codex` produces declaration-expression patterns
-that C# doesn't allow. Fix: change the self-hosted emitter to use the same
-lambda-wrapping strategy as Stage 0, or switch to statement-bodied methods.
+**2. ~~Verify Stage 2 compiles as C#~~** ✅ — **Stage 2 compiles with 0 errors.**
+Fixed 10 categories of emitter bugs in `CSharpEmitter.codex`:
+1. `emit-let`: `(T x = val) is var _` → `((Func<T,R>)((x) => body))(val)`
+2. `emit-do`: bare `{ }` blocks → `((Func<object>)(() => { ... return null; }))()`
+3. `is-cs-member-name`: `Equals` → `Equals_` (avoids record/method name collision)
+4. `IrName` for constructors: `IntLit` → `new IntLit()`
+5. `IrName` for zero-arg functions: `f` → `f()` when arity = 0
+6. `IrName` for method groups: wrap multi-arg functions in partial application lambdas
+7. `emit-binary`: list `++` → `Enumerable.Concat(...).ToList()`
+8. `emit-match`: conditional `_ => throw` wildcard for non-exhaustive switches
+9. `emit-match-arms`: stop after first catch-all (prevents duplicate `_` patterns)
+10. `emit-full-module`: top-level `Codex_Name.main();` before type declarations
+`CodexRuntime.cs` prelude provides 12 builtin functions (`list-length`, `list-at`, etc.)
+Progress: 3,793 errors → 0 errors. Stage 2 self-hosting proven.
 
 ### Tier 2: Convergence
 
