@@ -199,7 +199,11 @@ Section: Expression Emission
         if IrError (msg) (ty) -> "/* error: " ++ msg ++ " */ default"
 
     escape-text : Text -> Text
-    escape-text (s) = text-replace (text-replace s "\\" "\\\\") "\"" "\\\""
+    escape-text (s) =
+      let s1 = text-replace s "\\" "\\\\"
+      in let s2 = text-replace s1 (code-to-char 10) "\\n"
+        in let s3 = text-replace s2 (code-to-char 13) "\\r"
+          in text-replace s3 "\"" "\\\""
 
     emit-bin-op : IRBinaryOp -> Text
     emit-bin-op (op) =
