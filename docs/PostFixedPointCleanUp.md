@@ -99,8 +99,20 @@ Fixed 10 categories of emitter bugs in `CSharpEmitter.codex`:
 8. `emit-match`: conditional `_ => throw` wildcard for non-exhaustive switches
 9. `emit-match-arms`: stop after first catch-all (prevents duplicate `_` patterns)
 10. `emit-full-module`: top-level `Codex_Name.main();` before type declarations
+11. `escape-text`: re-escape newline/CR characters back to `\n`/`\r` for C# strings
 `CodexRuntime.cs` prelude provides 12 builtin functions (`list-length`, `list-at`, etc.)
+Additional fixes:
+- **Parser**: column-aware `when` parsing prevents nested `when` from stealing outer arms
+- **Lexer**: `process-escapes` handles `\n \t \r \\ \"` at lex time (matches Stage 0)
+- **Unifier**: restored original nested `when` structure (parser fix made flattening unnecessary)
 Progress: 3,793 errors → 0 errors. Stage 2 self-hosting proven.
+
+**2b. Standalone `codex.exe`** ✅ — `codex-standalone/` project builds and runs.
+`codex version` and `codex build <file.codex>` work. Compiles `.codex` source to C#
+output with proper newlines and escaping. Known limitation: simple programs like
+`hello.codex` produce incorrect output (type checker doesn't resolve all bindings
+for standalone programs without type annotations on every def). The self-hosted
+compiler works correctly when compiling *itself* (full type annotations).
 
 ### Tier 2: Convergence
 
