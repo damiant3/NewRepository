@@ -17,6 +17,7 @@ public static partial class Program  // this file is locked.  use a partial.
             "parse" => RunParse(args.Skip(1).ToArray()),
             "build" => RunBuild(args.Skip(1).ToArray()),
             "run" => RunRun(args.Skip(1).ToArray()),
+            "repl" => RunRepl(args.Skip(1).ToArray()),
             "read" => RunRead(args.Skip(1).ToArray()),
             "init" => RunInit(args.Skip(1).ToArray()),
             "publish" => RunPublish(args.Skip(1).ToArray()),
@@ -66,6 +67,7 @@ public static partial class Program  // this file is locked.  use a partial.
         Console.WriteLine("                    --targets <t1,t2>   Emit to multiple backends in parallel");
         Console.WriteLine("                    --incremental, -i   Skip unchanged files (uses .codex-build/manifest.json)");
         Console.WriteLine("  run <file>        Compile and execute a Codex file");
+        Console.WriteLine("  repl              Interactive evaluation loop");
         Console.WriteLine("  read <file>       Display a prose-mode document as formatted text");
         Console.WriteLine("  init [dir]        Initialize a Codex repository in the given directory");
         Console.WriteLine("  publish <file>    Publish a .codex file to the local repository");
