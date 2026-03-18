@@ -161,7 +161,11 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
                 lit.Literal.LiteralValue ?? lit.Literal.Text,
                 LiteralKind.Text, lit.Span);
         }
-        return DesugarExpr(part);
+        Expr inner = DesugarExpr(part);
+        return new ApplyExpr(
+            new NameExpr(new Name("show"), fallbackSpan),
+            inner,
+            fallbackSpan);
     }
 
     Pattern DesugarPattern(PatternNode node) => node switch

@@ -128,9 +128,12 @@ public class DesugarerTests
         LiteralExpr hello = (LiteralExpr)inner.Left;
         Assert.Equal("hello ", hello.Value);
 
-        Assert.IsType<NameExpr>(inner.Right);
-        NameExpr nameRef = (NameExpr)inner.Right;
-        Assert.Equal("name", nameRef.Name.Value);
+        Assert.IsType<ApplyExpr>(inner.Right);
+        ApplyExpr showCall = (ApplyExpr)inner.Right;
+        Assert.IsType<NameExpr>(showCall.Function);
+        Assert.Equal("show", ((NameExpr)showCall.Function).Name.Value);
+        Assert.IsType<NameExpr>(showCall.Argument);
+        Assert.Equal("name", ((NameExpr)showCall.Argument).Name.Value);
 
         Assert.IsType<LiteralExpr>(outer.Right);
         LiteralExpr excl = (LiteralExpr)outer.Right;
@@ -152,7 +155,12 @@ public class DesugarerTests
     {
         Module module = ParseAndDesugar("x = \"{name}\"");
         Expr body = module.Definitions[0].Body;
-        Assert.IsType<NameExpr>(body);
+        Assert.IsType<ApplyExpr>(body);
+        ApplyExpr showCall = (ApplyExpr)body;
+        Assert.IsType<NameExpr>(showCall.Function);
+        Assert.Equal("show", ((NameExpr)showCall.Function).Name.Value);
+        Assert.IsType<NameExpr>(showCall.Argument);
+        Assert.Equal("name", ((NameExpr)showCall.Argument).Name.Value);
     }
 
     [Fact]
@@ -163,5 +171,24 @@ public class DesugarerTests
         Assert.IsType<LiteralExpr>(body);
         LiteralExpr lit = (LiteralExpr)body;
         Assert.Equal("", lit.Value);
+    }
+
+    [Fact]
+    public void Desugar_interpolated_integer_expr_wraps_in_show()
+    {
+        Module module = ParseAndDesugar("x = \"value: {42}\"");
+        Expr body = module.Definitions[0].Body;
+        Assert.IsType<BinaryExpr>(body);
+        BinaryExpr bin = (BinaryExpr)body;
+        Assert.Equal(BinaryOp.Append, bin.Op);
+
+        Assert.IsType<LiteralExpr>(bin.Left);
+        Assert.Equal("value: ", ((LiteralExpr)bin.Left).Value);
+
+        Assert.IsType<ApplyExpr>(bin.Right);
+        ApplyExpr showCall = (ApplyExpr)bin.Right;
+        Assert.IsType<NameExpr>(showCall.Function);
+        Assert.Equal("show", ((NameExpr)showCall.Function).Name.Value);
+        Assert.IsType<LiteralExpr>(showCall.Argument);
     }
 }
