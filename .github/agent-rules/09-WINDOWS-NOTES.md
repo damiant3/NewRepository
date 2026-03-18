@@ -61,21 +61,13 @@ and the per-file focus means agents can load only what they need. Specific findi
 
 ## PowerShell Version
 
-The VS terminal runs **Windows PowerShell 5.1** (`powershell.exe`), not PowerShell 7+
-(`pwsh.exe`). The rule in `02-TERMINAL.md` says:
+This workspace has **PowerShell 7+** (`pwsh.exe`) installed, so the `pwsh -File`
+command in `02-TERMINAL.md` is correct. Note that the VS terminal's
+`run_command_in_terminal` tool runs commands directly and handles this transparently
+— the `.ps1` file approach is rarely needed because single-line commands work fine
+in the agent terminal.
 
-> Write the script to a `.ps1` file using `create_file`.
-> Invoke it with `pwsh -File <script.ps1>`.
-
-This should be `powershell -File <script.ps1>` unless PowerShell 7 is explicitly
-installed. On most Windows development machines, `pwsh` is not available by default.
-
-**Recommendation**: Change to `powershell -File <script.ps1>` or note that either
-`powershell` or `pwsh` works depending on what's installed.
-
-In practice, the Copilot agent in VS uses its own `run_command_in_terminal` tool which
-handles this transparently — the `.ps1` file approach is rarely needed because
-single-line commands work fine in the agent terminal.
+If `pwsh` is ever unavailable, fall back to `powershell -File` (Windows PowerShell 5.1).
 
 ---
 

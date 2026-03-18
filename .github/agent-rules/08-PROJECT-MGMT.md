@@ -103,3 +103,53 @@ When both agents are active on the same repository:
 3. **Use branches.** See [07-GIT-WORKFLOW.md](07-GIT-WORKFLOW.md).
 4. **Leave breadcrumbs.** If you notice something the other agent should know about,
    leave a note in the relevant handoff doc or create a `TODO:` comment in the code.
+
+---
+
+## Cognitive Load Meter
+
+The project includes a **dashboard tool** that tracks cognitive load metrics —
+predicting when an agent is likely to thrash (chase red herrings, corrupt files,
+burn cycles on symptoms instead of root causes).
+
+### Running the Dashboard
+
+```powershell
+# Windows
+pwsh -File tools/codex-dashboard.ps1
+
+# Linux
+bash tools/codexdashboard.sh
+
+# JSON output (for programmatic use)
+pwsh -File tools/codex-dashboard.ps1 -Json
+```
+
+### What It Tracks
+
+| Metric | Why It Matters |
+|--------|---------------|
+| **Hot path ratio** | How much of the context budget the key files consume. >80% = danger. |
+| **Type debt** | `object` refs + `_p0_` proxies in generated output. Tracks bootstrap fidelity. |
+| **Fixed-point status** | Whether Stage 2 = Stage 3 (self-hosting invariant). |
+| **Thrash risk score** | Composite 0–6 score → LOW / MEDIUM / HIGH / CRITICAL. |
+| **Cascade risk** | Parser and Lexer bugs cascade to all downstream stages. |
+| **Dirty file count** | Uncommitted changes accumulate assumptions. |
+
+### When to Use It
+
+- **At session start** — get a baseline before diving in.
+- **Before touching hot-path files** (Parser, TypeChecker, Emitter) — check if you
+  have context budget for what you're about to do.
+- **After a series of fixes** — verify the thrash score is going down, not up.
+- **When stuck** — a HIGH or CRITICAL thrash risk means you should scope down to
+  one pipeline stage at a time.
+
+### Key Insight
+
+The agent can hold ~60K characters of effective working memory. The six hottest
+compiler files total ~116% of that budget. **You cannot hold Parser + TypeChecker +
+Emitter simultaneously.** Work on one stage at a time, build, verify, then move to
+the next. The dashboard makes this constraint visible.
+
+See `tools/CognitiveMeterReport.md` for field observations from a real session.
