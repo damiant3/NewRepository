@@ -361,22 +361,22 @@ Section: Type Definition Emission
     emit-type-def (td) =
       when td
         if ARecordTypeDef (name) (tparams) (fields) ->
-          let gen = emit-tparam-suffix tparams
+          let gen = emit-tparameter-suffix tparams
           in "public sealed record " ++ sanitize name.value ++ gen ++ "(" ++ emit-record-field-defs fields tparams 0 ++ ");\n"
         if AVariantTypeDef (name) (tparams) (ctors) ->
-          let gen = emit-tparam-suffix tparams
+          let gen = emit-tparameter-suffix tparams
           in "public abstract record " ++ sanitize name.value ++ gen ++ ";\n" ++ emit-variant-ctors ctors name tparams 0 ++ "\n"
 
-    emit-tparam-suffix : List Name -> Text
-    emit-tparam-suffix (tparams) =
+    emit-tparameter-suffix : List Name -> Text
+    emit-tparameter-suffix (tparams) =
       if list-length tparams == 0 then ""
-      else "<" ++ emit-tparam-names tparams 0 ++ ">"
+      else "<" ++ emit-tparameter-names tparams 0 ++ ">"
 
-    emit-tparam-names : List Name -> Integer -> Text
-    emit-tparam-names (tparams) (i) =
+    emit-tparameter-names : List Name -> Integer -> Text
+    emit-tparameter-names (tparams) (i) =
       if i == list-length tparams then ""
       else if i == list-length tparams - 1 then "T" ++ integer-to-text i
-        else "T" ++ integer-to-text i ++ ", " ++ emit-tparam-names tparams (i + 1)
+        else "T" ++ integer-to-text i ++ ", " ++ emit-tparameter-names tparams (i + 1)
 
     emit-record-field-defs : List ARecordFieldDef -> List Name -> Integer -> Text
     emit-record-field-defs (fields) (tparams) (i) =
@@ -392,7 +392,7 @@ Section: Type Definition Emission
 
     emit-variant-ctor : AVariantCtorDef -> Name -> List Name -> Text
     emit-variant-ctor (c) (base-name) (tparams) =
-      let gen = emit-tparam-suffix tparams
+      let gen = emit-tparameter-suffix tparams
       in if list-length c.fields == 0
         then "public sealed record " ++ sanitize c.name.value ++ gen ++ " : " ++ sanitize base-name.value ++ gen ++ ";\n"
         else "public sealed record " ++ sanitize c.name.value ++ gen ++ "(" ++ emit-ctor-fields c.fields tparams 0 ++ ") : " ++ sanitize base-name.value ++ gen ++ ";\n"
@@ -487,6 +487,14 @@ Section: Generic Helpers
       else if i == list-length ids - 1 then "T" ++ integer-to-text (list-at ids i)
         else "T" ++ integer-to-text (list-at ids i) ++ ", " ++ emit-type-params ids (i + 1)
 
+    extract-ctor-type-args : CodexType -> Text
+    extract-ctor-type-args (ty) =
+      when ty
+        if ConstructedTy (name) (args) ->
+          if list-length args == 0 then ""
+          else "<" ++ emit-cs-type-args args 0 ++ ">"
+        if _ -> ""
+
 Section: Tail Call Optimization
 
     is-self-call : IRExpr -> Text -> Boolean
@@ -515,7 +523,6 @@ Section: Tail Call Optimization
       else let b = list-at branches i
         in if has-tail-call b.body func-name then True
           else has-tail-call-branches branches func-name (i + 1)
-
     should-tco : IRDef -> Boolean
     should-tco (d) =
       if list-length d.params == 0 then False
