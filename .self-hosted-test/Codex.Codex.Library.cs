@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 
 
-
 public abstract record TokenKind;
 
 public sealed record EndOfFile : TokenKind;
