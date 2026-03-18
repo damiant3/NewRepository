@@ -2,114 +2,82 @@
 
 ## What This Repository Is
 
-Codex is a bootstrapped programming language compiler written in C# (.NET 8). The solution is `Codex.sln`.
+Codex is a bootstrapped programming language compiler written in C# (.NET 8) that
+compiles itself. The solution is `Codex.sln`. The compiler pipeline:
 
-The compilation pipeline is:
 ```
-Source (.codex) → Lexer → Parser → Desugarer → NameResolver → TypeChecker → Lowering → CSharpEmitter → dotnet
+Source (.codex) → Lexer → Parser → Desugarer → NameResolver → TypeChecker → Lowering → Emitter → dotnet/node/rustc/...
 ```
 
-Projects (in dependency order): `Codex.Core` → `Codex.Syntax` → `Codex.Ast` → `Codex.Semantics` → `Codex.Types` → `Codex.IR` → `Codex.Emit` → `Codex.Emit.CSharp` → `Codex.Cli`
+12 backends (C#, JavaScript, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage).
+654+ tests. Self-hosting achieved. Content-addressed fact store with collaboration protocol.
 
-Test projects: `Codex.Core.Tests`, `Codex.Syntax.Tests`, `Codex.Ast.Tests`, `Codex.Semantics.Tests`, `Codex.Types.Tests`
-
-Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the north-star specification — do not modify them unless explicitly asked.
-
----
-
-## Non-Negotiable Code Rules for C#
-
-- **Private instance fields MUST use the `m_` prefix** — e.g. `m_diagnostics`, `m_localEnv`, `m_tokens`. `TreatWarningsAsErrors` is `true`; an unused field is a build failure.
-- **No XML doc comments.** Do not add `///` comments. Code should be self-documenting. Only add a comment if the agent genuinely needs it to avoid re-discovering a non-obvious decision.
-- **No `var` when the type is not obvious** from the right-hand side.
-- **Minimize type information at callsites.** Use `new()` instead of `new TypeName()` when the target type is already specified by the declaration (field, variable, parameter, return type). Example: `Map<string, CodexType> m_map = Map<string, CodexType>.s_empty;` not `... = new Map<string, CodexType>(...)`.
-- **Usings: trial-and-error, compile-and-test.** Do not add `using` directives speculatively. `System`, `System.Collections.Generic`, `System.Linq`, `System.IO`, `System.Net.Http`, `System.Threading`, `System.Threading.Tasks` are implicit. `System.Collections.Immutable` is NOT implicit — add it only when the file uses `ImmutableArray`, `ImmutableDictionary`, etc. When you add a using, check if there are now-redundant fully-qualified type names in the same file and shorten them.
-- **Prefer null-safe abstractions over `TryGetValue`.** Use `Map<K,V>` (in `Codex.Core`) which returns `null` on missing keys instead of `ImmutableDictionary` + `TryGetValue`. If a .NET abstraction has bad null behavior (throws on missing key, requires `out` patterns), clone it null-safe in `Codex.Core` and use that.
-- **Omit default accessibility modifiers.** Do not write `private` on class members or `internal` on top-level types — those are the C# defaults. Only write an accessibility modifier when it differs from the default (e.g., `public`, `protected`, `internal` on a member).
-- 4 spaces indentation, UTF-8, max 120 characters per line.
-- `sealed record` for immutable reference types; `readonly record struct` for small value types.
+Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
+north-star specification — do not modify them unless explicitly asked.
 
 ---
 
-## Terminal Discipline
+## Agent Rules (Modular)
 
-- **Never run multi-line PowerShell scripts directly in the terminal.** Write a `.ps1` script file, then invoke it with `pwsh -File <path>`. Multi-line scripts cause the terminal to hang waiting for input the agent cannot provide.
+All agent behavior rules have been decomposed into focused documents in
+`.github/agent-rules/`. **Read the ones relevant to your current task.**
 
-### File Editing Strategy (Mandatory for .codex files and any file > 100 lines)
+| File | Covers |
+|------|--------|
+| [00-META.md](agent-rules/00-META.md) | **checkdate() rule**, agent identity, session hygiene |
+| [01-CODE-STYLE.md](agent-rules/01-CODE-STYLE.md) | C# naming, formatting, type conventions, test style |
+| [02-TERMINAL.md](agent-rules/02-TERMINAL.md) | Platform-specific terminal discipline (Windows/Linux) |
+| [03-FILE-EDITING.md](agent-rules/03-FILE-EDITING.md) | Edit strategies by file size, backup rules, corruption avoidance |
+| [04-SCOPE.md](agent-rules/04-SCOPE.md) | What you can modify freely vs. what needs permission |
+| [05-BUILD-VERIFY.md](agent-rules/05-BUILD-VERIFY.md) | Build/test requirements, quick checklist |
+| [06-PIPELINE.md](agent-rules/06-PIPELINE.md) | Compiler architecture, where to add things, backend status |
+| [07-GIT-WORKFLOW.md](agent-rules/07-GIT-WORKFLOW.md) | **Dual-agent mutual-review workflow**, branch naming, commit format |
+| [08-PROJECT-MGMT.md](agent-rules/08-PROJECT-MGMT.md) | Handoffs, decision logging, stuck-recovery, multi-agent coordination |
 
-The `edit_file` tool is unreliable on large files. It silently corrupts unrelated lines —
-renaming variables (`def-result` → `def_result`), swapping function names
-(`skip-newlines` → `skip-until-right-bracket`), changing return types
-(`ParseExprResult` → `ParseDefResult`), and truncating files. These corruptions
-are silent and often not caught until build time.
+### Critical Rules (Always Apply)
 
-**Required workflow for all file edits:**
+These rules apply to **every session**, regardless of task:
 
-1. **Write the complete new file** to `<filename>.new` using `create_file`.
-   Build the content by reading the original with `get_file`, making changes
-   in memory, and writing the full result.
-2. **Backup the current file** — copy `<filename>` to `<filename>.bak`.
-3. **Swap** — copy `<filename>.new` to `<filename>`.
-4. **Verify** — diff against `.bak` to confirm only intended changes exist.
-   Check line count: `$new.Count` should equal `$old.Count + expected delta`.
-5. **If the build fails** — restore from `.bak` immediately, inspect, and retry.
-6. **Clean up** — delete `.bak` and `.new` files when the task is complete.
-
-**Never use `edit_file` on a file longer than 100 lines.** Always use the
-write-full-file strategy above. For short files (< 100 lines), `edit_file`
-is acceptable but verify the result with `get_file` immediately after.
-
-
----
-
-## File Editing Rules
-
-- **Always read a file before editing it** unless you just created it.  Always backup a file locally before editing it, unless it is fresh from the repo.  The file edit tool occasionally nukes stuff, and you need a quick plan rather than rewriting hundreds of lines of code.  Cleanup .bak files when done.
-- **When Using `edit_file`, provide enough surrounding context** (unique lines above and below the change) so the tool can locate the edit site unambiguously. If an edit fails, re-read the file and provide more context lines.
-- **Never print out a full file as a code block and ask the user to paste it.** Use `edit_file` or `create_file`.
-
-### Large File Editing Requirement
-
-- **When a file exceeds ~300 lines and you need to add or iterate on multiple methods, use a partial class file.** Create a second file (e.g., `Program.Collaboration.cs`) with `partial class` containing the new methods. This keeps edits small and the UI responsive.
+1. **checkdate()** — Never trust memory for dates. Query the system clock. (See 00-META)
+2. **Build before commit** — `dotnet build Codex.sln` + `dotnet test Codex.sln`. (See 05-BUILD-VERIFY)
+3. **Read before edit** — Always read a file before modifying it. (See 03-FILE-EDITING)
+4. **No spec modifications** — `docs/00-OVERVIEW.md` through `docs/10-PRINCIPLES.md` are off-limits without user request. (See 04-SCOPE)
+5. **m_ prefix** — Private instance fields use `m_` prefix, no exceptions. (See 01-CODE-STYLE)
+6. **Branch workflow** — Commit to working branches, not master. Review before merge. (See 07-GIT-WORKFLOW)
 
 ---
 
-## When You Get Stuck
+## Non-Negotiable Code Rules (Quick Reference)
 
-- **If a tool call fails or produces no output, do not retry the same approach.** Switch strategies: use a different tool, write a script file, or ask the user.
-- **If you are about to attempt something you've already failed at, stop and reconsider.** Two failures on the same approach means the approach is wrong.
-- **The user is available mid-task.** If you need a design decision, ask.
-
----
-
-## Scope of Authority
-
-- Modify files in `src/`, `tests/`, `tools/`, `samples/`, and the three root docs (`README.md`, `CONTRIBUTING.md`, `.github/copilot-instructions.md`).
-- **Do not modify** `docs/00-OVERVIEW.md` through `docs/10-PRINCIPLES.md` unless explicitly asked — they are the architecture specification.
-- **Do not modify** `Directory.Build.props` without explicit instruction — it governs the whole solution build.
-- Each project may have its own style rules in `CONTRIBUTING.md`. Read and follow them.
+- **`m_` prefix** on private instance fields.
+- **No XML doc comments** (`///`).
+- **No `var`** when the type is not obvious.
+- **Omit default accessibility** — don't write `private` on members or `internal` on top-level types.
+- **`sealed record`** for immutable reference types; **`readonly record struct`** for small value types.
+- **4 spaces**, UTF-8, max 120 chars/line.
+- Use **`Map<K,V>`** from `Codex.Core` instead of `ImmutableDictionary` + `TryGetValue`.
+- Use **`new()`** when target type is already declared on the left side.
 
 ---
 
-## Build and Verify
-
-Before concluding any task that touches source:
+## Build and Verify (Quick Reference)
 
 ```sh
-dotnet build Codex.sln    # must produce zero warnings (warnings are errors)
-dotnet test Codex.sln     # all tests must pass
+dotnet build Codex.sln    # zero warnings (warnings are errors)
+dotnet test Codex.sln     # all tests pass
 ```
 
 ---
 
-## Adding to the Compiler Pipeline
+## Adding to the Compiler Pipeline (Quick Reference)
 
-| What you're adding | Where it goes |
-|--------------------|---------------|
-| New CST node | `Codex.Syntax/SyntaxNodes.cs` |
-| New AST node or desugaring | `Codex.Ast/` |
-| New type | `Codex.Types/` |
-| New IR node | `Codex.IR/IRModule.cs` + lowering in `Codex.IR/Lowering.cs` |
-| New C# emission rule | `Codex.Emit.CSharp/CSharpEmitter.cs` |
-| New CLI command | `tools/Codex.Cli/Program.cs` |
-| New backend | New `src/Codex.Emit.<Target>/` project implementing `ICodeEmitter` |
+| What | Where |
+|------|-------|
+| CST node | `src/Codex.Syntax/SyntaxNodes.cs` |
+| AST node | `src/Codex.Ast/` |
+| Type | `src/Codex.Types/CodexType.cs` |
+| IR node | `src/Codex.IR/IRModule.cs` |
+| Lowering | `src/Codex.IR/Lowering.cs` |
+| C# emission | `src/Codex.Emit.CSharp/CSharpEmitter.cs` |
+| CLI command | `tools/Codex.Cli/Program.cs` |
+| New backend | `src/Codex.Emit.<Target>/` implementing `ICodeEmitter` |

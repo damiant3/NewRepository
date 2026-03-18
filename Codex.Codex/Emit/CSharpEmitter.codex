@@ -90,7 +90,14 @@ Section: Identifier Helpers
         if ForAllTy (id) (body) -> cs-type body
         if SumTy (name) (ctors) -> sanitize name.value
         if RecordTy (name) (fields) -> sanitize name.value
-        if ConstructedTy (name) (args) -> sanitize name.value
+        if ConstructedTy (name) (args) -> if list-length args == 0 then sanitize name.value else sanitize name.value ++ "<" ++ emit-cs-type-args args 0 ++ ">"
+
+    emit-cs-type-args : List CodexType -> Integer -> Text
+    emit-cs-type-args (args) (i) =
+      if i == list-length args then ""
+      else let t = cs-type (list-at args i)
+        in if i == list-length args - 1 then t
+          else t ++ ", " ++ emit-cs-type-args args (i + 1)
 
 Section: Arity Map
 
@@ -159,7 +166,9 @@ Section: Apply Chain
           in when root
             if IrName (n) (ty) ->
               if text-length n > 0 & is-upper-letter (char-at n 0)
-                then "new " ++ sanitize n ++ "(" ++ emit-apply-args args arities 0 ++ ")"
+                then let result-ty = ir-expr-type e
+                  in let ctor-type-args = extract-ctor-type-args result-ty
+                    in "new " ++ sanitize n ++ ctor-type-args ++ "(" ++ emit-apply-args args arities 0 ++ ")"
                 else let ar = lookup-arity arities n
                   in if ar > 1 & list-length args == ar
                     then sanitize n ++ "(" ++ emit-apply-args args arities 0 ++ ")"
