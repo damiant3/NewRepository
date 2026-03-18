@@ -1,18 +1,15 @@
 <#
 .SYNOPSIS
     Codex Project Health Dashboard — cognitive load monitor for AI-assisted compiler work.
+    Windows/PowerShell edition — mirrors tools/codexdashboard.sh for the Linux sandbox.
 
 .DESCRIPTION
-    Inspired by ccstatusline (https://github.com/sirmalloc/ccstatusline) by Matthew Breedlove,
-    which provides real-time status line metrics for Claude Code CLI. This tool serves the same
-    purpose for GitHub Copilot in Visual Studio: giving the human visibility into project
-    complexity metrics that predict when an AI agent will thrash.
+    Inspired by ccstatusline (https://github.com/sirmalloc/ccstatusline) by Matthew Breedlove.
+    Gives the human visibility into project complexity metrics that predict when an AI agent
+    will thrash — chasing red herrings, corrupting files, burning cycles on symptoms.
 
-    The key insight from Opus.md: the agent could only hold ~10% of the codebase in context
-    at once. When the thoughtspace exceeds the thinkspace, the agent spirals — chasing red
-    herrings, corrupting files, burning cycles on symptoms instead of root causes.
-
-    This dashboard shows you WHEN to step in and simplify the problem.
+    The key insight from Opus.md: the agent could only hold ~10% of the codebase in context.
+    When the thoughtspace exceeds the thinkspace, the agent spirals.
 
 .PARAMETER Watch
     Run in continuous watch mode, refreshing every N seconds.
@@ -40,7 +37,7 @@ param(
 
 $ErrorActionPreference = 'SilentlyContinue'
 
-# --- Find repo root (walk up from script location) ---
+# --- Find repo root ---
 $repoRoot = $PSScriptRoot
 while ($repoRoot -and -not (Test-Path (Join-Path $repoRoot "Codex.sln"))) {
     $repoRoot = Split-Path $repoRoot -Parent
@@ -58,16 +55,10 @@ function White($t)  { C $t "97" }
 function Green($t)  { C $t "92" }
 function Yellow($t) { C $t "93" }
 function Red($t)    { C $t "91" }
-function Cyan($t)   { C $t "96" }
 function Bold($t)   { C $t "1" }
 function BoldCyan($t) { C $t "1;96" }
 
-function Severity($value, $warnThreshold, $critThreshold, [switch]$Invert) {
-    if ($Invert) {
-        if ($value -ge $critThreshold) { return Green "$value" }
-        if ($value -ge $warnThreshold) { return Yellow "$value" }
-        return Red "$value"
-    }
+function Severity($value, $warnThreshold, $critThreshold) {
     if ($value -le $warnThreshold) { return Green "$value" }
     if ($value -le $critThreshold) { return Yellow "$value" }
     return Red "$value"
@@ -89,7 +80,8 @@ function Bar($value, $max, $width = 20) {
 # METRIC COLLECTORS
 # ═══════════════════════════════════════════════════════════════
 
-function Get-SelfHostedMetrics {
+function Get-AllMetrics {
+    # --- Self-hosted .codex metrics ---
     $codexFiles = Get-ChildItem "Codex.Codex\*.codex" -Recurse |
         Where-Object { $_.DirectoryName -notmatch '\\obj\\|\\bin\\' }
     $totalChars = 0; $totalLines = 0; $fileMetrics = @()
@@ -99,184 +91,109 @@ function Get-SelfHostedMetrics {
             $lines = ($content -split "`n").Count
             $chars = $content.Length
             $totalChars += $chars; $totalLines += $lines
-            $fileMetrics += [PSCustomObject]@{
-                Name  = $f.Name
-                Lines = $lines
-                Chars = $chars
-            }
+            $fileMetrics += [PSCustomObject]@{ Name = $f.Name; Lines = $lines; Chars = $chars }
         }
     }
-    return @{
-        FileCount  = $codexFiles.Count
-        TotalLines = $totalLines
-        TotalChars = $totalChars
-        Files      = $fileMetrics | Sort-Object Lines -Descending
+
+    # --- Generated output ---
+    $s0File = "Codex.Codex\out\Codex.Codex.cs"
+    $s0Chars = 0; $s0Lines = 0; $s0Objects = 0; $s0P0 = 0; $s0Casts = 0
+    if (Test-Path $s0File) {
+        $s0Content = Get-Content $s0File -Raw
+        $s0Chars = $s0Content.Length
+        $s0Lines = ($s0Content -split "`n").Count
+        $s0Objects = ([regex]::Matches($s0Content, '\bobject\b')).Count
+        $s0P0 = ([regex]::Matches($s0Content, '_p0_')).Count
+        $s0Casts = ([regex]::Matches($s0Content, '\(\(Func<')).Count +
+                   ([regex]::Matches($s0Content, '\(object\)')).Count
     }
-}
 
-function Get-GeneratedMetrics {
-    $genPath = "Codex.Codex\out\Codex.Codex.cs"
-    if (-not (Test-Path $genPath)) { return $null }
-    $content = Get-Content $genPath -Raw
-    $lines = ($content -split "`n").Count
-    $objects = ([regex]::Matches($content, '\bobject\b')).Count
-    $p0 = ([regex]::Matches($content, '_p0_')).Count
-    $errorTy = ([regex]::Matches($content, 'ErrorTy')).Count
-    $casts = ([regex]::Matches($content, '\(\(Func<')).Count +
-              ([regex]::Matches($content, '\(object\)')).Count
-    return @{
-        Chars   = $content.Length
-        Lines   = $lines
-        Objects = $objects
-        P0      = $p0
-        ErrorTy = $errorTy
-        Casts   = $casts
+    # --- Convergence ---
+    $s1Chars = 0; $s3Chars = 0; $fixedPoint = "unknown"
+    if ((Test-Path "Codex.Codex\stage1-output.cs") -and (Test-Path "Codex.Codex\stage3-output.cs")) {
+        $s1 = Get-Content "Codex.Codex\stage1-output.cs" -Raw
+        $s3 = Get-Content "Codex.Codex\stage3-output.cs" -Raw
+        $s1Chars = $s1.Length; $s3Chars = $s3.Length
+        $fixedPoint = if ($s1 -eq $s3) { "true" } else { "false" }
     }
-}
 
-function Get-ConvergenceMetrics {
-    $s0Path = "Codex.Codex\out\Codex.Codex.cs"
-    $s1Path = "Codex.Codex\stage1-output.cs"
-    $s3Path = "Codex.Codex\stage3-output.cs"
+    # --- Git ---
+    $gitBranch = git rev-parse --abbrev-ref HEAD 2>$null
+    $gitHash = git log -1 --pretty=format:"%h" 2>$null
+    $gitMsg = git log -1 --pretty=format:"%s" 2>$null
+    $gitAge = git log -1 --pretty=format:"%ar" 2>$null
+    $gitDirty = 0
+    $diffStat = git diff --stat 2>$null
+    if ($diffStat) { $gitDirty = ($diffStat | Where-Object { $_ -match '\|' }).Count }
 
-    $result = @{ HasStages = $false; FixedPoint = $false }
-
-    if ((Test-Path $s1Path) -and (Test-Path $s3Path)) {
-        $s1 = Get-Content $s1Path -Raw
-        $s3 = Get-Content $s3Path -Raw
-        $result.HasStages = $true
-        $result.S1Chars = $s1.Length
-        $result.S3Chars = $s3.Length
-        $result.FixedPoint = ($s1 -eq $s3)
-        $result.CharDelta = $s1.Length - $s3.Length
+    # --- Error state from diagnostic files (no build needed) ---
+    $unifyErrors = 0; $errorTys = 0
+    if (Test-Path "Codex.Codex\unify-errors.txt") {
+        $unifyErrors = (Get-Content "Codex.Codex\unify-errors.txt" | Measure-Object -Line).Lines
     }
-    if (Test-Path $s0Path) {
-        $s0 = Get-Content $s0Path -Raw
-        $result.S0Chars = $s0.Length
+    if (Test-Path "Codex.Codex\type-diag.txt") {
+        $errorTys = (Select-String -Path "Codex.Codex\type-diag.txt" -Pattern "ERRORTY" | Measure-Object).Count
     }
-    return $result
-}
+    $hasMini = Test-Path "samples\mini-bootstrap.codex"
 
-function Get-BuildMetrics {
-    $output = dotnet build Codex.sln --verbosity quiet 2>&1 | Out-String
-    $warnings = ([regex]::Matches($output, 'warning CS\d+')).Count
-    $errors = ([regex]::Matches($output, 'error CS\d+')).Count
-    $succeeded = $output -match "Build succeeded"
-    return @{
-        Succeeded = $succeeded
-        Warnings  = $warnings
-        Errors    = $errors
-    }
-}
-
-function Get-GitMetrics {
-    $branch = git rev-parse --abbrev-ref HEAD 2>$null
-    $lastMsg = git log -1 --pretty=format:"%s" 2>$null
-    $lastDate = git log -1 --pretty=format:"%ar" 2>$null
-    $lastHash = git log -1 --pretty=format:"%h" 2>$null
-    $uncommitted = git diff --stat 2>$null
-    $uncommittedFiles = if ($uncommitted) { ($uncommitted -split "`n" | Where-Object { $_ -match '\|' }).Count } else { 0 }
-    $insertions = 0; $deletions = 0
-    if ($uncommitted -match '(\d+) insertion') { $insertions = [int]$Matches[1] }
-    if ($uncommitted -match '(\d+) deletion')  { $deletions  = [int]$Matches[1] }
-    return @{
-        Branch          = $branch
-        LastCommit      = $lastMsg
-        LastCommitAge   = $lastDate
-        LastCommitHash  = $lastHash
-        UncommittedFiles = $uncommittedFiles
-        Insertions      = $insertions
-        Deletions       = $deletions
-    }
-}
-
-function Get-CognitiveLoadEstimate {
-    param($SelfHosted, $Generated)
-
-    # Context window budget for typical AI agents (chars)
-    # Opus: ~200K context, but effective working memory is far less
-    # Copilot: varies, but ~50-80K effective
-    $contextBudget = 80000
-
-    # Files that must be co-loaded to reason about a pipeline stage
-    $hotFiles = @(
-        "Codex.Codex\Syntax\Parser.codex"
-        "Codex.Codex\Types\TypeChecker.codex"
-        "Codex.Codex\Emit\CSharpEmitter.codex"
-        "Codex.Codex\IR\Lowering.codex"
-        "Codex.Codex\Types\Unifier.codex"
-        "Codex.Codex\Syntax\Lexer.codex"
-    )
+    # --- Cognitive load ---
+    # 60K is the honest effective working memory — matches linux dashboard
+    $contextBudget = 60000
+    $hotFileNames = @("Parser.codex","TypeChecker.codex","CSharpEmitter.codex","Lowering.codex","Unifier.codex","Lexer.codex")
+    $cascadeFiles = @("Parser.codex","Lexer.codex")
     $hotChars = 0; $hotLines = 0; $hotCount = 0
-    foreach ($path in $hotFiles) {
-        $full = Join-Path $repoRoot $path
-        if (Test-Path $full) {
-            $content = Get-Content $full -Raw
-            if ($content) {
-                $hotChars += $content.Length
-                $hotLines += ($content -split "`n").Count
-                $hotCount++
-            }
+    $hotDetails = @()
+    foreach ($name in $hotFileNames) {
+        $f = Get-ChildItem "Codex.Codex" -Recurse -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($f) {
+            $c = (Get-Content $f.FullName -Raw).Length
+            $l = (Get-Content $f.FullName).Count
+            $hotChars += $c; $hotLines += $l; $hotCount++
+            $isCascade = $cascadeFiles -contains $name
+            $hotDetails += [PSCustomObject]@{ Name = $name; Lines = $l; Chars = $c; Cascade = $isCascade }
         }
     }
+    $hotRatio = if ($contextBudget -gt 0) { [Math]::Round(($hotChars / $contextBudget) * 100) } else { 0 }
+    $typeDebt = $s0Objects + $s0P0
+    $cascadeDepth = 7
 
-    # Cross-file dependency score: how many pipeline stages does a change touch?
-    # Parser bug → type checker symptoms → emitter artifacts → convergence failure
-    $cascadeDepth = 6  # Lexer → Parser → Desugarer → NameResolver → TypeChecker → Lowering → Emitter
+    # Thrash score (mirrors linux version exactly)
+    $thrash = 0
+    if ($hotRatio -gt 50) { $thrash++ }
+    if ($hotRatio -gt 80) { $thrash++ }
+    if ($typeDebt -gt 10) { $thrash++ }
+    if ($typeDebt -gt 30) { $thrash++ }
+    if ($gitDirty -gt 5) { $thrash++ }
+    if ($fixedPoint -eq "false") { $thrash++ }
 
-    # Type system complexity: object/p0 count = unresolved type information
-    $typeDebt = 0
-    if ($Generated) { $typeDebt = $Generated.Objects + $Generated.P0 }
-
-    # Cognitive load ratio: how much of the hot path fits in one context window?
-    $hotPathRatio = if ($contextBudget -gt 0) { [Math]::Round(($hotChars / $contextBudget) * 100) } else { 0 }
-
-    # Thrash risk: composite score
-    # - Hot path > 100% of context = guaranteed thrashing
-    # - Type debt > 20 = agent will chase symptoms
-    # - Cascade depth 6+ = root cause is never where symptoms appear
-    $thrashScore = 0
-    if ($hotPathRatio -gt 100) { $thrashScore += 3 }
-    elseif ($hotPathRatio -gt 70) { $thrashScore += 2 }
-    elseif ($hotPathRatio -gt 50) { $thrashScore += 1 }
-    if ($typeDebt -gt 50) { $thrashScore += 3 }
-    elseif ($typeDebt -gt 20) { $thrashScore += 2 }
-    elseif ($typeDebt -gt 5)  { $thrashScore += 1 }
-
-    $risk = switch ($thrashScore) {
+    $risk = switch ($thrash) {
         { $_ -le 1 } { "LOW" }
-        { $_ -le 3 } { "MEDIUM" }
-        { $_ -le 5 } { "HIGH" }
+        { $_ -le 2 } { "MEDIUM" }
+        { $_ -le 4 } { "HIGH" }
         default       { "CRITICAL" }
     }
 
-    return @{
-        ContextBudget  = $contextBudget
-        HotPathChars   = $hotChars
-        HotPathLines   = $hotLines
-        HotPathFiles   = $hotCount
-        HotPathRatio   = $hotPathRatio
-        TypeDebt       = $typeDebt
-        CascadeDepth   = $cascadeDepth
-        ThrashScore    = $thrashScore
-        Risk           = $risk
-    }
-}
-
-function Get-TestMetrics {
-    # Quick check: just count test files and methods without running them
+    # --- Tests (static count) ---
     $testFiles = Get-ChildItem "tests\*.cs" -Recurse |
         Where-Object { $_.DirectoryName -notmatch '\\obj\\|\\bin\\' -and $_.Name -notmatch 'AssemblyInfo|GlobalUsings' }
     $testCount = 0
     foreach ($f in $testFiles) {
         $content = Get-Content $f.FullName -Raw
-        if ($content) {
-            $testCount += ([regex]::Matches($content, '\[Fact\]|\[Theory\]')).Count
-        }
+        if ($content) { $testCount += ([regex]::Matches($content, '\[Fact\]|\[Theory\]')).Count }
     }
+
     return @{
-        TestFiles  = $testFiles.Count
-        TestCount  = $testCount
+        FileCount = $codexFiles.Count; TotalLines = $totalLines; TotalChars = $totalChars
+        FileMetrics = $fileMetrics | Sort-Object Lines -Descending
+        S0Chars = $s0Chars; S0Lines = $s0Lines; S0Objects = $s0Objects; S0P0 = $s0P0; S0Casts = $s0Casts
+        S1Chars = $s1Chars; S3Chars = $s3Chars; FixedPoint = $fixedPoint
+        GitBranch = $gitBranch; GitHash = $gitHash; GitMsg = $gitMsg; GitAge = $gitAge; GitDirty = $gitDirty
+        UnifyErrors = $unifyErrors; ErrorTys = $errorTys; HasMini = $hasMini
+        ContextBudget = $contextBudget; HotChars = $hotChars; HotLines = $hotLines
+        HotCount = $hotCount; HotDetails = $hotDetails; HotRatio = $hotRatio
+        TypeDebt = $typeDebt; CascadeDepth = $cascadeDepth
+        Thrash = $thrash; Risk = $risk
+        TestFiles = $testFiles.Count; TestCount = $testCount
     }
 }
 
@@ -285,28 +202,21 @@ function Get-TestMetrics {
 # ═══════════════════════════════════════════════════════════════
 
 function Render-Dashboard {
+    $m = Get-AllMetrics
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-
-    # Collect all metrics
-    $self      = Get-SelfHostedMetrics
-    $gen       = Get-GeneratedMetrics
-    $conv      = Get-ConvergenceMetrics
-    $gitM      = Get-GitMetrics
-    $cognitive = Get-CognitiveLoadEstimate -SelfHosted $self -Generated $gen
-    $tests     = Get-TestMetrics
 
     # --- JSON mode ---
     if ($Json) {
-        $payload = @{
-            timestamp    = $timestamp
-            selfHosted   = @{ files = $self.FileCount; lines = $self.TotalLines; chars = $self.TotalChars }
-            generated    = if ($gen) { @{ chars = $gen.Chars; lines = $gen.Lines; objects = $gen.Objects; p0 = $gen.P0; errorTy = $gen.ErrorTy; casts = $gen.Casts } } else { $null }
-            convergence  = $conv
-            git          = $gitM
-            cognitive    = $cognitive
-            tests        = $tests
-        }
-        $payload | ConvertTo-Json -Depth 4
+        @{
+            timestamp   = $timestamp
+            selfHosted  = @{ files = $m.FileCount; lines = $m.TotalLines; chars = $m.TotalChars }
+            generated   = @{ chars = $m.S0Chars; lines = $m.S0Lines; objects = $m.S0Objects; p0 = $m.S0P0 }
+            convergence = @{ s0 = $m.S0Chars; s1 = $m.S1Chars; s3 = $m.S3Chars; fixedPoint = $m.FixedPoint }
+            git         = @{ branch = $m.GitBranch; hash = $m.GitHash; dirty = $m.GitDirty }
+            cognitive   = @{ budget = $m.ContextBudget; hotChars = $m.HotChars; hotFiles = $m.HotCount; typeDebt = $m.TypeDebt; thrash = $m.Thrash; risk = $m.Risk }
+            errors      = @{ unification = $m.UnifyErrors; errorTy = $m.ErrorTys; hasMiniFile = $m.HasMini }
+            tests       = @{ files = $m.TestFiles; methods = $m.TestCount }
+        } | ConvertTo-Json -Depth 4
         return
     }
 
@@ -317,65 +227,76 @@ function Render-Dashboard {
     Clear-Host
     Write-Host ""
     Write-Host "  $(BoldCyan '⚡ CODEX COMPILER DASHBOARD')  $(Dim $timestamp)"
-    Write-Host "  $(Dim 'Cognitive load monitor for AI-assisted compiler development')"
-    Write-Host "  $(Dim 'Inspired by ccstatusline (github.com/sirmalloc/ccstatusline)')"
+    Write-Host "  $(Dim 'Cognitive load monitor — Windows/PowerShell edition')"
     Write-Host $heavySep
 
-    # ── THRASH RISK (the #1 thing you care about) ──
-    $riskColor = switch ($cognitive.Risk) {
+    # ── THRASH RISK ──
+    $riskColor = switch ($m.Risk) {
         "LOW"      { "92" }
         "MEDIUM"   { "93" }
         "HIGH"     { "91" }
         "CRITICAL" { "1;91" }
     }
-    $riskIcon = switch ($cognitive.Risk) {
+    $riskIcon = switch ($m.Risk) {
         "LOW"      { "🟢" }
         "MEDIUM"   { "🟡" }
         "HIGH"     { "🔴" }
         "CRITICAL" { "🔥" }
     }
     Write-Host ""
-    Write-Host "  $riskIcon $(C "AGENT THRASH RISK: $($cognitive.Risk)" $riskColor)  $(Dim "(score: $($cognitive.ThrashScore)/6)")"
+    Write-Host "  $riskIcon $(C "AGENT THRASH RISK: $($m.Risk)" $riskColor)  $(Dim "(score: $($m.Thrash)/6)")"
     Write-Host ""
-    Write-Host "    Context budget   $(Bar $cognitive.HotPathChars $cognitive.ContextBudget 30)"
-    Write-Host "    $(Dim "Hot path: $($cognitive.HotPathChars) chars across $($cognitive.HotPathFiles) files  ·  Budget: $($cognitive.ContextBudget) chars")"
-    Write-Host "    Type debt        $(Severity $cognitive.TypeDebt 5 20)  $(Dim "(object: $(if($gen){$gen.Objects}else{'?'})  _p0_: $(if($gen){$gen.P0}else{'?'}))")"
-    Write-Host "    Cascade depth    $(Dim "$($cognitive.CascadeDepth) stages  (Lexer → Parser → Desugar → Resolve → TypeCheck → Lower → Emit)")"
+    Write-Host "    Context budget   $(Bar $m.HotChars $m.ContextBudget 30)"
+    Write-Host "    $(Dim "Hot path: $($m.HotChars) chars across $($m.HotCount) files  ·  Budget: $($m.ContextBudget) chars")"
+    Write-Host "    Type debt        $(Severity $m.TypeDebt 5 20)  $(Dim "(object: $($m.S0Objects)  _p0_: $($m.S0P0))")"
+    Write-Host "    Cascade depth    $(Dim "$($m.CascadeDepth) stages  (Lex → Parse → Desugar → Resolve → TypeCheck → Lower → Emit)")"
     Write-Host $sep
 
     # ── GIT ──
     Write-Host ""
-    Write-Host "  $(Bold '⎇') $(White $gitM.Branch)  $(Dim $gitM.LastCommitHash)  $(Dim $gitM.LastCommitAge)"
-    $commitPreview = if ($gitM.LastCommit.Length -gt 72) { $gitM.LastCommit.Substring(0,72) + "…" } else { $gitM.LastCommit }
+    Write-Host "  $(Bold '⎇') $(White $m.GitBranch)  $(Dim $m.GitHash)  $(Dim $m.GitAge)"
+    $commitPreview = if ($m.GitMsg.Length -gt 72) { $m.GitMsg.Substring(0,72) + "…" } else { $m.GitMsg }
     Write-Host "    $(Dim $commitPreview)"
-    if ($gitM.UncommittedFiles -gt 0) {
-        Write-Host "    $(Yellow "uncommitted: $($gitM.UncommittedFiles) files")  $(Green "+$($gitM.Insertions)")  $(Red "-$($gitM.Deletions)")"
+    if ($m.GitDirty -gt 0) {
+        Write-Host "    $(Yellow "uncommitted: $($m.GitDirty) files")"
     }
     Write-Host $sep
 
     # ── SELF-HOSTED COMPILER ──
     Write-Host ""
     Write-Host "  $(Bold '📜 SELF-HOSTED COMPILER')  $(Dim "(.codex source)")"
-    Write-Host "    Files: $(White $self.FileCount)   Lines: $(White $self.TotalLines)   Chars: $(White ('{0:N0}' -f $self.TotalChars))"
+    Write-Host "    Files: $(White $m.FileCount)   Lines: $(White $m.TotalLines)   Chars: $(White ('{0:N0}' -f $m.TotalChars))"
     Write-Host ""
     Write-Host "    $(Dim 'Hot files (must co-load for pipeline reasoning):')"
-    $hotFiles = $self.Files | Select-Object -First 6
-    foreach ($f in $hotFiles) {
-        $pct = [Math]::Round(($f.Chars / $cognitive.ContextBudget) * 100)
+    foreach ($h in $m.HotDetails) {
+        $pct = [Math]::Round(($h.Chars / $m.ContextBudget) * 100)
+        $cascade = if ($h.Cascade) { Red "↯ " } else { "  " }
         $warn = if ($pct -gt 30) { Yellow " ⚠ ${pct}% of context" } else { Dim " ${pct}% of context" }
-        Write-Host "      $(White ('{0,-35}' -f $f.Name)) $(Dim ('{0,5}' -f $f.Lines)) lines  $(Dim ('{0,6:N0}' -f $f.Chars)) chars $warn"
+        Write-Host "      ${cascade}$(White ('{0,-35}' -f $h.Name)) $(Dim ('{0,5}' -f $h.Lines)) lines  $(Dim ('{0,6:N0}' -f $h.Chars)) chars $warn"
+    }
+    Write-Host "    $(Dim '↯ = cascade risk: bugs here affect all downstream stages')"
+    Write-Host $sep
+
+    # ── ERROR STATE ──
+    Write-Host ""
+    Write-Host "  $(Bold '🔍 ERROR STATE')  $(Dim '(from diagnostic files)')"
+    Write-Host "    Unification errors  $(Severity $m.UnifyErrors 0 5)"
+    Write-Host "    ErrorTy bindings    $(Severity $m.ErrorTys 0 3)"
+    if ($m.HasMini) {
+        Write-Host "    Mini repro file     $(Green '✓ samples/mini-bootstrap.codex')"
+    } else {
+        Write-Host "    Mini repro file     $(Yellow '✗ not found — create one for focused debugging')"
     }
     Write-Host $sep
 
     # ── GENERATED OUTPUT ──
     Write-Host ""
     Write-Host "  $(Bold '⚙️  GENERATED C#')  $(Dim "(Codex.Codex.cs)")"
-    if ($gen) {
-        Write-Host "    Lines: $(White $gen.Lines)   Chars: $(White ('{0:N0}' -f $gen.Chars))"
+    if ($m.S0Chars -gt 0) {
+        Write-Host "    Lines: $(White $m.S0Lines)   Chars: $(White ('{0:N0}' -f $m.S0Chars))"
         Write-Host "    $(Dim 'Type quality:')"
-        Write-Host "      object refs   $(Severity $gen.Objects 3 10)    $(Dim '(unresolved types → agent sees "object" everywhere)')"
-        Write-Host "      _p0_ proxies  $(Severity $gen.P0 10 30)   $(Dim '(partial-app placeholders → confusing signatures)')"
-        Write-Host "      unsafe casts  $(Severity $gen.Casts 20 50)   $(Dim '(Func<>/object casts → noisy generated code)')"
+        Write-Host "      object refs   $(Severity $m.S0Objects 3 10)    $(Dim '(unresolved types)')"
+        Write-Host "      _p0_ proxies  $(Severity $m.S0P0 10 30)   $(Dim '(partial-app placeholders)')"
     } else {
         Write-Host "    $(Red 'NOT FOUND')"
     }
@@ -384,54 +305,57 @@ function Render-Dashboard {
     # ── CONVERGENCE ──
     Write-Host ""
     Write-Host "  $(Bold '🔄 BOOTSTRAP CONVERGENCE')"
-    if ($conv.HasStages) {
-        $fpIcon = if ($conv.FixedPoint) { Green "✓ FIXED POINT" } else { Yellow "✗ NOT CONVERGED" }
-        Write-Host "    Stage 1: $(White ('{0:N0}' -f $conv.S1Chars)) chars"
-        Write-Host "    Stage 3: $(White ('{0:N0}' -f $conv.S3Chars)) chars"
-        Write-Host "    Delta:   $(if($conv.CharDelta -eq 0){ Green '0' } else { Red $conv.CharDelta }) chars"
-        Write-Host "    Status:  $fpIcon"
+    if ($m.S1Chars -gt 0) {
+        Write-Host "    Stage 0: $(White ('{0:N0}' -f $m.S0Chars)) chars  $(Dim '(reference compiler output)')"
+        Write-Host "    Stage 2: $(White ('{0:N0}' -f $m.S1Chars)) chars  $(Dim '(self-hosted output)')"
+        Write-Host "    Stage 3: $(White ('{0:N0}' -f $m.S3Chars)) chars  $(Dim '(Stage 2 compiles itself)')"
+        $delta = $m.S1Chars - $m.S3Chars
+        Write-Host "    Delta:   $(if($delta -eq 0){ Green '0' } else { Red $delta }) chars"
+        if ($m.FixedPoint -eq "true") {
+            Write-Host "    Status:  $(Green '✓ FIXED POINT')"
+        } else {
+            Write-Host "    Status:  $(Yellow '✗ NOT CONVERGED')"
+        }
     } else {
         Write-Host "    $(Dim 'Stage files not found — run bootstrap to populate')"
-    }
-    if ($conv.S0Chars) {
-        Write-Host "    Stage 0: $(White ('{0:N0}' -f $conv.S0Chars)) chars $(Dim '(reference compiler output)')"
     }
     Write-Host $sep
 
     # ── TESTS ──
     Write-Host ""
-    Write-Host "  $(Bold '🧪 TESTS')  $(Dim "(static count — run 'dotnet test' for live results)")"
-    Write-Host "    Test files: $(White $tests.TestFiles)   Test methods: $(White $tests.TestCount)"
+    Write-Host "  $(Bold '🧪 TESTS')"
+    Write-Host "    Test files: $(White $m.TestFiles)   Test methods: $(White $m.TestCount)"
     Write-Host $sep
 
-    # ── ACTIONABLE ADVICE ──
+    # ── GUIDANCE ──
     Write-Host ""
     Write-Host "  $(Bold '💡 GUIDANCE')"
-    if ($cognitive.Risk -eq "CRITICAL") {
-        Write-Host "    $(Red '→ DO NOT assign multi-file changes to the agent right now.')"
-        Write-Host "    $(Red '→ Create a mini repro file (like mini-bootstrap.codex) first.')"
-        Write-Host "    $(Red '→ Isolate the pipeline stage before engaging the agent.')"
-    }
-    elseif ($cognitive.Risk -eq "HIGH") {
-        Write-Host "    $(Yellow '→ Keep tasks to ONE pipeline stage at a time.')"
-        Write-Host "    $(Yellow '→ Pre-load only the relevant .codex file + its test.')"
-        Write-Host "    $(Yellow '→ If the agent asks to read >3 files, simplify the problem.')"
-    }
-    elseif ($cognitive.Risk -eq "MEDIUM") {
-        Write-Host "    $(Dim '→ Agent can handle single-stage changes.')"
-        Write-Host "    $(Dim '→ Watch for cascading errors — may need to simplify.')"
-    }
-    else {
-        Write-Host "    $(Green '→ Complexity is manageable. Agent should be productive.')"
+    switch ($m.Risk) {
+        "CRITICAL" {
+            Write-Host "    $(Red '→ DO NOT assign multi-file changes right now.')"
+            Write-Host "    $(Red '→ Create a mini repro file first.')"
+            Write-Host "    $(Red '→ Isolate the pipeline stage before engaging.')"
+        }
+        "HIGH" {
+            Write-Host "    $(Yellow '→ Keep tasks to ONE pipeline stage at a time.')"
+            Write-Host "    $(Yellow '→ Pre-load only the relevant .codex file + its test.')"
+        }
+        "MEDIUM" {
+            Write-Host "    $(Dim '→ Can handle single-stage changes.')"
+            Write-Host "    $(Dim '→ Watch for cascading errors.')"
+        }
+        "LOW" {
+            Write-Host "    $(Green '→ Complexity is manageable. Agent should be productive.')"
+        }
     }
 
-    if ($gen -and $gen.Objects -gt 10) {
-        Write-Host "    $(Yellow "→ $($gen.Objects) 'object' refs in generated C# — type-def map work needed.")"
+    if ($m.S0Objects -gt 10) {
+        Write-Host "    $(Yellow "→ $($m.S0Objects) 'object' refs in generated C# — type-def map work needed.")"
     }
-    if ($gen -and $gen.P0 -gt 20) {
-        Write-Host "    $(Yellow "→ $($gen.P0) '_p0_' proxies — partial application type resolution needed.")"
+    if ($m.S0P0 -gt 20) {
+        Write-Host "    $(Yellow "→ $($m.S0P0) '_p0_' proxies — partial application type resolution needed.")"
     }
-    if ($conv.HasStages -and -not $conv.FixedPoint) {
+    if ($m.FixedPoint -eq "false") {
         Write-Host "    $(Yellow '→ Fixed point broken — any compiler change needs re-verification.')"
     }
 
