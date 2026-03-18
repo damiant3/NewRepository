@@ -391,15 +391,35 @@
 390: unify : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
 391: unify-resolved : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
 392: types-equal : Func<CodexType, Func<CodexType, bool>>
-393: unify-rhs : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
-394: unify-structural : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
-395: unify-constructed-args : Func<UnificationState, Func<List<CodexType>, Func<List<CodexType>, Func<long, Func<long, UnifyResult>>>>>
-396: unify-fun : Func<UnificationState, Func<CodexType, Func<CodexType, Func<CodexType, Func<CodexType, UnifyResult>>>>>
-397: unify-mismatch : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
-398: type-tag : Func<CodexType, string>
-399: deep-resolve : Func<UnificationState, Func<CodexType, CodexType>>
-400: deep-resolve-list : Func<UnificationState, Func<List<CodexType>, Func<long, Func<long, Func<List<CodexType>, List<CodexType>>>>>>
-401: compile : Func<string, Func<string, string>>
-402: compile-checked : Func<string, Func<string, CompileResult>>
-403: test-source : string
-404: main : object [HAS-OBJECT]
+393: types-equal-typevar : Func<long, Func<CodexType, bool>>
+394: is-integer-ty : Func<CodexType, bool>
+395: is-number-ty : Func<CodexType, bool>
+396: is-text-ty : Func<CodexType, bool>
+397: is-boolean-ty : Func<CodexType, bool>
+398: is-nothing-ty : Func<CodexType, bool>
+399: is-void-ty : Func<CodexType, bool>
+400: is-error-ty : Func<CodexType, bool>
+401: unify-rhs : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+402: unify-structural : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+403: unify-b-integer : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+404: unify-b-number : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+405: unify-b-text : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+406: unify-b-boolean : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+407: unify-b-nothing : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+408: unify-b-void : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+409: unify-b-fun : Func<UnificationState, Func<CodexType, Func<CodexType, Func<CodexType, Func<CodexType, UnifyResult>>>>>
+410: unify-b-list : Func<UnificationState, Func<CodexType, Func<CodexType, Func<CodexType, UnifyResult>>>>
+411: unify-b-constructed : Func<UnificationState, Func<CodexType, Func<Name, Func<List<CodexType>, Func<CodexType, UnifyResult>>>>>
+412: unify-b-sum : Func<UnificationState, Func<CodexType, Func<Name, Func<CodexType, UnifyResult>>>>
+413: unify-b-record : Func<UnificationState, Func<CodexType, Func<Name, Func<CodexType, UnifyResult>>>>
+414: unify-b-wildcard : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+415: unify-constructed-args : Func<UnificationState, Func<List<CodexType>, Func<List<CodexType>, Func<long, Func<long, UnifyResult>>>>>
+416: unify-fun : Func<UnificationState, Func<CodexType, Func<CodexType, Func<CodexType, Func<CodexType, UnifyResult>>>>>
+417: unify-mismatch : Func<UnificationState, Func<CodexType, Func<CodexType, UnifyResult>>>
+418: type-tag : Func<CodexType, string>
+419: deep-resolve : Func<UnificationState, Func<CodexType, CodexType>>
+420: deep-resolve-list : Func<UnificationState, Func<List<CodexType>, Func<long, Func<long, Func<List<CodexType>, List<CodexType>>>>>>
+421: compile : Func<string, Func<string, string>>
+422: compile-checked : Func<string, Func<string, CompileResult>>
+423: test-source : string
+424: main : object [HAS-OBJECT]

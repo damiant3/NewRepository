@@ -1187,11 +1187,51 @@ public static class Codex_Codex_Codex
 
     public static UnifyResult unify_resolved(UnificationState st, CodexType a, CodexType b) => (types_equal(a, b) ? new UnifyResult(success: true, state: st) : a switch { TypeVar(var id_a) => (occurs_in(st, id_a, b) ? new UnifyResult(success: false, state: add_unify_error(st, "CDX2010", "Infinite type")) : new UnifyResult(success: true, state: add_subst(st, id_a, b))), _ => unify_rhs(st, a, b), });
 
-    public static bool types_equal(CodexType a, CodexType b) => a switch { TypeVar(var id_a) => b switch { TypeVar(var id_b) => (id_a == id_b), _ => false, }, _ => throw new InvalidOperationException("Non-exhaustive match"), };
+    public static bool types_equal(CodexType a, CodexType b) => a switch { TypeVar(var id_a) => types_equal_typevar(id_a, b), IntegerTy { } => is_integer_ty(b), NumberTy { } => is_number_ty(b), TextTy { } => is_text_ty(b), BooleanTy { } => is_boolean_ty(b), NothingTy { } => is_nothing_ty(b), VoidTy { } => is_void_ty(b), ErrorTy { } => is_error_ty(b), _ => false, };
+
+    public static bool types_equal_typevar(long id_a, CodexType b) => b switch { TypeVar(var id_b) => (id_a == id_b), _ => false, };
+
+    public static bool is_integer_ty(CodexType t) => t switch { IntegerTy { } => true, _ => false, };
+
+    public static bool is_number_ty(CodexType t) => t switch { NumberTy { } => true, _ => false, };
+
+    public static bool is_text_ty(CodexType t) => t switch { TextTy { } => true, _ => false, };
+
+    public static bool is_boolean_ty(CodexType t) => t switch { BooleanTy { } => true, _ => false, };
+
+    public static bool is_nothing_ty(CodexType t) => t switch { NothingTy { } => true, _ => false, };
+
+    public static bool is_void_ty(CodexType t) => t switch { VoidTy { } => true, _ => false, };
+
+    public static bool is_error_ty(CodexType t) => t switch { ErrorTy { } => true, _ => false, };
 
     public static UnifyResult unify_rhs(UnificationState st, CodexType a, CodexType b) => b switch { TypeVar(var id_b) => (occurs_in(st, id_b, a) ? new UnifyResult(success: false, state: add_unify_error(st, "CDX2010", "Infinite type")) : new UnifyResult(success: true, state: add_subst(st, id_b, a))), _ => unify_structural(st, a, b), };
 
-    public static UnifyResult unify_structural(UnificationState st, CodexType a, CodexType b) => a switch { IntegerTy { } => b switch { IntegerTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), }, _ => throw new InvalidOperationException("Non-exhaustive match"), };
+    public static UnifyResult unify_structural(UnificationState st, CodexType a, CodexType b) => a switch { IntegerTy { } => unify_b_integer(st, a, b), NumberTy { } => unify_b_number(st, a, b), TextTy { } => unify_b_text(st, a, b), BooleanTy { } => unify_b_boolean(st, a, b), NothingTy { } => unify_b_nothing(st, a, b), VoidTy { } => unify_b_void(st, a, b), ErrorTy { } => new UnifyResult(success: true, state: st), FunTy(var pa, var ra) => unify_b_fun(st, a, pa, ra, b), ListTy(var ea) => unify_b_list(st, a, ea, b), ConstructedTy(var na, var args_a) => unify_b_constructed(st, a, na, args_a, b), SumTy(var sa_name, var sa_ctors) => unify_b_sum(st, a, sa_name, b), RecordTy(var ra_name, var ra_fields) => unify_b_record(st, a, ra_name, b), ForAllTy(var id, var body) => unify(st, body, b), _ => unify_b_wildcard(st, a, b), };
+
+    public static UnifyResult unify_b_integer(UnificationState st, CodexType a, CodexType b) => b switch { IntegerTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_number(UnificationState st, CodexType a, CodexType b) => b switch { NumberTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_text(UnificationState st, CodexType a, CodexType b) => b switch { TextTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_boolean(UnificationState st, CodexType a, CodexType b) => b switch { BooleanTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_nothing(UnificationState st, CodexType a, CodexType b) => b switch { NothingTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_void(UnificationState st, CodexType a, CodexType b) => b switch { VoidTy { } => new UnifyResult(success: true, state: st), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_fun(UnificationState st, CodexType a, CodexType pa, CodexType ra, CodexType b) => b switch { FunTy(var pb, var rb) => unify_fun(st, pa, ra, pb, rb), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_list(UnificationState st, CodexType a, CodexType ea, CodexType b) => b switch { ListTy(var eb) => unify(st, ea, eb), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_constructed(UnificationState st, CodexType a, Name na, List<CodexType> args_a, CodexType b) => b switch { ConstructedTy(var nb, var args_b) => ((na.value == nb.value) ? unify_constructed_args(st, args_a, args_b, 0, list_length(args_a)) : unify_mismatch(st, a, b)), SumTy(var sb_name, var sb_ctors) => ((na.value == sb_name.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), RecordTy(var rb_name, var rb_fields) => ((na.value == rb_name.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_sum(UnificationState st, CodexType a, Name sa_name, CodexType b) => b switch { SumTy(var sb_name, var sb_ctors) => ((sa_name.value == sb_name.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ConstructedTy(var nb, var args_b) => ((sa_name.value == nb.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_record(UnificationState st, CodexType a, Name ra_name, CodexType b) => b switch { RecordTy(var rb_name, var rb_fields) => ((ra_name.value == rb_name.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ConstructedTy(var nb, var args_b) => ((ra_name.value == nb.value) ? new UnifyResult(success: true, state: st) : unify_mismatch(st, a, b)), ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
+
+    public static UnifyResult unify_b_wildcard(UnificationState st, CodexType a, CodexType b) => b switch { ErrorTy { } => new UnifyResult(success: true, state: st), _ => unify_mismatch(st, a, b), };
 
     public static UnifyResult unify_constructed_args(UnificationState st, List<CodexType> args_a, List<CodexType> args_b, long i, long len) => ((i == len) ? new UnifyResult(success: true, state: st) : ((i >= list_length(args_b)) ? new UnifyResult(success: true, state: st) : ((Func<UnifyResult, UnifyResult>)((r) => (r.success ? unify_constructed_args(r.state, args_a, args_b, (i + 1), len) : r)))(unify(st, list_at(args_a)(i), list_at(args_b)(i)))));
 
