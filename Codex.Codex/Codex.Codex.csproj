@@ -18,13 +18,8 @@
   <ItemGroup>
     <None Include="**\*.codex" />
     <None Include="codex.project.json" />
-    <None Include="Emit\CSharpEmitter.codex.new" />
-    <None Include="out\Codex.Codex2.cs" />
     <Compile Remove="**\*" />
     <Compile Include="out\**\*.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="out\Codex.Codex2.cs" />
   </ItemGroup>
   <Target Name="CodexBuild" BeforeTargets="Build">
     <Exec Command="&quot;$(CodexCliExe)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)" Condition="Exists('$(CodexCliExe)')" IgnoreExitCode="true" ConsoleToMSBuild="true">

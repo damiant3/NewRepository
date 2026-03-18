@@ -87,10 +87,14 @@ return variants (Stage 2 emits single-line bodies).
 `Parser.codex` skips `[...]` effect brackets and parses the return type.
 Self-hosted compiler now has 0 unification errors (was 1).
 
-**2. Verify Stage 2 compiles as C#** — Stage 2 output (`stage1-output.cs`)
-needs to be tested as a standalone C# program. Currently it is written out
-by `Codex.Bootstrap` but not compiled. Create a test that builds it with
-`dotnet build` and verifies zero errors.
+**2. ~~Verify Stage 2 compiles as C#~~** ⚠️ — **Stage 2 does NOT compile.**
+The self-hosted C# emitter (`CSharpEmitter.codex`) emits let-bindings as
+`(T x = value) is var _ ? body : default` — this is not valid C# syntax.
+Stage 0 uses `((Func<T,R>)((x) => body))(value)` which is valid.
+3,793 C# errors when building `stage1-output.cs` standalone. Root cause:
+`emit-let` in `CSharpEmitter.codex` produces declaration-expression patterns
+that C# doesn't allow. Fix: change the self-hosted emitter to use the same
+lambda-wrapping strategy as Stage 0, or switch to statement-bodied methods.
 
 ### Tier 2: Convergence
 
