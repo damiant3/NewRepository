@@ -1,6 +1,10 @@
 # Iteration 4 — Handoff Summary
 
-**Date**: 2025-06-22
+> **Date correction (2026-03-18)**: The original date `2025-06-22` was hallucinated
+> by the agent from training data. The actual date of this work was `2026-03-14`
+> based on git commit `4c4b52e` (timestamp `2026-03-14 08:14:01 -0700`).
+
+**Date**: 2026-03-14
 **Branch**: `master`
 **Remote**: https://github.com/damiant3/NewRepository
 

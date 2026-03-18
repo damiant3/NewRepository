@@ -13,7 +13,7 @@ Multi-line PowerShell scripts pasted into the agent terminal hang waiting for in
 the agent cannot provide. Always:
 
 1. Write the script to a `.ps1` file using `create_file`.
-2. Invoke it with `pwsh -File <script.ps1>`.
+2. Invoke it with `powershell -File <script.ps1>` (or `pwsh -File` if PowerShell 7+ is installed).
 3. Delete the `.ps1` file when done.
 
 ### No Write-Output / Write-Host

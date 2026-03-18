@@ -42,8 +42,17 @@ These dates fall within the actual project timeline and appear correct:
 
 | Decision | Current Date | Problem | Suggested Fix |
 |----------|-------------|---------|---------------|
-| "Direct I/O for Effects" | `2025-09 (M5)` | Pre-dates project | `2026-03-14` (M5 was Iteration 5) |
-| "long/double Instead of BigInteger" | `2025-08 (M3)` | Pre-dates project | `2026-03-13` (M3 was Iteration 3) |
+| "Bootstrap Language is C#" | `2025-06-20` | Pre-dates project | `2026-03-14` ✅ Fixed |
+| "Hand-Written Lexer and Parser" | `2025-06-20` | Pre-dates project | `2026-03-14` ✅ Fixed |
+| "Solution Structure" | `2025-06-20` | Pre-dates project | `2026-03-14` ✅ Fixed |
+| "IR is Not A-Normal Form" | `2025-07 (M3)` | Pre-dates project | `2026-03-14` ✅ Fixed |
+| "Curried Application in IR" | `2025-07 (M3)` | Pre-dates project | `2026-03-14` ✅ Fixed |
+| "No Separate Runtime Library" | `2025-08 (M3–M5)` | Pre-dates project | `2026-03-14` ✅ Fixed |
+| "Direct I/O for Effects" | `2025-09 (M5)` | Pre-dates project | `2026-03-14` ✅ Fixed |
+| "long/double Instead of BigInteger" | `2025-08 (M3)` | Pre-dates project | `2026-03-14` ✅ Fixed |
+| "Parser Error Recovery" | `2026-06` | Future date (hallucinated) | `2026-03-15` ✅ Fixed |
+| "Codex-Side Emitter Generics" | `2026-06` | Future date (hallucinated) | `2026-03-16` ✅ Fixed |
+| "Column-Based `when` Branch Scoping" | `2026-06` | Future date (hallucinated) | `2026-03-16` ✅ Fixed |
 | Decisions marked `2026-03` | Various | ✅ Correct | No change needed |
 
 ### Missing Handoff Documents
@@ -133,3 +142,16 @@ d6452cf Add .gitattributes, .gitignore, and README.md.
 ```
 
 The actual git timestamps on these commits are the ground truth for when work happened.
+
+---
+
+## Fixes Applied
+
+**Date**: 2026-03-18
+**Agent**: Copilot (VS 2022, Windows)
+**Branch**: `windows/review-and-dates`
+
+All dates listed above have been corrected using Option B (correction notes at top
+of each file + in-place date updates). Additional `2026-06` hallucinations were
+discovered in DECISIONS.md that the original audit missed — these have also been
+fixed. See the expanded table in the "Decision Log" section above.

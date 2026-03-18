@@ -21,6 +21,7 @@ and can review each other's work.
 | 06 | [PIPELINE](06-PIPELINE.md) | Compiler architecture quick reference |
 | 07 | [GIT-WORKFLOW](07-GIT-WORKFLOW.md) | Dual-agent branch + review workflow |
 | 08 | [PROJECT-MGMT](08-PROJECT-MGMT.md) | Handoffs, decisions, stuck-recovery |
+| 09 | [WINDOWS-NOTES](09-WINDOWS-NOTES.md) | VS-specific tool quirks, PowerShell pitfalls, review of Linux agent's work |
 
 ## How to Use
 
