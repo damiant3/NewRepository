@@ -1,0 +1,4 @@
+import MathLib
+
+main : Integer
+main = square 5
