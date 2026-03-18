@@ -184,7 +184,7 @@ Section: Expression Emission
         if IrNumLit (n) -> integer-to-text n
         if IrTextLit (s) -> "\"" ++ escape-text s ++ "\""
         if IrBoolLit (b) -> if b then "true" else "false"
-        if IrName (n) (ty) -> if text-length n > 0 & is-upper-letter (char-at n 0) then "new " ++ sanitize n ++ "()" else if lookup-arity arities n == 0 then sanitize n ++ "()" else sanitize n
+        if IrName (n) (ty) -> if text-length n > 0 & is-upper-letter (char-at n 0) then "new " ++ sanitize n ++ "()" else if lookup-arity arities n == 0 then sanitize n ++ "()" else let ar = lookup-arity arities n in if ar >= 2 then emit-partial-wrappers 0 ar ++ sanitize n ++ "(" ++ emit-partial-params 0 ar ++ ")" else sanitize n
         if IrBinary (op) (l) (r) (ty) -> emit-binary op l r ty arities
         if IrNegate (operand) -> "(-" ++ emit-expr operand arities ++ ")"
         if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c arities ++ " ? " ++ emit-expr t arities ++ " : " ++ emit-expr el arities ++ ")"
@@ -284,8 +284,9 @@ Section: Expression Emission
     has-any-catch-all : List IRBranch -> Integer -> Boolean
     has-any-catch-all (branches) (i) =
       if i == list-length branches then False
-      else if is-catch-all (list-at branches i).pattern then True
-      else has-any-catch-all branches (i + 1)
+      else let b = list-at branches i
+        in if is-catch-all b.pattern then True
+          else has-any-catch-all branches (i + 1)
     emit-pattern : IRPat -> Text
     emit-pattern (p) =
       when p
@@ -505,12 +506,12 @@ Section: Module Emission
     emit-full-module : IRModule -> List ATypeDef -> Text
     emit-full-module (m) (type-defs) =
       let arities = build-arity-map m.defs 0
-      in "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" ++ emit-type-defs type-defs 0 ++ emit-class-header m.name.value ++ emit-defs m.defs 0 arities ++ "}\n"
+      in "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" ++ "Codex_" ++ sanitize m.name.value ++ ".main();\n\n" ++ emit-type-defs type-defs 0 ++ emit-class-header m.name.value ++ emit-defs m.defs 0 arities ++ "}\n"
 
     emit-module : IRModule -> Text
     emit-module (m) =
       let arities = build-arity-map m.defs 0
-      in "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" ++ emit-class-header m.name.value ++ emit-defs m.defs 0 arities ++ "}\n"
+      in "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" ++ "Codex_" ++ sanitize m.name.value ++ ".main();\n\n" ++ emit-class-header m.name.value ++ emit-defs m.defs 0 arities ++ "}\n"
 
     emit-class-header : Text -> Text
     emit-class-header (name) =
