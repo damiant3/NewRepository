@@ -46,6 +46,7 @@ Section: Expressions
    | ARecordExpr (Name) (List AFieldExpr)
    | AFieldAccess (AExpr) (Name)
    | ADoExpr (List ADoStmt)
+   | AHandleExpr (Name) (AExpr) (List AHandleClause)
    | AErrorExpr (Text)
 
   ALetBind = record {
@@ -67,6 +68,12 @@ Section: Expressions
    | ADoBindStmt (Name) (AExpr)
    | ADoExprStmt (AExpr)
 
+  AHandleClause = record {
+   op-name : Name,
+   resume-name : Name,
+   body : AExpr
+  }
+
 Section: Patterns
 
   APat =
@@ -81,6 +88,7 @@ Section: Type Expressions
    | ANamedType (Name)
    | AFunType (ATypeExpr) (ATypeExpr)
    | AAppType (ATypeExpr) (List ATypeExpr)
+   | AEffectType (List Name) (ATypeExpr)
 
 Section: Definitions
 
@@ -109,10 +117,21 @@ Section: Definitions
    | ARecordTypeDef (Name) (List Name) (List ARecordFieldDef)
    | AVariantTypeDef (Name) (List Name) (List AVariantCtorDef)
 
+  AEffectOpDef = record {
+   name : Name,
+   type-expr : ATypeExpr
+  }
+
+  AEffectDef = record {
+   name : Name,
+   ops : List AEffectOpDef
+  }
+
 Section: Module
 
   AModule = record {
    name : Name,
    defs : List ADef,
-   type-defs : List ATypeDef
+   type-defs : List ATypeDef,
+   effect-defs : List AEffectDef
   }

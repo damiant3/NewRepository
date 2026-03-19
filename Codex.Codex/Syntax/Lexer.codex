@@ -135,6 +135,8 @@ Section: Keyword Classification
    else if w == "forall" then ForAllKeyword
    else if w == "exists" then ThereExistsKeyword
    else if w == "linear" then LinearKeyword
+   else if w == "effect" then EffectKeyword
+   else if w == "with" then WithKeyword
    else if w == "True" then TrueKeyword
    else if w == "False" then FalseKeyword
    else let first-code = char-code (char-at w 0)

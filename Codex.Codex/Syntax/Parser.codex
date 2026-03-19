@@ -290,7 +290,7 @@ Section: Document Parsing
 
   parse-top-level : List Def -> List TypeDef -> ParseState -> Document
   parse-top-level (defs) (type-defs) (st) =
-   if is-done st then Document { defs = defs, type-defs = type-defs }
+   if is-done st then Document { defs = defs, type-defs = type-defs, effect-defs = [] }
    else try-top-level-type-def defs type-defs st
 
   try-top-level-type-def : List Def -> List TypeDef -> ParseState -> Document

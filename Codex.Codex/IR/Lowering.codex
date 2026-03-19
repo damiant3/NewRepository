@@ -59,6 +59,7 @@ Section: Expression Lowering
         if _ -> field-ty
      in IrFieldAccess rec-ir field.value actual-field-ty
     if ADoExpr (stmts) -> lower-do stmts ty ctx
+    if AHandleExpr (eff) (body) (clauses) -> lower-handle eff body clauses ty ctx
     if AErrorExpr (msg) -> IrError msg ty
 
   lower-name : Text -> CodexType -> LowerCtx -> IRExpr
@@ -261,6 +262,22 @@ Section: Collections and Do
       in [IrDoBind name.value val-ty val-ir] ++ lower-do-stmts-loop stmts ty ctx2 (i + 1) len
      if ADoExprStmt (e) ->
       [IrDoExec (lower-expr e ty ctx)] ++ lower-do-stmts-loop stmts ty ctx (i + 1) len
+
+  lower-handle : Name -> AExpr -> List AHandleClause -> CodexType -> LowerCtx -> IRExpr
+  lower-handle (eff) (body) (clauses) (ty) (ctx) =
+   let body-ir = lower-expr body ty ctx
+   in IrHandle eff.value body-ir (lower-handle-clauses clauses ty ctx) ty
+
+  lower-handle-clauses : List AHandleClause -> CodexType -> LowerCtx -> List IRHandleClause
+  lower-handle-clauses (clauses) (ty) (ctx) =
+   lower-handle-clauses-loop clauses ty ctx 0
+
+  lower-handle-clauses-loop : List AHandleClause -> CodexType -> LowerCtx -> Integer -> List IRHandleClause
+  lower-handle-clauses-loop (clauses) (ty) (ctx) (i) =
+   if i == list-length clauses then []
+   else let c = list-at clauses i
+    in let body-ir = lower-expr c.body ty ctx
+    in [IRHandleClause { op-name = c.op-name.value, resume-name = c.resume-name.value, body = body-ir }] ++ lower-handle-clauses-loop clauses ty ctx (i + 1)
 
 Section: Definition Lowering
 

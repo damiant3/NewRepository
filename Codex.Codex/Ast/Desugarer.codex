@@ -22,6 +22,7 @@ Section: Expression Desugaring
     if FieldExpr (rec) (field-tok) -> AFieldAccess (desugar-expr rec) (make-name field-tok.text)
     if ParenExpr (inner) -> desugar-expr inner
     if DoExpr (stmts) -> ADoExpr (map-list desugar-do-stmt stmts)
+    if HandleExpr (eff-tok) (body) (clauses) -> AHandleExpr (make-name eff-tok.text) (desugar-expr body) (map-list desugar-handle-clause clauses)
     if ErrExpr (tok) -> AErrorExpr tok.text
 
   desugar-literal : Token -> AExpr
@@ -56,6 +57,10 @@ Section: Expression Desugaring
    when s
     if DoBindStmt (tok) (val) -> ADoBindStmt (make-name tok.text) (desugar-expr val)
     if DoExprStmt (e) -> ADoExprStmt (desugar-expr e)
+
+  desugar-handle-clause : HandleClause -> AHandleClause
+  desugar-handle-clause (c) =
+   AHandleClause { op-name = make-name c.op-name.text, resume-name = make-name c.resume-name.text, body = desugar-expr c.body }
 
 Section: Binary Operator Desugaring
 
@@ -139,4 +144,12 @@ Section: Document Desugaring
 
   desugar-document : Document -> Text -> AModule
   desugar-document (doc) (module-name) =
-   AModule { name = make-name module-name, defs = map-list desugar-def doc.defs, type-defs = map-list desugar-type-def doc.type-defs }
+   AModule { name = make-name module-name, defs = map-list desugar-def doc.defs, type-defs = map-list desugar-type-def doc.type-defs, effect-defs = map-list desugar-effect-def doc.effect-defs }
+
+  desugar-effect-def : EffectDef -> AEffectDef
+  desugar-effect-def (ed) =
+   AEffectDef { name = make-name ed.name.text, ops = map-list desugar-effect-op ed.ops }
+
+  desugar-effect-op : EffectOpDef -> AEffectOpDef
+  desugar-effect-op (op) =
+   AEffectOpDef { name = make-name op.name.text, type-expr = desugar-type-expr op.type-expr }

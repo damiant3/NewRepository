@@ -19,6 +19,7 @@ Section: Primitive Types
    | SumTy (Name) (List SumCtor)
    | RecordTy (Name) (List RecordField)
    | ConstructedTy (Name) (List CodexType)
+   | EffectfulTy (List Name) (CodexType)
 
   SumCtor = record {
    name : Name,

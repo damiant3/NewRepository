@@ -38,6 +38,8 @@ Chapter: Token Kinds
    | ForAllKeyword
    | ThereExistsKeyword
    | LinearKeyword
+   | EffectKeyword
+   | WithKeyword
    | Equals
    | Colon
    | Arrow
