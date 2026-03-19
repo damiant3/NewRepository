@@ -149,9 +149,11 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
             case NameExpr name:
                 if (!scope.Contains(name.Name.Value) && !IsTypeName(name.Name))
                 {
-                    m_diagnostics.Error("CDX3002",
-                        $"Undefined name: '{name.Name.Value}'",
-                        name.Span);
+                    string? suggestion = StringDistance.FindClosest(name.Name.Value, scope);
+                    string message = suggestion is not null
+                        ? $"Undefined name: '{name.Name.Value}'. Did you mean '{suggestion}'?"
+                        : $"Undefined name: '{name.Name.Value}'";
+                    m_diagnostics.Error("CDX3002", message, name.Span);
                 }
                 break;
 

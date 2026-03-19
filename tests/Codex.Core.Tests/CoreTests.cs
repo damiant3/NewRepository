@@ -151,4 +151,39 @@ public class DiagnosticBagTests
         System.Collections.Immutable.ImmutableArray<Diagnostic> all = bag.ToImmutable();
         Assert.Equal(3, all.Length);
     }
+
+    [Fact]
+    public void Levenshtein_identical_strings_is_zero()
+    {
+        Assert.Equal(0, StringDistance.Levenshtein("square", "square"));
+    }
+
+    [Fact]
+    public void Levenshtein_single_typo()
+    {
+        Assert.Equal(1, StringDistance.Levenshtein("squre", "square"));
+    }
+
+    [Fact]
+    public void Levenshtein_empty_strings()
+    {
+        Assert.Equal(0, StringDistance.Levenshtein("", ""));
+        Assert.Equal(3, StringDistance.Levenshtein("abc", ""));
+        Assert.Equal(3, StringDistance.Levenshtein("", "abc"));
+    }
+
+    [Fact]
+    public void FindClosest_returns_best_match()
+    {
+        string[] candidates = ["square", "cube", "negate", "show"];
+        Assert.Equal("square", StringDistance.FindClosest("squre", candidates));
+        Assert.Equal("show", StringDistance.FindClosest("shw", candidates));
+    }
+
+    [Fact]
+    public void FindClosest_returns_null_when_too_distant()
+    {
+        string[] candidates = ["square", "cube"];
+        Assert.Null(StringDistance.FindClosest("xyz", candidates));
+    }
 }

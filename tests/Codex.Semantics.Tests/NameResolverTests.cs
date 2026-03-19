@@ -149,4 +149,34 @@ public class NameResolverTests
         Assert.Contains("b", resolved.ExportedNames);
         Assert.DoesNotContain("c", resolved.ExportedNames);
     }
+
+    [Fact]
+    public void Undefined_name_suggests_close_match()
+    {
+        string source = "square (x) = x * x\nmain = squre 5";
+        (ResolvedModule _, DiagnosticBag diags) = ResolveSource(source);
+        Assert.True(diags.HasErrors);
+        Diagnostic error = diags.ToImmutable().First(d => d.Code == "CDX3002");
+        Assert.Contains("Did you mean 'square'?", error.Message);
+    }
+
+    [Fact]
+    public void Undefined_name_no_suggestion_when_too_distant()
+    {
+        string source = "square (x) = x * x\nmain = xyz 5";
+        (ResolvedModule _, DiagnosticBag diags) = ResolveSource(source);
+        Assert.True(diags.HasErrors);
+        Diagnostic error = diags.ToImmutable().First(d => d.Code == "CDX3002");
+        Assert.DoesNotContain("Did you mean", error.Message);
+    }
+
+    [Fact]
+    public void Undefined_name_suggests_builtin()
+    {
+        string source = "x = shw 42";
+        (ResolvedModule _, DiagnosticBag diags) = ResolveSource(source);
+        Assert.True(diags.HasErrors);
+        Diagnostic error = diags.ToImmutable().First(d => d.Code == "CDX3002");
+        Assert.Contains("Did you mean 'show'?", error.Message);
+    }
 }
