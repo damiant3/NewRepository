@@ -7,7 +7,8 @@ public sealed record ResolvedModule(
     Module Module,
     Set<string> TopLevelNames,
     Set<string> TypeNames,
-    Set<string> ConstructorNames)
+    Set<string> ConstructorNames,
+    Set<string> ExportedNames)
 {
     public IReadOnlyList<ResolvedModule> ImportedModules { get; init; } = [];
 }
@@ -76,6 +77,10 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
                 }
         }
 
+        // Compute exported names: if no export declarations, export everything
+        Set<string> exportedNames = ComputeExportedNames(
+            module, topLevel, typeNames, ctorNames);
+
         List<ResolvedModule> importedModules = [];
         foreach (ImportDecl imp in module.Imports)
         {
@@ -88,9 +93,10 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
                 continue;
             }
             importedModules.Add(imported);
-            topLevel = topLevel.Union(imported.TopLevelNames);
-            typeNames = typeNames.Union(imported.TypeNames);
-            ctorNames = ctorNames.Union(imported.ConstructorNames);
+            // Only import names that the other module exports
+            topLevel = topLevel.Union(imported.ExportedNames.Intersect(imported.TopLevelNames));
+            typeNames = typeNames.Union(imported.ExportedNames.Intersect(imported.TypeNames));
+            ctorNames = ctorNames.Union(imported.ExportedNames.Intersect(imported.ConstructorNames));
         }
 
         Set<string> allKnownNames = topLevel
@@ -105,8 +111,35 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
             ResolveExpr(def.Body, scope);
         }
 
-        return new ResolvedModule(module, topLevel, typeNames, ctorNames)
+        return new ResolvedModule(module, topLevel, typeNames, ctorNames, exportedNames)
             { ImportedModules = importedModules };
+    }
+
+    Set<string> ComputeExportedNames(
+        Module module, Set<string> topLevel, Set<string> typeNames, Set<string> ctorNames)
+    {
+        if (module.Exports.Count == 0)
+        {
+            // No export declarations = export everything
+            return topLevel.Union(typeNames).Union(ctorNames);
+        }
+
+        Set<string> exported = Set<string>.s_empty;
+        Set<string> allDefined = topLevel.Union(typeNames).Union(ctorNames);
+        foreach (ExportDecl exp in module.Exports)
+        {
+            foreach (Name n in exp.Names)
+            {
+                if (!allDefined.Contains(n.Value))
+                {
+                    m_diagnostics.Error("CDX3020",
+                        $"Exported name '{n.Value}' is not defined in this module",
+                        exp.Span);
+                }
+                exported = exported.Add(n.Value);
+            }
+        }
+        return exported;
     }
 
     void ResolveExpr(Expr expr, Set<string> scope)
