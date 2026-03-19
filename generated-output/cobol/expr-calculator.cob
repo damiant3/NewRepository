@@ -6,6 +6,9 @@
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
+       01 WS-PARSERESULT.
+         05 WS-PARSERESULT-EXPR PIC S9(18).
+         05 WS-PARSERESULT-POS PIC S9(18).
        01 WS-EXPR.
          05 WS-EXPR-TAG    PIC 9(2).
          05 WS-EXPR-F0     PIC S9(18).
@@ -15,9 +18,6 @@
        01 TAG-SUB      PIC 9(2) VALUE 3.
        01 TAG-MUL      PIC 9(2) VALUE 4.
        01 TAG-DIV      PIC 9(2) VALUE 5.
-       01 WS-PARSERESULT.
-         05 WS-PARSERESULT-EXPR PIC S9(18).
-         05 WS-PARSERESULT-POS PIC S9(18).
        01 WS-SKIP_WS-INPUT  PIC X(256).
        01 WS-SKIP_WS-POS  PIC S9(18).
        01 WS-SKIP_WS-RET     PIC S9(18).

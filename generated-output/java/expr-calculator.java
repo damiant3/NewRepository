@@ -3,14 +3,14 @@ import java.util.*;
 import java.util.function.*;
 import java.io.*;
 
+record ParseResult(Object expr, long pos) {}
+
 sealed interface Expr {}
 record Lit(long field0) implements Expr {}
 record Add(Object field0, Object field1) implements Expr {}
 record Sub(Object field0, Object field1) implements Expr {}
 record Mul(Object field0, Object field1) implements Expr {}
 record Div(Object field0, Object field1) implements Expr {}
-
-record ParseResult(Object expr, long pos) {}
 
 public class Expr_calculator {
     public static long skip_ws(String input, long pos) {
