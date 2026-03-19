@@ -2905,16 +2905,28 @@ public static class Codex_Codex_Codex
 
     public static ParseDefResult unwrap_def_body(ParseExprResult r, List<TypeAnn> ann, Token name_tok, List<Token> @params) => r switch { ExprOk(var b, var st) => new DefOk(new Def(name: name_tok, @params: @params, ann: ann, body: b), st), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static bool is_type_param_pattern(ParseState st) => (is_left_paren(current_kind(st)) ? ((Func<TokenKind, bool>)((k1) => (is_ident(k1) ? is_right_paren(peek_kind(st, 2)) : (is_type_ident(k1) ? is_right_paren(peek_kind(st, 2)) : false))))(peek_kind(st, 1)) : false);
+    public static bool is_paren_type_param(ParseState st) => (is_left_paren(current_kind(st)) ? ((Func<TokenKind, bool>)((k1) => (is_ident(k1) ? is_right_paren(peek_kind(st, 2)) : (is_type_ident(k1) ? is_right_paren(peek_kind(st, 2)) : false))))(peek_kind(st, 1)) : false);
+
+    public static bool is_type_param_pattern(ParseState st) => (is_paren_type_param(st) ? true : is_ident(current_kind(st)));
 
     public static ParseState parse_type_params(ParseState st, List<Token> acc)
     {
         while (true)
         {
-            if (is_type_param_pattern(st))
+            if (is_paren_type_param(st))
             {
             var _tco_0 = advance(advance(advance(st)));
             var _tco_1 = Enumerable.Concat(acc, new List<Token> { st.tokens[(int)(st.pos + 1)] }).ToList();
+            st = _tco_0;
+            acc = _tco_1;
+            continue;
+            }
+            else
+            {
+            if (is_ident(current_kind(st)))
+            {
+            var _tco_0 = advance(st);
+            var _tco_1 = Enumerable.Concat(acc, new List<Token> { current(st) }).ToList();
             st = _tco_0;
             acc = _tco_1;
             continue;
@@ -2923,6 +2935,7 @@ public static class Codex_Codex_Codex
             {
             return st;
             }
+            }
         }
     }
 
@@ -2930,7 +2943,7 @@ public static class Codex_Codex_Codex
     {
         while (true)
         {
-            if (is_type_param_pattern(st))
+            if (is_paren_type_param(st))
             {
             var _tco_0 = advance(advance(advance(st)));
             var _tco_1 = Enumerable.Concat(acc, new List<Token> { st.tokens[(int)(st.pos + 1)] }).ToList();
@@ -2940,7 +2953,18 @@ public static class Codex_Codex_Codex
             }
             else
             {
+            if (is_ident(current_kind(st)))
+            {
+            var _tco_0 = advance(st);
+            var _tco_1 = Enumerable.Concat(acc, new List<Token> { current(st) }).ToList();
+            st = _tco_0;
+            acc = _tco_1;
+            continue;
+            }
+            else
+            {
             return acc;
+            }
             }
         }
     }
@@ -4463,6 +4487,6 @@ public static class Codex_Codex_Codex
 
     public static string test_source() => "square : Integer -> Integer\nsquare (x) = x * x\nmain = square 5";
 
-    public static void main() => ((Action)(() => { Console.WriteLine(compile(test_source(), "test"));  }))();
+    public static object main() => ((Action)(() => { Console.WriteLine(compile(test_source(), "test"));  }))();
 
 }

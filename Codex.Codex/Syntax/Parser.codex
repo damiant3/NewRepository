@@ -179,8 +179,8 @@ Section: Definition Parsing
 
 Section: Type Definition Parsing
 
-  is-type-param-pattern : ParseState -> Boolean
-  is-type-param-pattern (st) =
+  is-paren-type-param : ParseState -> Boolean
+  is-paren-type-param (st) =
    if is-left-paren (current-kind st)
     then let k1 = peek-kind st 1
      in if is-ident k1
@@ -190,17 +190,26 @@ Section: Type Definition Parsing
        else False
     else False
 
+  is-type-param-pattern : ParseState -> Boolean
+  is-type-param-pattern (st) =
+   if is-paren-type-param st then True
+   else is-ident (current-kind st)
+
   parse-type-params : ParseState -> List Token -> ParseState
   parse-type-params (st) (acc) =
-   if is-type-param-pattern st
+   if is-paren-type-param st
     then parse-type-params (advance (advance (advance st))) (acc ++ [list-at st.tokens (st.pos + 1)])
-    else st
+   else if is-ident (current-kind st)
+    then parse-type-params (advance st) (acc ++ [current st])
+   else st
 
   collect-type-params : ParseState -> List Token -> List Token
   collect-type-params (st) (acc) =
-   if is-type-param-pattern st
+   if is-paren-type-param st
     then collect-type-params (advance (advance (advance st))) (acc ++ [list-at st.tokens (st.pos + 1)])
-    else acc
+   else if is-ident (current-kind st)
+    then collect-type-params (advance st) (acc ++ [current st])
+   else acc
 
   parse-type-def : ParseState -> ParseTypeDefResult
   parse-type-def (st) =
