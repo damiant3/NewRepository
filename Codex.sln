@@ -78,59 +78,20 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OldStatus", "OldStatus", "{
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codex", "codex", "{F0000000-0000-0000-0000-000000000001}"
-	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\codex.project.json = Codex.Codex\codex.project.json
-		Codex.Codex\main.codex = Codex.Codex\main.codex
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{F0000000-0000-0000-0000-000000000002}"
-	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\Core\Collections.codex = Codex.Codex\Core\Collections.codex
-		Codex.Codex\Core\Diagnostic.codex = Codex.Codex\Core\Diagnostic.codex
-		Codex.Codex\Core\Name.codex = Codex.Codex\Core\Name.codex
-		Codex.Codex\Core\SourceText.codex = Codex.Codex\Core\SourceText.codex
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Syntax", "Syntax", "{F0000000-0000-0000-0000-000000000003}"
-	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\Syntax\Lexer.codex = Codex.Codex\Syntax\Lexer.codex
-		Codex.Codex\Syntax\Parser.codex = Codex.Codex\Syntax\Parser.codex
-		Codex.Codex\Syntax\SyntaxNodes.codex = Codex.Codex\Syntax\SyntaxNodes.codex
-		Codex.Codex\Syntax\Token.codex = Codex.Codex\Syntax\Token.codex
-		Codex.Codex\Syntax\TokenKind.codex = Codex.Codex\Syntax\TokenKind.codex
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ast", "Ast", "{F0000000-0000-0000-0000-000000000004}"
-	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\Ast\AstNodes.codex = Codex.Codex\Ast\AstNodes.codex
-		Codex.Codex\Ast\Desugarer.codex = Codex.Codex\Ast\Desugarer.codex
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Semantics", "Semantics", "{F0000000-0000-0000-0000-000000000005}"
-	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\Semantics\NameResolver.codex = Codex.Codex\Semantics\NameResolver.codex
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Types", "Types", "{F0000000-0000-0000-0000-000000000006}"
-	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\Types\CodexType.codex = Codex.Codex\Types\CodexType.codex
-		Codex.Codex\Types\TypeChecker.codex = Codex.Codex\Types\TypeChecker.codex
-		Codex.Codex\Types\TypeEnv.codex = Codex.Codex\Types\TypeEnv.codex
-		Codex.Codex\Types\Unifier.codex = Codex.Codex\Types\Unifier.codex
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "IR", "IR", "{F0000000-0000-0000-0000-000000000007}"
-	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\IR\IRModule.codex = Codex.Codex\IR\IRModule.codex
-		Codex.Codex\IR\Lowering.codex = Codex.Codex\IR\Lowering.codex
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Emit", "Emit", "{F0000000-0000-0000-0000-000000000008}"
-	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\Emit\CSharpEmitter.codex = Codex.Codex\Emit\CSharpEmitter.codex
-		Codex.Codex\Emit\CSharpEmitter.codex.new = Codex.Codex\Emit\CSharpEmitter.codex.new
-		Codex.Codex\Emit\_test.codex = Codex.Codex\Emit\_test.codex
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Core", "src\Codex.Core\Codex.Core.csproj", "{B1000000-0000-0000-0000-000000000001}"
 EndProject
@@ -219,11 +180,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ForFun", "ForFun", "{02EA68
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "vscode", "vscode", "{E693D3C3-4C1F-4A96-ADA4-3FF981952E10}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Designs", "Designs", "{0AA77BFE-C701-40FA-BF8C-5D9934C77802}"
 	ProjectSection(SolutionItems) = preProject
-		tools\vscode\language-configuration.json = tools\vscode\language-configuration.json
-		tools\vscode\package-lock.json = tools\vscode\package-lock.json
-		tools\vscode\package.json = tools\vscode\package.json
-		tools\vscode\tsconfig.json = tools\vscode\tsconfig.json
+		docs\Designs\CCE-DESIGN.md = docs\Designs\CCE-DESIGN.md
+		docs\Designs\HAMT-DESIGN.md = docs\Designs\HAMT-DESIGN.md
+		docs\Designs\ProseGrammarProposal.md = docs\Designs\ProseGrammarProposal.md
+		docs\Designs\REPL.md = docs\Designs\REPL.md
+		docs\Designs\STDLIB-AND-CONCURRENCY.md = docs\Designs\STDLIB-AND-CONCURRENCY.md
 	EndProjectSection
 EndProject
 Global
@@ -693,6 +657,7 @@ Global
 		{176BA98E-C341-4503-B743-1982DB4236C4} = {A0000000-0000-0000-0000-000000000002}
 		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {A0000000-0000-0000-0000-000000000006}
 		{E693D3C3-4C1F-4A96-ADA4-3FF981952E10} = {A0000000-0000-0000-0000-000000000003}
+		{0AA77BFE-C701-40FA-BF8C-5D9934C77802} = {A0000000-0000-0000-0000-000000000006}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}
