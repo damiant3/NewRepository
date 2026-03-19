@@ -24,13 +24,13 @@ and recovered ~30 missing functions in Stage 1 output including `is_builtin_name
 
 | Metric | Value |
 |--------|-------|
-| .codex source (compiler) | 26 files, 4,649 lines, 173K chars |
+| .codex source (compiler) | 26 files, ~4,800 lines, 181K chars |
 | .codex source (total) | 97 files (compiler + prelude + samples + tests) |
 | Tests | **836** (836 passing + 2 skipped) |
 | Backends | 12 (C#, JS, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage) |
-| Bootstrap | Fixed point: Stage 1 = Stage 2 (244,363 chars) |
+| Bootstrap | Stage 1: 247,997 chars, 0 unification errors, 0 ErrorTy |
 | Type debt | **0** (filtered), 0 ErrorTy bindings |
-| Prelude | 7 modules: Maybe, Result, Either, Pair, CCE, Hamt, List |
+| Prelude | 11 modules: Maybe, Result, Either, Pair, CCE, Hamt, List, StringBuilder, Set, Queue, TextSearch |
 | Quine disproof | `samples/expr-calculator.codex` — 10/10 PASS |
 | Ref compiler | 🔒 Locked at `6d8bb2c` on 2026-03-19 |
 
@@ -40,13 +40,15 @@ The `.codex` compiler now handles:
 
 | Stage | Features ported |
 |-------|----------------|
-| Lexer | `effect` and `with` keywords |
-| Parser | Effect declarations (`effect X where`), handler expressions (`with Effect body op (resume) = ...`), multi-param handler clauses |
-| Desugarer | `HandleExpr`, `HandleClause`, `EffectDef`, `EffectOpDef`, effect-defs in Document/AModule |
+| Lexer | `effect`, `with`, `import` keywords |
+| Parser | Effect declarations, handler expressions, multi-param handler clauses, **import declarations** (`import ModuleName`) |
+| Desugarer | `HandleExpr`, `HandleClause`, `EffectDef`, `EffectOpDef`, effect-defs in Document/AModule, **import threading** (CST→AST) |
+| NameResolver | Single-module resolution, **cross-module name resolution** (`resolve-module-with-imports`) |
 | Types | `EffectfulTy` in CodexType |
 | IR | `IrHandle`, `IRHandleClause` |
 | Lowering | `lower-handle`, `lower-handle-clauses` |
-| Emitter | `emit-handle`, `emit-handle-clauses`, `EffectfulTy` case in `cs-type`, built-in inlining (`is-builtin-name`/`emit-builtin`), typed do-blocks |
+| Emitter | `emit-handle`, `emit-handle-clauses`, `EffectfulTy` case in `cs-type`, built-in inlining, typed do-blocks |
+| Main | `compile-with-imports` accepts pre-resolved import results |
 
 ---
 
@@ -59,6 +61,7 @@ The `.codex` compiler now handles:
 | P1 | **Self-hosted built-in expansion** | ✅ Done | Root cause: bootstrap `ExtractCodeBlocks` required `indent >= 4` but source uses 2-space indent. Fix: `indent >= 2`. Stage 1 now inlines all built-ins. Fixed point verified. |
 | L7 | **Better error messages** | ✅ Done | "Did you mean X?" via `StringDistance.FindClosest` ✅. Readable type formatting ✅. Related spans ✅. Error cap at 20 ✅. ErrorType cascade suppression ✅. Parser error recovery with 18 tests (CDX1021–CDX1032) ✅. |
 | R5 | **Build system** | ✅ Done | `codex build <dir>` compiles multi-file projects via `codex.project.json`. Dependency resolution ✅. Multi-target (`--targets cs,js,rust`) ✅. Incremental builds (`--incremental`) ✅. Verified: `codex build Codex.Codex` compiles 26 files successfully. |
+| M1 | **Self-hosted import/module system** | ✅ Done | CST `ImportDecl`, parser `parse-imports`, AST `AImportDecl`, desugarer threading, `resolve-module-with-imports` for cross-file name resolution, `compile-with-imports` pipeline entry point. Bootstrap verified: 458 defs, 0 errors. |
 
 ### Near Term: Make the Language Practical
 

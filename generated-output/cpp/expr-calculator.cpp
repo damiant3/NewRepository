@@ -13,12 +13,17 @@
 
 namespace codex {
 
+struct ParseResult;
 struct Lit;
 struct Add;
 struct Sub;
 struct Mul;
 struct Div;
-struct ParseResult;
+
+struct ParseResult {
+    auto expr;
+    int64_t pos;
+};
 
 struct Lit {
     int64_t field0;
@@ -45,11 +50,6 @@ struct Div {
 };
 
 using Expr = std::variant<Lit, Add, Sub, Mul, Div>;
-
-struct ParseResult {
-    auto expr;
-    int64_t pos;
-};
 
 int64_t skip_ws(std::string input, int64_t pos) {
     while (true) {

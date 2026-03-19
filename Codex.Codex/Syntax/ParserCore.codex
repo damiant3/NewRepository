@@ -157,6 +157,11 @@ Section: TokenKind Predicates
    if EffectKeyword -> True
    if _ -> False
 
+  is-import-keyword : TokenKind -> Boolean
+  is-import-keyword (k) = when k
+   if ImportKeyword -> True
+   if _ -> False
+
   is-where-keyword : TokenKind -> Boolean
   is-where-keyword (k) = when k
    if WhereKeyword -> True

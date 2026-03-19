@@ -2,18 +2,18 @@
 #![allow(non_snake_case, unused_variables, dead_code)]
 
 #[derive(Debug, Clone, PartialEq)]
+struct ParseResult {
+    expr: Expr,
+    pos: i64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 enum Expr {
     Lit(i64),
     Add(Expr, Expr),
     Sub(Expr, Expr),
     Mul(Expr, Expr),
     Div(Expr, Expr),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct ParseResult {
-    expr: Expr,
-    pos: i64,
 }
 
 fn skip_ws(mut input: String, mut pos: i64) -> i64 {

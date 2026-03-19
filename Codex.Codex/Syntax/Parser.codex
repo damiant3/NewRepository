@@ -295,24 +295,36 @@ Section: Document Parsing
   parse-document : ParseState -> Document
   parse-document (st) =
    let st2 = skip-newlines st
-   in parse-top-level [] [] [] st2
+   in let imp-result = parse-imports st2 []
+    in parse-top-level [] [] [] imp-result.imports imp-result.state
 
-  parse-top-level : List Def -> List TypeDef -> List EffectDef -> ParseState -> Document
-  parse-top-level (defs) (type-defs) (effect-defs) (st) =
-   if is-done st then Document { defs = defs, type-defs = type-defs, effect-defs = effect-defs }
+  parse-imports : ParseState -> List ImportDecl -> ImportParseResult
+  parse-imports (st) (acc) =
+   if is-import-keyword (current-kind st)
+    then let st2 = advance st
+     in let name-tok = current st2
+      in let st3 = skip-newlines (advance st2)
+       in parse-imports st3 (acc ++ [ImportDecl { module-name = name-tok }])
+    else ImportParseResult { imports = acc, state = st }
+
+  ImportParseResult = record { imports : List ImportDecl, state : ParseState }
+
+  parse-top-level : List Def -> List TypeDef -> List EffectDef -> List ImportDecl -> ParseState -> Document
+  parse-top-level (defs) (type-defs) (effect-defs) (imports) (st) =
+   if is-done st then Document { defs = defs, type-defs = type-defs, effect-defs = effect-defs, imports = imports }
    else if is-effect-keyword (current-kind st)
-    then parse-top-level-effect defs type-defs effect-defs st
-    else try-top-level-type-def defs type-defs effect-defs st
+    then parse-top-level-effect defs type-defs effect-defs imports st
+    else try-top-level-type-def defs type-defs effect-defs imports st
 
-  parse-top-level-effect : List Def -> List TypeDef -> List EffectDef -> ParseState -> Document
-  parse-top-level-effect (defs) (type-defs) (effect-defs) (st) =
+  parse-top-level-effect : List Def -> List TypeDef -> List EffectDef -> List ImportDecl -> ParseState -> Document
+  parse-top-level-effect (defs) (type-defs) (effect-defs) (imports) (st) =
    let st1 = advance st
    in let name-tok = current st1
     in let st2 = advance st1
      in let st3 = if is-where-keyword (current-kind st2) then skip-newlines (advance st2) else st2
       in let ops = parse-effect-ops st3 []
        in let ed = EffectDef { name = name-tok, ops = ops.ops }
-        in parse-top-level defs type-defs (effect-defs ++ [ed]) (skip-newlines ops.state)
+        in parse-top-level defs type-defs (effect-defs ++ [ed]) imports (skip-newlines ops.state)
 
   EffectOpsResult = record { ops : List EffectOpDef, state : ParseState }
 
@@ -330,20 +342,20 @@ Section: Document Parsing
      else EffectOpsResult { ops = acc, state = st }
     else EffectOpsResult { ops = acc, state = st }
 
-  try-top-level-type-def : List Def -> List TypeDef -> List EffectDef -> ParseState -> Document
-  try-top-level-type-def (defs) (type-defs) (effect-defs) (st) =
+  try-top-level-type-def : List Def -> List TypeDef -> List EffectDef -> List ImportDecl -> ParseState -> Document
+  try-top-level-type-def (defs) (type-defs) (effect-defs) (imports) (st) =
    let td-result = parse-type-def st
    in when td-result
     if TypeDefOk (td) (st2) ->
-     parse-top-level defs (type-defs ++ [td]) effect-defs (skip-newlines st2)
+     parse-top-level defs (type-defs ++ [td]) effect-defs imports (skip-newlines st2)
     if TypeDefNone (st2) ->
-     try-top-level-def defs type-defs effect-defs st
+     try-top-level-def defs type-defs effect-defs imports st
 
-  try-top-level-def : List Def -> List TypeDef -> List EffectDef -> ParseState -> Document
-  try-top-level-def (defs) (type-defs) (effect-defs) (st) =
+  try-top-level-def : List Def -> List TypeDef -> List EffectDef -> List ImportDecl -> ParseState -> Document
+  try-top-level-def (defs) (type-defs) (effect-defs) (imports) (st) =
    let def-result = parse-definition st
    in when def-result
     if DefOk (d) (st2) ->
-     parse-top-level (defs ++ [d]) type-defs effect-defs (skip-newlines st2)
+     parse-top-level (defs ++ [d]) type-defs effect-defs imports (skip-newlines st2)
     if DefNone (st2) ->
-     parse-top-level defs type-defs effect-defs (skip-newlines (advance st2))
+     parse-top-level defs type-defs effect-defs imports (skip-newlines (advance st2))

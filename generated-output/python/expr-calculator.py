@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from typing import Any
 
 @dataclass(frozen=True)
+class ParseResult:
+    expr: Any = None
+    pos: Any = None
+
+@dataclass(frozen=True)
 class Lit:
     field0: Any = None
     tag: str = "Lit"
@@ -30,11 +35,6 @@ class Div:
     field0: Any = None
     field1: Any = None
     tag: str = "Div"
-
-@dataclass(frozen=True)
-class ParseResult:
-    expr: Any = None
-    pos: Any = None
 
 def skip_ws(input, pos):
     while True:

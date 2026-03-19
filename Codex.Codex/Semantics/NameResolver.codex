@@ -265,9 +265,15 @@ Section: Resolve Module
 
   resolve-module : AModule -> ResolveResult
   resolve-module (mod) =
+   resolve-module-with-imports mod []
+
+  resolve-module-with-imports : AModule -> List ResolveResult -> ResolveResult
+  resolve-module-with-imports (mod) (imported) =
    let top = collect-top-level-names mod.defs 0 (list-length mod.defs) [] []
    in let ctors = collect-ctor-names mod.type-defs 0 (list-length mod.type-defs) [] []
-   in let sc = build-all-names-scope top.names ctors.ctor-names builtin-names
+   in let imported-names = collect-imported-names imported 0 (list-length imported) []
+   in let all-top = top.names ++ imported-names
+   in let sc = build-all-names-scope all-top ctors.ctor-names builtin-names
    in let expr-errs = resolve-all-defs sc mod.defs 0 (list-length mod.defs) []
    in ResolveResult {
      errors = top.errors ++ expr-errs,
@@ -275,3 +281,11 @@ Section: Resolve Module
      type-names = ctors.type-names,
      ctor-names = ctors.ctor-names
     }
+
+  collect-imported-names : List ResolveResult -> Integer -> Integer -> List Text -> List Text
+  collect-imported-names (results) (i) (len) (acc) =
+   if i == len then acc
+   else
+    let r = list-at results i
+    in let names = r.top-level-names ++ r.ctor-names
+    in collect-imported-names results (i + 1) len (acc ++ names)

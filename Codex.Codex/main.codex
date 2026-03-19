@@ -19,11 +19,15 @@ Section: Pipeline with Name Resolution
 
   compile-checked : Text -> Text -> CompileResult
   compile-checked (source) (module-name) =
+   compile-with-imports source module-name []
+
+  compile-with-imports : Text -> Text -> List ResolveResult -> CompileResult
+  compile-with-imports (source) (module-name) (imported) =
    let tokens = tokenize source
    in let st = make-parse-state tokens
     in let doc = parse-document st
      in let ast = desugar-document doc module-name
-      in let resolve-result = resolve-module ast
+      in let resolve-result = resolve-module-with-imports ast imported
        in if list-length resolve-result.errors > 0
         then CompileError resolve-result.errors
         else

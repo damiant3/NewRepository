@@ -112,8 +112,13 @@ Section: Definitions
 
 Section: Document
 
+  ImportDecl = record {
+   module-name : Token
+  }
+
   Document = record {
    defs : List Def,
    type-defs : List TypeDef,
-   effect-defs : List EffectDef
+   effect-defs : List EffectDef,
+   imports : List ImportDecl
   }

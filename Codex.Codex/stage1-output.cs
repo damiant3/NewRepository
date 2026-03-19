@@ -92,7 +92,9 @@ public sealed record AEffectOpDef(Name name, ATypeExpr type_expr);
 
 public sealed record AEffectDef(Name name, List<AEffectOpDef> ops);
 
-public sealed record AModule(Name name, List<ADef> defs, List<ATypeDef> type_defs, List<AEffectDef> effect_defs);
+public sealed record AImportDecl(Name module_name);
+
+public sealed record AModule(Name name, List<ADef> defs, List<ATypeDef> type_defs, List<AEffectDef> effect_defs, List<AImportDecl> imports);
 
 public abstract record DiagnosticSeverity;
 public sealed record Error : DiagnosticSeverity;
@@ -197,6 +199,8 @@ public sealed record LexToken(Token Field0, LexState Field1) : LexResult;
 public sealed record LexEnd : LexResult;
 
 
+public sealed record ImportParseResult(List<ImportDecl> imports, ParseState state);
+
 public sealed record EffectOpsResult(List<EffectOpDef> ops, ParseState state);
 
 public sealed record ParseState(List<Token> tokens, long pos);
@@ -294,7 +298,9 @@ public sealed record VariantBody(List<VariantCtorDef> Field0) : TypeBody;
 
 public sealed record TypeDef(Token name, List<Token> type_params, TypeBody body);
 
-public sealed record Document(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs);
+public sealed record ImportDecl(Token module_name);
+
+public sealed record Document(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, List<ImportDecl> imports);
 
 public sealed record Token(TokenKind kind, string text, long offset, long line, long column);
 
@@ -605,15 +611,17 @@ public static class Codex_Codex_Codex
 
     public static AVariantCtorDef desugar_variant_ctor_def(VariantCtorDef c) => new AVariantCtorDef(name: make_name(c.name.text), fields: map_list(desugar_type_expr, c.fields));
 
-    public static AModule desugar_document(Document doc, string module_name) => new AModule(name: make_name(module_name), defs: map_list(desugar_def, doc.defs), type_defs: map_list(desugar_type_def, doc.type_defs), effect_defs: map_list(desugar_effect_def, doc.effect_defs));
+    public static AModule desugar_document(Document doc, string module_name) => new AModule(name: make_name(module_name), defs: map_list(desugar_def, doc.defs), type_defs: map_list(desugar_type_def, doc.type_defs), effect_defs: map_list(desugar_effect_def, doc.effect_defs), imports: map_list(desugar_import, doc.imports));
+
+    public static AImportDecl desugar_import(ImportDecl imp) => new AImportDecl(module_name: make_name(imp.module_name.text));
 
     public static AEffectDef desugar_effect_def(EffectDef ed) => new AEffectDef(name: make_name(ed.name.text), ops: map_list(desugar_effect_op, ed.ops));
 
     public static AEffectOpDef desugar_effect_op(EffectOpDef op) => new AEffectOpDef(name: make_name(op.name.text), type_expr: desugar_type_expr(op.type_expr));
 
-    public static List<T213> map_list<T203, T213>(Func<T203, T213> f, List<T203> xs) => map_list_loop(f, xs, 0, ((long)xs.Count), new List<T213>());
+    public static List<T218> map_list<T208, T218>(Func<T208, T218> f, List<T208> xs) => map_list_loop(f, xs, 0, ((long)xs.Count), new List<T218>());
 
-    public static List<T226> map_list_loop<T225, T226>(Func<T225, T226> f, List<T225> xs, long i, long len, List<T226> acc)
+    public static List<T231> map_list_loop<T230, T231>(Func<T230, T231> f, List<T230> xs, long i, long len, List<T231> acc)
     {
         while (true)
         {
@@ -627,7 +635,7 @@ public static class Codex_Codex_Codex
             var _tco_1 = xs;
             var _tco_2 = (i + 1);
             var _tco_3 = len;
-            var _tco_4 = Enumerable.Concat(acc, new List<T226> { f(xs[(int)i]) }).ToList();
+            var _tco_4 = Enumerable.Concat(acc, new List<T231> { f(xs[(int)i]) }).ToList();
             f = _tco_0;
             xs = _tco_1;
             i = _tco_2;
@@ -638,9 +646,9 @@ public static class Codex_Codex_Codex
         }
     }
 
-    public static T238 fold_list<T238, T229>(Func<T238, Func<T229, T238>> f, T238 z, List<T229> xs) => fold_list_loop(f, z, xs, 0, ((long)xs.Count));
+    public static T243 fold_list<T243, T234>(Func<T243, Func<T234, T243>> f, T243 z, List<T234> xs) => fold_list_loop(f, z, xs, 0, ((long)xs.Count));
 
-    public static T252 fold_list_loop<T252, T247>(Func<T252, Func<T247, T252>> f, T252 z, List<T247> xs, long i, long len)
+    public static T257 fold_list_loop<T257, T252>(Func<T257, Func<T252, T257>> f, T257 z, List<T252> xs, long i, long len)
     {
         while (true)
         {
@@ -2453,7 +2461,34 @@ public static class Codex_Codex_Codex
         }
     }
 
-    public static ResolveResult resolve_module(AModule mod) => ((Func<CollectResult, ResolveResult>)((top) => ((Func<CtorCollectResult, ResolveResult>)((ctors) => ((Func<Scope, ResolveResult>)((sc) => ((Func<List<Diagnostic>, ResolveResult>)((expr_errs) => new ResolveResult(errors: Enumerable.Concat(top.errors, expr_errs).ToList(), top_level_names: top.names, type_names: ctors.type_names, ctor_names: ctors.ctor_names)))(resolve_all_defs(sc, mod.defs, 0, ((long)mod.defs.Count), new List<Diagnostic>()))))(build_all_names_scope(top.names, ctors.ctor_names, builtin_names()))))(collect_ctor_names(mod.type_defs, 0, ((long)mod.type_defs.Count), new List<string>(), new List<string>()))))(collect_top_level_names(mod.defs, 0, ((long)mod.defs.Count), new List<string>(), new List<Diagnostic>()));
+    public static ResolveResult resolve_module(AModule mod) => resolve_module_with_imports(mod, new List<ResolveResult>());
+
+    public static ResolveResult resolve_module_with_imports(AModule mod, List<ResolveResult> imported) => ((Func<CollectResult, ResolveResult>)((top) => ((Func<CtorCollectResult, ResolveResult>)((ctors) => ((Func<List<string>, ResolveResult>)((imported_names) => ((Func<List<string>, ResolveResult>)((all_top) => ((Func<Scope, ResolveResult>)((sc) => ((Func<List<Diagnostic>, ResolveResult>)((expr_errs) => new ResolveResult(errors: Enumerable.Concat(top.errors, expr_errs).ToList(), top_level_names: top.names, type_names: ctors.type_names, ctor_names: ctors.ctor_names)))(resolve_all_defs(sc, mod.defs, 0, ((long)mod.defs.Count), new List<Diagnostic>()))))(build_all_names_scope(all_top, ctors.ctor_names, builtin_names()))))(Enumerable.Concat(top.names, imported_names).ToList())))(collect_imported_names(imported, 0, ((long)imported.Count), new List<string>()))))(collect_ctor_names(mod.type_defs, 0, ((long)mod.type_defs.Count), new List<string>(), new List<string>()))))(collect_top_level_names(mod.defs, 0, ((long)mod.defs.Count), new List<string>(), new List<Diagnostic>()));
+
+    public static List<string> collect_imported_names(List<ResolveResult> results, long i, long len, List<string> acc)
+    {
+        while (true)
+        {
+            if ((i == len))
+            {
+            return acc;
+            }
+            else
+            {
+            var r = results[(int)i];
+            var names = Enumerable.Concat(r.top_level_names, r.ctor_names).ToList();
+            var _tco_0 = results;
+            var _tco_1 = (i + 1);
+            var _tco_2 = len;
+            var _tco_3 = Enumerable.Concat(acc, names).ToList();
+            results = _tco_0;
+            i = _tco_1;
+            len = _tco_2;
+            acc = _tco_3;
+            continue;
+            }
+        }
+    }
 
     public static LexState make_lex_state(string src) => new LexState(source: src, offset: 0, line: 1, column: 1);
 
@@ -2987,11 +3022,33 @@ public static class Codex_Codex_Codex
 
     public static ParseTypeDefResult unwrap_ctor_field(ParseTypeResult r, Token ctor_name, List<TypeExpr> fields, Token name_tok, List<Token> tparams, List<VariantCtorDef> acc) => r switch { TypeOk(var ty, var st) => ((Func<ParseState, ParseTypeDefResult>)((st2) => parse_ctor_fields(ctor_name, Enumerable.Concat(fields, new List<TypeExpr> { ty }).ToList(), st2, name_tok, tparams, acc)))(expect(new RightParen(), st)), _ => throw new InvalidOperationException("Non-exhaustive match"), };
 
-    public static Document parse_document(ParseState st) => ((Func<ParseState, Document>)((st2) => parse_top_level(new List<Def>(), new List<TypeDef>(), new List<EffectDef>(), st2)))(skip_newlines(st));
+    public static Document parse_document(ParseState st) => ((Func<ParseState, Document>)((st2) => ((Func<ImportParseResult, Document>)((imp_result) => parse_top_level(new List<Def>(), new List<TypeDef>(), new List<EffectDef>(), imp_result.imports, imp_result.state)))(parse_imports(st2, new List<ImportDecl>()))))(skip_newlines(st));
 
-    public static Document parse_top_level(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, ParseState st) => (is_done(st) ? new Document(defs: defs, type_defs: type_defs, effect_defs: effect_defs) : (is_effect_keyword(current_kind(st)) ? parse_top_level_effect(defs, type_defs, effect_defs, st) : try_top_level_type_def(defs, type_defs, effect_defs, st)));
+    public static ImportParseResult parse_imports(ParseState st, List<ImportDecl> acc)
+    {
+        while (true)
+        {
+            if (is_import_keyword(current_kind(st)))
+            {
+            var st2 = advance(st);
+            var name_tok = current(st2);
+            var st3 = skip_newlines(advance(st2));
+            var _tco_0 = st3;
+            var _tco_1 = Enumerable.Concat(acc, new List<ImportDecl> { new ImportDecl(module_name: name_tok) }).ToList();
+            st = _tco_0;
+            acc = _tco_1;
+            continue;
+            }
+            else
+            {
+            return new ImportParseResult(imports: acc, state: st);
+            }
+        }
+    }
 
-    public static Document parse_top_level_effect(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, ParseState st) => ((Func<ParseState, Document>)((st1) => ((Func<Token, Document>)((name_tok) => ((Func<ParseState, Document>)((st2) => ((Func<ParseState, Document>)((st3) => ((Func<EffectOpsResult, Document>)((ops) => ((Func<EffectDef, Document>)((ed) => parse_top_level(defs, type_defs, Enumerable.Concat(effect_defs, new List<EffectDef> { ed }).ToList(), skip_newlines(ops.state))))(new EffectDef(name: name_tok, ops: ops.ops))))(parse_effect_ops(st3, new List<EffectOpDef>()))))((is_where_keyword(current_kind(st2)) ? skip_newlines(advance(st2)) : st2))))(advance(st1))))(current(st1))))(advance(st));
+    public static Document parse_top_level(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, List<ImportDecl> imports, ParseState st) => (is_done(st) ? new Document(defs: defs, type_defs: type_defs, effect_defs: effect_defs, imports: imports) : (is_effect_keyword(current_kind(st)) ? parse_top_level_effect(defs, type_defs, effect_defs, imports, st) : try_top_level_type_def(defs, type_defs, effect_defs, imports, st)));
+
+    public static Document parse_top_level_effect(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, List<ImportDecl> imports, ParseState st) => ((Func<ParseState, Document>)((st1) => ((Func<Token, Document>)((name_tok) => ((Func<ParseState, Document>)((st2) => ((Func<ParseState, Document>)((st3) => ((Func<EffectOpsResult, Document>)((ops) => ((Func<EffectDef, Document>)((ed) => parse_top_level(defs, type_defs, Enumerable.Concat(effect_defs, new List<EffectDef> { ed }).ToList(), imports, skip_newlines(ops.state))))(new EffectDef(name: name_tok, ops: ops.ops))))(parse_effect_ops(st3, new List<EffectOpDef>()))))((is_where_keyword(current_kind(st2)) ? skip_newlines(advance(st2)) : st2))))(advance(st1))))(current(st1))))(advance(st));
 
     public static EffectOpsResult parse_effect_ops(ParseState st, List<EffectOpDef> acc)
     {
@@ -3029,9 +3086,9 @@ public static class Codex_Codex_Codex
         }
     }
 
-    public static Document try_top_level_type_def(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, ParseState st) => ((Func<ParseTypeDefResult, Document>)((td_result) => td_result switch { TypeDefOk(var td, var st2) => parse_top_level(defs, Enumerable.Concat(type_defs, new List<TypeDef> { td }).ToList(), effect_defs, skip_newlines(st2)), TypeDefNone(var st2) => try_top_level_def(defs, type_defs, effect_defs, st), _ => throw new InvalidOperationException("Non-exhaustive match"), }))(parse_type_def(st));
+    public static Document try_top_level_type_def(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, List<ImportDecl> imports, ParseState st) => ((Func<ParseTypeDefResult, Document>)((td_result) => td_result switch { TypeDefOk(var td, var st2) => parse_top_level(defs, Enumerable.Concat(type_defs, new List<TypeDef> { td }).ToList(), effect_defs, imports, skip_newlines(st2)), TypeDefNone(var st2) => try_top_level_def(defs, type_defs, effect_defs, imports, st), _ => throw new InvalidOperationException("Non-exhaustive match"), }))(parse_type_def(st));
 
-    public static Document try_top_level_def(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, ParseState st) => ((Func<ParseDefResult, Document>)((def_result) => def_result switch { DefOk(var d, var st2) => parse_top_level(Enumerable.Concat(defs, new List<Def> { d }).ToList(), type_defs, effect_defs, skip_newlines(st2)), DefNone(var st2) => parse_top_level(defs, type_defs, effect_defs, skip_newlines(advance(st2))), _ => throw new InvalidOperationException("Non-exhaustive match"), }))(parse_definition(st));
+    public static Document try_top_level_def(List<Def> defs, List<TypeDef> type_defs, List<EffectDef> effect_defs, List<ImportDecl> imports, ParseState st) => ((Func<ParseDefResult, Document>)((def_result) => def_result switch { DefOk(var d, var st2) => parse_top_level(Enumerable.Concat(defs, new List<Def> { d }).ToList(), type_defs, effect_defs, imports, skip_newlines(st2)), DefNone(var st2) => parse_top_level(defs, type_defs, effect_defs, imports, skip_newlines(advance(st2))), _ => throw new InvalidOperationException("Non-exhaustive match"), }))(parse_definition(st));
 
     public static ParseState make_parse_state(List<Token> toks) => new ParseState(tokens: toks, pos: 0);
 
@@ -3084,6 +3141,8 @@ public static class Codex_Codex_Codex
     public static bool is_with_keyword(TokenKind k) => k switch { WithKeyword { } => true, _ => false, };
 
     public static bool is_effect_keyword(TokenKind k) => k switch { EffectKeyword { } => true, _ => false, };
+
+    public static bool is_import_keyword(TokenKind k) => k switch { ImportKeyword { } => true, _ => false, };
 
     public static bool is_where_keyword(TokenKind k) => k switch { WhereKeyword { } => true, _ => false, };
 
@@ -4483,7 +4542,9 @@ public static class Codex_Codex_Codex
 
     public static string compile(string source, string module_name) => ((Func<List<Token>, string>)((tokens) => ((Func<ParseState, string>)((st) => ((Func<Document, string>)((doc) => ((Func<AModule, string>)((ast) => ((Func<ModuleResult, string>)((check_result) => ((Func<IRModule, string>)((ir) => emit_full_module(ir, ast.type_defs)))(lower_module(ast, check_result.types, check_result.state))))(check_module(ast))))(desugar_document(doc, module_name))))(parse_document(st))))(make_parse_state(tokens))))(tokenize(source));
 
-    public static CompileResult compile_checked(string source, string module_name) => ((Func<List<Token>, CompileResult>)((tokens) => ((Func<ParseState, CompileResult>)((st) => ((Func<Document, CompileResult>)((doc) => ((Func<AModule, CompileResult>)((ast) => ((Func<ResolveResult, CompileResult>)((resolve_result) => ((((long)resolve_result.errors.Count) > 0) ? new CompileError(resolve_result.errors) : ((Func<ModuleResult, CompileResult>)((check_result) => ((Func<IRModule, CompileResult>)((ir) => new CompileOk(emit_full_module(ir, ast.type_defs), check_result)))(lower_module(ast, check_result.types, check_result.state))))(check_module(ast)))))(resolve_module(ast))))(desugar_document(doc, module_name))))(parse_document(st))))(make_parse_state(tokens))))(tokenize(source));
+    public static CompileResult compile_checked(string source, string module_name) => compile_with_imports(source, module_name, new List<ResolveResult>());
+
+    public static CompileResult compile_with_imports(string source, string module_name, List<ResolveResult> imported) => ((Func<List<Token>, CompileResult>)((tokens) => ((Func<ParseState, CompileResult>)((st) => ((Func<Document, CompileResult>)((doc) => ((Func<AModule, CompileResult>)((ast) => ((Func<ResolveResult, CompileResult>)((resolve_result) => ((((long)resolve_result.errors.Count) > 0) ? new CompileError(resolve_result.errors) : ((Func<ModuleResult, CompileResult>)((check_result) => ((Func<IRModule, CompileResult>)((ir) => new CompileOk(emit_full_module(ir, ast.type_defs), check_result)))(lower_module(ast, check_result.types, check_result.state))))(check_module(ast)))))(resolve_module_with_imports(ast, imported))))(desugar_document(doc, module_name))))(parse_document(st))))(make_parse_state(tokens))))(tokenize(source));
 
     public static string test_source() => "square : Integer -> Integer\nsquare (x) = x * x\nmain = square 5";
 
