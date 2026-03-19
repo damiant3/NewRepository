@@ -64,11 +64,16 @@ class Program
         try
         {
             var tokens = Codex_Codex_Codex.tokenize(combined);
+            Console.WriteLine($"  Tokens: {tokens.Count}");
 
             var st = Codex_Codex_Codex.make_parse_state(tokens);
             var doc = Codex_Codex_Codex.parse_document(st);
+            Console.WriteLine($"  Parsed defs: {doc.defs.Count}");
+            Console.WriteLine($"  Parsed type-defs: {doc.type_defs.Count}");
 
             var ast = Codex_Codex_Codex.desugar_document(doc, "Codex_Codex");
+            Console.WriteLine($"  AST defs: {ast.defs.Count}");
+            Console.WriteLine($"  AST type-defs: {ast.type_defs.Count}");
 
             var checkResult = Codex_Codex_Codex.check_module(ast);
             Console.WriteLine($"  Type bindings: {checkResult.types.Count}");
@@ -176,7 +181,7 @@ class Program
             }
 
             int indent = MeasureIndent(lines[i]);
-            if (indent >= 4 && LooksLikeNotation(trimmed))
+            if (indent >= 2 && LooksLikeNotation(trimmed))
             {
                 int baseIndent = indent;
                 List<string> block = [];
