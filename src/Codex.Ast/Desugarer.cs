@@ -19,8 +19,19 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
         List<ExportDecl> exports = document.Exports
             .Select(e => new ExportDecl(
                 e.Names.Select(n => new Name(n.Text)).ToList(), e.Span)).ToList();
+        List<EffectDef> effectDefs = document.EffectDefinitions
+            .Select(DesugarEffectDef).ToList();
         return new Module(name, definitions, typeDefinitions, claims, proofs, document.Span)
-            { Imports = imports, Exports = exports };
+            { Imports = imports, Exports = exports, EffectDefs = effectDefs };
+    }
+
+    EffectDef DesugarEffectDef(EffectDefinitionNode node)
+    {
+        Name effectName = new(node.Name.Text);
+        List<EffectOperationDef> ops = node.Operations
+            .Select(o => new EffectOperationDef(
+                new Name(o.Name.Text), DesugarType(o.Type), o.Span)).ToList();
+        return new EffectDef(effectName, ops, node.Span);
     }
 
     Definition DesugarDefinition(DefinitionNode node)

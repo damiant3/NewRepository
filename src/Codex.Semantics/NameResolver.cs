@@ -77,9 +77,26 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
                 }
         }
 
+        // Register effect operation names
+        Set<string> effectNames = Set<string>.s_empty;
+        foreach (EffectDef eff in module.EffectDefs)
+        {
+            effectNames = effectNames.Add(eff.EffectName.Value);
+            foreach (EffectOperationDef op in eff.Operations)
+            {
+                if (topLevel.Contains(op.Name.Value) || ctorNames.Contains(op.Name.Value))
+                {
+                    m_diagnostics.Error("CDX3001",
+                        $"Effect operation '{op.Name.Value}' conflicts with existing name",
+                        op.Span);
+                }
+                topLevel = topLevel.Add(op.Name.Value);
+            }
+        }
+
         // Compute exported names: if no export declarations, export everything
         Set<string> exportedNames = ComputeExportedNames(
-            module, topLevel, typeNames, ctorNames);
+            module, topLevel, typeNames.Union(effectNames), ctorNames);
 
         List<ResolvedModule> importedModules = [];
         foreach (ImportDecl imp in module.Imports)

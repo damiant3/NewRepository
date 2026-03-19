@@ -19,6 +19,7 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
         List<ProofNode> proofs = [];
         List<ImportNode> imports = [];
         List<ExportNode> exports = [];
+        List<EffectDefinitionNode> effectDefs = [];
 
         SkipNewlines();
         while (!IsAtEnd)
@@ -40,6 +41,17 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
                 if (exp is not null)
                 {
                     exports.Add(exp);
+                    SkipNewlines();
+                    continue;
+                }
+            }
+
+            if (Current.Kind == TokenKind.EffectKeyword)
+            {
+                EffectDefinitionNode? eff = TryParseEffectDefinition();
+                if (eff is not null)
+                {
+                    effectDefs.Add(eff);
                     SkipNewlines();
                     continue;
                 }
@@ -90,7 +102,8 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
 
         SourceSpan endSpan = Previous.Span;
         return new DocumentNode(definitions, typeDefinitions, claims, proofs,
-            [], startSpan.Through(endSpan)) { Imports = imports, Exports = exports };
+            [], startSpan.Through(endSpan))
+            { Imports = imports, Exports = exports, EffectDefinitions = effectDefs };
     }
 
     TypeDefinitionNode? TryParseTypeDefinition()
@@ -203,6 +216,48 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
         }
 
         return new ExportNode(names, exportKw.Span.Through(names[^1].Span));
+    }
+
+    EffectDefinitionNode? TryParseEffectDefinition()
+    {
+        if (Current.Kind != TokenKind.EffectKeyword)
+            return null;
+        Token effectKw = Current;
+        Advance();
+
+        Token name = Expect(TokenKind.TypeIdentifier);
+
+        if (Current.Kind != TokenKind.WhereKeyword)
+        {
+            m_diagnostics.Error("CDX1070",
+                $"Expected 'where' after effect name, found {Current.Kind}", Current.Span);
+            return new EffectDefinitionNode(name, [], effectKw.Span.Through(name.Span));
+        }
+        Advance(); // consume where
+        SkipNewlines();
+
+        List<EffectOperationNode> operations = [];
+        while (Current.Kind == TokenKind.Identifier)
+        {
+            Token opName = Current;
+            Advance();
+            Expect(TokenKind.Colon);
+            TypeNode opType = ParseType();
+            operations.Add(new EffectOperationNode(opName, opType,
+                opName.Span.Through(opType.Span)));
+            SkipNewlines();
+        }
+
+        if (operations.Count == 0)
+        {
+            m_diagnostics.Error("CDX1071",
+                "Effect must declare at least one operation", effectKw.Span);
+        }
+
+        SourceSpan span = operations.Count > 0
+            ? effectKw.Span.Through(operations[^1].Span)
+            : effectKw.Span.Through(name.Span);
+        return new EffectDefinitionNode(name, operations, span);
     }
 
     RecordTypeBody ParseRecordTypeBody()
