@@ -129,9 +129,14 @@ Section: Definitions
 
 Section: Module
 
+  AImportDecl = record {
+   module-name : Name
+  }
+
   AModule = record {
    name : Name,
    defs : List ADef,
    type-defs : List ATypeDef,
-   effect-defs : List AEffectDef
+   effect-defs : List AEffectDef,
+   imports : List AImportDecl
   }
