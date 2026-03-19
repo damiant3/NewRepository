@@ -74,11 +74,19 @@ S0_FILE="Codex.Codex/out/Codex.Codex.cs"
 S1_FILE="Codex.Codex/stage1-output.cs"
 S3_FILE="Codex.Codex/stage3-output.cs"
 
-S0_CHARS=0; S0_LINES=0; S0_OBJECTS=0; S0_P0=0
+S0_CHARS=0; S0_LINES=0; S0_OBJECTS=0; S0_OBJECTS_RAW=0; S0_P0=0
 if [ -f "$S0_FILE" ]; then
     S0_CHARS=$(wc -c < "$S0_FILE")
     S0_LINES=$(wc -l < "$S0_FILE")
-    S0_OBJECTS=$(grep -o '\bobject\b' "$S0_FILE" | wc -l)
+    S0_OBJECTS_RAW=$(grep -c '\bobject\b' "$S0_FILE" || true)
+    # Real type debt: exclude false positives (string literals, C# methods, locked main)
+    S0_OBJECTS=$(grep '\bobject\b' "$S0_FILE" \
+        | grep -v 'object\.Equals' \
+        | grep -v '"object"' \
+        | grep -v 'static object main' \
+        | grep -v 'Func<object>.*(() =>' \
+        | grep -c '\bobject\b' || true)
+    S0_OBJECTS=${S0_OBJECTS:-0}
     S0_P0=$(grep -o '_p0_' "$S0_FILE" | wc -l)
 fi
 
@@ -189,7 +197,7 @@ if $JSON_MODE; then
 {
   "timestamp": "$(date '+%Y-%m-%d %H:%M:%S')",
   "selfHosted": { "files": $FILE_COUNT, "lines": $TOTAL_LINES, "chars": $TOTAL_CHARS },
-  "generated": { "chars": $S0_CHARS, "lines": $S0_LINES, "objects": $S0_OBJECTS, "p0": $S0_P0 },
+  "generated": { "chars": $S0_CHARS, "lines": $S0_LINES, "objects": $S0_OBJECTS, "objectsRaw": $S0_OBJECTS_RAW, "p0": $S0_P0 },
   "convergence": { "s0": $S0_CHARS, "s1": $S1_CHARS, "s3": $S3_CHARS, "fixedPoint": $FIXED_POINT },
   "git": { "branch": "$GIT_BRANCH", "hash": "$GIT_HASH", "dirty": $GIT_DIRTY },
   "cognitive": { "budget": $CONTEXT_BUDGET, "hotChars": $HOT_CHARS, "hotFiles": $HOT_COUNT, "typeDebt": $TYPE_DEBT, "thrash": $THRASH, "risk": "$RISK" },
@@ -270,7 +278,7 @@ echo -e "  ${BOLD}⚙️  GENERATED C#${RESET}  ${DIM}(Codex.Codex.cs)${RESET}"
 if [ "$S0_CHARS" -gt 0 ]; then
     echo -e "    Lines: ${WHITE}${S0_LINES}${RESET}   Chars: ${WHITE}$(printf '%d' $S0_CHARS)${RESET}"
     echo -e "    ${DIM}Type quality:${RESET}"
-    echo -e "      object refs   $(severity $S0_OBJECTS 3 10)    ${DIM}(unresolved types)${RESET}"
+    echo -e "      object refs   $(severity $S0_OBJECTS 1 5)    ${DIM}(type debt: $S0_OBJECTS, raw: $S0_OBJECTS_RAW — ${S0_OBJECTS_RAW} total, $((S0_OBJECTS_RAW - S0_OBJECTS)) legitimate/locked)${RESET}"
     echo -e "      _p0_ proxies  $(severity $S0_P0 10 30)   ${DIM}(partial-app placeholders)${RESET}"
 else
     echo -e "    ${RED}NOT FOUND${RESET}"

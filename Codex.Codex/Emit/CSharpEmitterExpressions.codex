@@ -81,7 +81,7 @@ Section: Identifier Helpers
     if TextTy -> "string"
     if BooleanTy -> "bool"
     if VoidTy -> "void"
-    if NothingTy -> "object"
+    if NothingTy -> "void"
     if ErrorTy -> "object"
     if FunTy (p) (r) -> "Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">"
     if ListTy (elem) -> "List<" ++ cs-type elem ++ ">"
@@ -201,7 +201,7 @@ Section: Expression Emission
     if IrLambda (params) (body) (ty) -> emit-lambda params body arities
     if IrList (elems) (ty) -> emit-list elems ty arities
     if IrMatch (scrut) (branches) (ty) -> emit-match scrut branches ty arities
-    if IrDo (stmts) (ty) -> emit-do stmts arities
+    if IrDo (stmts) (ty) -> emit-do stmts ty arities
     if IrRecord (name) (fields) (ty) -> emit-record name fields arities
     if IrFieldAccess (rec) (field) (ty) -> emit-expr rec arities ++ "." ++ sanitize field
     if IrError (msg) (ty) -> "/* error: " ++ msg ++ " */ default"
@@ -324,8 +324,13 @@ Section: Expression Emission
     if IrWildPat -> "_"
     if IrLitPat (text) (ty) -> text
 
-  emit-do : List IRDoStmt -> List ArityEntry -> Text
-  emit-do (stmts) (arities) = "((Func<object>)(() => \{ " ++ emit-do-stmts stmts 0 arities ++ " return null; }))()"
+  emit-do : List IRDoStmt -> CodexType -> List ArityEntry -> Text
+  emit-do (stmts) (ty) (arities) =
+   when ty
+    if VoidTy -> "((Action)(() => \\{ " ++ emit-do-stmts stmts 0 arities ++ " }))()"
+    if NothingTy -> "((Action)(() => \\{ " ++ emit-do-stmts stmts 0 arities ++ " }))()"
+    if ErrorTy -> "((Action)(() => \\{ " ++ emit-do-stmts stmts 0 arities ++ " }))()"
+    if _ -> "((Func<" ++ cs-type ty ++ ">)(() => \\{ " ++ emit-do-stmts stmts 0 arities ++ " }))()"
 
   emit-do-stmts : List IRDoStmt -> Integer -> List ArityEntry -> Text
   emit-do-stmts (stmts) (i) (arities) =
