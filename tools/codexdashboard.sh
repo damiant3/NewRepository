@@ -160,6 +160,26 @@ else RISK="CRITICAL"; RISK_ICON="🔥"; RISK_COLOR="${BOLD}${RED}"; fi
 TEST_COUNT=$(grep -r '\[Fact\]\|\[Theory\]' tests/ --include="*.cs" 2>/dev/null | wc -l)
 TEST_FILES=$(find tests -name "*.cs" -not -path "*/obj/*" -not -path "*/bin/*" -not -name "*AssemblyInfo*" -not -name "*GlobalUsings*" 2>/dev/null | wc -l)
 
+# Reference compiler lock
+LOCK_FILE="$REPO_ROOT/REFERENCE-COMPILER-LOCK.md"
+REF_LOCKED=false
+LOCK_COMMIT=""
+LOCK_DATE=""
+if [ -f "$LOCK_FILE" ]; then
+    REF_LOCKED=true
+    LOCK_COMMIT=$(grep -oP 'Locked at commit.*?`\K[a-f0-9]+' "$LOCK_FILE" 2>/dev/null || true)
+    LOCK_DATE=$(grep -oP '\*\*Date\*\*:\s*\K\d{4}-\d{2}-\d{2}' "$LOCK_FILE" 2>/dev/null || true)
+fi
+
+# Prelude
+PRELUDE_DIR="$REPO_ROOT/prelude"
+PRELUDE_FILES=""
+PRELUDE_COUNT=0
+if [ -d "$PRELUDE_DIR" ]; then
+    PRELUDE_FILES=$(ls "$PRELUDE_DIR"/*.codex 2>/dev/null | xargs -I{} basename {} .codex | tr '\n' ', ' | sed 's/,$//')
+    PRELUDE_COUNT=$(ls "$PRELUDE_DIR"/*.codex 2>/dev/null | wc -l)
+fi
+
 # ═══════════════════════════════════════════════════════════════
 # JSON OUTPUT
 # ═══════════════════════════════════════════════════════════════
@@ -174,7 +194,9 @@ if $JSON_MODE; then
   "git": { "branch": "$GIT_BRANCH", "hash": "$GIT_HASH", "dirty": $GIT_DIRTY },
   "cognitive": { "budget": $CONTEXT_BUDGET, "hotChars": $HOT_CHARS, "hotFiles": $HOT_COUNT, "typeDebt": $TYPE_DEBT, "thrash": $THRASH, "risk": "$RISK" },
   "errors": { "unification": $UNIFY_ERRORS, "errorTy": $ERRORTYS, "hasMiniFile": $HAS_MINI },
-  "tests": { "files": $TEST_FILES, "methods": $TEST_COUNT }
+  "tests": { "files": $TEST_FILES, "methods": $TEST_COUNT },
+  "refLock": { "locked": $REF_LOCKED, "commit": "$LOCK_COMMIT", "date": "$LOCK_DATE" },
+  "prelude": { "count": $PRELUDE_COUNT, "modules": "$PRELUDE_FILES" }
 }
 ENDJSON
     exit 0
@@ -274,6 +296,21 @@ else
 fi
 echo -e "$SEP"
 
+# Reference compiler lock
+echo ""
+echo -e "  ${BOLD}🔒 REFERENCE COMPILER${RESET}"
+if $REF_LOCKED; then
+    echo -e "    Status:  ${GREEN}✓ LOCKED${RESET}  ${DIM}at commit ${LOCK_COMMIT} on ${LOCK_DATE}${RESET}"
+    echo -e "    ${DIM}The C# reference compiler (src/) is frozen.${RESET}"
+    echo -e "    ${DIM}New features go in .codex source only.${RESET}"
+else
+    echo -e "    Status:  ${YELLOW}✗ UNLOCKED${RESET}  ${DIM}(no REFERENCE-COMPILER-LOCK.md found)${RESET}"
+fi
+if [ "$PRELUDE_COUNT" -gt 0 ]; then
+    echo -e "    Prelude: ${GREEN}${PRELUDE_COUNT} modules${RESET}  ${DIM}(${PRELUDE_FILES})${RESET}"
+fi
+echo -e "$SEP"
+
 # Tests
 echo ""
 echo -e "  ${BOLD}🧪 TESTS${RESET}"
@@ -283,6 +320,7 @@ echo -e "$SEP"
 # Guidance
 echo ""
 echo -e "  ${BOLD}💡 GUIDANCE${RESET}"
+$REF_LOCKED && echo -e "    ${GREEN}🔒 Reference compiler is LOCKED. All new features in .codex source.${RESET}"
 case "$RISK" in
     CRITICAL)
         echo -e "    ${RED}→ DO NOT assign multi-file changes right now.${RESET}"
