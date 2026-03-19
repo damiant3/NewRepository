@@ -49,6 +49,8 @@ public enum TokenKind
     ForAllKeyword,
     ThereExistsKeyword,
     LinearKeyword,
+    EffectKeyword,
+    HandleKeyword,
 
     // Operators
     Equals,             // =

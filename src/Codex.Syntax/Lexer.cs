@@ -428,6 +428,8 @@ public sealed class Lexer
         "forall" => TokenKind.ForAllKeyword,
         "exists" => TokenKind.ThereExistsKeyword,
         "linear" => TokenKind.LinearKeyword,
+        "effect" => TokenKind.EffectKeyword,
+        "handle" => TokenKind.HandleKeyword,
         "True" => TokenKind.TrueKeyword,
         "False" => TokenKind.FalseKeyword,
         _ => char.IsUpper(text[0]) ? TokenKind.TypeIdentifier : TokenKind.Identifier

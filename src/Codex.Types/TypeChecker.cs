@@ -19,6 +19,7 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
     public Map<string, CodexType> CheckModule(Module module)
     {
         RegisterTypeDefinitions(module.TypeDefinitions);
+        RegisterEffectDefinitions(module.EffectDefs);
 
         Map<string, CodexType> topLevelTypes = Map<string, CodexType>.s_empty;
         foreach (Definition def in module.Definitions)
@@ -158,6 +159,24 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
     public Map<string, CodexType> TypeDefMap => m_typeDefMap;
 
     public Map<string, CtorInfo> ConstructorMap => m_ctorMap;
+
+    void RegisterEffectDefinitions(IReadOnlyList<EffectDef> effectDefs)
+    {
+        foreach (EffectDef eff in effectDefs)
+        {
+            foreach (EffectOperationDef op in eff.Operations)
+            {
+                Map<string, CodexType> savedTypeParams = m_typeParamEnv;
+                m_typeParamEnv = Map<string, CodexType>.s_empty;
+                m_effectRowVars = Map<string, EffectRowVariable>.s_empty;
+                CodexType opType = ResolveTypeExpr(op.Type);
+                CodexType generalizedType = Generalize(opType);
+                m_typeParamEnv = savedTypeParams;
+                m_effectRowVars = Map<string, EffectRowVariable>.s_empty;
+                m_env = m_env.Bind(op.Name, generalizedType);
+            }
+        }
+    }
 }
 
 public sealed record CtorInfo(CodexType ConstructorType, CodexType OwnerType);

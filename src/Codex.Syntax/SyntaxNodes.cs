@@ -8,6 +8,8 @@ public enum SyntaxKind
     Document,
     Definition,
     TypeDefinition,
+    EffectDefinition,
+    EffectOperation,
 
     // Prose structure
     Chapter,
@@ -106,6 +108,7 @@ public sealed record DocumentNode(
 {
     public IReadOnlyList<ImportNode> Imports { get; init; } = [];
     public IReadOnlyList<ExportNode> Exports { get; init; } = [];
+    public IReadOnlyList<EffectDefinitionNode> EffectDefinitions { get; init; } = [];
 
     public DocumentNode(IReadOnlyList<DefinitionNode> Definitions, SourceSpan Span)
         : this(Definitions, Array.Empty<TypeDefinitionNode>(), Array.Empty<ClaimNode>(),
@@ -121,6 +124,7 @@ public sealed record DocumentNode(
         {
             foreach (ImportNode imp in Imports) yield return imp;
             foreach (ExportNode exp in Exports) yield return exp;
+            foreach (EffectDefinitionNode eff in EffectDefinitions) yield return eff;
             foreach (ChapterNode ch in Chapters) yield return ch;
             foreach (TypeDefinitionNode td in TypeDefinitions) yield return td;
             foreach (ClaimNode cl in Claims) yield return cl;
@@ -495,6 +499,21 @@ public sealed record ErrorTypeBody(SourceSpan Span)
     : TypeDefinitionBody(SyntaxKind.ErrorNode, Span)
 {
     public override IEnumerable<SyntaxNode> Children => [];
+}
+
+public sealed record EffectOperationNode(Token Name, TypeNode Type, SourceSpan Span)
+    : SyntaxNode(SyntaxKind.EffectOperation, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Type];
+}
+
+public sealed record EffectDefinitionNode(
+    Token Name,
+    IReadOnlyList<EffectOperationNode> Operations,
+    SourceSpan Span)
+    : SyntaxNode(SyntaxKind.EffectDefinition, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => Operations;
 }
 
 public sealed record ClaimNode(
