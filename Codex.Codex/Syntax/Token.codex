@@ -1,17 +1,17 @@
 Chapter: Tokens
 
-  A token is a lexical element produced by the lexer. It carries a kind,
-  the original source text, and position information.
+ A token is a lexical element produced by the lexer. It carries a kind,
+ the original source text, and position information.
 
-    Token = record {
-      kind : TokenKind,
-      text : Text,
-      offset : Integer,
-      line : Integer,
-      column : Integer
-    }
+  Token = record {
+   kind : TokenKind,
+   text : Text,
+   offset : Integer,
+   line : Integer,
+   column : Integer
+  }
 
-  We can ask for the length of a token's text:
+ We can ask for the length of a token's text:
 
-    token-length : Token -> Integer
-    token-length (t) = text-length t.text
+  token-length : Token -> Integer
+  token-length (t) = text-length t.text

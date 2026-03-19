@@ -104,7 +104,7 @@ GIT_DIRTY=$(git diff --stat 2>/dev/null | grep '|' | wc -l)
 # Cognitive load estimate
 # 60K is the honest effective working memory — not theoretical context window
 CONTEXT_BUDGET=60000
-HOT_PATH_FILES="Parser.codex TypeChecker.codex CSharpEmitter.codex Lowering.codex Unifier.codex Lexer.codex"
+HOT_PATH_FILES="ParserExpressions.codex Parser.codex TypeChecker.codex TypeCheckerInference.codex CSharpEmitter.codex CSharpEmitterExpressions.codex Lowering.codex Unifier.codex Lexer.codex"
 # Cascade risk: upstream files affect all downstream stages
 CASCADE_FILES="Parser.codex Lexer.codex"
 HOT_CHARS=0
