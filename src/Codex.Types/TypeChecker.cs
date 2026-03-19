@@ -47,8 +47,10 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
                 ? Instantiate(envType)
                 : expectedType;
             int errorsBefore = m_diagnostics.Count;
+            m_unifier.ContextSpan = def.Span;
             CodexType bodyType = InferDefinition(def, checkType);
             m_unifier.Unify(checkType, bodyType, def.Span);
+            m_unifier.ContextSpan = null;
             if (m_diagnostics.Count > errorsBefore)
                 m_diagnostics.Info("CDX2099",
                     $"in definition '{def.Name.Value}'", def.Span);

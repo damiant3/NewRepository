@@ -46,6 +46,12 @@ public sealed class DiagnosticBag
         Add(new Diagnostic(DiagnosticSeverity.Error, code, message, span));
     }
 
+    public void Error(string code, string message, SourceSpan span, params SourceSpan[] relatedSpans)
+    {
+        Add(new Diagnostic(DiagnosticSeverity.Error, code, message, span,
+            System.Collections.Immutable.ImmutableArray.Create(relatedSpans)));
+    }
+
     public void Warning(string code, string message, SourceSpan span)
     {
         Add(new Diagnostic(DiagnosticSeverity.Warning, code, message, span));

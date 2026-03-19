@@ -9,6 +9,8 @@ public sealed class Unifier(DiagnosticBag diagnostics)
     readonly DiagnosticBag m_diagnostics = diagnostics;
     int m_nextId;
 
+    public SourceSpan? ContextSpan { get; set; }
+
     public TypeVariable FreshVar() => new(m_nextId++);
 
     public EffectRowVariable FreshEffectVar() => new(m_nextId++);
@@ -329,7 +331,17 @@ public sealed class Unifier(DiagnosticBag diagnostics)
 
     void ReportMismatch(CodexType expected, CodexType actual, SourceSpan span)
     {
-        m_diagnostics.Error("CDX2001",
-            $"Type mismatch: expected {expected}, but found {actual}", span);
+        string exp = TypeFormatter.Format(DeepResolve(expected));
+        string act = TypeFormatter.Format(DeepResolve(actual));
+        if (ContextSpan is not null && ContextSpan != span)
+        {
+            m_diagnostics.Error("CDX2001",
+                $"Type mismatch: expected {exp}, but found {act}", span, ContextSpan.Value);
+        }
+        else
+        {
+            m_diagnostics.Error("CDX2001",
+                $"Type mismatch: expected {exp}, but found {act}", span);
+        }
     }
 }

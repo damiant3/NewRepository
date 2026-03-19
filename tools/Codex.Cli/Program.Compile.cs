@@ -170,6 +170,10 @@ public static partial class Program
                 _ => "?"
             };
             Console.Error.WriteLine($"{severity} {diag.Code}: {diag.Message} {diag.Span}");
+            foreach (SourceSpan related in diag.RelatedSpans)
+            {
+                Console.Error.WriteLine($"  note: see {related}");
+            }
         }
     }
 
