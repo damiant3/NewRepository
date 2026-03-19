@@ -13,16 +13,23 @@ All language development now happens in `.codex` source.
 The L1–L4 feature port to the self-hosted pipeline is **complete**: effects, modules,
 prelude, and do-notation are all wired from parser through C# emission in `.codex` source.
 
+**P1 (built-in expansion) is RESOLVED.** The root cause was a bootstrap prose-extraction
+bug: `indent >= 4` in `ExtractCodeBlocks` silently dropped all type definitions and
+function signatures after the project moved to 2-space indentation. The fix
+(`indent >= 2`) restored 91 type definitions, eliminated 1,014 unification errors,
+and recovered ~30 missing functions in Stage 1 output including `is_builtin_name`,
+`emit_builtin`, and the entire effects/handler subsystem. Fixed point re-verified.
+
 ### Snapshot
 
 | Metric | Value |
 |--------|-------|
 | .codex source (compiler) | 26 files, 4,649 lines, 173K chars |
 | .codex source (total) | 97 files (compiler + prelude + samples + tests) |
-| Tests | **825** (823 passing + 2 skipped) |
+| Tests | **836** (836 passing + 2 skipped) |
 | Backends | 12 (C#, JS, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage) |
-| Bootstrap | Fixed point: Stage 1 = Stage 3 (227,301 chars) |
-| Type debt | **0** (filtered), 5 raw (all legitimate/locked) |
+| Bootstrap | Fixed point: Stage 1 = Stage 2 (244,363 chars) |
+| Type debt | **0** (filtered), 0 ErrorTy bindings |
 | Prelude | 7 modules: Maybe, Result, Either, Pair, CCE, Hamt, List |
 | Quine disproof | `samples/expr-calculator.codex` — 10/10 PASS |
 | Ref compiler | 🔒 Locked at `6d8bb2c` on 2026-03-19 |
@@ -39,7 +46,7 @@ The `.codex` compiler now handles:
 | Types | `EffectfulTy` in CodexType |
 | IR | `IrHandle`, `IRHandleClause` |
 | Lowering | `lower-handle`, `lower-handle-clauses` |
-| Emitter | `emit-handle`, `emit-handle-clauses`, `EffectfulTy` case in `cs-type`, typed do-blocks (Action for void, Func<T> otherwise) |
+| Emitter | `emit-handle`, `emit-handle-clauses`, `EffectfulTy` case in `cs-type`, built-in inlining (`is-builtin-name`/`emit-builtin`), typed do-blocks |
 
 ---
 
@@ -50,9 +57,9 @@ The `.codex` compiler now handles:
 | # | Task | Status | What |
 |---|------|--------|------|
 | E1 | **Exit criterion: real programs** | 🔶 Started | `expr-calculator.codex` (10/10 PASS) proves the compiler works. Next: something larger that exercises imports, prelude types, and effects together. |
-| L7 | **Better error messages** | 🔶 Ongoing | "Did you mean X?" ✅. Readable type formatting ✅. Related spans ✅. Remaining: error recovery, source location accuracy in self-hosted pipeline. |
+| L7 | **Better error messages** | 🔶 Ongoing | "Did you mean X?" ✅. Readable type formatting ✅. Related spans ✅. Error cap at 20 ✅. ErrorType cascade suppression ✅. Remaining: error recovery, source location accuracy in self-hosted pipeline. |
 | R5 | **Build system** | 🔶 Started | `CodexProject` model + `LoadProjectFile` exist. Remaining: wire into `codex build`, multi-file dependency resolution. |
-| P1 | **Self-hosted built-in expansion** | ⬜ Critical | The self-hosted emitter calls built-ins by name (`text_length`, `print_line`) instead of inlining them (`.Length`, `Console.WriteLine`). Stage 1 output needs a runtime shim or inline expansion to run standalone. Blocks R6. |
+| P1 | **Self-hosted built-in expansion** | ✅ Done | Root cause: bootstrap `ExtractCodeBlocks` required `indent >= 4` but source uses 2-space indent. Fix: `indent >= 2`. Stage 1 now inlines all built-ins. Fixed point verified. |
 
 ### Medium Term: Library & Runtime
 
@@ -61,7 +68,7 @@ The `.codex` compiler now handles:
 | R2 | **Standard library** | 🔶 Started | First modules: CCE (character encoding, 353 lines), Hamt (persistent map, 271 lines), List (cons-list, 98 lines). Remaining: string utilities, IO abstractions. |
 | R3 | **FFI / host interop** | ⬜ | Call .NET/JS/C APIs from Codex. Per-backend with common interface. |
 | R4 | **Package management** | ⬜ | Repository-based package resolution. `codex add <package>`. |
-| R6 | **Native executable bootstrap** | ⬜ | Compile Codex compiler to native `.exe` via IL emitter. Depends on P1 + R2. |
+| R6 | **Native executable bootstrap** | ⬜ Unblocked | Compile Codex compiler to native `.exe` via IL emitter. P1 resolved; depends on R2. |
 
 **Exit criterion**: `codex build myproject/ --target il` produces a runnable `.exe`
 with standard library support, no C# toolchain needed.
@@ -83,7 +90,7 @@ with standard library support, no C# toolchain needed.
 ## Recommended Sequence
 
 ```
-Now ──→ P1 (built-in expansion) + E1 (real program) + R5 (build system)
+Now ──→ E1 (real program) + R5 (build system)
             │
             ├──→ R2 (stdlib: expand CCE, Hamt, add collections)
             │       │
@@ -92,8 +99,34 @@ Now ──→ P1 (built-in expansion) + E1 (real program) + R5 (build system)
             └──→ R4 (packages) ──→ V1-V7 (the vision)
 ```
 
-**P1 is the critical path.** Until the self-hosted emitter can inline built-ins,
-Stage 1 output requires a runtime shim to execute.
+**R6 is now unblocked.** P1 is resolved. The next critical path is R2 (standard library)
+to provide the runtime functions needed for standalone executables.
+
+---
+
+## Recent Session: P1 Resolution (2026-03-19)
+
+**Agent**: Claude (Opus 4.6, Linux, claude.ai)
+**Branch**: `linux/p1-builtin-expansion` → merged to `master`
+
+### Investigation Trail
+
+1. Diagnosed that Stage 1 output was missing ~30 functions (`is_builtin_name`, `emit_builtin`, entire effects subsystem, type parameter handling).
+2. Found 1,014 unification errors in the self-hosted type checker, 976 of which were "Unknown name" for constructors and local variables.
+3. Discovered the self-hosted parser found **0 type definitions** out of 91 expected.
+4. Traced to the bootstrap's `ExtractCodeBlocks` function: `indent >= 4` threshold rejected all 2-space-indented code blocks, silently dropping every type-definition-only file (SyntaxNodes, TokenKind, CodexType, AstNodes, Token, Name, etc.).
+5. One-line fix: `indent >= 4` → `indent >= 2` in `tools/Codex.Bootstrap/Program.cs`.
+
+### Cherry-picked from `l1l4_partial`
+
+Reviewed the other agent's branch. Accepted orthogonal fixes, rejected regressions:
+
+- ✅ Unifier: ErrorType cascading suppression
+- ✅ DiagnosticBag: 20-error cap
+- ✅ NothingTy → "object" in cs-type
+- ❌ Removal of `is-builtin-name`/`emit-builtin` (needed for P1)
+- ❌ Removal of effect parsing (regression)
+- ❌ Removal of `IrFieldAccess` (regression)
 
 ---
 
