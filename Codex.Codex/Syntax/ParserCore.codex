@@ -19,7 +19,9 @@ Section: Parser State
   current-kind (st) = (current st).kind
 
   advance : ParseState -> ParseState
-  advance (st) = ParseState { tokens = st.tokens, pos = st.pos + 1 }
+  advance (st) =
+   if st.pos >= (list-length st.tokens) - 1 then st
+   else ParseState { tokens = st.tokens, pos = st.pos + 1 }
 
   is-done : ParseState -> Boolean
   is-done (st) = when current-kind st
@@ -27,7 +29,10 @@ Section: Parser State
    if _ -> False
 
   peek-kind : ParseState -> Integer -> TokenKind
-  peek-kind (st) (offset) = (list-at st.tokens (st.pos + offset)).kind
+  peek-kind (st) (offset) =
+   let idx = st.pos + offset
+   in if idx >= list-length st.tokens then EndOfFile
+    else (list-at st.tokens idx).kind
 
 Section: Parse Results
 
