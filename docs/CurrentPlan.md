@@ -19,11 +19,11 @@ prelude, and do-notation are all wired from parser through C# emission in `.code
 |--------|-------|
 | .codex source (compiler) | 26 files, 4,649 lines, 173K chars |
 | .codex source (total) | 97 files (compiler + prelude + samples + tests) |
-| Tests | **821** (all passing) |
+| Tests | **825** (823 passing + 2 skipped) |
 | Backends | 12 (C#, JS, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage) |
 | Bootstrap | Fixed point: Stage 1 = Stage 3 (227,301 chars) |
 | Type debt | **0** (filtered), 5 raw (all legitimate/locked) |
-| Prelude | 6 modules: Maybe, Result, Either, Pair, CCE, Hamt |
+| Prelude | 7 modules: Maybe, Result, Either, Pair, CCE, Hamt, List |
 | Quine disproof | `samples/expr-calculator.codex` — 10/10 PASS |
 | Ref compiler | 🔒 Locked at `6d8bb2c` on 2026-03-19 |
 
@@ -58,7 +58,7 @@ The `.codex` compiler now handles:
 
 | # | Task | Status | What |
 |---|------|--------|------|
-| R2 | **Standard library** | 🔶 Started | First modules: CCE (character encoding, 353 lines), Hamt (persistent map, 271 lines). Remaining: collections, string utilities, IO abstractions. |
+| R2 | **Standard library** | 🔶 Started | First modules: CCE (character encoding, 353 lines), Hamt (persistent map, 271 lines), List (cons-list, 98 lines). Remaining: string utilities, IO abstractions. |
 | R3 | **FFI / host interop** | ⬜ | Call .NET/JS/C APIs from Codex. Per-backend with common interface. |
 | R4 | **Package management** | ⬜ | Repository-based package resolution. `codex add <package>`. |
 | R6 | **Native executable bootstrap** | ⬜ | Compile Codex compiler to native `.exe` via IL emitter. Depends on P1 + R2. |
