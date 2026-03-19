@@ -79,12 +79,18 @@ public class CorpusEmissionTests
         }
     }
 
+    static bool RequiresModuleLoader(string source) =>
+        source.Contains("import ", StringComparison.Ordinal);
+
     [Theory]
     [MemberData(nameof(AllSamplesAndBackends))]
     public void Sample_compiles_to_backend(string sampleFile, string targetName)
     {
         string filePath = Path.Combine(s_samplesDir, sampleFile);
         string source = File.ReadAllText(filePath);
+        if (RequiresModuleLoader(source))
+            return; // Multi-file samples need a module loader; skip in single-file tests
+
         string moduleName = Path.GetFileNameWithoutExtension(sampleFile).Replace("-", "_");
 
         ICodeEmitter emitter = s_emitters.First(e => e.TargetName == targetName);
@@ -112,6 +118,9 @@ public class CorpusEmissionTests
                 string sampleName = Path.GetFileNameWithoutExtension(filePath);
                 string moduleName = sampleName.Replace("-", "_");
                 string source = File.ReadAllText(filePath);
+
+                if (RequiresModuleLoader(source))
+                    continue; // Multi-file samples need a module loader; skip in single-file tests
 
                 string? output = Helpers.CompileToTarget(source, moduleName, emitter);
                 if (output is null)
