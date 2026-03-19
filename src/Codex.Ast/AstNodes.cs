@@ -89,6 +89,19 @@ public sealed record ErrorExpr(string Message, SourceSpan Span) : Expr(Span);
 
 public sealed record DoExpr(IReadOnlyList<DoStatement> Statements, SourceSpan Span) : Expr(Span);
 
+public sealed record HandleExpr(
+    Expr Computation,
+    Name EffectName,
+    IReadOnlyList<HandleClause> Clauses,
+    SourceSpan Span) : Expr(Span);
+
+public sealed record HandleClause(
+    Name OperationName,
+    IReadOnlyList<Name> Parameters,
+    Name ResumeName,
+    Expr Body,
+    SourceSpan Span);
+
 public abstract record DoStatement(SourceSpan Span);
 
 public sealed record DoBindStatement(Name Name, Expr Value, SourceSpan Span) : DoStatement(Span);

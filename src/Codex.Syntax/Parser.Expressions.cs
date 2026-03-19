@@ -90,7 +90,8 @@ public sealed partial class Parser
             or TokenKind.FalseKeyword
             or TokenKind.LeftParen
             or TokenKind.LeftBracket
-            or TokenKind.DoKeyword;
+            or TokenKind.DoKeyword
+            or TokenKind.WithKeyword;
     }
 
     ExpressionNode ParseAtom()
@@ -164,6 +165,9 @@ public sealed partial class Parser
 
             case TokenKind.DoKeyword:
                 return ParseDoExpression();
+
+            case TokenKind.WithKeyword:
+                return ParseHandleExpression();
 
             default:
             {
@@ -532,5 +536,61 @@ public sealed partial class Parser
                 return new WildcardPatternNode(err);
             }
         }
+    }
+
+    HandleExpressionNode ParseHandleExpression()
+    {
+        Token withKw = Expect(TokenKind.WithKeyword);
+        Token effectName = Expect(TokenKind.TypeIdentifier);
+        ExpressionNode computation = ParseExpression();
+        SkipNewlines();
+
+        List<HandleClauseNode> clauses = [];
+        while (Current.Kind == TokenKind.Identifier)
+        {
+            Token opName = Current;
+            Advance();
+
+            List<Token> parameters = [];
+            while (Current.Kind == TokenKind.LeftParen)
+            {
+                Advance();
+                Token param = Expect(TokenKind.Identifier);
+                parameters.Add(param);
+                Expect(TokenKind.RightParen);
+            }
+
+            Token resumeName;
+            if (parameters.Count > 0)
+            {
+                resumeName = parameters[^1];
+                parameters.RemoveAt(parameters.Count - 1);
+            }
+            else
+            {
+                m_diagnostics.Error("CDX1080",
+                    "Handle clause must have at least a resume parameter", opName.Span);
+                resumeName = opName;
+            }
+
+            Expect(TokenKind.Equals);
+            SkipNewlines();
+            ExpressionNode body = ParseExpression();
+            SkipNewlines();
+
+            clauses.Add(new HandleClauseNode(opName, parameters, resumeName, body,
+                opName.Span.Through(body.Span)));
+        }
+
+        if (clauses.Count == 0)
+        {
+            m_diagnostics.Error("CDX1081",
+                "Expected at least one handler clause", effectName.Span);
+        }
+
+        SourceSpan span = clauses.Count > 0
+            ? withKw.Span.Through(clauses[^1].Span)
+            : withKw.Span.Through(effectName.Span);
+        return new HandleExpressionNode(computation, effectName, clauses, span);
     }
 }

@@ -128,6 +128,12 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
             doExpr.Statements.Select(DesugarDoStatement).ToList(),
             doExpr.Span),
 
+        HandleExpressionNode handle => new HandleExpr(
+            DesugarExpr(handle.Computation),
+            new Name(handle.EffectName.Text),
+            handle.Clauses.Select(DesugarHandleClause).ToList(),
+            handle.Span),
+
         InterpolatedStringNode interp => DesugarInterpolatedString(interp),
 
         ErrorExpressionNode err => new ErrorExpr("parse error", err.Span),
@@ -142,6 +148,13 @@ public sealed class Desugarer(DiagnosticBag diagnostics)
         DoExprStatementNode expr => new DoExprStatement(DesugarExpr(expr.Expression), expr.Span),
         _ => new DoExprStatement(new ErrorExpr("unknown do statement", node.Span), node.Span)
     };
+
+    HandleClause DesugarHandleClause(HandleClauseNode node) =>
+        new(new Name(node.OperationName.Text),
+            node.Parameters.Select(p => new Name(p.Text)).ToList(),
+            new Name(node.ResumeName.Text),
+            DesugarExpr(node.Body),
+            node.Span);
 
     Expr DesugarInterpolatedString(InterpolatedStringNode node)
     {

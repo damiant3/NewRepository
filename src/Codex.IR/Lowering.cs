@@ -120,6 +120,9 @@ public sealed class Lowering(
             case DoExpr doExpr:
                 return LowerDoExpr(doExpr, expectedType);
 
+            case HandleExpr handleExpr:
+                return LowerHandleExpr(handleExpr, expectedType);
+
             case RecordExpr rec:
                 return LowerRecord(rec, expectedType);
 
@@ -499,6 +502,55 @@ public sealed class Lowering(
 
         m_localEnv = savedEnv;
         return new IRDo(statements.ToImmutable(), expectedType);
+    }
+
+    IRExpr LowerHandleExpr(HandleExpr handleExpr, CodexType expectedType)
+    {
+        IRExpr computation = LowerExpr(handleExpr.Computation, expectedType);
+
+        ImmutableArray<IRHandleClause>.Builder clauses = ImmutableArray.CreateBuilder<IRHandleClause>();
+        foreach (HandleClause clause in handleExpr.Clauses)
+        {
+            ImmutableArray<string>.Builder paramNames = ImmutableArray.CreateBuilder<string>();
+            ImmutableArray<CodexType>.Builder paramTypes = ImmutableArray.CreateBuilder<CodexType>();
+
+            CodexType? opType = m_typeMap[clause.OperationName.Value];
+            CodexType currentType = opType ?? ErrorType.s_instance;
+
+            foreach (Name p in clause.Parameters)
+            {
+                CodexType pType = ErrorType.s_instance;
+                if (currentType is FunctionType ft)
+                {
+                    pType = ft.Parameter;
+                    currentType = ft.Return;
+                }
+                paramNames.Add(p.Value);
+                paramTypes.Add(pType);
+            }
+
+            CodexType resumeParamType = currentType is EffectfulType eft ? eft.Return : currentType;
+
+            Map<string, CodexType> savedEnv = m_localEnv;
+            for (int i = 0; i < paramNames.Count; i++)
+                m_localEnv = m_localEnv.Set(paramNames[i], paramTypes[i]);
+            m_localEnv = m_localEnv.Set(clause.ResumeName.Value,
+                new FunctionType(resumeParamType, expectedType));
+
+            IRExpr body = LowerExpr(clause.Body, expectedType);
+            m_localEnv = savedEnv;
+
+            clauses.Add(new IRHandleClause(
+                clause.OperationName.Value,
+                paramNames.ToImmutable(),
+                paramTypes.ToImmutable(),
+                clause.ResumeName.Value,
+                resumeParamType,
+                body));
+        }
+
+        return new IRHandle(computation, handleExpr.EffectName.Value,
+            clauses.ToImmutable(), expectedType);
     }
 
     IRExpr LowerRecord(RecordExpr rec, CodexType expectedType)

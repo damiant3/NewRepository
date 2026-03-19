@@ -15,6 +15,7 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
     Map<string, CodexType> m_typeLevelEnv = Map<string, CodexType>.s_empty;
     Map<string, EffectRowVariable> m_effectRowVars = Map<string, EffectRowVariable>.s_empty;
     Set<string> m_currentEffects = Set<string>.s_empty;
+    Map<string, string> m_operationToEffect = Map<string, string>.s_empty;
 
     public Map<string, CodexType> CheckModule(Module module)
     {
@@ -174,9 +175,12 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
                 m_typeParamEnv = savedTypeParams;
                 m_effectRowVars = Map<string, EffectRowVariable>.s_empty;
                 m_env = m_env.Bind(op.Name, generalizedType);
+                m_operationToEffect = m_operationToEffect.Set(op.Name.Value, eff.EffectName.Value);
             }
         }
     }
+
+    public Map<string, string> OperationToEffect => m_operationToEffect;
 }
 
 public sealed record CtorInfo(CodexType ConstructorType, CodexType OwnerType);

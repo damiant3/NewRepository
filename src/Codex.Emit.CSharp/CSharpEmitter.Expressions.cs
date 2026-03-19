@@ -119,6 +119,10 @@ public sealed partial class CSharpEmitter
                 EmitRunState(sb, runState, indent);
                 break;
 
+            case IRHandle handle:
+                EmitHandle(sb, handle, indent);
+                break;
+
             case IRError err:
                 sb.Append($"throw new InvalidOperationException(\"{EscapeString(err.Message)}\")");
                 break;
@@ -574,6 +578,53 @@ public sealed partial class CSharpEmitter
             EmitExpr(sb, runState.Computation, indent + 2);
             sb.AppendLine(";");
         }
+
+        sb.Append(new string(' ', (indent + 1) * 4));
+        sb.Append("}))()");
+    }
+
+    void EmitHandle(StringBuilder sb, IRHandle handle, int indent)
+    {
+        string resultType = EmitType(handle.Type);
+        sb.AppendLine($"((Func<{resultType}>)(() => {{");
+        string pad = new(' ', (indent + 2) * 4);
+
+        foreach (IRHandleClause clause in handle.Clauses)
+        {
+            string resumeParamType = EmitType(clause.ResumeParamType);
+
+            sb.Append(pad);
+            sb.Append($"Func<");
+            foreach (CodexType pt in clause.ParameterTypes)
+            {
+                sb.Append(EmitType(pt));
+                sb.Append(", ");
+            }
+            sb.Append($"Func<{resumeParamType}, {resultType}>, {resultType}>");
+            sb.Append($" _handle_{SanitizeIdentifier(clause.OperationName)}_ = (");
+
+            for (int i = 0; i < clause.Parameters.Length; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(SanitizeIdentifier(clause.Parameters[i]));
+            }
+            if (clause.Parameters.Length > 0) sb.Append(", ");
+            sb.Append(SanitizeIdentifier(clause.ResumeName));
+            sb.AppendLine(") => {");
+
+            string bodyPad = new(' ', (indent + 3) * 4);
+            sb.Append(bodyPad);
+            sb.Append("return ");
+            EmitExpr(sb, clause.Body, indent + 3);
+            sb.AppendLine(";");
+            sb.Append(pad);
+            sb.AppendLine("};");
+        }
+
+        sb.Append(pad);
+        sb.Append("return ");
+        EmitExpr(sb, handle.Computation, indent + 2);
+        sb.AppendLine(";");
 
         sb.Append(new string(' ', (indent + 1) * 4));
         sb.Append("}))()");

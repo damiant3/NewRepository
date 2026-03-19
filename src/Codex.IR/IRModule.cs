@@ -94,3 +94,17 @@ public sealed record IRRunState(
 public sealed record IRGetState(CodexType StateType) : IRExpr(StateType);
 
 public sealed record IRSetState(IRExpr NewValue, CodexType StateType) : IRExpr(NothingType.s_instance);
+
+public sealed record IRHandle(
+    IRExpr Computation,
+    string EffectName,
+    ImmutableArray<IRHandleClause> Clauses,
+    CodexType Type) : IRExpr(Type);
+
+public sealed record IRHandleClause(
+    string OperationName,
+    ImmutableArray<string> Parameters,
+    ImmutableArray<CodexType> ParameterTypes,
+    string ResumeName,
+    CodexType ResumeParamType,
+    IRExpr Body);

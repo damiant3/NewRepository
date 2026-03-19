@@ -259,6 +259,20 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
                 break;
             }
 
+            case HandleExpr handleExpr:
+            {
+                ResolveExpr(handleExpr.Computation, scope);
+                foreach (HandleClause clause in handleExpr.Clauses)
+                {
+                    Set<string> clauseScope = scope;
+                    foreach (Name p in clause.Parameters)
+                        clauseScope = clauseScope.Add(p.Value);
+                    clauseScope = clauseScope.Add(clause.ResumeName.Value);
+                    ResolveExpr(clause.Body, clauseScope);
+                }
+                break;
+            }
+
             case ErrorExpr:
                 break;
         }

@@ -118,6 +118,9 @@ public sealed partial class TypeChecker
             case DoExpr doExpr:
                 return InferDoExpr(doExpr);
 
+            case HandleExpr handleExpr:
+                return InferHandleExpr(handleExpr);
+
             case ErrorExpr:
                 return ErrorType.s_instance;
 
@@ -496,5 +499,70 @@ public sealed partial class TypeChecker
         }
 
         return new ListType(elementType);
+    }
+
+    CodexType InferHandleExpr(HandleExpr handleExpr)
+    {
+        Set<string> savedEffects = m_currentEffects;
+        m_currentEffects = m_currentEffects.Add(handleExpr.EffectName.Value);
+        CodexType compType = InferExpr(handleExpr.Computation);
+        m_currentEffects = savedEffects;
+
+        CodexType resultType;
+        if (compType is EffectfulType eft)
+        {
+            ImmutableArray<EffectType> remaining = [.. eft.Effects.Where(
+                e => e.EffectName.Value != handleExpr.EffectName.Value)];
+            resultType = remaining.IsEmpty ? eft.Return : new EffectfulType(remaining, eft.Return);
+        }
+        else
+        {
+            resultType = compType;
+        }
+
+        CodexType handlerResultType = m_unifier.FreshVar();
+
+        foreach (HandleClause clause in handleExpr.Clauses)
+        {
+            TypeEnvironment savedEnv = m_env;
+
+            CodexType? opType = m_env.Lookup(clause.OperationName);
+            if (opType is null)
+            {
+                m_diagnostics.Error("CDX2010",
+                    $"Unknown effect operation '{clause.OperationName.Value}'",
+                    clause.Span);
+                m_env = savedEnv;
+                continue;
+            }
+
+            opType = Instantiate(opType);
+
+            CodexType paramType = opType;
+            foreach (Name p in clause.Parameters)
+            {
+                if (paramType is FunctionType ft)
+                {
+                    m_env = m_env.Bind(p, ft.Parameter);
+                    paramType = ft.Return;
+                }
+                else
+                {
+                    m_env = m_env.Bind(p, m_unifier.FreshVar());
+                }
+            }
+
+            CodexType opReturnType = paramType is EffectfulType opEft ? opEft.Return : paramType;
+            CodexType resumeType = new FunctionType(opReturnType, handlerResultType);
+            m_env = m_env.Bind(clause.ResumeName, resumeType);
+
+            CodexType bodyType = InferExpr(clause.Body);
+            m_unifier.Unify(handlerResultType, bodyType, clause.Span);
+
+            m_env = savedEnv;
+        }
+
+        m_unifier.Unify(handlerResultType, resultType, handleExpr.Span);
+        return m_unifier.Resolve(handlerResultType);
     }
 }

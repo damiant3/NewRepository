@@ -170,4 +170,75 @@ public class EffectHandlerTests
         Assert.True(diag.HasErrors);
         Assert.Contains(diag.ToImmutable(), d => d.Code == "CDX2031");
     }
+
+    // ── User-defined effect handlers ──────────────────────────
+
+    [Fact]
+    public void User_effect_declaration_type_checks()
+    {
+        string source = """
+            effect Logger where
+              log : Text -> Nothing
+
+            silent : [Logger] Nothing
+            silent = log "hello"
+            """;
+        DiagnosticBag diag = Helpers.TypeCheckWithDiagnostics(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void Handle_expression_type_checks()
+    {
+        string source = """
+            effect Logger where
+              log : Text -> Integer
+
+            program : [Logger] Integer
+            program = log "hello"
+
+            main : Integer
+            main = with Logger program
+              log (msg) (resume) = resume 0
+            """;
+        DiagnosticBag diag = Helpers.TypeCheckWithDiagnostics(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void Handle_expression_emits_csharp()
+    {
+        string source = """
+            effect Logger where
+              log : Text -> Integer
+
+            program : [Logger] Integer
+            program = log "hello"
+
+            main : Integer
+            main = with Logger program
+              log (msg) (resume) = resume 0
+            """;
+        string? cs = Helpers.CompileToCS(source);
+        Assert.NotNull(cs);
+        Assert.Contains("_handle_log_", cs);
+    }
+
+    [Fact]
+    public void Handle_eliminates_effect_from_type()
+    {
+        string source = """
+            effect Ask where
+              ask : Integer
+
+            comp : [Ask] Integer
+            comp = ask
+
+            main : Integer
+            main = with Ask comp
+              ask (resume) = resume 42
+            """;
+        DiagnosticBag diag = Helpers.TypeCheckWithDiagnostics(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
 }

@@ -10,6 +10,8 @@ public enum SyntaxKind
     TypeDefinition,
     EffectDefinition,
     EffectOperation,
+    HandleExpression,
+    HandleClause,
 
     // Prose structure
     Chapter,
@@ -514,6 +516,34 @@ public sealed record EffectDefinitionNode(
     : SyntaxNode(SyntaxKind.EffectDefinition, Span)
 {
     public override IEnumerable<SyntaxNode> Children => Operations;
+}
+
+public sealed record HandleClauseNode(
+    Token OperationName,
+    IReadOnlyList<Token> Parameters,
+    Token ResumeName,
+    ExpressionNode Body,
+    SourceSpan Span)
+    : SyntaxNode(SyntaxKind.HandleClause, Span)
+{
+    public override IEnumerable<SyntaxNode> Children => [Body];
+}
+
+public sealed record HandleExpressionNode(
+    ExpressionNode Computation,
+    Token EffectName,
+    IReadOnlyList<HandleClauseNode> Clauses,
+    SourceSpan Span)
+    : ExpressionNode(SyntaxKind.HandleExpression, Span)
+{
+    public override IEnumerable<SyntaxNode> Children
+    {
+        get
+        {
+            yield return Computation;
+            foreach (HandleClauseNode c in Clauses) yield return c;
+        }
+    }
 }
 
 public sealed record ClaimNode(

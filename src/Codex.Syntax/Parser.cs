@@ -237,12 +237,27 @@ public sealed partial class Parser(IReadOnlyList<Token> tokens, DiagnosticBag di
         SkipNewlines();
 
         List<EffectOperationNode> operations = [];
-        while (Current.Kind == TokenKind.Identifier)
+        while (Current.Kind == TokenKind.Identifier && Peek(1)?.Kind == TokenKind.Colon)
         {
+            int savedPos = m_position;
             Token opName = Current;
             Advance();
             Expect(TokenKind.Colon);
             TypeNode opType = ParseType();
+
+            // If the next meaningful token is '=' or an identifier followed by '=',
+            // this was a definition with a type annotation, not an operation.
+            int checkPos = m_position;
+            SkipNewlines();
+            bool isDefinition = Current.Kind == TokenKind.Identifier && Current.Text == opName.Text;
+            m_position = checkPos;
+
+            if (isDefinition)
+            {
+                m_position = savedPos;
+                break;
+            }
+
             operations.Add(new EffectOperationNode(opName, opType,
                 opName.Span.Through(opType.Span)));
             SkipNewlines();

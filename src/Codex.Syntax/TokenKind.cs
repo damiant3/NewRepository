@@ -50,6 +50,7 @@ public enum TokenKind
     ThereExistsKeyword,
     LinearKeyword,
     EffectKeyword,
+    WithKeyword,
 
     // Operators
     Equals,             // =
