@@ -182,6 +182,10 @@ public static partial class Program
         string dir = baseDirectory ?? Directory.GetCurrentDirectory();
         List<IModuleLoader> loaders = [new FileModuleLoader(dir, diagnostics)];
 
+        PreludeModuleLoader? prelude = PreludeModuleLoader.TryCreate(diagnostics);
+        if (prelude is not null)
+            loaders.Add(prelude);
+
         Codex.Repository.FactStore? store =
             Codex.Repository.FactStore.Open(Directory.GetCurrentDirectory());
         if (store is not null)
