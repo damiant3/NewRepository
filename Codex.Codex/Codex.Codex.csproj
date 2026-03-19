@@ -18,6 +18,7 @@
   <ItemGroup>
     <None Include="**\*.codex" />
     <None Include="codex.project.json" />
+    <None Include="IR\Lowering.codex.new" />
     <Compile Remove="**\*" />
     <Compile Include="out\**\*.cs" />
   </ItemGroup>

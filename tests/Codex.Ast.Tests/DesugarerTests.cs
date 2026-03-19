@@ -176,7 +176,7 @@ public class DesugarerTests
     [Fact]
     public void Desugar_interpolated_integer_expr_wraps_in_show()
     {
-        Module module = ParseAndDesugar("x = \"value: {42}\"");
+        Module module = ParseAndDesugar("x = \"value: #{42}\"");
         Expr body = module.Definitions[0].Body;
         Assert.IsType<BinaryExpr>(body);
         BinaryExpr bin = (BinaryExpr)body;
