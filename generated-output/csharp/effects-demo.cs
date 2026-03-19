@@ -17,8 +17,7 @@ public static class Codex_effects_demo
         ((Func<object>)(() => {
                 greet("Alice");
                 greet("Bob");
-                Console.WriteLine("Done!");
-                return null;
+                return Console.WriteLine("Done!");
             }))();
         return null;
     }
