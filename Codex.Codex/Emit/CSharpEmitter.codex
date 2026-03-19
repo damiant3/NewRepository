@@ -161,7 +161,7 @@ Section: Tail Call Optimization
     if IrName (n) (ty) -> n == func-name
     if _ -> False
 
-  has-tail-call : IRDef -> Text -> Boolean
+  has-tail-call : IRExpr -> Text -> Boolean
   has-tail-call (e) (func-name) =
    when e
     if IrIf (c) (t) (el) (ty) -> has-tail-call t func-name | has-tail-call el func-name
