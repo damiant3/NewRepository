@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -42,10 +42,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A0000000-0
 		docs\09-RISKS.md = docs\09-RISKS.md
 		docs\10-PRINCIPLES.md = docs\10-PRINCIPLES.md
 		docs\CurrentPlan.md = docs\CurrentPlan.md
-		docs\DATE-AUDIT.md = docs\DATE-AUDIT.md
-		docs\PostFixedPointCleanUp-AUDIT.md = docs\PostFixedPointCleanUp-AUDIT.md
-		docs\REPL.md = docs\REPL.md
-		docs\REVIEW-NITS.md = docs\REVIEW-NITS.md
 		docs\GLOSSARY.md = docs\GLOSSARY.md
 		docs\VSCODE-SETUP.md = docs\VSCODE-SETUP.md
 	EndProjectSection
@@ -65,6 +61,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OldStatus", "OldStatus", "{
 		docs\OldStatus\HANDOFF-BOOTSTRAP-FIXEDPOINT.md = docs\OldStatus\HANDOFF-BOOTSTRAP-FIXEDPOINT.md
 		docs\OldStatus\HANDOFF-STAGE1-OUTPUT.md = docs\OldStatus\HANDOFF-STAGE1-OUTPUT.md
 		docs\OldStatus\HANDOFF-TYPED-LOWERING.md = docs\OldStatus\HANDOFF-TYPED-LOWERING.md
+		docs\OldStatus\ITERATION-10-HANDOFF.md = docs\OldStatus\ITERATION-10-HANDOFF.md
+		docs\OldStatus\ITERATION-11-HANDOFF.md = docs\OldStatus\ITERATION-11-HANDOFF.md
+		docs\OldStatus\ITERATION-12-HANDOFF.md = docs\OldStatus\ITERATION-12-HANDOFF.md
 		docs\OldStatus\ITERATION-3-HANDOFF.md = docs\OldStatus\ITERATION-3-HANDOFF.md
 		docs\OldStatus\ITERATION-4-HANDOFF.md = docs\OldStatus\ITERATION-4-HANDOFF.md
 		docs\OldStatus\ITERATION-5-HANDOFF.md = docs\OldStatus\ITERATION-5-HANDOFF.md
@@ -72,21 +71,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OldStatus", "OldStatus", "{
 		docs\OldStatus\ITERATION-7-HANDOFF.md = docs\OldStatus\ITERATION-7-HANDOFF.md
 		docs\OldStatus\ITERATION-8-HANDOFF.md = docs\OldStatus\ITERATION-8-HANDOFF.md
 		docs\OldStatus\ITERATION-9-HANDOFF.md = docs\OldStatus\ITERATION-9-HANDOFF.md
-		docs\OldStatus\ITERATION-10-HANDOFF.md = docs\OldStatus\ITERATION-10-HANDOFF.md
-		docs\OldStatus\ITERATION-11-HANDOFF.md = docs\OldStatus\ITERATION-11-HANDOFF.md
-		docs\OldStatus\ITERATION-12-HANDOFF.md = docs\OldStatus\ITERATION-12-HANDOFF.md
 		docs\OldStatus\M13-BOOTSTRAP-PLAN.md = docs\OldStatus\M13-BOOTSTRAP-PLAN.md
 		docs\OldStatus\REFLECTIONS.md = docs\OldStatus\REFLECTIONS.md
 		docs\OldStatus\Reflections2.md = docs\OldStatus\Reflections2.md
-		docs\OldStatus\BOOTSTRAP-CONVERGENCE-PLAN.md = docs\OldStatus\BOOTSTRAP-CONVERGENCE-PLAN.md
-		docs\OldStatus\PostFixedPointCleanUp.md = docs\OldStatus\PostFixedPointCleanUp.md
-		docs\OldStatus\WINDOWS-REVIEW-HANDOFF.md = docs\OldStatus\WINDOWS-REVIEW-HANDOFF.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Codex.Codex (source)", "Codex.Codex (source)", "{F0000000-0000-0000-0000-000000000001}"
 	ProjectSection(SolutionItems) = preProject
-		Codex.Codex\main.codex = Codex.Codex\main.codex
 		Codex.Codex\codex.project.json = Codex.Codex\codex.project.json
+		Codex.Codex\main.codex = Codex.Codex\main.codex
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{F0000000-0000-0000-0000-000000000002}"
@@ -217,8 +210,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
-		.github\copilot-instructions.md = .github\copilot-instructions.md
 		CONTRIBUTING.md = CONTRIBUTING.md
+		.github\copilot-instructions.md = .github\copilot-instructions.md
 		copilot-instructions.md = copilot-instructions.md
 		Directory.Build.props = Directory.Build.props
 		Opus.md = Opus.md
