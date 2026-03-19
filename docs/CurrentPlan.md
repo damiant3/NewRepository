@@ -1,6 +1,6 @@
 # Forward Plan
 
-**Date**: 2026-03-18 (verified via system clock)
+**Date**: 2026-03-19 (verified via system clock)
 **Supersedes**: `docs/OldStatus/FORWARD-PLAN.md` (archived, stale numbers)
 
 This is the single source of truth for project direction.
@@ -15,13 +15,13 @@ types, dependent types, proofs, and literate programming. The tooling includes a
 server, IDE extensions, a content-addressed repository with collaboration protocol, and
 a cognitive load dashboard for agent sessions.
 
-### Snapshot (2026-03-18, evening)
+### Snapshot (2026-03-19, morning)
 
 | Metric | Value |
 |--------|-------|
 | .codex source | 26 files, 4,469 lines, 168K chars |
 | C# reference projects | 34 |
-| Test count | 780 (all passing) |
+| Test count | **784** (all passing) |
 | Backends | 12 (C#, JS, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage) |
 | Bootstrap | Stage 1 = Stage 2 = Stage 3 (105,411 chars, byte-for-byte) |
 | Type debt | 7 `object` refs (all legitimate), **0** `_p0_` proxies |
@@ -63,9 +63,9 @@ a cognitive load dashboard for agent sessions.
 
 | # | Task | Status | What |
 |---|------|--------|------|
-| L1 | **User-defined effects** | 🔶 Phase 1 done | `effect MyEffect where ...` declarations land (parser, desugarer, name resolver, type checker). Remaining: handler syntax + `resume` continuation + lowering/emission. Linux agent working on Phase 2. |
-| L2 | **Module system** | ⬜ Not started | Proper `import`/`export` between files. Namespace management. Multi-file compilation exists but has no module boundaries or visibility control. |
-| L3 | **Standard prelude** | ⬜ Not started | `Maybe`, `Result`, `Either`, `Tuple`, `Map`, `Set` as library types defined in Codex. Blocked by L2. |
+| L1 | **User-defined effects** | ✅ Done | Phase 1: `effect MyEffect where ...` declarations (parser → type checker). Phase 2: `with Effect expr` handler syntax + `resume` continuation (parser → IR → C# emitter). 16 effect handler tests passing. |
+| L2 | **Module system** | ✅ Done | `import`/`export` between files. `IModuleLoader` interface, `ResolvedModule` with exported name sets, visibility control. 5 import tests passing. |
+| L3 | **Standard prelude** | ⬜ Not started | `Maybe`, `Result`, `Either`, `Tuple`, `Map`, `Set` as library types defined in Codex. |
 | L4 | **Do-notation completion** | ⬜ Not started | Full monadic do-notation: `let!`, `return`, `do` blocks that desugar to `bind`/`pure` for any effect. |
 | L5 | **String interpolation** | ✅ Done | `"Hello, #{name}!"` syntax (hash-brace). Lexer, parser, desugarer, all backends, 12-backend corpus. |
 | L6 | **REPL** | ✅ Done | `codex repl` — interactive evaluation loop with `:help`, `:type`, `:defs`, `:reset`. Compiles through full pipeline, executes via `dotnet run`. |
@@ -115,18 +115,33 @@ with standard library support, no C# toolchain needed.
 ## Recommended Sequence
 
 ```
-Now ──→ L1 Phase 2 (handlers) + L6 (REPL) ──→ L2 (modules) ──→ L3 (prelude) ──→ L4 (do-notation)
-                    │
-                    ├──→ R5 (build system) ──→ R6 (native bootstrap)
-                    │
-                    └──→ R2 (stdlib) + R3 (FFI) ──→ R4 (packages)
-                                                          │
-                                                          └──→ V1-V7 (the vision)
+Now ──→ L3 (prelude) ──→ L4 (do-notation) ──→ L7 (errors, polish)
+            │
+            ├──→ R5 (build system) ──→ R6 (native bootstrap)
+            │
+            └──→ R2 (stdlib) + R3 (FFI) ──→ R4 (packages)
+                                                  │
+                                                  └──→ V1-V7 (the vision)
 ```
 
-**Current parallel work**:
-- Linux agent: L1 Phase 2 (effect handlers with resume)
-- Windows agent: L6 (REPL) — orthogonal, small, high-value
+**Immediate next**: L3 (standard prelude) — L1, L2, L5, L6, R1 are all done. The prelude
+is the next blocker: define `Maybe`, `Result`, etc. in Codex source, compile via the
+module system, and make them available to all programs.
+
+---
+
+## Recent Session Log (2026-03-18 → 2026-03-19)
+
+| Commit | What |
+|--------|------|
+| `7bf6f38` | feat: user-defined effect handlers — `with` expressions, `resume` continuations, full pipeline (L1 Phase 2) |
+| `ccec1cb` | docs: update CurrentPlan.md — mark L5, L6, R1 as done |
+| `94ca8a2` | feat: agent toolkit — `peek`, `fstat`, `sdiff`, `trun`, `gstat` scripts |
+| `fcecf62` | refactor: remove speculative `HandleKeyword` reservation |
+| `8182b32` | merge: user-defined effect declarations L1 Phase 1 (reviewed by windows agent) |
+| `5a0d13f` | fix: correct has-tail-call type signature, eliminate all `_p0_` proxies |
+| `5aa5df9` | fix: add bounds checking to self-hosted parser advance and peek-kind |
+| `528668d` | feat: readable type errors, related spans, build system improvements (L7+R5) |
 
 ---
 
