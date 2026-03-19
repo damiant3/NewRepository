@@ -182,6 +182,24 @@ function Get-AllMetrics {
         if ($content) { $testCount += ([regex]::Matches($content, '\[Fact\]|\[Theory\]')).Count }
     }
 
+    # --- Reference compiler lock ---
+    $lockFile = Join-Path $repoRoot "REFERENCE-COMPILER-LOCK.md"
+    $refLocked = Test-Path $lockFile
+    $lockCommit = ""
+    $lockDate = ""
+    if ($refLocked) {
+        $lockContent = Get-Content $lockFile -Raw
+        if ($lockContent -match 'Locked at commit.*?`([a-f0-9]+)`') { $lockCommit = $Matches[1] }
+        if ($lockContent -match '\*\*Date\*\*:\s*(\d{4}-\d{2}-\d{2})') { $lockDate = $Matches[1] }
+    }
+
+    # --- Prelude ---
+    $preludeFiles = @()
+    $preludeDir = Join-Path $repoRoot "prelude"
+    if (Test-Path $preludeDir) {
+        $preludeFiles = Get-ChildItem $preludeDir -Filter "*.codex" | Select-Object -ExpandProperty Name
+    }
+
     return @{
         FileCount = $codexFiles.Count; TotalLines = $totalLines; TotalChars = $totalChars
         FileMetrics = $fileMetrics | Sort-Object Lines -Descending
@@ -194,6 +212,8 @@ function Get-AllMetrics {
         TypeDebt = $typeDebt; CascadeDepth = $cascadeDepth
         Thrash = $thrash; Risk = $risk
         TestFiles = $testFiles.Count; TestCount = $testCount
+        RefLocked = $refLocked; LockCommit = $lockCommit; LockDate = $lockDate
+        PreludeFiles = $preludeFiles
     }
 }
 
@@ -216,6 +236,8 @@ function Render-Dashboard {
             cognitive   = @{ budget = $m.ContextBudget; hotChars = $m.HotChars; hotFiles = $m.HotCount; typeDebt = $m.TypeDebt; thrash = $m.Thrash; risk = $m.Risk }
             errors      = @{ unification = $m.UnifyErrors; errorTy = $m.ErrorTys; hasMiniFile = $m.HasMini }
             tests       = @{ files = $m.TestFiles; methods = $m.TestCount }
+            refLock     = @{ locked = $m.RefLocked; commit = $m.LockCommit; date = $m.LockDate }
+            prelude     = @{ modules = $m.PreludeFiles }
         } | ConvertTo-Json -Depth 4
         return
     }
@@ -321,6 +343,21 @@ function Render-Dashboard {
     }
     Write-Host $sep
 
+    # ── REFERENCE COMPILER LOCK ──
+    Write-Host ""
+    Write-Host "  $(Bold '🔒 REFERENCE COMPILER')"
+    if ($m.RefLocked) {
+        Write-Host "    Status:  $(Green '✓ LOCKED')  $(Dim "at commit $($m.LockCommit) on $($m.LockDate)")"
+        Write-Host "    $(Dim 'The C# reference compiler (src/) is frozen.')"
+        Write-Host "    $(Dim 'New features go in .codex source only.')"
+    } else {
+        Write-Host "    Status:  $(Yellow '✗ UNLOCKED')  $(Dim '(no REFERENCE-COMPILER-LOCK.md found)')"
+    }
+    if ($m.PreludeFiles.Count -gt 0) {
+        Write-Host "    Prelude: $(Green "$($m.PreludeFiles.Count) modules")  $(Dim "($($m.PreludeFiles -join ', '))")"
+    }
+    Write-Host $sep
+
     # ── TESTS ──
     Write-Host ""
     Write-Host "  $(Bold '🧪 TESTS')"
@@ -330,6 +367,9 @@ function Render-Dashboard {
     # ── GUIDANCE ──
     Write-Host ""
     Write-Host "  $(Bold '💡 GUIDANCE')"
+    if ($m.RefLocked) {
+        Write-Host "    $(Green '🔒 Reference compiler is LOCKED. All new features in .codex source.')"
+    }
     switch ($m.Risk) {
         "CRITICAL" {
             Write-Host "    $(Red '→ DO NOT assign multi-file changes right now.')"
