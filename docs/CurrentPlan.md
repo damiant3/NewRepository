@@ -21,7 +21,7 @@ a cognitive load dashboard for agent sessions.
 |--------|-------|
 | .codex source | 26 files, 4,469 lines, 168K chars |
 | C# reference projects | 34 |
-| Test count | **792** (all passing) |
+| Test count | **799** (all passing) |
 | Backends | 12 (C#, JS, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage) |
 | Bootstrap | Stage 1 = Stage 2 = Stage 3 (fixed point, 0 `_p0_` proxies) |
 | Type debt | 7 `object` refs (all legitimate), **0** `_p0_` proxies |
@@ -63,7 +63,7 @@ a cognitive load dashboard for agent sessions.
 | L1 | **User-defined effects** | ✅ Done | Phase 1: `effect MyEffect where ...` declarations (parser → type checker). Phase 2: `with Effect expr` handler syntax + `resume` continuation (parser → IR → C# emitter). 16 effect handler tests passing. |
 | L2 | **Module system** | ✅ Done | `import`/`export` between files. `IModuleLoader` interface, `ResolvedModule` with exported name sets, visibility control. 5 import tests passing. |
 | L3 | **Standard prelude** | ✅ Done | `Maybe`, `Result`, `Either`, `Pair` as library types defined in Codex. `PreludeModuleLoader` auto-discovers `prelude/` directory. 8 prelude tests passing. |
-| L4 | **Do-notation completion** | ⬜ Not started | Full monadic do-notation: `let!`, `return`, `do` blocks that desugar to `bind`/`pure` for any effect. |
+| L4 | **Do-notation completion** | ✅ Done | `do` blocks with typed return values (not `object`/`null`), last-expression return, works with user-defined effects. 7 do-notation tests passing. |
 | L5 | **String interpolation** | ✅ Done | `"Hello, #{name}!"` syntax (hash-brace). Lexer, parser, desugarer, all backends, 12-backend corpus. |
 | L6 | **REPL** | ✅ Done | `codex repl` — interactive evaluation loop with `:help`, `:type`, `:defs`, `:reset`. Compiles through full pipeline, executes via `dotnet run`. |
 | L7 | **Better error messages** | 🔶 In progress | "Did you mean X?" for undefined names ✅. Readable type formatting with `TypeFormatter` ✅. Related spans on type mismatches ✅. Ongoing. |
@@ -112,7 +112,7 @@ with standard library support, no C# toolchain needed.
 ## Recommended Sequence
 
 ```
-Now ──→ L4 (do-notation) ──→ L7 (errors, polish)
+Now ──→ L7 (errors, polish) + EXIT CRITERION TEST
             │
             ├──→ R5 (build system) ──→ R6 (native bootstrap)
             │
@@ -121,9 +121,9 @@ Now ──→ L4 (do-notation) ──→ L7 (errors, polish)
                                                   └──→ V1-V7 (the vision)
 ```
 
-**Immediate next**: L4 (do-notation completion) — L1, L2, L3, L5, L6, R1 are all done.
-Do-notation is the last language feature blocker for Horizon 1. After L4, we can attempt
-the exit criterion: a non-trivial program written entirely in Codex.
+**Horizon 1 complete!** L1–L6 are all done. L7 (error messages) is ongoing polish.
+Next milestone: attempt the **exit criterion** — write a non-trivial program entirely
+in Codex to validate the language is practical. Then move to Horizon 2.
 
 ---
 
@@ -131,11 +131,12 @@ the exit criterion: a non-trivial program written entirely in Codex.
 
 | Commit | What |
 |--------|------|
+| `fa5df5a` | feat: do-notation completion — typed return, last-expression value, user-defined effects (L4) |
 | `70dbbb8` | feat: standard prelude — Maybe, Result, Either, Pair types in Codex (L3) |
 | `7bf6f38` | feat: user-defined effect handlers — `with` expressions, `resume` continuations (L1 Phase 2) |
-| `ccec1cb` | docs: update CurrentPlan.md — mark L5, L6, R1 as done |
 | `94ca8a2` | feat: agent toolkit — `peek`, `fstat`, `sdiff`, `trun`, `gstat` scripts |
 | `10df319` | feat: cross-platform build + Linux agent toolkit (other agent) |
+| `fe82660` | feat: linux-session-init.sh (other agent) |
 
 ---
 
