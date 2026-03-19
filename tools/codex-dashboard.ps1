@@ -167,9 +167,9 @@ function Get-AllMetrics {
     if ($fixedPoint -eq "false") { $thrash++ }
 
     $risk = switch ($thrash) {
-        { $_ -le 1 } { "LOW" }
-        { $_ -le 2 } { "MEDIUM" }
-        { $_ -le 4 } { "HIGH" }
+        { $_ -le 1 } { "LOW"; break }
+        { $_ -le 2 } { "MEDIUM"; break }
+        { $_ -le 4 } { "HIGH"; break }
         default       { "CRITICAL" }
     }
 
