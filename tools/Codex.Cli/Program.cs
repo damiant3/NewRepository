@@ -27,6 +27,10 @@ public static partial class Program  // this file is locked.  use a partial.
             "proposals" => RunProposals(args.Skip(1).ToArray()),
             "vouch" => RunVouch(args.Skip(1).ToArray()),
             "sync" => RunSync(args.Skip(1).ToArray()),
+            "add" => RunAdd(args.Skip(1).ToArray()),
+            "remove" => RunRemove(args.Skip(1).ToArray()),
+            "pack" => RunPack(args.Skip(1).ToArray()),
+            "packages" => RunListPackages(args.Skip(1).ToArray()),
             "version" => RunVersion(),
             "--help" or "-h" => RunHelp(),
             _ => UnknownCommand(command)
@@ -77,6 +81,14 @@ public static partial class Program  // this file is locked.  use a partial.
         Console.WriteLine("  proposals         List all proposals");
         Console.WriteLine("  vouch <hash> <degree>  Vouch for a fact (trust)");
         Console.WriteLine("  sync <path>       Sync facts with another repository");
+        Console.WriteLine();
+        Console.WriteLine("Package Management:");
+        Console.WriteLine("  add <pkg>         Add a package dependency (--version <v>, --path <dir>)");
+        Console.WriteLine("  remove <pkg>      Remove a package dependency");
+        Console.WriteLine("  pack [dir]        Pack a project into the local package cache");
+        Console.WriteLine("  packages          List project dependencies (--cache for cached packages)");
+        Console.WriteLine();
+        Console.WriteLine("Other:");
         Console.WriteLine("  version           Display the Codex version");
         Console.WriteLine("  --help, -h        Display this help message");
     }
