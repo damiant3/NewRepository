@@ -1,503 +1,503 @@
 Chapter: Lowering
 
-  Transforms the typed AST into the intermediate representation.
-  Each AST expression is lowered to an IR expression that carries
-  its resolved type. A LowerCtx record threads the top-level type
-  bindings and unification state through the tree so that name
-  lookups produce correct types.
+ Transforms the typed AST into the intermediate representation.
+ Each AST expression is lowered to an IR expression that carries
+ its resolved type. A LowerCtx record threads the top-level type
+ bindings and unification state through the tree so that name
+ lookups produce correct types.
 
 Section: Lower Context
 
-    LowerCtx = record {
-      types : List TypeBinding,
-      ust : UnificationState
-    }
+  LowerCtx = record {
+   types : List TypeBinding,
+   ust : UnificationState
+  }
 
 Section: Type Lookup
 
-    lookup-type : List TypeBinding -> Text -> CodexType
-    lookup-type (bindings) (name) =
-      lookup-type-loop bindings name 0 (list-length bindings)
+  lookup-type : List TypeBinding -> Text -> CodexType
+  lookup-type (bindings) (name) =
+   lookup-type-loop bindings name 0 (list-length bindings)
 
-    lookup-type-loop : List TypeBinding -> Text -> Integer -> Integer -> CodexType
-    lookup-type-loop (bindings) (name) (i) (len) =
-      if i == len then ErrorTy
-      else
-        let b = list-at bindings i
-        in if b.name == name then b.bound-type
-           else lookup-type-loop bindings name (i + 1) len
+  lookup-type-loop : List TypeBinding -> Text -> Integer -> Integer -> CodexType
+  lookup-type-loop (bindings) (name) (i) (len) =
+   if i == len then ErrorTy
+   else
+    let b = list-at bindings i
+    in if b.name == name then b.bound-type
+     else lookup-type-loop bindings name (i + 1) len
 
-    peel-fun-param : CodexType -> CodexType
-    peel-fun-param (ty) =
-      when ty
-        if FunTy (p) (r) -> p
-        if ForAllTy (id) (body) -> peel-fun-param body
-        if _ -> ErrorTy
+  peel-fun-param : CodexType -> CodexType
+  peel-fun-param (ty) =
+   when ty
+    if FunTy (p) (r) -> p
+    if ForAllTy (id) (body) -> peel-fun-param body
+    if _ -> ErrorTy
 
-    peel-fun-return : CodexType -> CodexType
-    peel-fun-return (ty) =
-      when ty
-        if FunTy (p) (r) -> r
-        if ForAllTy (id) (body) -> peel-fun-return body
-        if _ -> ErrorTy
+  peel-fun-return : CodexType -> CodexType
+  peel-fun-return (ty) =
+   when ty
+    if FunTy (p) (r) -> r
+    if ForAllTy (id) (body) -> peel-fun-return body
+    if _ -> ErrorTy
 
-    strip-forall-ty : CodexType -> CodexType
-    strip-forall-ty (ty) =
-      when ty
-        if ForAllTy (id) (body) -> strip-forall-ty body
-        if _ -> ty
+  strip-forall-ty : CodexType -> CodexType
+  strip-forall-ty (ty) =
+   when ty
+    if ForAllTy (id) (body) -> strip-forall-ty body
+    if _ -> ty
 
-    subst-type-vars-from-arg : CodexType -> CodexType -> CodexType -> CodexType
-    subst-type-vars-from-arg (param-ty) (arg-ty) (target) =
-      when param-ty
-        if TypeVar (id) -> subst-type-var-in-target target id arg-ty
-        if ListTy (pe) -> subst-from-list pe arg-ty target
-        if FunTy (pp) (pr) -> subst-from-fun pp pr arg-ty target
-        if _ -> target
+  subst-type-vars-from-arg : CodexType -> CodexType -> CodexType -> CodexType
+  subst-type-vars-from-arg (param-ty) (arg-ty) (target) =
+   when param-ty
+    if TypeVar (id) -> subst-type-var-in-target target id arg-ty
+    if ListTy (pe) -> subst-from-list pe arg-ty target
+    if FunTy (pp) (pr) -> subst-from-fun pp pr arg-ty target
+    if _ -> target
 
-    subst-from-list : CodexType -> CodexType -> CodexType -> CodexType
-    subst-from-list (pe) (arg-ty) (target) =
-      when arg-ty
-        if ListTy (ae) -> subst-type-vars-from-arg pe ae target
-        if _ -> target
+  subst-from-list : CodexType -> CodexType -> CodexType -> CodexType
+  subst-from-list (pe) (arg-ty) (target) =
+   when arg-ty
+    if ListTy (ae) -> subst-type-vars-from-arg pe ae target
+    if _ -> target
 
-    subst-from-fun : CodexType -> CodexType -> CodexType -> CodexType -> CodexType
-    subst-from-fun (pp) (pr) (arg-ty) (target) =
-      when arg-ty
-        if FunTy (ap) (ar) ->
-          let t2 = subst-type-vars-from-arg pp ap target
-          in subst-type-vars-from-arg pr ar t2
-        if _ -> target
+  subst-from-fun : CodexType -> CodexType -> CodexType -> CodexType -> CodexType
+  subst-from-fun (pp) (pr) (arg-ty) (target) =
+   when arg-ty
+    if FunTy (ap) (ar) ->
+     let t2 = subst-type-vars-from-arg pp ap target
+     in subst-type-vars-from-arg pr ar t2
+    if _ -> target
 
-    subst-type-var-in-target : CodexType -> Integer -> CodexType -> CodexType
-    subst-type-var-in-target (ty) (var-id) (replacement) =
-      when ty
-        if TypeVar (id) -> if id == var-id then replacement else ty
-        if FunTy (p) (r) -> FunTy (subst-type-var-in-target p var-id replacement) (subst-type-var-in-target r var-id replacement)
-        if ListTy (elem) -> ListTy (subst-type-var-in-target elem var-id replacement)
-        if ForAllTy (fid) (body) ->
-          if fid == var-id then ty
-          else ForAllTy fid (subst-type-var-in-target body var-id replacement)
-        if _ -> ty
+  subst-type-var-in-target : CodexType -> Integer -> CodexType -> CodexType
+  subst-type-var-in-target (ty) (var-id) (replacement) =
+   when ty
+    if TypeVar (id) -> if id == var-id then replacement else ty
+    if FunTy (p) (r) -> FunTy (subst-type-var-in-target p var-id replacement) (subst-type-var-in-target r var-id replacement)
+    if ListTy (elem) -> ListTy (subst-type-var-in-target elem var-id replacement)
+    if ForAllTy (fid) (body) ->
+     if fid == var-id then ty
+     else ForAllTy fid (subst-type-var-in-target body var-id replacement)
+    if _ -> ty
 
 Section: Binary Op Lowering
 
-    lower-bin-op : BinaryOp -> CodexType -> IRBinaryOp
-    lower-bin-op (op) (ty) =
-      when op
-        if OpAdd -> IrAddInt
-        if OpSub -> IrSubInt
-        if OpMul -> IrMulInt
-        if OpDiv -> IrDivInt
-        if OpPow -> IrPowInt
-        if OpEq -> IrEq
-        if OpNotEq -> IrNotEq
-        if OpLt -> IrLt
-        if OpGt -> IrGt
-        if OpLtEq -> IrLtEq
-        if OpGtEq -> IrGtEq
-        if OpDefEq -> IrEq
-        if OpAppend -> if is-text-type ty then IrAppendText else IrAppendList
-        if OpCons -> IrConsList
-        if OpAnd -> IrAnd
-        if OpOr -> IrOr
+  lower-bin-op : BinaryOp -> CodexType -> IRBinaryOp
+  lower-bin-op (op) (ty) =
+   when op
+    if OpAdd -> IrAddInt
+    if OpSub -> IrSubInt
+    if OpMul -> IrMulInt
+    if OpDiv -> IrDivInt
+    if OpPow -> IrPowInt
+    if OpEq -> IrEq
+    if OpNotEq -> IrNotEq
+    if OpLt -> IrLt
+    if OpGt -> IrGt
+    if OpLtEq -> IrLtEq
+    if OpGtEq -> IrGtEq
+    if OpDefEq -> IrEq
+    if OpAppend -> if is-text-type ty then IrAppendText else IrAppendList
+    if OpCons -> IrConsList
+    if OpAnd -> IrAnd
+    if OpOr -> IrOr
 
-    binary-result-type : BinaryOp -> CodexType -> CodexType -> CodexType
-    binary-result-type (op) (left-ty) (expected-ty) =
-      when op
-        if OpEq -> BooleanTy
-        if OpNotEq -> BooleanTy
-        if OpLt -> BooleanTy
-        if OpGt -> BooleanTy
-        if OpLtEq -> BooleanTy
-        if OpGtEq -> BooleanTy
-        if OpDefEq -> BooleanTy
-        if OpAnd -> BooleanTy
-        if OpOr -> BooleanTy
-        if OpAppend -> if is-text-type left-ty then TextTy
-                       else if is-text-type expected-ty then TextTy
-                       else left-ty
-        if _ -> left-ty
+  binary-result-type : BinaryOp -> CodexType -> CodexType -> CodexType
+  binary-result-type (op) (left-ty) (expected-ty) =
+   when op
+    if OpEq -> BooleanTy
+    if OpNotEq -> BooleanTy
+    if OpLt -> BooleanTy
+    if OpGt -> BooleanTy
+    if OpLtEq -> BooleanTy
+    if OpGtEq -> BooleanTy
+    if OpDefEq -> BooleanTy
+    if OpAnd -> BooleanTy
+    if OpOr -> BooleanTy
+    if OpAppend -> if is-text-type left-ty then TextTy
+           else if is-text-type expected-ty then TextTy
+           else left-ty
+    if _ -> left-ty
 
-    is-text-type : CodexType -> Boolean
-    is-text-type (ty) =
-      when ty
-        if TextTy -> True
-        if _ -> False
+  is-text-type : CodexType -> Boolean
+  is-text-type (ty) =
+   when ty
+    if TextTy -> True
+    if _ -> False
 
 Section: Expression Lowering
 
-    lower-expr : AExpr -> CodexType -> LowerCtx -> IRExpr
-    lower-expr (e) (ty) (ctx) =
-      when e
-        if ALitExpr (text) (kind) -> lower-literal text kind
-        if ANameExpr (name) -> lower-name name.value ty ctx
-        if AApplyExpr (f) (a) -> lower-apply f a ty ctx
-        if ABinaryExpr (l) (op) (r) ->
-          let left-ir = lower-expr l ty ctx
-          in let left-ty = ir-expr-type left-ir
-          in let right-ir = lower-expr r ty ctx
-          in IrBinary (lower-bin-op op left-ty) left-ir right-ir (binary-result-type op left-ty ty)
-        if AUnaryExpr (operand) -> IrNegate (lower-expr operand IntegerTy ctx)
-        if AIfExpr (c) (t) (e2) ->
-          let then-ir = lower-expr t ty ctx
-          in let then-ty = ir-expr-type then-ir
-          in let result-ty = when ty
-                if ErrorTy -> then-ty
-                if _ -> ty
-          in let else-ir = lower-expr e2 result-ty ctx
-          in IrIf (lower-expr c BooleanTy ctx) then-ir else-ir result-ty
-        if ALetExpr (binds) (body) -> lower-let binds body ty ctx
-        if ALambdaExpr (params) (body) -> lower-lambda params body ty ctx
-        if AMatchExpr (scrut) (arms) -> lower-match scrut arms ty ctx
-        if AListExpr (elems) -> lower-list elems ty ctx
-        if ARecordExpr (name) (fields) -> lower-record name fields ty ctx
-        if AFieldAccess (rec) (field) ->
-          let rec-ir = lower-expr rec ErrorTy ctx
-          in let rec-ty = deep-resolve ctx.ust (ir-expr-type rec-ir)
-          in let field-ty = when rec-ty
-                if RecordTy (rname) (rfields) -> lookup-record-field rfields field.value
-                if ConstructedTy (cname) (cargs) ->
-                  let ctor-raw = lookup-type ctx.types cname.value
-                  in let resolved-record = when ctor-raw
-                        if ErrorTy -> ErrorTy
-                        if _ -> strip-fun-args-lower (deep-resolve ctx.ust ctor-raw)
-                  in when resolved-record
-                    if RecordTy (rn) (rf) -> lookup-record-field rf field.value
-                    if _ -> ty
-                if _ -> ty
-          in let actual-field-ty = when field-ty
-                if ErrorTy -> ty
-                if _ -> field-ty
-          in IrFieldAccess rec-ir field.value actual-field-ty
-        if ADoExpr (stmts) -> lower-do stmts ty ctx
-        if AErrorExpr (msg) -> IrError msg ty
-
-    lower-name : Text -> CodexType -> LowerCtx -> IRExpr
-    lower-name (name) (ty) (ctx) =
-      let raw = lookup-type ctx.types name
-      in when raw
-        if ErrorTy -> IrName name ty
-        if _ ->
-          let resolved = deep-resolve ctx.ust raw
-          in let stripped = strip-forall-ty resolved
-          in IrName name stripped
-
-    lower-literal : Text -> LiteralKind -> IRExpr
-    lower-literal (text) (kind) =
-      when kind
-        if IntLit -> IrIntLit (text-to-integer text)
-        if NumLit -> IrIntLit (text-to-integer text)
-        if TextLit -> IrTextLit text
-        if BoolLit -> IrBoolLit (text == "True")
-
-    lower-apply : AExpr -> AExpr -> CodexType -> LowerCtx -> IRExpr
-    lower-apply (f) (a) (ty) (ctx) =
-      let func-ir = lower-expr f ErrorTy ctx
-      in let func-ty = deep-resolve ctx.ust (ir-expr-type func-ir)
-      in let arg-ty = peel-fun-param func-ty
-      in let ret-ty = peel-fun-return func-ty
-      in let arg-ir = lower-expr a arg-ty ctx
-      in let resolved-ret = subst-type-vars-from-arg arg-ty (ir-expr-type arg-ir) ret-ty
-      in let actual-ret = when resolved-ret
-            if ErrorTy -> ty
-            if _ -> resolved-ret
-      in IrApply func-ir arg-ir actual-ret
-
-    lower-let : List ALetBind -> AExpr -> CodexType -> LowerCtx -> IRExpr
-    lower-let (binds) (body) (ty) (ctx) =
-      if list-length binds == 0 then lower-expr body ty ctx
-      else let b = list-at binds 0
-        in let val-ir = lower-expr b.value ErrorTy ctx
-        in let val-ty = deep-resolve ctx.ust (ir-expr-type val-ir)
-        in let ctx2 = LowerCtx { types = [TypeBinding { name = b.name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
-        in IrLet b.name.value val-ty val-ir (lower-let-rest binds body ty ctx2 1)
-
-    lower-let-rest : List ALetBind -> AExpr -> CodexType -> LowerCtx -> Integer -> IRExpr
-    lower-let-rest (binds) (body) (ty) (ctx) (i) =
-      if i == list-length binds then lower-expr body ty ctx
-      else let b = list-at binds i
-        in let val-ir = lower-expr b.value ErrorTy ctx
-        in let val-ty = deep-resolve ctx.ust (ir-expr-type val-ir)
-        in let ctx2 = LowerCtx { types = [TypeBinding { name = b.name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
-        in IrLet b.name.value val-ty val-ir (lower-let-rest binds body ty ctx2 (i + 1))
-
-    lower-lambda : List Name -> AExpr -> CodexType -> LowerCtx -> IRExpr
-    lower-lambda (params) (body) (ty) (ctx) =
-      let stripped = strip-forall-ty ty
-      in let lparams = lower-lambda-params params stripped 0
-      in let lctx = bind-lambda-to-ctx ctx params stripped 0
-      in IrLambda lparams (lower-expr body (get-lambda-return stripped (list-length params)) lctx) ty
-
-    bind-lambda-to-ctx : LowerCtx -> List Name -> CodexType -> Integer -> LowerCtx
-    bind-lambda-to-ctx (ctx) (params) (ty) (i) =
-      if i == list-length params then ctx
-      else
-        let p = list-at params i
-        in let param-ty = peel-fun-param ty
-        in let rest-ty = peel-fun-return ty
-        in let ctx2 = LowerCtx { types = [TypeBinding { name = p.value, bound-type = param-ty }] ++ ctx.types, ust = ctx.ust }
-        in bind-lambda-to-ctx ctx2 params rest-ty (i + 1)
-
-    lower-lambda-params : List Name -> CodexType -> Integer -> List IRParam
-    lower-lambda-params (params) (ty) (i) =
-      if i == list-length params then []
-      else let p = list-at params i
-        in let param-ty = peel-fun-param ty
-        in let rest-ty = peel-fun-return ty
-        in [IRParam { name = p.value, type-val = param-ty }] ++ lower-lambda-params params rest-ty (i + 1)
-
-    get-lambda-return : CodexType -> Integer -> CodexType
-    get-lambda-return (ty) (n) =
-      if n == 0 then ty
-      else when ty
-        if FunTy (p) (r) -> get-lambda-return r (n - 1)
-        if _ -> ErrorTy
-
-    lower-match : AExpr -> List AMatchArm -> CodexType -> LowerCtx -> IRExpr
-    lower-match (scrut) (arms) (ty) (ctx) =
-      let scrut-ir = lower-expr scrut ErrorTy ctx
-      in let scrut-ty = ir-expr-type scrut-ir
-      in let branches = lower-match-arms-loop arms ty scrut-ty ctx 0 (list-length arms)
-      in let result-ty = when ty
-            if ErrorTy -> infer-match-type branches 0 (list-length branches)
-            if _ -> ty
-      in IrMatch scrut-ir branches result-ty
-
-    infer-match-type : List IRBranch -> Integer -> Integer -> CodexType
-    infer-match-type (branches) (i) (len) =
-      if i == len then ErrorTy
-      else
-        let b = list-at branches i
-        in let body-ty = ir-expr-type b.body
-        in when body-ty
-          if ErrorTy -> infer-match-type branches (i + 1) len
-          if _ -> body-ty
-
-    lower-match-arms-loop : List AMatchArm -> CodexType -> CodexType -> LowerCtx -> Integer -> Integer -> List IRBranch
-    lower-match-arms-loop (arms) (ty) (scrut-ty) (ctx) (i) (len) =
-      if i == len then []
-      else
-        let arm = list-at arms i
-        in let arm-ctx = bind-pattern-to-ctx ctx arm.pattern scrut-ty
-        in [IRBranch { pattern = lower-pattern arm.pattern, body = lower-expr arm.body ty arm-ctx }] ++ lower-match-arms-loop arms ty scrut-ty ctx (i + 1) len
-
-    bind-pattern-to-ctx : LowerCtx -> APat -> CodexType -> LowerCtx
-    bind-pattern-to-ctx (ctx) (pat) (ty) =
-      when pat
-        if AVarPat (name) ->
-          LowerCtx { types = [TypeBinding { name = name.value, bound-type = ty }] ++ ctx.types, ust = ctx.ust }
-        if ACtorPat (ctor-name) (sub-pats) ->
-          let ctor-raw = lookup-type ctx.types ctor-name.value
-          in let ctor-ty = deep-resolve ctx.ust ctor-raw
-          in let ctor-stripped = strip-forall-ty ctor-ty
-          in bind-ctor-pattern-fields ctx sub-pats ctor-stripped 0 (list-length sub-pats)
-        if AWildPat -> ctx
-        if ALitPat (text) (kind) -> ctx
-
-    bind-ctor-pattern-fields : LowerCtx -> List APat -> CodexType -> Integer -> Integer -> LowerCtx
-    bind-ctor-pattern-fields (ctx) (sub-pats) (ctor-ty) (i) (len) =
-      if i == len then ctx
-      else
-        when ctor-ty
-          if FunTy (param-ty) (ret-ty) ->
-            let ctx2 = bind-pattern-to-ctx ctx (list-at sub-pats i) param-ty
-            in bind-ctor-pattern-fields ctx2 sub-pats ret-ty (i + 1) len
-          if _ ->
-            let ctx2 = bind-pattern-to-ctx ctx (list-at sub-pats i) ErrorTy
-            in bind-ctor-pattern-fields ctx2 sub-pats ctor-ty (i + 1) len
-
-    lower-pattern : APat -> IRPat
-    lower-pattern (p) =
-      when p
-        if AVarPat (name) -> IrVarPat name.value ErrorTy
-        if ALitPat (text) (kind) -> IrLitPat text ErrorTy
-        if ACtorPat (name) (subs) -> IrCtorPat name.value (map-list lower-pattern subs) ErrorTy
-        if AWildPat -> IrWildPat
-
-    lower-list : List AExpr -> CodexType -> LowerCtx -> IRExpr
-    lower-list (elems) (ty) (ctx) =
-      let elem-ty = when ty
-            if ListTy (e) -> e
-            if _ ->
-              if list-length elems == 0 then ErrorTy
-              else ir-expr-type (lower-expr (list-at elems 0) ErrorTy ctx)
-      in IrList (lower-list-elems-loop elems elem-ty ctx 0 (list-length elems)) elem-ty
-
-    lower-list-elems-loop : List AExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRExpr
-    lower-list-elems-loop (elems) (elem-ty) (ctx) (i) (len) =
-      if i == len then []
-      else [lower-expr (list-at elems i) elem-ty ctx] ++ lower-list-elems-loop elems elem-ty ctx (i + 1) len
-
-    lower-record : Name -> List AFieldExpr -> CodexType -> LowerCtx -> IRExpr
-    lower-record (name) (fields) (ty) (ctx) =
-      let ctor-raw = lookup-type ctx.types name.value
-      in let record-ty = when ctor-raw
-            if ErrorTy -> ty
-            if _ -> strip-fun-args-lower (deep-resolve ctx.ust ctor-raw)
-      in let actual-ty = when record-ty
-            if ErrorTy -> ty
-            if _ -> record-ty
-      in IrRecord name.value (lower-record-fields-typed fields actual-ty ctx 0 (list-length fields)) actual-ty
-
-    lower-record-fields-typed : List AFieldExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRFieldVal
-    lower-record-fields-typed (fields) (record-ty) (ctx) (i) (len) =
-      if i == len then []
-      else
-        let f = list-at fields i
-        in let field-expected = when record-ty
-              if RecordTy (rname) (rfields) -> lookup-record-field rfields f.name.value
-              if _ -> ErrorTy
-        in [IRFieldVal { name = f.name.value, value = lower-expr f.value field-expected ctx }] ++ lower-record-fields-typed fields record-ty ctx (i + 1) len
-
-    strip-fun-args-lower : CodexType -> CodexType
-    strip-fun-args-lower (ty) =
-      when ty
-        if FunTy (p) (r) -> strip-fun-args-lower r
-        if ForAllTy (id) (body) -> strip-fun-args-lower body
+  lower-expr : AExpr -> CodexType -> LowerCtx -> IRExpr
+  lower-expr (e) (ty) (ctx) =
+   when e
+    if ALitExpr (text) (kind) -> lower-literal text kind
+    if ANameExpr (name) -> lower-name name.value ty ctx
+    if AApplyExpr (f) (a) -> lower-apply f a ty ctx
+    if ABinaryExpr (l) (op) (r) ->
+     let left-ir = lower-expr l ty ctx
+     in let left-ty = ir-expr-type left-ir
+     in let right-ir = lower-expr r ty ctx
+     in IrBinary (lower-bin-op op left-ty) left-ir right-ir (binary-result-type op left-ty ty)
+    if AUnaryExpr (operand) -> IrNegate (lower-expr operand IntegerTy ctx)
+    if AIfExpr (c) (t) (e2) ->
+     let then-ir = lower-expr t ty ctx
+     in let then-ty = ir-expr-type then-ir
+     in let result-ty = when ty
+        if ErrorTy -> then-ty
         if _ -> ty
+     in let else-ir = lower-expr e2 result-ty ctx
+     in IrIf (lower-expr c BooleanTy ctx) then-ir else-ir result-ty
+    if ALetExpr (binds) (body) -> lower-let binds body ty ctx
+    if ALambdaExpr (params) (body) -> lower-lambda params body ty ctx
+    if AMatchExpr (scrut) (arms) -> lower-match scrut arms ty ctx
+    if AListExpr (elems) -> lower-list elems ty ctx
+    if ARecordExpr (name) (fields) -> lower-record name fields ty ctx
+    if AFieldAccess (rec) (field) ->
+     let rec-ir = lower-expr rec ErrorTy ctx
+     in let rec-ty = deep-resolve ctx.ust (ir-expr-type rec-ir)
+     in let field-ty = when rec-ty
+        if RecordTy (rname) (rfields) -> lookup-record-field rfields field.value
+        if ConstructedTy (cname) (cargs) ->
+         let ctor-raw = lookup-type ctx.types cname.value
+         in let resolved-record = when ctor-raw
+            if ErrorTy -> ErrorTy
+            if _ -> strip-fun-args-lower (deep-resolve ctx.ust ctor-raw)
+         in when resolved-record
+          if RecordTy (rn) (rf) -> lookup-record-field rf field.value
+          if _ -> ty
+        if _ -> ty
+     in let actual-field-ty = when field-ty
+        if ErrorTy -> ty
+        if _ -> field-ty
+     in IrFieldAccess rec-ir field.value actual-field-ty
+    if ADoExpr (stmts) -> lower-do stmts ty ctx
+    if AErrorExpr (msg) -> IrError msg ty
 
-    lower-do : List ADoStmt -> CodexType -> LowerCtx -> IRExpr
-    lower-do (stmts) (ty) (ctx) =
-      IrDo (lower-do-stmts-loop stmts ty ctx 0 (list-length stmts)) ty
+  lower-name : Text -> CodexType -> LowerCtx -> IRExpr
+  lower-name (name) (ty) (ctx) =
+   let raw = lookup-type ctx.types name
+   in when raw
+    if ErrorTy -> IrName name ty
+    if _ ->
+     let resolved = deep-resolve ctx.ust raw
+     in let stripped = strip-forall-ty resolved
+     in IrName name stripped
 
-    lower-do-stmts-loop : List ADoStmt -> CodexType -> LowerCtx -> Integer -> Integer -> List IRDoStmt
-    lower-do-stmts-loop (stmts) (ty) (ctx) (i) (len) =
-      if i == len then []
-      else
-        let s = list-at stmts i
-        in when s
-          if ADoBindStmt (name) (val) ->
-            let val-ir = lower-expr val ty ctx
-            in let val-ty = ir-expr-type val-ir
-            in let ctx2 = LowerCtx { types = [TypeBinding { name = name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
-            in [IrDoBind name.value val-ty val-ir] ++ lower-do-stmts-loop stmts ty ctx2 (i + 1) len
-          if ADoExprStmt (e) ->
-            [IrDoExec (lower-expr e ty ctx)] ++ lower-do-stmts-loop stmts ty ctx (i + 1) len
+  lower-literal : Text -> LiteralKind -> IRExpr
+  lower-literal (text) (kind) =
+   when kind
+    if IntLit -> IrIntLit (text-to-integer text)
+    if NumLit -> IrIntLit (text-to-integer text)
+    if TextLit -> IrTextLit text
+    if BoolLit -> IrBoolLit (text == "True")
+
+  lower-apply : AExpr -> AExpr -> CodexType -> LowerCtx -> IRExpr
+  lower-apply (f) (a) (ty) (ctx) =
+   let func-ir = lower-expr f ErrorTy ctx
+   in let func-ty = deep-resolve ctx.ust (ir-expr-type func-ir)
+   in let arg-ty = peel-fun-param func-ty
+   in let ret-ty = peel-fun-return func-ty
+   in let arg-ir = lower-expr a arg-ty ctx
+   in let resolved-ret = subst-type-vars-from-arg arg-ty (ir-expr-type arg-ir) ret-ty
+   in let actual-ret = when resolved-ret
+      if ErrorTy -> ty
+      if _ -> resolved-ret
+   in IrApply func-ir arg-ir actual-ret
+
+  lower-let : List ALetBind -> AExpr -> CodexType -> LowerCtx -> IRExpr
+  lower-let (binds) (body) (ty) (ctx) =
+   if list-length binds == 0 then lower-expr body ty ctx
+   else let b = list-at binds 0
+    in let val-ir = lower-expr b.value ErrorTy ctx
+    in let val-ty = deep-resolve ctx.ust (ir-expr-type val-ir)
+    in let ctx2 = LowerCtx { types = [TypeBinding { name = b.name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
+    in IrLet b.name.value val-ty val-ir (lower-let-rest binds body ty ctx2 1)
+
+  lower-let-rest : List ALetBind -> AExpr -> CodexType -> LowerCtx -> Integer -> IRExpr
+  lower-let-rest (binds) (body) (ty) (ctx) (i) =
+   if i == list-length binds then lower-expr body ty ctx
+   else let b = list-at binds i
+    in let val-ir = lower-expr b.value ErrorTy ctx
+    in let val-ty = deep-resolve ctx.ust (ir-expr-type val-ir)
+    in let ctx2 = LowerCtx { types = [TypeBinding { name = b.name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
+    in IrLet b.name.value val-ty val-ir (lower-let-rest binds body ty ctx2 (i + 1))
+
+  lower-lambda : List Name -> AExpr -> CodexType -> LowerCtx -> IRExpr
+  lower-lambda (params) (body) (ty) (ctx) =
+   let stripped = strip-forall-ty ty
+   in let lparams = lower-lambda-params params stripped 0
+   in let lctx = bind-lambda-to-ctx ctx params stripped 0
+   in IrLambda lparams (lower-expr body (get-lambda-return stripped (list-length params)) lctx) ty
+
+  bind-lambda-to-ctx : LowerCtx -> List Name -> CodexType -> Integer -> LowerCtx
+  bind-lambda-to-ctx (ctx) (params) (ty) (i) =
+   if i == list-length params then ctx
+   else
+    let p = list-at params i
+    in let param-ty = peel-fun-param ty
+    in let rest-ty = peel-fun-return ty
+    in let ctx2 = LowerCtx { types = [TypeBinding { name = p.value, bound-type = param-ty }] ++ ctx.types, ust = ctx.ust }
+    in bind-lambda-to-ctx ctx2 params rest-ty (i + 1)
+
+  lower-lambda-params : List Name -> CodexType -> Integer -> List IRParam
+  lower-lambda-params (params) (ty) (i) =
+   if i == list-length params then []
+   else let p = list-at params i
+    in let param-ty = peel-fun-param ty
+    in let rest-ty = peel-fun-return ty
+    in [IRParam { name = p.value, type-val = param-ty }] ++ lower-lambda-params params rest-ty (i + 1)
+
+  get-lambda-return : CodexType -> Integer -> CodexType
+  get-lambda-return (ty) (n) =
+   if n == 0 then ty
+   else when ty
+    if FunTy (p) (r) -> get-lambda-return r (n - 1)
+    if _ -> ErrorTy
+
+  lower-match : AExpr -> List AMatchArm -> CodexType -> LowerCtx -> IRExpr
+  lower-match (scrut) (arms) (ty) (ctx) =
+   let scrut-ir = lower-expr scrut ErrorTy ctx
+   in let scrut-ty = ir-expr-type scrut-ir
+   in let branches = lower-match-arms-loop arms ty scrut-ty ctx 0 (list-length arms)
+   in let result-ty = when ty
+      if ErrorTy -> infer-match-type branches 0 (list-length branches)
+      if _ -> ty
+   in IrMatch scrut-ir branches result-ty
+
+  infer-match-type : List IRBranch -> Integer -> Integer -> CodexType
+  infer-match-type (branches) (i) (len) =
+   if i == len then ErrorTy
+   else
+    let b = list-at branches i
+    in let body-ty = ir-expr-type b.body
+    in when body-ty
+     if ErrorTy -> infer-match-type branches (i + 1) len
+     if _ -> body-ty
+
+  lower-match-arms-loop : List AMatchArm -> CodexType -> CodexType -> LowerCtx -> Integer -> Integer -> List IRBranch
+  lower-match-arms-loop (arms) (ty) (scrut-ty) (ctx) (i) (len) =
+   if i == len then []
+   else
+    let arm = list-at arms i
+    in let arm-ctx = bind-pattern-to-ctx ctx arm.pattern scrut-ty
+    in [IRBranch { pattern = lower-pattern arm.pattern, body = lower-expr arm.body ty arm-ctx }] ++ lower-match-arms-loop arms ty scrut-ty ctx (i + 1) len
+
+  bind-pattern-to-ctx : LowerCtx -> APat -> CodexType -> LowerCtx
+  bind-pattern-to-ctx (ctx) (pat) (ty) =
+   when pat
+    if AVarPat (name) ->
+     LowerCtx { types = [TypeBinding { name = name.value, bound-type = ty }] ++ ctx.types, ust = ctx.ust }
+    if ACtorPat (ctor-name) (sub-pats) ->
+     let ctor-raw = lookup-type ctx.types ctor-name.value
+     in let ctor-ty = deep-resolve ctx.ust ctor-raw
+     in let ctor-stripped = strip-forall-ty ctor-ty
+     in bind-ctor-pattern-fields ctx sub-pats ctor-stripped 0 (list-length sub-pats)
+    if AWildPat -> ctx
+    if ALitPat (text) (kind) -> ctx
+
+  bind-ctor-pattern-fields : LowerCtx -> List APat -> CodexType -> Integer -> Integer -> LowerCtx
+  bind-ctor-pattern-fields (ctx) (sub-pats) (ctor-ty) (i) (len) =
+   if i == len then ctx
+   else
+    when ctor-ty
+     if FunTy (param-ty) (ret-ty) ->
+      let ctx2 = bind-pattern-to-ctx ctx (list-at sub-pats i) param-ty
+      in bind-ctor-pattern-fields ctx2 sub-pats ret-ty (i + 1) len
+     if _ ->
+      let ctx2 = bind-pattern-to-ctx ctx (list-at sub-pats i) ErrorTy
+      in bind-ctor-pattern-fields ctx2 sub-pats ctor-ty (i + 1) len
+
+  lower-pattern : APat -> IRPat
+  lower-pattern (p) =
+   when p
+    if AVarPat (name) -> IrVarPat name.value ErrorTy
+    if ALitPat (text) (kind) -> IrLitPat text ErrorTy
+    if ACtorPat (name) (subs) -> IrCtorPat name.value (map-list lower-pattern subs) ErrorTy
+    if AWildPat -> IrWildPat
+
+  lower-list : List AExpr -> CodexType -> LowerCtx -> IRExpr
+  lower-list (elems) (ty) (ctx) =
+   let elem-ty = when ty
+      if ListTy (e) -> e
+      if _ ->
+       if list-length elems == 0 then ErrorTy
+       else ir-expr-type (lower-expr (list-at elems 0) ErrorTy ctx)
+   in IrList (lower-list-elems-loop elems elem-ty ctx 0 (list-length elems)) elem-ty
+
+  lower-list-elems-loop : List AExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRExpr
+  lower-list-elems-loop (elems) (elem-ty) (ctx) (i) (len) =
+   if i == len then []
+   else [lower-expr (list-at elems i) elem-ty ctx] ++ lower-list-elems-loop elems elem-ty ctx (i + 1) len
+
+  lower-record : Name -> List AFieldExpr -> CodexType -> LowerCtx -> IRExpr
+  lower-record (name) (fields) (ty) (ctx) =
+   let ctor-raw = lookup-type ctx.types name.value
+   in let record-ty = when ctor-raw
+      if ErrorTy -> ty
+      if _ -> strip-fun-args-lower (deep-resolve ctx.ust ctor-raw)
+   in let actual-ty = when record-ty
+      if ErrorTy -> ty
+      if _ -> record-ty
+   in IrRecord name.value (lower-record-fields-typed fields actual-ty ctx 0 (list-length fields)) actual-ty
+
+  lower-record-fields-typed : List AFieldExpr -> CodexType -> LowerCtx -> Integer -> Integer -> List IRFieldVal
+  lower-record-fields-typed (fields) (record-ty) (ctx) (i) (len) =
+   if i == len then []
+   else
+    let f = list-at fields i
+    in let field-expected = when record-ty
+       if RecordTy (rname) (rfields) -> lookup-record-field rfields f.name.value
+       if _ -> ErrorTy
+    in [IRFieldVal { name = f.name.value, value = lower-expr f.value field-expected ctx }] ++ lower-record-fields-typed fields record-ty ctx (i + 1) len
+
+  strip-fun-args-lower : CodexType -> CodexType
+  strip-fun-args-lower (ty) =
+   when ty
+    if FunTy (p) (r) -> strip-fun-args-lower r
+    if ForAllTy (id) (body) -> strip-fun-args-lower body
+    if _ -> ty
+
+  lower-do : List ADoStmt -> CodexType -> LowerCtx -> IRExpr
+  lower-do (stmts) (ty) (ctx) =
+   IrDo (lower-do-stmts-loop stmts ty ctx 0 (list-length stmts)) ty
+
+  lower-do-stmts-loop : List ADoStmt -> CodexType -> LowerCtx -> Integer -> Integer -> List IRDoStmt
+  lower-do-stmts-loop (stmts) (ty) (ctx) (i) (len) =
+   if i == len then []
+   else
+    let s = list-at stmts i
+    in when s
+     if ADoBindStmt (name) (val) ->
+      let val-ir = lower-expr val ty ctx
+      in let val-ty = ir-expr-type val-ir
+      in let ctx2 = LowerCtx { types = [TypeBinding { name = name.value, bound-type = val-ty }] ++ ctx.types, ust = ctx.ust }
+      in [IrDoBind name.value val-ty val-ir] ++ lower-do-stmts-loop stmts ty ctx2 (i + 1) len
+     if ADoExprStmt (e) ->
+      [IrDoExec (lower-expr e ty ctx)] ++ lower-do-stmts-loop stmts ty ctx (i + 1) len
 
 Section: Definition Lowering
 
-    lower-def : ADef -> List TypeBinding -> UnificationState -> IRDef
-    lower-def (d) (types) (ust) =
-      let raw-type = lookup-type types d.name.value
-      in let full-type = deep-resolve ust raw-type
-      in let stripped = strip-forall-ty full-type
-      in let params = lower-def-params d.params stripped 0
-      in let ret-type = get-return-type-n stripped (list-length d.params)
-      in let ctx = build-def-ctx types ust d.params stripped
-      in IRDef { name = d.name.value, params = params, type-val = full-type, body = lower-expr d.body ret-type ctx }
+  lower-def : ADef -> List TypeBinding -> UnificationState -> IRDef
+  lower-def (d) (types) (ust) =
+   let raw-type = lookup-type types d.name.value
+   in let full-type = deep-resolve ust raw-type
+   in let stripped = strip-forall-ty full-type
+   in let params = lower-def-params d.params stripped 0
+   in let ret-type = get-return-type-n stripped (list-length d.params)
+   in let ctx = build-def-ctx types ust d.params stripped
+   in IRDef { name = d.name.value, params = params, type-val = full-type, body = lower-expr d.body ret-type ctx }
 
-    build-def-ctx : List TypeBinding -> UnificationState -> List AParam -> CodexType -> LowerCtx
-    build-def-ctx (types) (ust) (params) (ty) =
-      let base-ctx = LowerCtx { types = types, ust = ust }
-      in bind-params-to-ctx base-ctx params ty 0
+  build-def-ctx : List TypeBinding -> UnificationState -> List AParam -> CodexType -> LowerCtx
+  build-def-ctx (types) (ust) (params) (ty) =
+   let base-ctx = LowerCtx { types = types, ust = ust }
+   in bind-params-to-ctx base-ctx params ty 0
 
-    bind-params-to-ctx : LowerCtx -> List AParam -> CodexType -> Integer -> LowerCtx
-    bind-params-to-ctx (ctx) (params) (ty) (i) =
-      if i == list-length params then ctx
-      else
-        let p = list-at params i
-        in let param-ty = peel-fun-param ty
-        in let rest-ty = peel-fun-return ty
-        in let ctx2 = LowerCtx { types = [TypeBinding { name = p.name.value, bound-type = param-ty }] ++ ctx.types, ust = ctx.ust }
-        in bind-params-to-ctx ctx2 params rest-ty (i + 1)
+  bind-params-to-ctx : LowerCtx -> List AParam -> CodexType -> Integer -> LowerCtx
+  bind-params-to-ctx (ctx) (params) (ty) (i) =
+   if i == list-length params then ctx
+   else
+    let p = list-at params i
+    in let param-ty = peel-fun-param ty
+    in let rest-ty = peel-fun-return ty
+    in let ctx2 = LowerCtx { types = [TypeBinding { name = p.name.value, bound-type = param-ty }] ++ ctx.types, ust = ctx.ust }
+    in bind-params-to-ctx ctx2 params rest-ty (i + 1)
 
-    lower-def-params : List AParam -> CodexType -> Integer -> List IRParam
-    lower-def-params (params) (ty) (i) =
-      if i == list-length params then []
-      else let p = list-at params i
-        in let param-ty = peel-fun-param ty
-        in let rest-ty = peel-fun-return ty
-        in [IRParam { name = p.name.value, type-val = param-ty }] ++ lower-def-params params rest-ty (i + 1)
+  lower-def-params : List AParam -> CodexType -> Integer -> List IRParam
+  lower-def-params (params) (ty) (i) =
+   if i == list-length params then []
+   else let p = list-at params i
+    in let param-ty = peel-fun-param ty
+    in let rest-ty = peel-fun-return ty
+    in [IRParam { name = p.name.value, type-val = param-ty }] ++ lower-def-params params rest-ty (i + 1)
 
-    get-return-type-n : CodexType -> Integer -> CodexType
-    get-return-type-n (ty) (n) =
-      if n == 0 then ty
-      else when ty
-        if FunTy (p) (r) -> get-return-type-n r (n - 1)
-        if _ -> ErrorTy
+  get-return-type-n : CodexType -> Integer -> CodexType
+  get-return-type-n (ty) (n) =
+   if n == 0 then ty
+   else when ty
+    if FunTy (p) (r) -> get-return-type-n r (n - 1)
+    if _ -> ErrorTy
 
-    lower-module : AModule -> List TypeBinding -> UnificationState -> IRModule
-    lower-module (m) (types) (ust) =
-      let ctor-types = collect-ctor-bindings m.type-defs 0 (list-length m.type-defs) []
-      in let all-types = ctor-types ++ types ++ builtin-type-env.bindings
-      in IRModule { name = m.name, defs = lower-defs m.defs all-types ust 0 }
+  lower-module : AModule -> List TypeBinding -> UnificationState -> IRModule
+  lower-module (m) (types) (ust) =
+   let ctor-types = collect-ctor-bindings m.type-defs 0 (list-length m.type-defs) []
+   in let all-types = ctor-types ++ types ++ builtin-type-env.bindings
+   in IRModule { name = m.name, defs = lower-defs m.defs all-types ust 0 }
 
-    lower-defs : List ADef -> List TypeBinding -> UnificationState -> Integer -> List IRDef
-    lower-defs (defs) (types) (ust) (i) =
-      if i == list-length defs then []
-      else [lower-def (list-at defs i) types ust] ++ lower-defs defs types ust (i + 1)
+  lower-defs : List ADef -> List TypeBinding -> UnificationState -> Integer -> List IRDef
+  lower-defs (defs) (types) (ust) (i) =
+   if i == list-length defs then []
+   else [lower-def (list-at defs i) types ust] ++ lower-defs defs types ust (i + 1)
 
 Section: Constructor Bindings
 
-    collect-ctor-bindings : List ATypeDef -> Integer -> Integer -> List TypeBinding -> List TypeBinding
-    collect-ctor-bindings (tdefs) (i) (len) (acc) =
-      if i == len then acc
-      else
-        let td = list-at tdefs i
-        in let bindings = ctor-bindings-for-typedef td
-        in collect-ctor-bindings tdefs (i + 1) len (acc ++ bindings)
+  collect-ctor-bindings : List ATypeDef -> Integer -> Integer -> List TypeBinding -> List TypeBinding
+  collect-ctor-bindings (tdefs) (i) (len) (acc) =
+   if i == len then acc
+   else
+    let td = list-at tdefs i
+    in let bindings = ctor-bindings-for-typedef td
+    in collect-ctor-bindings tdefs (i + 1) len (acc ++ bindings)
 
-    ctor-bindings-for-typedef : ATypeDef -> List TypeBinding
-    ctor-bindings-for-typedef (td) =
-      when td
-        if AVariantTypeDef (name) (type-params) (ctors) ->
-          let result-ty = ConstructedTy name []
-          in collect-variant-ctor-bindings ctors result-ty 0 (list-length ctors) []
-        if ARecordTypeDef (name) (type-params) (fields) ->
-          let resolved-fields = build-record-fields-for-lower fields 0 (list-length fields) []
-          in let result-ty = RecordTy name resolved-fields
-          in let ctor-ty = build-record-ctor-type-for-lower fields result-ty 0 (list-length fields)
-          in [TypeBinding { name = name.value, bound-type = ctor-ty }]
+  ctor-bindings-for-typedef : ATypeDef -> List TypeBinding
+  ctor-bindings-for-typedef (td) =
+   when td
+    if AVariantTypeDef (name) (type-params) (ctors) ->
+     let result-ty = ConstructedTy name []
+     in collect-variant-ctor-bindings ctors result-ty 0 (list-length ctors) []
+    if ARecordTypeDef (name) (type-params) (fields) ->
+     let resolved-fields = build-record-fields-for-lower fields 0 (list-length fields) []
+     in let result-ty = RecordTy name resolved-fields
+     in let ctor-ty = build-record-ctor-type-for-lower fields result-ty 0 (list-length fields)
+     in [TypeBinding { name = name.value, bound-type = ctor-ty }]
 
-    collect-variant-ctor-bindings : List AVariantCtorDef -> CodexType -> Integer -> Integer -> List TypeBinding -> List TypeBinding
-    collect-variant-ctor-bindings (ctors) (result-ty) (i) (len) (acc) =
-      if i == len then acc
-      else
-        let ctor = list-at ctors i
-        in let ctor-ty = build-ctor-type-for-lower ctor.fields result-ty 0 (list-length ctor.fields)
-        in collect-variant-ctor-bindings ctors result-ty (i + 1) len (acc ++ [TypeBinding { name = ctor.name.value, bound-type = ctor-ty }])
+  collect-variant-ctor-bindings : List AVariantCtorDef -> CodexType -> Integer -> Integer -> List TypeBinding -> List TypeBinding
+  collect-variant-ctor-bindings (ctors) (result-ty) (i) (len) (acc) =
+   if i == len then acc
+   else
+    let ctor = list-at ctors i
+    in let ctor-ty = build-ctor-type-for-lower ctor.fields result-ty 0 (list-length ctor.fields)
+    in collect-variant-ctor-bindings ctors result-ty (i + 1) len (acc ++ [TypeBinding { name = ctor.name.value, bound-type = ctor-ty }])
 
-    build-ctor-type-for-lower : List ATypeExpr -> CodexType -> Integer -> Integer -> CodexType
-    build-ctor-type-for-lower (fields) (result) (i) (len) =
-      if i == len then result
-      else
-        let rest = build-ctor-type-for-lower fields result (i + 1) len
-        in FunTy (resolve-type-expr-for-lower (list-at fields i)) rest
+  build-ctor-type-for-lower : List ATypeExpr -> CodexType -> Integer -> Integer -> CodexType
+  build-ctor-type-for-lower (fields) (result) (i) (len) =
+   if i == len then result
+   else
+    let rest = build-ctor-type-for-lower fields result (i + 1) len
+    in FunTy (resolve-type-expr-for-lower (list-at fields i)) rest
 
-    build-record-fields-for-lower : List ARecordFieldDef -> Integer -> Integer -> List RecordField -> List RecordField
-    build-record-fields-for-lower (fields) (i) (len) (acc) =
-      if i == len then acc
-      else
-        let f = list-at fields i
-        in let rfield = RecordField { name = f.name, type-val = resolve-type-expr-for-lower f.type-expr }
-        in build-record-fields-for-lower fields (i + 1) len (acc ++ [rfield])
+  build-record-fields-for-lower : List ARecordFieldDef -> Integer -> Integer -> List RecordField -> List RecordField
+  build-record-fields-for-lower (fields) (i) (len) (acc) =
+   if i == len then acc
+   else
+    let f = list-at fields i
+    in let rfield = RecordField { name = f.name, type-val = resolve-type-expr-for-lower f.type-expr }
+    in build-record-fields-for-lower fields (i + 1) len (acc ++ [rfield])
 
-    build-record-ctor-type-for-lower : List ARecordFieldDef -> CodexType -> Integer -> Integer -> CodexType
-    build-record-ctor-type-for-lower (fields) (result) (i) (len) =
-      if i == len then result
-      else
-        let f = list-at fields i
-        in let rest = build-record-ctor-type-for-lower fields result (i + 1) len
-        in FunTy (resolve-type-expr-for-lower f.type-expr) rest
+  build-record-ctor-type-for-lower : List ARecordFieldDef -> CodexType -> Integer -> Integer -> CodexType
+  build-record-ctor-type-for-lower (fields) (result) (i) (len) =
+   if i == len then result
+   else
+    let f = list-at fields i
+    in let rest = build-record-ctor-type-for-lower fields result (i + 1) len
+    in FunTy (resolve-type-expr-for-lower f.type-expr) rest
 
-    resolve-type-expr-for-lower : ATypeExpr -> CodexType
-    resolve-type-expr-for-lower (texpr) =
-      when texpr
-        if ANamedType (name) ->
-          if name.value == "Integer" then IntegerTy
-          else if name.value == "Number" then NumberTy
-          else if name.value == "Text" then TextTy
-          else if name.value == "Boolean" then BooleanTy
-          else if name.value == "Nothing" then NothingTy
-          else ConstructedTy name []
-        if AFunType (param) (ret) -> FunTy (resolve-type-expr-for-lower param) (resolve-type-expr-for-lower ret)
-        if AAppType (ctor) (args) ->
-          when ctor
-            if ANamedType (cname) ->
-              if cname.value == "List"
-                then if list-length args == 1
-                  then ListTy (resolve-type-expr-for-lower (list-at args 0))
-                  else ListTy ErrorTy
-                else ConstructedTy cname []
-            if _ -> ErrorTy
+  resolve-type-expr-for-lower : ATypeExpr -> CodexType
+  resolve-type-expr-for-lower (texpr) =
+   when texpr
+    if ANamedType (name) ->
+     if name.value == "Integer" then IntegerTy
+     else if name.value == "Number" then NumberTy
+     else if name.value == "Text" then TextTy
+     else if name.value == "Boolean" then BooleanTy
+     else if name.value == "Nothing" then NothingTy
+     else ConstructedTy name []
+    if AFunType (param) (ret) -> FunTy (resolve-type-expr-for-lower param) (resolve-type-expr-for-lower ret)
+    if AAppType (ctor) (args) ->
+     when ctor
+      if ANamedType (cname) ->
+       if cname.value == "List"
+        then if list-length args == 1
+         then ListTy (resolve-type-expr-for-lower (list-at args 0))
+         else ListTy ErrorTy
+        else ConstructedTy cname []
+      if _ -> ErrorTy

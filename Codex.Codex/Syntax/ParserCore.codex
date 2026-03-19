@@ -1,0 +1,255 @@
+Chapter: Parser Core
+
+ Core parser utilities: state, results, predicates, helpers.
+
+Section: Parser State
+
+  ParseState = record {
+   tokens : List Token,
+   pos : Integer
+  }
+
+  make-parse-state : List Token -> ParseState
+  make-parse-state (toks) = ParseState { tokens = toks, pos = 0 }
+
+  current : ParseState -> Token
+  current (st) = list-at st.tokens st.pos
+
+  current-kind : ParseState -> TokenKind
+  current-kind (st) = (current st).kind
+
+  advance : ParseState -> ParseState
+  advance (st) = ParseState { tokens = st.tokens, pos = st.pos + 1 }
+
+  is-done : ParseState -> Boolean
+  is-done (st) = when current-kind st
+   if EndOfFile -> True
+   if _ -> False
+
+  peek-kind : ParseState -> Integer -> TokenKind
+  peek-kind (st) (offset) = (list-at st.tokens (st.pos + offset)).kind
+
+Section: Parse Results
+
+ Each parse function returns the parsed node and the updated state.
+
+  ParseExprResult =
+   | ExprOk (Expr) (ParseState)
+
+  ParsePatResult =
+   | PatOk (Pat) (ParseState)
+
+  ParseTypeResult =
+   | TypeOk (TypeExpr) (ParseState)
+
+  ParseDefResult =
+   | DefOk (Def) (ParseState)
+   | DefNone (ParseState)
+
+  ParseTypeDefResult =
+   | TypeDefOk (TypeDef) (ParseState)
+   | TypeDefNone (ParseState)
+
+Section: TokenKind Predicates
+
+  is-ident : TokenKind -> Boolean
+  is-ident (k) = when k
+   if Identifier -> True
+   if _ -> False
+
+  is-type-ident : TokenKind -> Boolean
+  is-type-ident (k) = when k
+   if TypeIdentifier -> True
+   if _ -> False
+
+  is-arrow : TokenKind -> Boolean
+  is-arrow (k) = when k
+   if Arrow -> True
+   if _ -> False
+
+  is-equals : TokenKind -> Boolean
+  is-equals (k) = when k
+   if Equals -> True
+   if _ -> False
+
+  is-colon : TokenKind -> Boolean
+  is-colon (k) = when k
+   if Colon -> True
+   if _ -> False
+
+  is-comma : TokenKind -> Boolean
+  is-comma (k) = when k
+   if Comma -> True
+   if _ -> False
+
+  is-pipe : TokenKind -> Boolean
+  is-pipe (k) = when k
+   if Pipe -> True
+   if _ -> False
+
+  is-dot : TokenKind -> Boolean
+  is-dot (k) = when k
+   if Dot -> True
+   if _ -> False
+
+  is-left-paren : TokenKind -> Boolean
+  is-left-paren (k) = when k
+   if LeftParen -> True
+   if _ -> False
+
+  is-left-brace : TokenKind -> Boolean
+  is-left-brace (k) = when k
+   if LeftBrace -> True
+   if _ -> False
+
+  is-left-bracket : TokenKind -> Boolean
+  is-left-bracket (k) = when k
+   if LeftBracket -> True
+   if _ -> False
+
+  is-right-brace : TokenKind -> Boolean
+  is-right-brace (k) = when k
+   if RightBrace -> True
+   if _ -> False
+
+  is-right-bracket : TokenKind -> Boolean
+  is-right-bracket (k) = when k
+   if RightBracket -> True
+   if _ -> False
+
+  is-right-paren : TokenKind -> Boolean
+  is-right-paren (k) = when k
+   if RightParen -> True
+   if _ -> False
+
+  is-if-keyword : TokenKind -> Boolean
+  is-if-keyword (k) = when k
+   if IfKeyword -> True
+   if _ -> False
+
+  is-let-keyword : TokenKind -> Boolean
+  is-let-keyword (k) = when k
+   if LetKeyword -> True
+   if _ -> False
+
+  is-when-keyword : TokenKind -> Boolean
+  is-when-keyword (k) = when k
+   if WhenKeyword -> True
+   if _ -> False
+
+  is-do-keyword : TokenKind -> Boolean
+  is-do-keyword (k) = when k
+   if DoKeyword -> True
+   if _ -> False
+
+  is-in-keyword : TokenKind -> Boolean
+  is-in-keyword (k) = when k
+   if InKeyword -> True
+   if _ -> False
+
+  is-minus : TokenKind -> Boolean
+  is-minus (k) = when k
+   if Minus -> True
+   if _ -> False
+
+  is-dedent : TokenKind -> Boolean
+  is-dedent (k) = when k
+   if Dedent -> True
+   if _ -> False
+
+  is-left-arrow : TokenKind -> Boolean
+  is-left-arrow (k) = when k
+   if LeftArrow -> True
+   if _ -> False
+
+  is-record-keyword : TokenKind -> Boolean
+  is-record-keyword (k) = when k
+   if RecordKeyword -> True
+   if _ -> False
+
+  is-underscore : TokenKind -> Boolean
+  is-underscore (k) = when k
+   if Underscore -> True
+   if _ -> False
+
+  is-literal : TokenKind -> Boolean
+  is-literal (k) = when k
+   if IntegerLiteral -> True
+   if NumberLiteral -> True
+   if TextLiteral -> True
+   if TrueKeyword -> True
+   if FalseKeyword -> True
+   if _ -> False
+
+  is-app-start : TokenKind -> Boolean
+  is-app-start (k) = when k
+   if Identifier -> True
+   if TypeIdentifier -> True
+   if IntegerLiteral -> True
+   if NumberLiteral -> True
+   if TextLiteral -> True
+   if TrueKeyword -> True
+   if FalseKeyword -> True
+   if LeftParen -> True
+   if LeftBracket -> True
+   if _ -> False
+
+  is-compound : Expr -> Boolean
+  is-compound (e) = when e
+   if MatchExpr (s) (arms) -> True
+   if IfExpr (c) (t) (el) -> True
+   if LetExpr (binds) (body) -> True
+   if DoExpr (stmts) -> True
+   if _ -> False
+
+  is-type-arg-start : TokenKind -> Boolean
+  is-type-arg-start (k) = when k
+   if TypeIdentifier -> True
+   if Identifier -> True
+   if LeftParen -> True
+   if _ -> False
+
+  operator-precedence : TokenKind -> Integer
+  operator-precedence (k) = when k
+   if PlusPlus -> 5
+   if ColonColon -> 5
+   if Plus -> 6
+   if Minus -> 6
+   if Star -> 7
+   if Slash -> 7
+   if Caret -> 8
+   if DoubleEquals -> 4
+   if NotEquals -> 4
+   if LessThan -> 4
+   if GreaterThan -> 4
+   if LessOrEqual -> 4
+   if GreaterOrEqual -> 4
+   if TripleEquals -> 4
+   if Ampersand -> 3
+   if Pipe -> 2
+   if _ -> 0 - 1
+
+  is-right-assoc : TokenKind -> Boolean
+  is-right-assoc (k) = when k
+   if PlusPlus -> True
+   if ColonColon -> True
+   if Caret -> True
+   if Arrow -> True
+   if _ -> False
+
+Section: Token Helpers
+
+  expect : TokenKind -> ParseState -> ParseState
+  expect (kind) (st) =
+   if is-done st then st
+   else advance st
+
+  skip-newlines : ParseState -> ParseState
+  skip-newlines (st) =
+   if is-done st then st
+   else when current-kind st
+    if Newline -> skip-newlines (advance st)
+    if Indent -> skip-newlines (advance st)
+    if Dedent -> skip-newlines (advance st)
+    if _ -> st
+

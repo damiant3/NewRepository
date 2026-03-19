@@ -97,7 +97,7 @@ public sealed partial class ProseParser
 
             int indent = MeasureIndent(m_lines[m_lineIndex]);
 
-            if (indent >= 4 && LooksLikeNotation(trimmed))
+            if (indent >= 2 && LooksLikeNotation(trimmed))
             {
                 members.Add(ParseNotationBlock());
                 continue;
@@ -138,7 +138,7 @@ public sealed partial class ProseParser
 
             int indent = MeasureIndent(m_lines[m_lineIndex]);
 
-            if (indent >= 4 && LooksLikeNotation(trimmed))
+            if (indent >= 2 && LooksLikeNotation(trimmed))
             {
                 members.Add(ParseNotationBlock());
                 continue;
@@ -173,7 +173,7 @@ public sealed partial class ProseParser
 
             int indent = MeasureIndent(line);
 
-            if (indent >= 4 && LooksLikeNotation(trimmed))
+            if (indent >= 2 && LooksLikeNotation(trimmed))
                 break;
 
             proseLines.Add(trimmed);
