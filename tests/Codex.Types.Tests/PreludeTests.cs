@@ -79,6 +79,27 @@ public class PreludeTests
     }
 
     [Fact]
+    public void CCE_compiles()
+    {
+        DiagnosticBag diag = CompilePreludeFile("CCE.codex");
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact(Skip = "Hamt uses self-hosted-only syntax (record, lambdas, list literals)")]
+    public void Hamt_compiles()
+    {
+        DiagnosticBag diag = CompilePreludeFileWithLoader("Hamt.codex");
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void List_compiles()
+    {
+        DiagnosticBag diag = CompilePreludeFile("List.codex");
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
     public void Maybe_used_in_program()
     {
         string source = """
@@ -145,6 +166,80 @@ public class PreludeTests
         Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
     }
 
+    [Fact]
+    public void CCE_used_in_program()
+    {
+        string source = """
+            import CCE
+
+            main : Boolean
+            main = is-cce-digit 10
+            """;
+        DiagnosticBag diag = CompileWithPrelude(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact(Skip = "Hamt uses self-hosted-only syntax (record, lambdas, list literals)")]
+    public void Hamt_used_in_program()
+    {
+        string source = """
+            import Maybe
+            import Hamt
+
+            main : Integer
+            main = hamt-size (hamt-set hamt-empty "key" 42)
+            """;
+        DiagnosticBag diag = CompileWithPrelude(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void List_used_in_program()
+    {
+        string source = """
+            import List
+
+            main : Integer
+            main = list-length (cons 1 (cons 2 (cons 3 nil)))
+            """;
+        DiagnosticBag diag = CompileWithPrelude(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    static DiagnosticBag CompilePreludeFileWithLoader(string fileName)
+    {
+        string preludeDir = FindPreludeDir();
+        string path = Path.Combine(preludeDir, fileName);
+        string source = File.ReadAllText(path);
+        string moduleName = Path.GetFileNameWithoutExtension(fileName);
+
+        SourceText src = new(path, source);
+        DiagnosticBag diagnostics = new();
+
+        Lexer lexer = new(src, diagnostics);
+        IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+        Parser parser = new(tokens, diagnostics);
+        DocumentNode document = parser.ParseDocument();
+        if (diagnostics.HasErrors) return diagnostics;
+
+        Desugarer desugarer = new(diagnostics);
+        Module module = desugarer.Desugar(document, moduleName);
+        if (diagnostics.HasErrors) return diagnostics;
+
+        PreludeTestLoader preludeLoader = new(preludeDir, diagnostics);
+        NameResolver resolver = new(diagnostics, preludeLoader);
+        ResolvedModule resolved = resolver.Resolve(module);
+        if (diagnostics.HasErrors) return diagnostics;
+
+        TypeChecker checker = new(diagnostics);
+
+        foreach (ResolvedModule imported in resolved.ImportedModules)
+            checker.CheckModule(imported.Module);
+
+        checker.CheckModule(resolved.Module);
+        return diagnostics;
+    }
+
     static DiagnosticBag CompileWithPrelude(string source)
     {
         string preludeDir = FindPreludeDir();
@@ -206,7 +301,7 @@ sealed class PreludeTestLoader(string preludeDir, DiagnosticBag diagnostics) : I
         Module module = desugarer.Desugar(document, moduleName);
         if (compileDiag.HasErrors) return null;
 
-        NameResolver resolver = new(compileDiag);
+        NameResolver resolver = new(compileDiag, this);
         ResolvedModule resolved = resolver.Resolve(module);
         if (compileDiag.HasErrors) return null;
 
