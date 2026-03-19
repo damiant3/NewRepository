@@ -364,3 +364,5 @@ FodyWeavers.xsd
 # Agent toolkit temp files
 tools/agent/.snapshots/
 tools/agent/.test-output.txt
+/Codex.Codex/out/Codex.Codex.cs
+/Codex.Codex/out/Codex.Codex.cs
