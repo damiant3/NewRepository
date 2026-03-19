@@ -52,14 +52,19 @@ The `.codex` compiler now handles:
 
 ## What's Next
 
+### Completed (This Session)
+
+| # | Task | Status | What |
+|---|------|--------|------|
+| P1 | **Self-hosted built-in expansion** | ✅ Done | Root cause: bootstrap `ExtractCodeBlocks` required `indent >= 4` but source uses 2-space indent. Fix: `indent >= 2`. Stage 1 now inlines all built-ins. Fixed point verified. |
+| L7 | **Better error messages** | ✅ Done | "Did you mean X?" via `StringDistance.FindClosest` ✅. Readable type formatting ✅. Related spans ✅. Error cap at 20 ✅. ErrorType cascade suppression ✅. Parser error recovery with 18 tests (CDX1021–CDX1032) ✅. |
+| R5 | **Build system** | ✅ Done | `codex build <dir>` compiles multi-file projects via `codex.project.json`. Dependency resolution ✅. Multi-target (`--targets cs,js,rust`) ✅. Incremental builds (`--incremental`) ✅. Verified: `codex build Codex.Codex` compiles 26 files successfully. |
+
 ### Near Term: Make the Language Practical
 
 | # | Task | Status | What |
 |---|------|--------|------|
 | E1 | **Exit criterion: real programs** | 🔶 Started | `expr-calculator.codex` (10/10 PASS) proves the compiler works. Next: something larger that exercises imports, prelude types, and effects together. |
-| L7 | **Better error messages** | 🔶 Ongoing | "Did you mean X?" ✅. Readable type formatting ✅. Related spans ✅. Error cap at 20 ✅. ErrorType cascade suppression ✅. Remaining: error recovery, source location accuracy in self-hosted pipeline. |
-| R5 | **Build system** | 🔶 Started | `CodexProject` model + `LoadProjectFile` exist. Remaining: wire into `codex build`, multi-file dependency resolution. |
-| P1 | **Self-hosted built-in expansion** | ✅ Done | Root cause: bootstrap `ExtractCodeBlocks` required `indent >= 4` but source uses 2-space indent. Fix: `indent >= 2`. Stage 1 now inlines all built-ins. Fixed point verified. |
 
 ### Medium Term: Library & Runtime
 
@@ -90,7 +95,7 @@ with standard library support, no C# toolchain needed.
 ## Recommended Sequence
 
 ```
-Now ──→ E1 (real program) + R5 (build system)
+Now ──→ E1 (real program)
             │
             ├──→ R2 (stdlib: expand CCE, Hamt, add collections)
             │       │
@@ -99,12 +104,12 @@ Now ──→ E1 (real program) + R5 (build system)
             └──→ R4 (packages) ──→ V1-V7 (the vision)
 ```
 
-**R6 is now unblocked.** P1 is resolved. The next critical path is R2 (standard library)
-to provide the runtime functions needed for standalone executables.
+**R6 is now unblocked.** P1, L7, and R5 are resolved. The next critical path is
+R2 (standard library) to provide the runtime functions needed for standalone executables.
 
 ---
 
-## Recent Session: P1 Resolution (2026-03-19)
+## Recent Session: P1/L7/R5 Resolution (2026-03-19)
 
 **Agent**: Claude (Opus 4.6, Linux, claude.ai)
 **Branch**: `linux/p1-builtin-expansion` → merged to `master`
