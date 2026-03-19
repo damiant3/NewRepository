@@ -236,7 +236,7 @@ public sealed partial class CSharpEmitter
                     break;
                 case IRDoExec exec:
                     sb.Append(pad);
-                    if (isLast && doExpr.Type is not VoidType and not NothingType)
+                    if (isLast && !IsVoidLike(doExpr.Type))
                     {
                         sb.Append("return ");
                         EmitExpr(sb, exec.Expression, indent + 2);
@@ -268,4 +268,12 @@ public sealed partial class CSharpEmitter
         sb.Append(new string(' ', (indent + 1) * 4));
         sb.Append("}))()");
     }
+
+    static bool IsVoidLike(CodexType type) => type switch
+    {
+        VoidType => true,
+        NothingType => true,
+        EffectfulType eft => IsVoidLike(eft.Return),
+        _ => false
+    };
 }
