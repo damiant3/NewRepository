@@ -169,12 +169,18 @@ TEST_COUNT=$(grep -r '\[Fact\]\|\[Theory\]' tests/ --include="*.cs" 2>/dev/null 
 TEST_FILES=$(find tests -name "*.cs" -not -path "*/obj/*" -not -path "*/bin/*" -not -name "*AssemblyInfo*" -not -name "*GlobalUsings*" 2>/dev/null | wc -l)
 
 # Reference compiler lock
-LOCK_FILE="$REPO_ROOT/REFERENCE-COMPILER-LOCK.md"
-REF_LOCKED=false
+# Default: LOCKED. The reference compiler (src/) is frozen.
+# The lock file in docs/ is the reason/record. If it exists, we read details.
+# To unlock, create REFERENCE-COMPILER-UNLOCK.md at repo root.
+LOCK_FILE="$REPO_ROOT/docs/REFERENCE-COMPILER-LOCK.md"
+UNLOCK_FILE="$REPO_ROOT/REFERENCE-COMPILER-UNLOCK.md"
+REF_LOCKED=true
 LOCK_COMMIT=""
 LOCK_DATE=""
+if [ -f "$UNLOCK_FILE" ]; then
+    REF_LOCKED=false
+fi
 if [ -f "$LOCK_FILE" ]; then
-    REF_LOCKED=true
     LOCK_COMMIT=$(grep -oP 'Locked at commit.*?`\K[a-f0-9]+' "$LOCK_FILE" 2>/dev/null || true)
     LOCK_DATE=$(grep -oP '\*\*Date\*\*:\s*\K\d{4}-\d{2}-\d{2}' "$LOCK_FILE" 2>/dev/null || true)
 fi
@@ -311,9 +317,12 @@ if $REF_LOCKED; then
     echo -e "    Status:  ${GREEN}✓ LOCKED${RESET}  ${DIM}at commit ${LOCK_COMMIT} on ${LOCK_DATE}${RESET}"
     echo -e "    ${DIM}The C# reference compiler (src/) is frozen.${RESET}"
     echo -e "    ${DIM}New features go in .codex source only.${RESET}"
+    echo -e "    ${DIM}To unlock: create REFERENCE-COMPILER-UNLOCK.md at repo root.${RESET}"
 else
-    echo -e "    Status:  ${YELLOW}✗ UNLOCKED${RESET}  ${DIM}(no REFERENCE-COMPILER-LOCK.md found)${RESET}"
+    echo -e "    Status:  ${YELLOW}✗ UNLOCKED${RESET}  ${DIM}(REFERENCE-COMPILER-UNLOCK.md found at repo root)${RESET}"
+    echo -e "    ${YELLOW}    Remove REFERENCE-COMPILER-UNLOCK.md to re-lock.${RESET}"
 fi
+
 if [ "$PRELUDE_COUNT" -gt 0 ]; then
     echo -e "    Prelude: ${GREEN}${PRELUDE_COUNT} modules${RESET}  ${DIM}(${PRELUDE_FILES})${RESET}"
 fi

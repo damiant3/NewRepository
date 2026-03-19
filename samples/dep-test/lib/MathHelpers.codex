@@ -1,0 +1,5 @@
+double : Integer -> Integer
+double (x) = x + x
+
+triple : Integer -> Integer
+triple (x) = x + x + x

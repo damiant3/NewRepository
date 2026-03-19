@@ -43,6 +43,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A0000000-0
 		docs\10-PRINCIPLES.md = docs\10-PRINCIPLES.md
 		docs\CurrentPlan.md = docs\CurrentPlan.md
 		docs\GLOSSARY.md = docs\GLOSSARY.md
+		docs\REFERENCE-COMPILER-LOCK.md = docs\REFERENCE-COMPILER-LOCK.md
 		docs\VSCODE-SETUP.md = docs\VSCODE-SETUP.md
 	EndProjectSection
 EndProject

@@ -183,11 +183,15 @@ function Get-AllMetrics {
     }
 
     # --- Reference compiler lock ---
-    $lockFile = Join-Path $repoRoot "REFERENCE-COMPILER-LOCK.md"
-    $refLocked = Test-Path $lockFile
+    # Default: LOCKED. The reference compiler (src/) is frozen.
+    # The lock file in docs/ is the reason/record. If it exists, we read details from it.
+    # To unlock, create REFERENCE-COMPILER-UNLOCK.md at repo root.
+    $lockFile = Join-Path $repoRoot "docs" "REFERENCE-COMPILER-LOCK.md"
+    $unlockFile = Join-Path $repoRoot "REFERENCE-COMPILER-UNLOCK.md"
+    $refLocked = -not (Test-Path $unlockFile)
     $lockCommit = ""
     $lockDate = ""
-    if ($refLocked) {
+    if (Test-Path $lockFile) {
         $lockContent = Get-Content $lockFile -Raw
         if ($lockContent -match 'Locked at commit.*?`([a-f0-9]+)`') { $lockCommit = $Matches[1] }
         if ($lockContent -match '\*\*Date\*\*:\s*(\d{4}-\d{2}-\d{2})') { $lockDate = $Matches[1] }
@@ -350,8 +354,10 @@ function Render-Dashboard {
         Write-Host "    Status:  $(Green '✓ LOCKED')  $(Dim "at commit $($m.LockCommit) on $($m.LockDate)")"
         Write-Host "    $(Dim 'The C# reference compiler (src/) is frozen.')"
         Write-Host "    $(Dim 'New features go in .codex source only.')"
+        Write-Host "    $(Dim 'To unlock: create REFERENCE-COMPILER-UNLOCK.md at repo root.')"
     } else {
-        Write-Host "    Status:  $(Yellow '✗ UNLOCKED')  $(Dim '(no REFERENCE-COMPILER-LOCK.md found)')"
+        Write-Host "    Status:  $(Yellow '✗ UNLOCKED')  $(Dim '(REFERENCE-COMPILER-UNLOCK.md found at repo root)')"
+        Write-Host "    $(Yellow '    Remove REFERENCE-COMPILER-UNLOCK.md to re-lock.')"
     }
     if ($m.PreludeFiles.Count -gt 0) {
         Write-Host "    Prelude: $(Green "$($m.PreludeFiles.Count) modules")  $(Dim "($($m.PreludeFiles -join ', '))")"

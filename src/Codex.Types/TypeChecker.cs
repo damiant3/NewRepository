@@ -181,6 +181,32 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
     }
 
     public Map<string, string> OperationToEffect => m_operationToEffect;
+
+    public void ImportModule(Module module, Set<string> exportedNames)
+    {
+        RegisterTypeDefinitions(module.TypeDefinitions);
+        RegisterEffectDefinitions(module.EffectDefs);
+
+        foreach (Definition def in module.Definitions)
+        {
+            if (!exportedNames.Contains(def.Name.Value))
+                continue;
+
+            Map<string, CodexType> savedTypeParams = m_typeParamEnv;
+            m_typeParamEnv = Map<string, CodexType>.s_empty;
+            m_effectRowVars = Map<string, EffectRowVariable>.s_empty;
+            CodexType declaredType = def.DeclaredType is not null
+                ? ResolveTypeExpr(def.DeclaredType)
+                : m_unifier.FreshVar();
+            m_typeParamEnv = savedTypeParams;
+            m_effectRowVars = Map<string, EffectRowVariable>.s_empty;
+
+            CodexType envType = def.DeclaredType is not null
+                ? Generalize(declaredType)
+                : declaredType;
+            m_env = m_env.Bind(def.Name, envType);
+        }
+    }
 }
 
 public sealed record CtorInfo(CodexType ConstructorType, CodexType OwnerType);

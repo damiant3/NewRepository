@@ -25,20 +25,17 @@
   </ItemGroup>
   <Target Name="CodexBuild" BeforeTargets="Build">
     <!-- Windows: use the .exe directly -->
-    <Exec Command="&quot;$(CodexCliExe)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="Exists('$(CodexCliExe)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
+    <Exec Command="&quot;$(CodexCliExe)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)" Condition="Exists('$(CodexCliExe)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
       <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
     </Exec>
     <!-- Linux/macOS: use dotnet to run the .dll -->
-    <Exec Command="dotnet &quot;$(CodexCliDll)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="!Exists('$(CodexCliExe)') AND Exists('$(CodexCliDll)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
+    <Exec Command="dotnet &quot;$(CodexCliDll)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)" Condition="!Exists('$(CodexCliExe)') AND Exists('$(CodexCliDll)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
       <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
     </Exec>
     <!-- Fallback: try 'codex' on PATH -->
-    <Exec Command="codex build ." WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="!Exists('$(CodexCliExe)') AND !Exists('$(CodexCliDll)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
+    <Exec Command="codex build ." WorkingDirectory="$(MSBuildProjectDirectory)" Condition="!Exists('$(CodexCliExe)') AND !Exists('$(CodexCliDll)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
       <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
     </Exec>

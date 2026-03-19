@@ -1,0 +1,4 @@
+import MathHelpers
+
+main : Integer
+main = double 21

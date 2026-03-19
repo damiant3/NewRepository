@@ -67,6 +67,16 @@ public static partial class Program
             return 1;
         }
 
+        // Resolve project dependencies
+        string fullDir = Path.GetFullPath(directory);
+        List<Codex.Semantics.IModuleLoader> depLoaders = ResolveDependencyLoaders(
+            project, fullDir, new DiagnosticBag(), []);
+        IReadOnlyList<Codex.Semantics.IModuleLoader>? extraLoaders =
+            depLoaders.Count > 0 ? depLoaders : null;
+
+        if (depLoaders.Count > 0)
+            Console.WriteLine($"  Dependencies: {depLoaders.Count} project(s)");
+
         string outputDir = Path.GetFullPath(Path.Combine(directory, project.Output));
         if (!Directory.Exists(outputDir))
             Directory.CreateDirectory(outputDir);
@@ -75,7 +85,7 @@ public static partial class Program
         {
             Console.WriteLine($"  Sources: {files.Length} file(s)");
             Console.WriteLine($"  Targets: {string.Join(", ", multiTargets)}");
-            return RunParallelMultiTargetBuild(directory, multiTargets, files, outputDir, project.Name);
+            return RunParallelMultiTargetBuild(directory, multiTargets, files, outputDir, project.Name, extraLoaders);
         }
 
         string[]? projectTargets = project.Targets.Length > 1 ? project.Targets : null;
@@ -83,7 +93,7 @@ public static partial class Program
         {
             Console.WriteLine($"  Sources: {files.Length} file(s)");
             Console.WriteLine($"  Targets: {string.Join(", ", projectTargets)}");
-            return RunParallelMultiTargetBuild(directory, projectTargets, files, outputDir, project.Name);
+            return RunParallelMultiTargetBuild(directory, projectTargets, files, outputDir, project.Name, extraLoaders);
         }
 
         string target = targetOverride ?? project.Target;
@@ -93,10 +103,10 @@ public static partial class Program
         if (incremental && !IsAssemblyTarget(target))
         {
             string outputPath = Path.Combine(outputDir, project.Name + CreateEmitter(target).FileExtension);
-            return RunIncrementalBuild(directory, target, files, outputPath);
+            return RunIncrementalBuild(directory, target, files, outputPath, extraLoaders);
         }
 
-        IRCompilationResult? irResult = CompileMultipleToIR(files, project.Name);
+        IRCompilationResult? irResult = CompileMultipleToIR(files, project.Name, extraLoaders);
         if (irResult is null) return 1;
 
         if (IsAssemblyTarget(target))
@@ -113,6 +123,40 @@ public static partial class Program
         foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
             Console.WriteLine($"  {kv.Key} : {kv.Value}");
         return 0;
+    }
+
+    static List<Codex.Semantics.IModuleLoader> ResolveDependencyLoaders(
+        CodexProject project,
+        string projectDirectory,
+        DiagnosticBag diagnostics,
+        HashSet<string> visited)
+    {
+        List<Codex.Semantics.IModuleLoader> loaders = [];
+        foreach (string dep in project.Dependencies)
+        {
+            string depFullPath = Path.GetFullPath(Path.Combine(projectDirectory, dep));
+            if (!visited.Add(depFullPath))
+                continue; // Cycle detected, skip
+
+            ProjectModuleLoader? depLoader = ProjectModuleLoader.TryCreate(
+                dep, projectDirectory, diagnostics);
+            if (depLoader is null)
+            {
+                Console.Error.WriteLine($"  warning: Cannot resolve dependency '{dep}' from {projectDirectory}");
+                continue;
+            }
+            loaders.Add(depLoader);
+
+            // Resolve transitive dependencies
+            CodexProject? depProject = LoadProjectFile(depFullPath);
+            if (depProject is not null)
+            {
+                List<Codex.Semantics.IModuleLoader> transitive = ResolveDependencyLoaders(
+                    depProject, depFullPath, diagnostics, visited);
+                loaders.AddRange(transitive);
+            }
+        }
+        return loaders;
     }
 
     static int RunBuildDirectory(string directory, string target)

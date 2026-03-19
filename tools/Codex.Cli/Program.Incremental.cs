@@ -31,6 +31,9 @@ public static partial class Program
         public required List<TypeDef> TypeDefinitions { get; init; }
         public required List<ClaimDef> Claims { get; init; }
         public required List<ProofDef> Proofs { get; init; }
+        public required List<ImportDecl> Imports { get; init; }
+        public required List<ExportDecl> Exports { get; init; }
+        public required List<EffectDef> EffectDefs { get; init; }
     }
 
     static string ManifestPath(string directory) =>
@@ -75,7 +78,9 @@ public static partial class Program
         return hash != entry.Hash;
     }
 
-    static int RunIncrementalBuild(string directory, string target, string[] allFiles, string outputPath)
+    static int RunIncrementalBuild(
+        string directory, string target, string[] allFiles, string outputPath,
+        IReadOnlyList<Codex.Semantics.IModuleLoader>? extraLoaders = null)
     {
         Stopwatch sw = Stopwatch.StartNew();
         BuildManifest manifest = LoadManifest(directory);
@@ -121,6 +126,9 @@ public static partial class Program
         List<TypeDef> allTypeDefinitions = [];
         List<ClaimDef> allClaims = [];
         List<ProofDef> allProofs = [];
+        List<ImportDecl> allImports = [];
+        List<ExportDecl> allExports = [];
+        List<EffectDef> allEffectDefs = [];
 
         List<PerFileFrontEndResult> orderedResults = results
             .OrderBy(r => r.FilePath, StringComparer.Ordinal)
@@ -132,6 +140,9 @@ public static partial class Program
             allTypeDefinitions.AddRange(r.TypeDefinitions);
             allClaims.AddRange(r.Claims);
             allProofs.AddRange(r.Proofs);
+            allImports.AddRange(r.Imports);
+            allExports.AddRange(r.Exports);
+            allEffectDefs.AddRange(r.EffectDefs);
         }
 
         string moduleName = Path.GetFileNameWithoutExtension(
@@ -146,9 +157,14 @@ public static partial class Program
             allTypeDefinitions,
             allClaims,
             allProofs,
-            combinedSpan);
+            combinedSpan)
+        {
+            Imports = allImports,
+            Exports = allExports,
+            EffectDefs = allEffectDefs
+        };
 
-        IRCompilationResult? irResult = RunBackEnd(combined, diagnostics);
+        IRCompilationResult? irResult = RunBackEnd(combined, diagnostics, extraLoaders);
         if (irResult is null) return 1;
 
         Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
@@ -179,7 +195,8 @@ public static partial class Program
     }
 
     static int RunParallelMultiTargetBuild(
-        string directory, string[] targets, string[] allFiles, string outputDir, string moduleName)
+        string directory, string[] targets, string[] allFiles, string outputDir, string moduleName,
+        IReadOnlyList<Codex.Semantics.IModuleLoader>? extraLoaders = null)
     {
         Stopwatch sw = Stopwatch.StartNew();
 
@@ -207,12 +224,18 @@ public static partial class Program
         List<TypeDef> allTypeDefinitions = [];
         List<ClaimDef> allClaims = [];
         List<ProofDef> allProofs = [];
+        List<ImportDecl> allImports = [];
+        List<ExportDecl> allExports = [];
+        List<EffectDef> allEffectDefs = [];
         foreach (PerFileFrontEndResult r in orderedResults)
         {
             allDefinitions.AddRange(r.Definitions);
             allTypeDefinitions.AddRange(r.TypeDefinitions);
             allClaims.AddRange(r.Claims);
             allProofs.AddRange(r.Proofs);
+            allImports.AddRange(r.Imports);
+            allExports.AddRange(r.Exports);
+            allEffectDefs.AddRange(r.EffectDefs);
         }
 
         SourceSpan combinedSpan = allDefinitions.Count > 0
@@ -226,7 +249,7 @@ public static partial class Program
             allProofs,
             combinedSpan);
 
-        IRCompilationResult? irResult = RunBackEnd(combined, diagnostics);
+        IRCompilationResult? irResult = RunBackEnd(combined, diagnostics, extraLoaders);
         if (irResult is null) return 1;
 
         if (!Directory.Exists(outputDir))
@@ -275,17 +298,44 @@ public static partial class Program
             Definitions = module.Definitions.ToList(),
             TypeDefinitions = module.TypeDefinitions.ToList(),
             Claims = module.Claims.ToList(),
-            Proofs = module.Proofs.ToList()
+            Proofs = module.Proofs.ToList(),
+            Imports = module.Imports.ToList(),
+            Exports = module.Exports.ToList(),
+            EffectDefs = module.EffectDefs.ToList()
         };
     }
 
-    static IRCompilationResult? RunBackEnd(Module combined, DiagnosticBag diagnostics)
+    static IRCompilationResult? RunBackEnd(
+        Module combined, DiagnosticBag diagnostics, IReadOnlyList<Codex.Semantics.IModuleLoader>? extraLoaders = null)
     {
-        Codex.Semantics.NameResolver resolver = new(diagnostics);
+        List<Codex.Semantics.IModuleLoader> loaders = [];
+        if (extraLoaders is not null)
+        {
+            foreach (Codex.Semantics.IModuleLoader loader in extraLoaders)
+                loaders.Add(loader);
+        }
+        PreludeModuleLoader? prelude = PreludeModuleLoader.TryCreate(diagnostics);
+        if (prelude is not null)
+            loaders.Add(prelude);
+        Codex.Repository.FactStore? store =
+            Codex.Repository.FactStore.Open(Directory.GetCurrentDirectory());
+        if (store is not null)
+            loaders.Add(new RepositoryModuleLoader(store, diagnostics));
+
+        Codex.Semantics.IModuleLoader? compositeLoader = loaders.Count > 0
+            ? new CompositeModuleLoader([.. loaders])
+            : null;
+        Codex.Semantics.NameResolver resolver = compositeLoader is not null
+            ? new(diagnostics, compositeLoader)
+            : new(diagnostics);
         Codex.Semantics.ResolvedModule resolved = resolver.Resolve(combined);
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
         Codex.Types.TypeChecker checker = new(diagnostics);
+
+        foreach (Codex.Semantics.ResolvedModule imported in resolved.ImportedModules)
+            checker.ImportModule(imported.Module, imported.ExportedNames);
+
         Map<string, CodexType> types = checker.CheckModule(resolved.Module);
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 

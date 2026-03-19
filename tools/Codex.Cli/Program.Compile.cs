@@ -55,14 +55,12 @@ public static partial class Program
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
         TypeChecker checker = new(diagnostics);
-        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
 
-        // Register imported type definitions
+        // Import types from dependency modules before checking main module
         foreach (ResolvedModule imported in resolved.ImportedModules)
-        {
-            TypeChecker importChecker = new(diagnostics);
-            importChecker.CheckModule(imported.Module);
-        }
+            checker.ImportModule(imported.Module, imported.ExportedNames);
+
+        Map<string, CodexType> types = checker.CheckModule(resolved.Module);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
@@ -84,7 +82,8 @@ public static partial class Program
         return new IRCompilationResult(irModule, types);
     }
 
-    static IRCompilationResult? CompileMultipleToIR(string[] filePaths, string moduleName)
+    static IRCompilationResult? CompileMultipleToIR(
+        string[] filePaths, string moduleName, IReadOnlyList<IModuleLoader>? extraLoaders = null)
     {
         DiagnosticBag diagnostics = new();
         Desugarer desugarer = new(diagnostics);
@@ -92,6 +91,9 @@ public static partial class Program
         List<TypeDef> allTypeDefinitions = [];
         List<ClaimDef> allClaims = [];
         List<ProofDef> allProofs = [];
+        List<ImportDecl> allImports = [];
+        List<ExportDecl> allExports = [];
+        List<EffectDef> allEffectDefs = [];
 
         foreach (string filePath in filePaths)
         {
@@ -111,6 +113,9 @@ public static partial class Program
             allTypeDefinitions.AddRange(module.TypeDefinitions);
             allClaims.AddRange(module.Claims);
             allProofs.AddRange(module.Proofs);
+            allImports.AddRange(module.Imports);
+            allExports.AddRange(module.Exports);
+            allEffectDefs.AddRange(module.EffectDefs);
         }
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
@@ -124,18 +129,33 @@ public static partial class Program
             allTypeDefinitions,
             allClaims,
             allProofs,
-            combinedSpan);
+            combinedSpan)
+        {
+            Imports = allImports,
+            Exports = allExports,
+            EffectDefs = allEffectDefs
+        };
 
         string? baseDir = filePaths.Length > 0
             ? Path.GetDirectoryName(Path.GetFullPath(filePaths[0]))
             : null;
-        NameResolver resolver = CreateResolver(diagnostics, baseDir);
+        NameResolver resolver = CreateResolver(diagnostics, baseDir, extraLoaders);
         ResolvedModule resolved = resolver.Resolve(combined);
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
         TypeChecker checker = new(diagnostics);
+
+        foreach (ResolvedModule imported in resolved.ImportedModules)
+            checker.ImportModule(imported.Module, imported.ExportedNames);
+
         Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+
+        foreach (ResolvedModule imported in resolved.ImportedModules)
+        {
+            TypeChecker importChecker = new(diagnostics);
+            importChecker.CheckModule(imported.Module);
+        }
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
@@ -177,10 +197,19 @@ public static partial class Program
         }
     }
 
-    static NameResolver CreateResolver(DiagnosticBag diagnostics, string? baseDirectory = null)
+    static NameResolver CreateResolver(
+        DiagnosticBag diagnostics,
+        string? baseDirectory = null,
+        IReadOnlyList<IModuleLoader>? extraLoaders = null)
     {
         string dir = baseDirectory ?? Directory.GetCurrentDirectory();
         List<IModuleLoader> loaders = [new FileModuleLoader(dir, diagnostics)];
+
+        if (extraLoaders is not null)
+        {
+            foreach (IModuleLoader loader in extraLoaders)
+                loaders.Add(loader);
+        }
 
         PreludeModuleLoader? prelude = PreludeModuleLoader.TryCreate(diagnostics);
         if (prelude is not null)

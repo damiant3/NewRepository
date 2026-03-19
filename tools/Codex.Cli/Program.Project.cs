@@ -4,7 +4,7 @@ namespace Codex.Cli;
 
 public static partial class Program
 {
-    sealed class CodexProject
+    internal sealed class CodexProject
     {
         public string Name { get; set; } = "";
         public string Version { get; set; } = "0.1.0";
@@ -17,7 +17,7 @@ public static partial class Program
         public string Output { get; set; } = "out/";
     }
 
-    static CodexProject? LoadProjectFile(string directory)
+    internal static CodexProject? LoadProjectFile(string directory)
     {
         string projectPath = Path.Combine(directory, "codex.project.json");
         if (!File.Exists(projectPath)) return null;
@@ -32,7 +32,7 @@ public static partial class Program
         return JsonSerializer.Deserialize<CodexProject>(json, options);
     }
 
-    static string[] ResolveProjectSources(string directory, CodexProject project)
+    internal static string[] ResolveProjectSources(string directory, CodexProject project)
     {
         List<string> files = [];
         foreach (string pattern in project.Sources)
