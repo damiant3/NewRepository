@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Codex.Cli;
 
@@ -9,13 +10,50 @@ public static partial class Program
         public string Name { get; set; } = "";
         public string Version { get; set; } = "0.1.0";
         public string Description { get; set; } = "";
+        public string[] Authors { get; set; } = [];
+        public string License { get; set; } = "";
         public string[] Sources { get; set; } = ["**/*.codex"];
         public string[] Exclude { get; set; } = [];
         public string[] Dependencies { get; set; } = [];
+        public PackageRef[] Packages { get; set; } = [];
         public string Target { get; set; } = "cs";
         public string[] Targets { get; set; } = [];
         public string Output { get; set; } = "out/";
+        public bool Prelude { get; set; }
     }
+
+    internal sealed class PackageRef
+    {
+        public string Name { get; set; } = "";
+        public string Version { get; set; } = "*";
+        public string Path { get; set; } = "";
+    }
+
+    internal sealed class PackageLock
+    {
+        public string ProjectName { get; set; } = "";
+        public string ProjectVersion { get; set; } = "";
+        public PackageLockEntry[] Packages { get; set; } = [];
+    }
+
+    internal sealed class PackageLockEntry
+    {
+        public string Name { get; set; } = "";
+        public string Version { get; set; } = "";
+        public string ContentHash { get; set; } = "";
+        public string ResolvedPath { get; set; } = "";
+    }
+
+    static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+        PropertyNamingPolicy = JsonNamingPolicy.KebabCaseLower,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     internal static CodexProject? LoadProjectFile(string directory)
     {
@@ -23,13 +61,30 @@ public static partial class Program
         if (!File.Exists(projectPath)) return null;
 
         string json = File.ReadAllText(projectPath);
-        JsonSerializerOptions options = new()
-        {
-            PropertyNameCaseInsensitive = true,
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true
-        };
-        return JsonSerializer.Deserialize<CodexProject>(json, options);
+        return JsonSerializer.Deserialize<CodexProject>(json, s_jsonOptions);
+    }
+
+    internal static void SaveProjectFile(string directory, CodexProject project)
+    {
+        string projectPath = Path.Combine(directory, "codex.project.json");
+        string json = JsonSerializer.Serialize(project, s_jsonOptions);
+        File.WriteAllText(projectPath, json + "\n");
+    }
+
+    internal static PackageLock? LoadLockFile(string directory)
+    {
+        string lockPath = Path.Combine(directory, "codex.lock.json");
+        if (!File.Exists(lockPath)) return null;
+
+        string json = File.ReadAllText(lockPath);
+        return JsonSerializer.Deserialize<PackageLock>(json, s_jsonOptions);
+    }
+
+    internal static void SaveLockFile(string directory, PackageLock lockFile)
+    {
+        string lockPath = Path.Combine(directory, "codex.lock.json");
+        string json = JsonSerializer.Serialize(lockFile, s_jsonOptions);
+        File.WriteAllText(lockPath, json + "\n");
     }
 
     internal static string[] ResolveProjectSources(string directory, CodexProject project)

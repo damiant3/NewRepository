@@ -67,15 +67,16 @@ public static partial class Program
             return 1;
         }
 
-        // Resolve project dependencies
+        // Resolve project dependencies (packages + path deps + prelude)
         string fullDir = Path.GetFullPath(directory);
-        List<Codex.Semantics.IModuleLoader> depLoaders = ResolveDependencyLoaders(
-            project, fullDir, new DiagnosticBag(), []);
+        DiagnosticBag depDiag = new();
+        PackageResolver packageResolver = new(fullDir, depDiag);
+        List<Codex.Semantics.IModuleLoader> depLoaders = packageResolver.ResolveAll(project);
         IReadOnlyList<Codex.Semantics.IModuleLoader>? extraLoaders =
             depLoaders.Count > 0 ? depLoaders : null;
 
         if (depLoaders.Count > 0)
-            Console.WriteLine($"  Dependencies: {depLoaders.Count} project(s)");
+            Console.WriteLine($"  Dependencies: {depLoaders.Count} loader(s)");
 
         string outputDir = Path.GetFullPath(Path.Combine(directory, project.Output));
         if (!Directory.Exists(outputDir))
@@ -124,41 +125,6 @@ public static partial class Program
             Console.WriteLine($"  {kv.Key} : {kv.Value}");
         return 0;
     }
-
-    static List<Codex.Semantics.IModuleLoader> ResolveDependencyLoaders(
-        CodexProject project,
-        string projectDirectory,
-        DiagnosticBag diagnostics,
-        HashSet<string> visited)
-    {
-        List<Codex.Semantics.IModuleLoader> loaders = [];
-        foreach (string dep in project.Dependencies)
-        {
-            string depFullPath = Path.GetFullPath(Path.Combine(projectDirectory, dep));
-            if (!visited.Add(depFullPath))
-                continue; // Cycle detected, skip
-
-            ProjectModuleLoader? depLoader = ProjectModuleLoader.TryCreate(
-                dep, projectDirectory, diagnostics);
-            if (depLoader is null)
-            {
-                Console.Error.WriteLine($"  warning: Cannot resolve dependency '{dep}' from {projectDirectory}");
-                continue;
-            }
-            loaders.Add(depLoader);
-
-            // Resolve transitive dependencies
-            CodexProject? depProject = LoadProjectFile(depFullPath);
-            if (depProject is not null)
-            {
-                List<Codex.Semantics.IModuleLoader> transitive = ResolveDependencyLoaders(
-                    depProject, depFullPath, diagnostics, visited);
-                loaders.AddRange(transitive);
-            }
-        }
-        return loaders;
-    }
-
     static int RunBuildDirectory(string directory, string target)
     {
         string[] files = Directory.GetFiles(directory, "*.codex", SearchOption.AllDirectories);
