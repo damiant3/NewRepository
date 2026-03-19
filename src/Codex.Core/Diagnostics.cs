@@ -30,13 +30,30 @@ public sealed record Diagnostic(
 
 public sealed class DiagnosticBag
 {
+    const int MaxErrors = 20;
+
     readonly List<Diagnostic> m_diagnostics = [];
     readonly object m_lock = new();
+    int m_errorCount;
 
     public void Add(Diagnostic diagnostic)
     {
         lock (m_lock)
         {
+            if (diagnostic.IsError)
+            {
+                m_errorCount++;
+                if (m_errorCount > MaxErrors)
+                    return;
+                if (m_errorCount == MaxErrors)
+                {
+                    m_diagnostics.Add(new Diagnostic(
+                        DiagnosticSeverity.Error, "CDX0001",
+                        $"Too many errors ({MaxErrors}). Further errors suppressed.",
+                        diagnostic.Span));
+                    return;
+                }
+            }
             m_diagnostics.Add(diagnostic);
         }
     }
