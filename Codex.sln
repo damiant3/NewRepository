@@ -76,7 +76,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OldStatus", "OldStatus", "{
 		docs\OldStatus\Reflections2.md = docs\OldStatus\Reflections2.md
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Codex.Codex (source)", "Codex.Codex (source)", "{F0000000-0000-0000-0000-000000000001}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codex", "codex", "{F0000000-0000-0000-0000-000000000001}"
 	ProjectSection(SolutionItems) = preProject
 		Codex.Codex\codex.project.json = Codex.Codex\codex.project.json
 		Codex.Codex\main.codex = Codex.Codex\main.codex
@@ -129,12 +129,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Emit", "Emit", "{F0000000-0
 		Codex.Codex\Emit\CSharpEmitter.codex = Codex.Codex\Emit\CSharpEmitter.codex
 		Codex.Codex\Emit\CSharpEmitter.codex.new = Codex.Codex\Emit\CSharpEmitter.codex.new
 		Codex.Codex\Emit\_test.codex = Codex.Codex\Emit\_test.codex
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codex-in-codex (old)", "codex-in-codex (old)", "{E0000000-0000-0000-0000-000000000001}"
-	ProjectSection(SolutionItems) = preProject
-		codex-in-codex\Main.codex = codex-in-codex\Main.codex
-		codex-in-codex\README.md = codex-in-codex\README.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Core", "src\Codex.Core\Codex.Core.csproj", "{B1000000-0000-0000-0000-000000000001}"
@@ -218,6 +212,20 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		ProseGrammarProposal.md = ProseGrammarProposal.md
 		README.md = README.md
 		SelfHost.md = SelfHost.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ForFun", "ForFun", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		docs\ForFun\Clarifier.txt = docs\ForFun\Clarifier.txt
+		docs\ForFun\CompilableLaws.txt = docs\ForFun\CompilableLaws.txt
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "vscode", "vscode", "{E693D3C3-4C1F-4A96-ADA4-3FF981952E10}"
+	ProjectSection(SolutionItems) = preProject
+		tools\vscode\language-configuration.json = tools\vscode\language-configuration.json
+		tools\vscode\package-lock.json = tools\vscode\package-lock.json
+		tools\vscode\package.json = tools\vscode\package.json
+		tools\vscode\tsconfig.json = tools\vscode\tsconfig.json
 	EndProjectSection
 EndProject
 Global
@@ -685,6 +693,8 @@ Global
 		{8AA30FCE-8396-4A86-B82C-D9B9A894DEE6} = {A0000000-0000-0000-0000-000000000002}
 		{0EE1DF46-B772-4374-84EE-859DAE4DF5C3} = {A0000000-0000-0000-0000-000000000002}
 		{176BA98E-C341-4503-B743-1982DB4236C4} = {A0000000-0000-0000-0000-000000000002}
+		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {A0000000-0000-0000-0000-000000000006}
+		{E693D3C3-4C1F-4A96-ADA4-3FF981952E10} = {A0000000-0000-0000-0000-000000000003}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}
