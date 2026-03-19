@@ -217,10 +217,15 @@ public sealed partial class CSharpEmitter
 
     void EmitDoExpr(StringBuilder sb, IRDo doExpr, int indent)
     {
-        sb.AppendLine("((Func<object>)(() => {");
+        string returnType = EmitType(doExpr.Type);
+        sb.AppendLine($"((Func<{returnType}>)(() => {{");
         string pad = new(' ', (indent + 2) * 4);
-        foreach (IRDoStatement stmt in doExpr.Statements)
+
+        for (int i = 0; i < doExpr.Statements.Length; i++)
         {
+            IRDoStatement stmt = doExpr.Statements[i];
+            bool isLast = i == doExpr.Statements.Length - 1;
+
             switch (stmt)
             {
                 case IRDoBind bind:
@@ -231,14 +236,28 @@ public sealed partial class CSharpEmitter
                     break;
                 case IRDoExec exec:
                     sb.Append(pad);
-                    EmitExpr(sb, exec.Expression, indent + 2);
-                    sb.AppendLine(";");
+                    if (isLast)
+                    {
+                        sb.Append("return ");
+                        EmitExpr(sb, exec.Expression, indent + 2);
+                        sb.AppendLine(";");
+                    }
+                    else
+                    {
+                        EmitExpr(sb, exec.Expression, indent + 2);
+                        sb.AppendLine(";");
+                    }
                     break;
             }
         }
-        sb.Append(pad);
-        sb.Append("return null;");
-        sb.AppendLine();
+
+        // If the last statement was a bind (not an expression), return the bound value
+        if (doExpr.Statements.Length > 0 && doExpr.Statements[^1] is IRDoBind lastBind)
+        {
+            sb.Append(pad);
+            sb.AppendLine($"return {SanitizeIdentifier(lastBind.Name)};");
+        }
+
         sb.Append(new string(' ', (indent + 1) * 4));
         sb.Append("}))()");
     }
