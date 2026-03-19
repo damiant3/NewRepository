@@ -22,6 +22,9 @@ public sealed class Unifier(DiagnosticBag diagnostics)
 
         if (a.Equals(b)) return true;
 
+        // Suppress cascading errors: if either side is already an error, unification "succeeds"
+        if (a is ErrorType || b is ErrorType) return true;
+
         if (a is TypeVariable va)
         {
             if (OccursIn(va.Id, b))
