@@ -556,11 +556,18 @@ public sealed partial class CSharpEmitter
                         break;
                     case IRDoExec exec:
                         sb.Append(pad);
-                        if (isLast)
+                        if (isLast && runState.ResultType is not VoidType and not NothingType)
                         {
                             sb.Append("return ");
                             EmitExpr(sb, exec.Expression, indent + 2);
                             sb.AppendLine(";");
+                        }
+                        else if (isLast)
+                        {
+                            EmitExpr(sb, exec.Expression, indent + 2);
+                            sb.AppendLine(";");
+                            sb.Append(pad);
+                            sb.AppendLine("return null;");
                         }
                         else
                         {
