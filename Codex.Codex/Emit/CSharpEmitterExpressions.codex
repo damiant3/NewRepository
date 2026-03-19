@@ -81,7 +81,7 @@ Section: Identifier Helpers
     if TextTy -> "string"
     if BooleanTy -> "bool"
     if VoidTy -> "void"
-    if NothingTy -> "void"
+    if NothingTy -> "object"
     if ErrorTy -> "object"
     if FunTy (p) (r) -> "Func<" ++ cs-type p ++ ", " ++ cs-type r ++ ">"
     if ListTy (elem) -> "List<" ++ cs-type elem ++ ">"
