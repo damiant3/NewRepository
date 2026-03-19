@@ -4,11 +4,6 @@
 module codex_expr_calculator
   implicit none
 
-  type :: ParseResult
-    integer(8) :: expr
-    integer(8) :: pos
-  end type ParseResult
-
   ! Sum type: Expr
   ! Tag constants:
   integer, parameter :: TAG_Lit = 1
@@ -22,6 +17,11 @@ module codex_expr_calculator
     integer(8) :: field0
     integer(8) :: field1
   end type Expr
+
+  type :: ParseResult
+    integer(8) :: expr
+    integer(8) :: pos
+  end type ParseResult
 
 contains
 
