@@ -14,6 +14,7 @@
   <PropertyGroup>
     <CodexCliProject>$(SolutionDir)tools\Codex.Cli\Codex.Cli.csproj</CodexCliProject>
     <CodexCliExe>$(SolutionDir)tools\Codex.Cli\bin\$(Configuration)\net8.0\Codex.Cli.exe</CodexCliExe>
+    <CodexCliDll>$(SolutionDir)tools/Codex.Cli/bin/$(Configuration)/net8.0/Codex.Cli.dll</CodexCliDll>
   </PropertyGroup>
   <ItemGroup>
     <None Include="**\*.codex" />
@@ -23,11 +24,21 @@
     <Compile Include="out\**\*.cs" />
   </ItemGroup>
   <Target Name="CodexBuild" BeforeTargets="Build">
-    <Exec Command="&quot;$(CodexCliExe)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)" Condition="Exists('$(CodexCliExe)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
+    <!-- Windows: use the .exe directly -->
+    <Exec Command="&quot;$(CodexCliExe)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)"
+          Condition="Exists('$(CodexCliExe)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
       <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
     </Exec>
-    <Exec Command="codex build ." WorkingDirectory="$(MSBuildProjectDirectory)" Condition="!Exists('$(CodexCliExe)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
+    <!-- Linux/macOS: use dotnet to run the .dll -->
+    <Exec Command="dotnet &quot;$(CodexCliDll)&quot; build ." WorkingDirectory="$(MSBuildProjectDirectory)"
+          Condition="!Exists('$(CodexCliExe)') AND Exists('$(CodexCliDll)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
+      <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
+    </Exec>
+    <!-- Fallback: try 'codex' on PATH -->
+    <Exec Command="codex build ." WorkingDirectory="$(MSBuildProjectDirectory)"
+          Condition="!Exists('$(CodexCliExe)') AND !Exists('$(CodexCliDll)')" IgnoreExitCode="true" ConsoleToMSBuild="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="_CodexOutput" />
       <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
     </Exec>
