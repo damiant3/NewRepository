@@ -1,152 +1,109 @@
-# Forward Plan
+# Current Plan
 
 **Date**: 2026-03-19 (verified via system clock)
-**Supersedes**: `docs/OldStatus/FORWARD-PLAN.md` (archived, stale numbers)
-
-This is the single source of truth for project direction.
 
 ---
 
 ## Where We Are
 
-The Codex compiler is **self-hosting with a proven fixed point**. The full pipeline works
-across 12 backends. The language has algebraic types, pattern matching, effects, linear
-types, dependent types, proofs, and literate programming. The tooling includes an LSP
-server, IDE extensions, a content-addressed repository with collaboration protocol, and
-a cognitive load dashboard for agent sessions.
+The Codex compiler is self-hosting with a proven fixed point and a proven
+quine disproof. The reference C# compiler is **locked** (`REFERENCE-COMPILER-LOCK.md`).
+All future language development happens in `.codex` source, compiled through the
+self-hosted pipeline.
 
-### Snapshot (2026-03-19, morning)
+### Snapshot
 
 | Metric | Value |
 |--------|-------|
-| .codex source | 26 files, 4,469 lines, 168K chars |
-| C# reference projects | 34 |
-| Test count | **799** (all passing) |
+| .codex source | 26 files, 4,444 lines, 164K chars |
+| Tests | 810 (all passing) |
 | Backends | 12 (C#, JS, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage) |
-| Bootstrap | Stage 1 = Stage 2 = Stage 3 (fixed point, 0 `_p0_` proxies) |
-| Type debt | 7 `object` refs (all legitimate), **0** `_p0_` proxies |
-| Thrash risk | LOW (0/6) — clean working tree, type debt clean |
+| Bootstrap | Fixed point: Stage 1 = Stage 3 (227,301 chars, byte-for-byte) |
+| Type debt | 7 `object` refs (all legitimate), 0 `_p0_` proxies |
+| Prelude | 4 modules: Maybe, Result, Either, Pair |
+| Quine disproof | `samples/expr-calculator.codex` — 10/10 PASS |
+| Ref compiler | 🔒 Locked at `6d8bb2c` on 2026-03-19 |
 
-### What's Complete (M0–M13+)
+### The Language Today
 
-| Milestone | What |
-|-----------|------|
-| M0 | Foundation: project structure, core primitives |
-| M1 | Notation: lexer, parser, CST/AST |
-| M2 | Type checking: bidirectional, sum/record types, exhaustiveness |
-| M3 | Execution: IR, C# emitter, `codex build/run` |
-| M4 | Prose integration: literate programming, `codex read` |
-| M5 | Effects: Console, State, FileSystem, `run-state` handler |
-| M6 | Linear types: linearity checker, FileHandle |
-| M7 | Repository: content-addressed fact store, `init/publish/history` |
-| M8 | Dependent types: type-level arithmetic, proof obligations, Vector |
-| M9 | LSP & editor: full language server, VS 2022 + VS Code extensions |
-| M10 | Proofs: refl, sym, trans, cong, induction, lemma application |
-| M11 | Collaboration: proposals, verdicts, trust, sync |
-| M12 | 12 backends: all mainstream targets + IL + Babbage |
-| M13 | Self-hosting: compiler written in Codex, fixed point achieved |
-| — | Post-M13: error recovery, parser robustness, multi-file compilation |
-| — | Post-M13: 12-backend audit, TCO in all emitters, nested match fixes |
-| — | Post-M13: agent workflow (dual-agent review, cognitive dashboard, agent toolkit) |
+The language has algebraic types, pattern matching, bidirectional type inference,
+user-defined effects with handlers and `resume`, do-notation, linear types,
+dependent types, proofs, literate programming, string interpolation, a module
+system with imports/exports, and a standard prelude. The tooling includes an LSP
+server, VS Code and VS 2022 extensions, a REPL, a content-addressed repository
+with collaboration protocol, and a cognitive load dashboard for agent sessions.
+
+The self-hosted emitter currently handles the C# backend. L1–L4 features
+(effects, modules, prelude, do-notation) are being ported to the self-hosted
+emitter by the Windows agent; assume complete.
 
 ---
 
-## The Three Horizons
+## What's Next
 
-### Horizon 1: Language Freedom
-
-> The language stands on its own. A programmer can write real programs in Codex
-> without constantly hitting missing features.
+### Near Term: Make the Language Practical
 
 | # | Task | Status | What |
 |---|------|--------|------|
-| L1 | **User-defined effects** | ✅ Done | Phase 1: `effect MyEffect where ...` declarations (parser → type checker). Phase 2: `with Effect expr` handler syntax + `resume` continuation (parser → IR → C# emitter). 16 effect handler tests passing. |
-| L2 | **Module system** | ✅ Done | `import`/`export` between files. `IModuleLoader` interface, `ResolvedModule` with exported name sets, visibility control. 5 import tests passing. |
-| L3 | **Standard prelude** | ✅ Done | `Maybe`, `Result`, `Either`, `Pair` as library types defined in Codex. `PreludeModuleLoader` auto-discovers `prelude/` directory. 8 prelude tests passing. |
-| L4 | **Do-notation completion** | ✅ Done | `do` blocks with typed return values (not `object`/`null`), last-expression return, works with user-defined effects. 7 do-notation tests passing. |
-| L5 | **String interpolation** | ✅ Done | `"Hello, #{name}!"` syntax (hash-brace). Lexer, parser, desugarer, all backends, 12-backend corpus. |
-| L6 | **REPL** | ✅ Done | `codex repl` — interactive evaluation loop with `:help`, `:type`, `:defs`, `:reset`. Compiles through full pipeline, executes via `dotnet run`. |
-| L7 | **Better error messages** | 🔶 In progress | "Did you mean X?" for undefined names ✅. Readable type formatting with `TypeFormatter` ✅. Related spans on type mismatches ✅. Ongoing. |
+| E1 | **Exit criterion: real programs** | 🔶 Started | `expr-calculator.codex` proves the compiler works. Next: something larger — a JSON parser, Markdown formatter, or small utility that exercises the full language including imports, prelude types, and effects. |
+| L7 | **Better error messages** | 🔶 Ongoing | "Did you mean X?" ✅. Readable type formatting ✅. Related spans ✅. Remaining: error recovery improvements, source location accuracy in self-hosted pipeline. |
+| R5 | **Build system** | 🔶 Started | `CodexProject` model + `LoadProjectFile` exist. Remaining: wire into `codex build` flow, multi-file dependency resolution, output directory management. |
+| P1 | **Self-hosted built-in expansion** | ⬜ | The self-hosted emitter calls built-ins by name (`text_length`, `char_at`, `print_line`) instead of inlining them like the reference compiler does (`.Length`, `[i].ToString()`, `Console.WriteLine`). Stage 1 output needs a runtime shim or inline expansion to run standalone. |
 
-**Exit criterion**: A non-trivial program (e.g., a JSON parser, a small web server,
-or a toy database) can be written entirely in Codex without hitting language gaps.
-
----
-
-### Horizon 2: Library & Runtime
-
-> The language has a standard library and can produce executables without depending
-> on external toolchains.
+### Medium Term: Library & Runtime
 
 | # | Task | Status | What |
 |---|------|--------|------|
-| R1 | **IL emitter: generics + TCO** | ✅ Done | Generics (ForAllType → IL generic params, method specs), TCO (tail-recursive → loop transform), records, sum types, pattern matching. 50 IL tests passing. |
-| R2 | **Standard library** | ⬜ Not started | Collections, string utilities, IO abstractions. Written in Codex, compiled to all backends. |
-| R3 | **FFI / host interop** | ⬜ Not started | Call .NET/JS/C APIs from Codex. Per-backend with common interface. |
-| R4 | **Package management** | ⬜ Not started | Repository-based package resolution. `codex add <package>`. |
-| R5 | **Build system: `codex.project.json`** | 🔶 Started | `CodexProject` model + `LoadProjectFile` + source glob resolution in CLI. Remaining: wire into `codex build` flow, dependency resolution. |
-| R6 | **Native executable bootstrap** | ⬜ Not started | Compile Codex compiler to native `.exe` via IL emitter. Depends on R1 (done) + standard library gaps. |
+| R2 | **Standard library** | ⬜ | Collections (`Map`, `Set`, `Array`), string utilities, IO abstractions. Written in Codex, compiled to all backends. Builds on the prelude. |
+| R3 | **FFI / host interop** | ⬜ | Call .NET/JS/C APIs from Codex. Per-backend with a common interface declaration syntax. Required for any real-world program. |
+| R4 | **Package management** | ⬜ | Repository-based package resolution. `codex add <package>`. Builds on the existing content-addressed fact store (M7/M11). |
+| R6 | **Native executable bootstrap** | ⬜ | Compile the Codex compiler to a native `.exe` via the IL emitter. The IL emitter already handles generics, TCO, records, sum types, and pattern matching (50 tests). Gap: standard library functions and built-in expansion in IL. |
 
 **Exit criterion**: `codex build myproject/ --target il` produces a runnable `.exe`
 with standard library support, no C# toolchain needed.
 
----
+### Long Term: The Vision
 
-### Horizon 3: Infinity & Beyond
-
-> The full vision from `NewRepository.txt` — proof-carrying code, federated repositories,
-> the intelligence layer, and Codex as a platform for verified software.
-
-| # | Task | Status | What |
-|---|------|--------|------|
-| V1 | **Views** | ⬜ | First-class consistent selections of facts. |
-| V2 | **The Narration layer** | ⬜ | Prose-aware compilation where English text is load-bearing. |
-| V3 | **Repository federation** | ⬜ | Multi-repository sync, cross-repo trust. |
-| V4 | **Proof-carrying packages** | ⬜ | Every fact carries its proofs. Verified on import. |
-| V5 | **Intelligence layer** | ⬜ | AI agents as first-class participants. Dashboard is step one. |
-| V6 | **Trust lattice** | ⬜ | Vouching with degrees, trust-ranked search. |
-| V7 | **Type-level function reduction** | ⬜ | Proof steps that unfold function definitions. |
+| # | Task | What |
+|---|------|------|
+| V1 | **Views** | First-class consistent selections of facts from the repository. |
+| V2 | **The Narration layer** | Prose-aware compilation where English text is load-bearing. `Codex.Narration` project exists but is empty. |
+| V3 | **Repository federation** | Multi-repository sync, cross-repo trust and identity. |
+| V4 | **Proof-carrying packages** | Every published fact carries its proofs. Verified on import. |
+| V5 | **Intelligence layer** | AI agents as first-class participants in the repository. Dashboard is step one. |
+| V6 | **Trust lattice** | Vouching with degrees, trust-ranked search across contributors. |
+| V7 | **Type-level function reduction** | Proof steps that unfold function definitions. Needed for non-trivial inductive proofs. |
 
 ---
 
 ## Recommended Sequence
 
 ```
-Now ──→ L7 (errors, polish) + EXIT CRITERION TEST
+Now ──→ P1 (built-in expansion) + E1 (real program) + R5 (build system)
             │
-            ├──→ R5 (build system) ──→ R6 (native bootstrap)
+            ├──→ R2 (stdlib) + R3 (FFI)
+            │       │
+            │       └──→ R6 (native bootstrap via IL)
             │
-            └──→ R2 (stdlib) + R3 (FFI) ──→ R4 (packages)
-                                                  │
-                                                  └──→ V1-V7 (the vision)
+            └──→ R4 (packages) ──→ V1-V7 (the vision)
 ```
 
-**Horizon 1 complete!** L1–L6 are all done. L7 (error messages) is ongoing polish.
-Next milestone: attempt the **exit criterion** — write a non-trivial program entirely
-in Codex to validate the language is practical. Then move to Horizon 2.
+**P1 is the critical path.** Until the self-hosted emitter can inline built-ins,
+Stage 1 output requires a runtime shim to execute. Fixing this unblocks R6
+(native bootstrap) and makes the self-hosted pipeline fully standalone.
 
----
-
-## Recent Session Log (2026-03-18 → 2026-03-19)
-
-| Commit | What |
-|--------|------|
-| `fa5df5a` | feat: do-notation completion — typed return, last-expression value, user-defined effects (L4) |
-| `70dbbb8` | feat: standard prelude — Maybe, Result, Either, Pair types in Codex (L3) |
-| `7bf6f38` | feat: user-defined effect handlers — `with` expressions, `resume` continuations (L1 Phase 2) |
-| `94ca8a2` | feat: agent toolkit — `peek`, `fstat`, `sdiff`, `trun`, `gstat` scripts |
-| `10df319` | feat: cross-platform build + Linux agent toolkit (other agent) |
-| `fe82660` | feat: linux-session-init.sh (other agent) |
+**E1 validates everything.** Writing a real program against the full language
+surface (imports, prelude, effects, do-notation, records, pattern matching)
+will shake out any remaining gaps before investing in stdlib and FFI.
 
 ---
 
 ## Process Notes
 
-- **Agent toolkit**: `tools/agent/` — `peek`, `fstat`, `sdiff`, `trun`, `gstat`. Use these instead of unreliable built-in tools.
-- **Cognitive load**: Use `tools/codex-dashboard.ps1` (Windows) or `tools/codexdashboard.sh` (Linux) at session start.
+- **Reference compiler is LOCKED.** New features go in `.codex` source only. Bug fixes to Stage 0 are permitted only when necessary to compile `.codex` source. See `REFERENCE-COMPILER-LOCK.md`.
+- **Agent toolkit**: `tools/agent/` — PowerShell (`.ps1`) and Bash (`.sh`) versions of `peek`, `fstat`, `sdiff`, `trun`, `gstat`.
+- **Cognitive dashboard**: `tools/codex-dashboard.ps1` (Windows) or `tools/codexdashboard.sh` (Linux). Run at session start.
+- **Session init**: `bash tools/linux-session-init.sh` sets up a fresh Linux session (.NET, clone, build, tests, dashboard).
 - **Dates**: Always `checkdate()` before writing dates. Never trust training data.
 - **Commits**: Working branches (`windows/<topic>`, `linux/<topic>`), review before merge.
-
----
-
-## Archived Documents
+- **Archived milestone history**: `docs/OldStatus/` contains iteration handoffs M0–M13 and the old forward plan.
