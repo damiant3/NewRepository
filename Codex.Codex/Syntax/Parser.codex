@@ -286,27 +286,55 @@ Section: Document Parsing
   parse-document : ParseState -> Document
   parse-document (st) =
    let st2 = skip-newlines st
-   in parse-top-level [] [] st2
+   in parse-top-level [] [] [] st2
 
-  parse-top-level : List Def -> List TypeDef -> ParseState -> Document
-  parse-top-level (defs) (type-defs) (st) =
-   if is-done st then Document { defs = defs, type-defs = type-defs, effect-defs = [] }
-   else try-top-level-type-def defs type-defs st
+  parse-top-level : List Def -> List TypeDef -> List EffectDef -> ParseState -> Document
+  parse-top-level (defs) (type-defs) (effect-defs) (st) =
+   if is-done st then Document { defs = defs, type-defs = type-defs, effect-defs = effect-defs }
+   else if is-effect-keyword (current-kind st)
+    then parse-top-level-effect defs type-defs effect-defs st
+    else try-top-level-type-def defs type-defs effect-defs st
 
-  try-top-level-type-def : List Def -> List TypeDef -> ParseState -> Document
-  try-top-level-type-def (defs) (type-defs) (st) =
+  parse-top-level-effect : List Def -> List TypeDef -> List EffectDef -> ParseState -> Document
+  parse-top-level-effect (defs) (type-defs) (effect-defs) (st) =
+   let st1 = advance st
+   in let name-tok = current st1
+    in let st2 = advance st1
+     in let st3 = if is-where-keyword (current-kind st2) then skip-newlines (advance st2) else st2
+      in let ops = parse-effect-ops st3 []
+       in let ed = EffectDef { name = name-tok, ops = ops.ops }
+        in parse-top-level defs type-defs (effect-defs ++ [ed]) (skip-newlines ops.state)
+
+  EffectOpsResult = record { ops : List EffectOpDef, state : ParseState }
+
+  parse-effect-ops : ParseState -> List EffectOpDef -> EffectOpsResult
+  parse-effect-ops (st) (acc) =
+   if is-ident (current-kind st)
+    then if is-colon (peek-kind st 1)
+     then let op-tok = current st
+      in let st2 = advance (advance st)
+       in let type-result = parse-type st2
+        in when type-result
+         if TypeOk (ty) (st3) ->
+          let op = EffectOpDef { name = op-tok, type-expr = ty }
+          in parse-effect-ops (skip-newlines st3) (acc ++ [op])
+     else EffectOpsResult { ops = acc, state = st }
+    else EffectOpsResult { ops = acc, state = st }
+
+  try-top-level-type-def : List Def -> List TypeDef -> List EffectDef -> ParseState -> Document
+  try-top-level-type-def (defs) (type-defs) (effect-defs) (st) =
    let td-result = parse-type-def st
    in when td-result
     if TypeDefOk (td) (st2) ->
-     parse-top-level defs (type-defs ++ [td]) (skip-newlines st2)
+     parse-top-level defs (type-defs ++ [td]) effect-defs (skip-newlines st2)
     if TypeDefNone (st2) ->
-     try-top-level-def defs type-defs st
+     try-top-level-def defs type-defs effect-defs st
 
-  try-top-level-def : List Def -> List TypeDef -> ParseState -> Document
-  try-top-level-def (defs) (type-defs) (st) =
+  try-top-level-def : List Def -> List TypeDef -> List EffectDef -> ParseState -> Document
+  try-top-level-def (defs) (type-defs) (effect-defs) (st) =
    let def-result = parse-definition st
    in when def-result
     if DefOk (d) (st2) ->
-     parse-top-level (defs ++ [d]) type-defs (skip-newlines st2)
+     parse-top-level (defs ++ [d]) type-defs effect-defs (skip-newlines st2)
     if DefNone (st2) ->
-     parse-top-level defs type-defs (skip-newlines (advance st2))
+     parse-top-level defs type-defs effect-defs (skip-newlines (advance st2))

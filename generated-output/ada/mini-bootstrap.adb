@@ -6,11 +6,6 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 procedure Mini_bootstrap is
 
-   type Point is record
-      X : Long_Long_Integer;
-      Y : Long_Long_Integer;
-   end record;
-
    type Color_Tag is (Tag_Red, Tag_Green, Tag_Blue);
    type Color(Kind : Color_Tag := Color_Tag'First) is record
       case Kind is
@@ -21,6 +16,11 @@ procedure Mini_bootstrap is
          when Tag_Blue =>
             Tag_Blue_F0 : Long_Long_Integer;
       end case;
+   end record;
+
+   type Point is record
+      X : Long_Long_Integer;
+      Y : Long_Long_Integer;
    end record;
 
    function Show_color(C : Color) return Unbounded_String is

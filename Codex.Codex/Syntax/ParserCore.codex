@@ -147,6 +147,21 @@ Section: TokenKind Predicates
    if DoKeyword -> True
    if _ -> False
 
+  is-with-keyword : TokenKind -> Boolean
+  is-with-keyword (k) = when k
+   if WithKeyword -> True
+   if _ -> False
+
+  is-effect-keyword : TokenKind -> Boolean
+  is-effect-keyword (k) = when k
+   if EffectKeyword -> True
+   if _ -> False
+
+  is-where-keyword : TokenKind -> Boolean
+  is-where-keyword (k) = when k
+   if WhereKeyword -> True
+   if _ -> False
+
   is-in-keyword : TokenKind -> Boolean
   is-in-keyword (k) = when k
    if InKeyword -> True

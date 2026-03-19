@@ -85,7 +85,9 @@ Section: Expression Parsing
            then parse-match-expr st
            else if is-do-keyword (current-kind st)
             then parse-do-expr st
-            else ExprOk (ErrExpr (current st)) (advance st)
+            else if is-with-keyword (current-kind st)
+             then parse-handle-expr st
+             else ExprOk (ErrExpr (current st)) (advance st)
 
   parse-field-access : Expr -> ParseState -> ParseExprResult
   parse-field-access (node) (st) =
@@ -324,4 +326,55 @@ Section: Compound Expression Parsing
   finish-do-expr (acc) (e) (st) =
    let st2 = skip-newlines st
    in parse-do-stmts (acc ++ [DoExprStmt e]) st2
+
+  parse-handle-expr : ParseState -> ParseExprResult
+  parse-handle-expr (st) =
+   let st1 = advance st
+   in let eff-tok = current st1
+    in let st2 = advance st1
+     in let body-result = parse-expr st2
+      in unwrap-expr-ok body-result (finish-handle-body eff-tok)
+
+  finish-handle-body : Token -> Expr -> ParseState -> ParseExprResult
+  finish-handle-body (eff-tok) (body) (st) =
+   let st2 = skip-newlines st
+   in let clauses = parse-handle-clauses st2 []
+    in ExprOk (HandleExpr eff-tok body clauses.clauses) clauses.state
+
+  HandleParseResult = record { clauses : List HandleClause, state : ParseState }
+
+  parse-handle-clauses : ParseState -> List HandleClause -> HandleParseResult
+  parse-handle-clauses (st) (acc) =
+   if is-ident (current-kind st)
+    then let op-tok = current st
+     in let st1 = advance st
+      in let params = parse-handle-params st1 []
+       in if list-length params.toks > 0
+        then let resume-tok = list-at params.toks (list-length params.toks - 1)
+         in let st5 = expect Equals params.state
+          in let st6 = skip-newlines st5
+           in let body-result = parse-expr st6
+            in unwrap-handle-clause-body op-tok resume-tok body-result acc
+        else HandleParseResult { clauses = acc, state = st }
+    else HandleParseResult { clauses = acc, state = st }
+
+  HandleParamsResult = record { toks : List Token, state : ParseState }
+
+  parse-handle-params : ParseState -> List Token -> HandleParamsResult
+  parse-handle-params (st) (acc) =
+   if is-left-paren (current-kind st)
+    then let st1 = advance st
+     in let tok = current st1
+      in let st2 = advance st1
+       in let st3 = expect RightParen st2
+        in parse-handle-params st3 (acc ++ [tok])
+    else HandleParamsResult { toks = acc, state = st }
+
+  unwrap-handle-clause-body : Token -> Token -> ParseExprResult -> List HandleClause -> HandleParseResult
+  unwrap-handle-clause-body (op-tok) (resume-tok) (result) (acc) =
+   when result
+    if ExprOk (body) (st) ->
+     let clause = HandleClause { op-name = op-tok, resume-name = resume-tok, body = body }
+     in let st2 = skip-newlines st
+      in parse-handle-clauses st2 (acc ++ [clause])
 
