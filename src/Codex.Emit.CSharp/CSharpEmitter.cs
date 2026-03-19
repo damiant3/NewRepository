@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using Codex.Core;
 using Codex.IR;
@@ -9,6 +10,8 @@ public sealed partial class CSharpEmitter : ICodeEmitter
 {
     Set<string> m_constructorNames = Set<string>.s_empty;
     ValueMap<string, int> m_definitionArity = ValueMap<string, int>.s_empty;
+    ValueMap<string, ImmutableArray<string>> m_definitionParamNames =
+        ValueMap<string, ImmutableArray<string>>.s_empty;
     int m_matchCounter;
 
     public string TargetName => "C#";
@@ -18,8 +21,14 @@ public sealed partial class CSharpEmitter : ICodeEmitter
     {
         m_constructorNames = CollectConstructorNames(module);
         m_definitionArity = ValueMap<string, int>.s_empty;
+        m_definitionParamNames = ValueMap<string, ImmutableArray<string>>.s_empty;
+        m_matchCounter = 0;
         foreach (IRDefinition d in module.Definitions)
+        {
             m_definitionArity = m_definitionArity.Set(d.Name, d.Parameters.Length);
+            m_definitionParamNames = m_definitionParamNames.Set(d.Name,
+                d.Parameters.Select(p => p.Name).ToImmutableArray());
+        }
 
         StringBuilder sb = new();
         sb.AppendLine("using System;");

@@ -82,7 +82,7 @@ public sealed partial class ProseParser
                 break;
 
             int indent = MeasureIndent(line);
-            if (indent >= 4 && LooksLikeNotation(trimmed))
+            if (indent >= 2 && LooksLikeNotation(trimmed))
                 break;
 
             if (trimmed.StartsWith("-", StringComparison.Ordinal)
@@ -312,14 +312,14 @@ public sealed partial class ProseParser
     static string ToPascalCase(string text)
     {
         if (text.Length == 0) return text;
-        string[] words = text.Split([' ', '-'], StringSplitOptions.RemoveEmptyEntries);
+        string[] words = text.Split(new char[] { ' ', '-' }, StringSplitOptions.RemoveEmptyEntries);
         return string.Concat(words.Select(w =>
             char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
     }
 
     static string ToFieldName(string text)
     {
-        string[] words = text.Split([' ', '-'], StringSplitOptions.RemoveEmptyEntries);
+        string[] words = text.Split(new char[] { ' ', '-' }, StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0) return text;
         string first = words[0].ToLowerInvariant();
         string rest = string.Concat(words.Skip(1).Select(w =>

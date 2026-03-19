@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using Codex.Core;
 using Codex.IR;
@@ -467,9 +468,17 @@ public sealed partial class CSharpEmitter
         StringBuilder sb, string defName, int arity, List<IRExpr> appliedArgs, int indent)
     {
         int remaining = arity - appliedArgs.Count;
+        int firstRemaining = appliedArgs.Count;
+        ImmutableArray<string> paramNames = ImmutableArray<string>.Empty;
+        m_definitionParamNames.TryGet(defName, out paramNames);
+
         for (int i = 0; i < remaining; i++)
         {
-            sb.Append($"(_p{i}_) => ");
+            int paramIdx = firstRemaining + i;
+            string name = paramIdx < paramNames.Length
+                ? SanitizeIdentifier(paramNames[paramIdx])
+                : $"arg{i}";
+            sb.Append($"({name}) => ");
         }
         sb.Append($"{SanitizeIdentifier(defName)}(");
         for (int i = 0; i < appliedArgs.Count; i++)
@@ -480,7 +489,11 @@ public sealed partial class CSharpEmitter
         for (int i = 0; i < remaining; i++)
         {
             if (i > 0) sb.Append(", ");
-            sb.Append($"_p{i}_");
+            int paramIdx = firstRemaining + i;
+            string name = paramIdx < paramNames.Length
+                ? SanitizeIdentifier(paramNames[paramIdx])
+                : $"arg{i}";
+            sb.Append(name);
         }
         sb.Append(')');
     }

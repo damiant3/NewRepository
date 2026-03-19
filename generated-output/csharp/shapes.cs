@@ -13,7 +13,7 @@ public static class Codex_shapes
 {
     public static decimal main()
     {
-        return ((Func<Shape, decimal>)((_scrutinee5_) => (_scrutinee5_ is Circle _mCircle5_ ? ((Func<decimal, decimal>)((r) => ((3.14m * r) * r)))((decimal)_mCircle5_.Field0) : (_scrutinee5_ is Rectangle _mRectangle5_ ? ((Func<decimal, decimal>)((h) => ((Func<decimal, decimal>)((w) => (w * h)))((decimal)_mRectangle5_.Field0)))((decimal)_mRectangle5_.Field1) : throw new InvalidOperationException("Non-exhaustive match")))))(new Circle(5.0m));
+        return ((Func<Shape, decimal>)((_scrutinee0_) => (_scrutinee0_ is Circle _mCircle0_ ? ((Func<decimal, decimal>)((r) => ((3.14m * r) * r)))((decimal)_mCircle0_.Field0) : (_scrutinee0_ is Rectangle _mRectangle0_ ? ((Func<decimal, decimal>)((h) => ((Func<decimal, decimal>)((w) => (w * h)))((decimal)_mRectangle0_.Field0)))((decimal)_mRectangle0_.Field1) : throw new InvalidOperationException("Non-exhaustive match")))))(new Circle(5.0m));
     }
 
 }
