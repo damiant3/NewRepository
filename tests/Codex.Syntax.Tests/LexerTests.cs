@@ -189,7 +189,7 @@ public class LexerTests
     [Fact]
     public void Interpolated_string_produces_token_sequence()
     {
-        IReadOnlyList<Token> tokens = NonTrivialTokens("\"hello {name}!\"");
+        IReadOnlyList<Token> tokens = NonTrivialTokens("\"hello #{name}!\"");
         TokenKind[] kinds = tokens.Select(t => t.Kind).ToArray();
         Assert.Equal(new[]
         {
@@ -209,7 +209,7 @@ public class LexerTests
     [Fact]
     public void Interpolated_string_with_expression()
     {
-        IReadOnlyList<Token> tokens = NonTrivialTokens("\"count is {integer-to-text n}\"");
+        IReadOnlyList<Token> tokens = NonTrivialTokens("\"count is #{integer-to-text n}\"");
         TokenKind[] kinds = tokens.Select(t => t.Kind).ToArray();
         Assert.Equal(new[]
         {
@@ -226,7 +226,7 @@ public class LexerTests
     [Fact]
     public void Interpolated_string_only_expression()
     {
-        IReadOnlyList<Token> tokens = NonTrivialTokens("\"{x}\"");
+        IReadOnlyList<Token> tokens = NonTrivialTokens("\"#{x}\"");
         TokenKind[] kinds = tokens.Select(t => t.Kind).ToArray();
         Assert.Equal(new[]
         {
@@ -241,16 +241,16 @@ public class LexerTests
     [Fact]
     public void Escaped_brace_produces_plain_text_literal()
     {
-        IReadOnlyList<Token> tokens = NonTrivialTokens("\"hello \\{world}\"");
+        IReadOnlyList<Token> tokens = NonTrivialTokens("\"hello \\#{world}\"");
         Assert.Single(tokens);
         Assert.Equal(TokenKind.TextLiteral, tokens[0].Kind);
-        Assert.Equal("hello {world}", tokens[0].LiteralValue);
+        Assert.Equal("hello #{world}", tokens[0].LiteralValue);
     }
 
     [Fact]
     public void Multiple_interpolation_holes()
     {
-        IReadOnlyList<Token> tokens = NonTrivialTokens("\"{a} and {b}\"");
+        IReadOnlyList<Token> tokens = NonTrivialTokens("\"#{a} and #{b}\"");
         TokenKind[] kinds = tokens.Select(t => t.Kind).ToArray();
         Assert.Equal(new[]
         {

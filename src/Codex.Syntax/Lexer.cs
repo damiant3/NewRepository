@@ -143,7 +143,7 @@ public sealed class Lexer
                 Advance();
                 Advance();
             }
-            else if (Current == '{')
+            else if (Current == '#' && m_position + 1 < m_text.Length && m_text[m_position + 1] == '{')
             {
                 hasInterpolation = true;
                 break;
@@ -185,7 +185,7 @@ public sealed class Lexer
                     'r' => '\r',
                     '\\' => '\\',
                     '"' => '"',
-                    '{' => '{',
+                    '#' => '#',
                     _ => Current
                 });
                 Advance();
@@ -222,11 +222,12 @@ public sealed class Lexer
 
         while (!IsAtEnd && Current != '"' && Current != '\n')
         {
-            if (Current == '{')
+            if (Current == '#' && m_position + 1 < m_text.Length && m_text[m_position + 1] == '{')
             {
                 SourcePosition braceStart = MakePosition();
-                Advance();
-                m_pending.Add(new Token(TokenKind.InterpolatedExprStart, "{", MakeSpan(braceStart)));
+                Advance(); // skip #
+                Advance(); // skip {
+                m_pending.Add(new Token(TokenKind.InterpolatedExprStart, "#{", MakeSpan(braceStart)));
 
                 // Scan expression tokens until matching }.
                 int depth = 1;
@@ -288,7 +289,7 @@ public sealed class Lexer
         SourcePosition start = MakePosition();
         System.Text.StringBuilder sb = new();
 
-        while (!IsAtEnd && Current != '"' && Current != '{' && Current != '\n')
+        while (!IsAtEnd && Current != '"' && Current != '\n' && !(Current == '#' && m_position + 1 < m_text.Length && m_text[m_position + 1] == '{'))
         {
             if (Current == '\\' && m_position + 1 < m_text.Length)
             {
@@ -300,7 +301,7 @@ public sealed class Lexer
                     'r' => '\r',
                     '\\' => '\\',
                     '"' => '"',
-                    '{' => '{',
+                    '#' => '#',
                     _ => Current
                 });
                 Advance();

@@ -114,7 +114,7 @@ public class DesugarerTests
     [Fact]
     public void Desugar_interpolated_string_to_append_chain()
     {
-        Module module = ParseAndDesugar("x = \"hello {name}!\"");
+        Module module = ParseAndDesugar("x = \"hello #{name}!\"");
         Expr body = module.Definitions[0].Body;
         Assert.IsType<BinaryExpr>(body);
         BinaryExpr outer = (BinaryExpr)body;
@@ -153,7 +153,7 @@ public class DesugarerTests
     [Fact]
     public void Desugar_interpolated_string_single_expr()
     {
-        Module module = ParseAndDesugar("x = \"{name}\"");
+        Module module = ParseAndDesugar("x = \"#{name}\"");
         Expr body = module.Definitions[0].Body;
         Assert.IsType<ApplyExpr>(body);
         ApplyExpr showCall = (ApplyExpr)body;

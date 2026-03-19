@@ -19,7 +19,7 @@ public enum TokenKind
     InterpolatedStart,      // opening " of an interpolated string
     InterpolatedEnd,        // closing " of an interpolated string
     TextFragment,           // literal text segment between { } holes
-    InterpolatedExprStart,  // { inside an interpolated string
+    InterpolatedExprStart,  // #{ inside an interpolated string
     InterpolatedExprEnd,    // } that closes an interpolated expression
 
     // Identifiers
