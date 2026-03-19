@@ -62,20 +62,22 @@ The `.codex` compiler now handles:
 | L7 | **Better error messages** | ✅ Done | "Did you mean X?" via `StringDistance.FindClosest` ✅. Readable type formatting ✅. Related spans ✅. Error cap at 20 ✅. ErrorType cascade suppression ✅. Parser error recovery with 18 tests (CDX1021–CDX1032) ✅. |
 | R5 | **Build system** | ✅ Done | `codex build <dir>` compiles multi-file projects via `codex.project.json`. Dependency resolution ✅. Multi-target (`--targets cs,js,rust`) ✅. Incremental builds (`--incremental`) ✅. Verified: `codex build Codex.Codex` compiles 26 files successfully. |
 | M1 | **Self-hosted import/module system** | ✅ Done | CST `ImportDecl`, parser `parse-imports`, AST `AImportDecl`, desugarer threading, `resolve-module-with-imports` for cross-file name resolution, `compile-with-imports` pipeline entry point. Bootstrap verified: 458 defs, 0 errors. |
+| R2 | **Standard library** | ✅ Done | 11 prelude modules (1,208 lines): Maybe, Result, Either, Pair, List, CCE (character encoding), Hamt (persistent map), StringBuilder, Set, Queue, TextSearch. Auto-discovered by `PackageResolver`. |
+| R4 | **Package management** | ✅ Done | `PackageResolver` with local cache, version constraints (`*`, exact, prefix, `>=`). CLI: `codex add/remove/pack/packages`. Lock files. Auto-prelude for non-prelude projects. |
 
 ### Near Term: Make the Language Practical
 
 | # | Task | Status | What |
 |---|------|--------|------|
-| E1 | **Exit criterion: real programs** | 🔶 Started | `expr-calculator.codex` (10/10 PASS) proves the compiler works. Next: something larger that exercises imports, prelude types, and effects together. |
+| E1 | **Exit criterion: real programs** | 🔶 Next | `expr-calculator.codex` (10/10 PASS) proves the compiler works. Next: a multi-file project that exercises imports, prelude types, packages, and effects together. All infrastructure is now in place. |
 
 ### Medium Term: Library & Runtime
 
 | # | Task | Status | What |
 |---|------|--------|------|
-| R2 | **Standard library** | 🔶 Started | First modules: CCE (character encoding, 353 lines), Hamt (persistent map, 271 lines), List (cons-list, 98 lines). Remaining: string utilities, IO abstractions. |
-| R3 | **FFI / host interop** | ⬜ | Call .NET/JS/C APIs from Codex. Per-backend with common interface. |
-| R4 | **Package management** | ⬜ | Repository-based package resolution. `codex add <package>`. |
+| R2 | **Standard library** | ✅ Done | 11 modules (1,208 lines): Maybe, Result, Either, Pair, List, CCE, Hamt, StringBuilder, Set, Queue, TextSearch. Covers option types, error handling, persistent maps, string building, text search, functional queues and sets. |
+| R3 | **FFI / host interop** | ⏭️ Scratched | Deferred — exercise for the user. Per-backend with common interface. |
+| R4 | **Package management** | ✅ Done | `PackageResolver` with local cache (`~/.codex/packages/`), version matching (`*`, exact, prefix, `>=`). CLI: `codex add/remove/pack/packages`. Lock files. Auto-prelude discovery for all non-prelude projects. |
 | R6 | **Native executable bootstrap** | ⬜ Unblocked | Compile Codex compiler to native `.exe` via IL emitter. P1 resolved; depends on R2. |
 
 **Exit criterion**: `codex build myproject/ --target il` produces a runnable `.exe`
@@ -100,15 +102,16 @@ with standard library support, no C# toolchain needed.
 ```
 Now ──→ E1 (real program)
             │
-            ├──→ R2 (stdlib: expand CCE, Hamt, add collections)
-            │       │
-            │       └──→ R3 (FFI) ──→ R6 (native bootstrap via IL)
-            │
-            └──→ R4 (packages) ──→ V1-V7 (the vision)
+            └──→ R6 (native bootstrap via IL)
+                    │
+                    └──→ V1-V7 (the vision)
+
+Scratched: R3 (FFI) — exercise for the user
 ```
 
-**R6 is now unblocked.** P1, L7, and R5 are resolved. The next critical path is
-R2 (standard library) to provide the runtime functions needed for standalone executables.
+**R6 is now unblocked.** P1, L7, R2, R4, R5, and M1 are resolved. The remaining
+critical path is R6 (native executable bootstrap) which depends on the IL emitter
+producing a standalone `.exe` using the standard library.
 
 ---
 
