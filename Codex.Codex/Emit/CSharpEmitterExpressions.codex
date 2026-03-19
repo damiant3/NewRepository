@@ -158,6 +158,52 @@ Section: Apply Chain
    if i == count then ""
    else "(_p" ++ integer-to-text i ++ "_) => " ++ emit-partial-wrappers (i + 1) count
 
+  is-builtin-name : Text -> Boolean
+  is-builtin-name (n) =
+   if n == "show" then True
+   else if n == "negate" then True
+   else if n == "print-line" then True
+   else if n == "text-length" then True
+   else if n == "is-letter" then True
+   else if n == "is-digit" then True
+   else if n == "is-whitespace" then True
+   else if n == "text-to-integer" then True
+   else if n == "integer-to-text" then True
+   else if n == "char-code" then True
+   else if n == "code-to-char" then True
+   else if n == "list-length" then True
+   else if n == "char-at" then True
+   else if n == "substring" then True
+   else if n == "list-at" then True
+   else if n == "text-replace" then True
+   else if n == "open-file" then True
+   else if n == "read-all" then True
+   else if n == "close-file" then True
+   else False
+
+  emit-builtin : Text -> List IRExpr -> List ArityEntry -> Text
+  emit-builtin (n) (args) (arities) =
+   if n == "show" then "Convert.ToString(" ++ emit-expr (list-at args 0) arities ++ ")"
+   else if n == "negate" then "(-" ++ emit-expr (list-at args 0) arities ++ ")"
+   else if n == "print-line" then "Console.WriteLine(" ++ emit-expr (list-at args 0) arities ++ ")"
+   else if n == "text-length" then "((long)" ++ emit-expr (list-at args 0) arities ++ ".Length)"
+   else if n == "is-letter" then "(" ++ emit-expr (list-at args 0) arities ++ ".Length > 0 && char.IsLetter(" ++ emit-expr (list-at args 0) arities ++ "[0]))"
+   else if n == "is-digit" then "(" ++ emit-expr (list-at args 0) arities ++ ".Length > 0 && char.IsDigit(" ++ emit-expr (list-at args 0) arities ++ "[0]))"
+   else if n == "is-whitespace" then "(" ++ emit-expr (list-at args 0) arities ++ ".Length > 0 && char.IsWhiteSpace(" ++ emit-expr (list-at args 0) arities ++ "[0]))"
+   else if n == "text-to-integer" then "long.Parse(" ++ emit-expr (list-at args 0) arities ++ ")"
+   else if n == "integer-to-text" then "(" ++ emit-expr (list-at args 0) arities ++ ").ToString()"
+   else if n == "char-code" then "((long)" ++ emit-expr (list-at args 0) arities ++ "[0])"
+   else if n == "code-to-char" then "((char)" ++ emit-expr (list-at args 0) arities ++ ").ToString()"
+   else if n == "list-length" then "((long)" ++ emit-expr (list-at args 0) arities ++ ".Count)"
+   else if n == "char-at" then emit-expr (list-at args 0) arities ++ "[(int)" ++ emit-expr (list-at args 1) arities ++ "].ToString()"
+   else if n == "substring" then emit-expr (list-at args 0) arities ++ ".Substring((int)" ++ emit-expr (list-at args 1) arities ++ ", (int)" ++ emit-expr (list-at args 2) arities ++ ")"
+   else if n == "list-at" then emit-expr (list-at args 0) arities ++ "[(int)" ++ emit-expr (list-at args 1) arities ++ "]"
+   else if n == "text-replace" then emit-expr (list-at args 0) arities ++ ".Replace(" ++ emit-expr (list-at args 1) arities ++ ", " ++ emit-expr (list-at args 2) arities ++ ")"
+   else if n == "open-file" then "File.OpenRead(" ++ emit-expr (list-at args 0) arities ++ ")"
+   else if n == "read-all" then "new System.IO.StreamReader(" ++ emit-expr (list-at args 0) arities ++ ").ReadToEnd()"
+   else if n == "close-file" then emit-expr (list-at args 0) arities ++ ".Dispose()"
+   else ""
+
   emit-apply : IRExpr -> List ArityEntry -> Text
   emit-apply (e) (arities) =
    let chain = collect-apply-chain e []
@@ -165,7 +211,8 @@ Section: Apply Chain
     in let args = chain.args
      in when root
       if IrName (n) (ty) ->
-       if text-length n > 0 & is-upper-letter (char-at n 0)
+       if is-builtin-name n then emit-builtin n args arities
+       else if text-length n > 0 & is-upper-letter (char-at n 0)
         then let result-ty = ir-expr-type e
          in let ctor-type-args = extract-ctor-type-args result-ty
           in "new " ++ sanitize n ++ ctor-type-args ++ "(" ++ emit-apply-args args arities 0 ++ ")"
@@ -331,25 +378,26 @@ Section: Expression Emission
    let ret-type = cs-type ty
    in let len = list-length stmts
    in when ty
-    if VoidTy -> "((Action)(() => \\{ " ++ emit-do-stmts stmts 0 len arities ++ " }))()"
-    if NothingTy -> "((Action)(() => \\{ " ++ emit-do-stmts stmts 0 len arities ++ " }))()"
-    if ErrorTy -> "((Action)(() => \\{ " ++ emit-do-stmts stmts 0 len arities ++ " }))()"
-    if _ -> if len == 0 then "((Func<" ++ ret-type ++ ">)(() => \\{ return null; }))()"
-     else "((Func<" ++ ret-type ++ ">)(() => \\{ " ++ emit-do-stmts stmts 0 len arities ++ " }))()"
+    if VoidTy -> "((Action)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " }))()"
+    if NothingTy -> "((Action)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " }))()"
+    if ErrorTy -> "((Action)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " }))()"
+    if _ -> if len == 0 then "((Func<" ++ ret-type ++ ">)(() => { return null; }))()"
+     else "((Func<" ++ ret-type ++ ">)(() => { " ++ emit-do-stmts stmts 0 len True arities ++ " }))()"
 
-  emit-do-stmts : List IRDoStmt -> Integer -> Integer -> List ArityEntry -> Text
-  emit-do-stmts (stmts) (i) (len) (arities) =
+  emit-do-stmts : List IRDoStmt -> Integer -> Integer -> Boolean -> List ArityEntry -> Text
+  emit-do-stmts (stmts) (i) (len) (needs-return) (arities) =
    if i == len then ""
    else let s = list-at stmts i
     in let is-last = i == len - 1
-    in emit-do-stmt s is-last arities ++ " " ++ emit-do-stmts stmts (i + 1) len arities
+    in let use-return = if is-last then needs-return else False
+    in emit-do-stmt s use-return arities ++ " " ++ emit-do-stmts stmts (i + 1) len needs-return arities
 
   emit-do-stmt : IRDoStmt -> Boolean -> List ArityEntry -> Text
-  emit-do-stmt (s) (is-last) (arities) =
+  emit-do-stmt (s) (use-return) (arities) =
    when s
     if IrDoBind (name) (ty) (val) -> "var " ++ sanitize name ++ " = " ++ emit-expr val arities ++ ";"
     if IrDoExec (e) ->
-     if is-last then "return " ++ emit-expr e arities ++ ";"
+     if use-return then "return " ++ emit-expr e arities ++ ";"
      else emit-expr e arities ++ ";"
 
   emit-record : Text -> List IRFieldVal -> List ArityEntry -> Text
@@ -365,7 +413,7 @@ Section: Expression Emission
   emit-handle : Text -> IRExpr -> List IRHandleClause -> CodexType -> List ArityEntry -> Text
   emit-handle (eff) (body) (clauses) (ty) (arities) =
    let ret-type = cs-type ty
-   in "((Func<" ++ ret-type ++ ">)(() => \{ " ++ emit-handle-clauses clauses ret-type arities ++ "return " ++ emit-expr body arities ++ "; }))()"
+   in "((Func<" ++ ret-type ++ ">)(() => { " ++ emit-handle-clauses clauses ret-type arities ++ "return " ++ emit-expr body arities ++ "; }))()"
 
   emit-handle-clauses : List IRHandleClause -> Text -> List ArityEntry -> Text
   emit-handle-clauses (clauses) (ret-type) (arities) =
@@ -375,5 +423,5 @@ Section: Expression Emission
   emit-handle-clauses-loop (clauses) (i) (ret-type) (arities) =
    if i == list-length clauses then ""
    else let c = list-at clauses i
-    in "Func<Func<" ++ ret-type ++ ", " ++ ret-type ++ ">, " ++ ret-type ++ "> _handle_" ++ sanitize c.op-name ++ "_ = (" ++ sanitize c.resume-name ++ ") => \\{ return " ++ emit-expr c.body arities ++ "; }; " ++ emit-handle-clauses-loop clauses (i + 1) ret-type arities
+    in "Func<Func<" ++ ret-type ++ ", " ++ ret-type ++ ">, " ++ ret-type ++ "> _handle_" ++ sanitize c.op-name ++ "_ = (" ++ sanitize c.resume-name ++ ") => { return " ++ emit-expr c.body arities ++ "; }; " ++ emit-handle-clauses-loop clauses (i + 1) ret-type arities
 
