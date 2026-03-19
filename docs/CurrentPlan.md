@@ -15,19 +15,20 @@ types, dependent types, proofs, and literate programming. The tooling includes a
 server, IDE extensions, a content-addressed repository with collaboration protocol, and
 a cognitive load dashboard for agent sessions.
 
-### Snapshot (2026-03-18)
+### Snapshot (2026-03-18, evening)
 
 | Metric | Value |
 |--------|-------|
-| .codex source | 21 files, 4,411 lines, 176K chars |
-| C# reference projects | 32 |
-| Test count | 722 (all passing) |
+| .codex source | 26 files, 4,469 lines, 168K chars |
+| C# reference projects | 34 |
+| Test count | 780 (all passing) |
 | Backends | 12 (C#, JS, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage) |
-| Bootstrap | Stage 2 = Stage 3 (227,301 chars, byte-for-byte) |
-| Type debt | 7 `object` refs (all legitimate), 48 `_p0_` proxies (cosmetic) |
+| Bootstrap | Stage 1 = Stage 2 = Stage 3 (105,411 chars, byte-for-byte) |
+| Type debt | 7 `object` refs (all legitimate), **0** `_p0_` proxies |
+| Thrash risk | MEDIUM (2/6) — context budget 133%, type debt clean |
 | LSP | Diagnostics, hover, completion, go-to-def, symbols, semantic tokens |
 | Repository | Content-addressed facts, proposals/verdicts, sync, trust/vouching |
-| Agent workflow | Dual-agent mutual review, cognitive load monitoring, modular rules |
+| Agent workflow | Dual-agent mutual review, cognitive dashboard, agent toolkit |
 
 ### What's Complete (M0–M13+)
 
@@ -49,7 +50,7 @@ a cognitive load dashboard for agent sessions.
 | M13 | Self-hosting: compiler written in Codex, fixed point achieved |
 | — | Post-M13: error recovery, parser robustness, multi-file compilation |
 | — | Post-M13: 12-backend audit, TCO in all emitters, nested match fixes |
-| — | Post-M13: agent workflow (dual-agent review, cognitive dashboard) |
+| — | Post-M13: agent workflow (dual-agent review, cognitive dashboard, agent toolkit) |
 
 ---
 
@@ -60,15 +61,15 @@ a cognitive load dashboard for agent sessions.
 > The language stands on its own. A programmer can write real programs in Codex
 > without constantly hitting missing features.
 
-| # | Task | What | Effort |
-|---|------|------|--------|
-| L1 | **User-defined effects** | `effect MyEffect where ...` declarations, custom handlers beyond built-in `run-state`. Algebraic effect handlers with `handle`/`resume`. | Medium |
-| L2 | **Module system** | Proper `import`/`export` between files. Namespace management. The multi-file compilation exists but has no module boundaries or visibility control. | Medium |
-| L3 | **Standard prelude** | `Maybe`, `Result`, `Either`, `Tuple`, `Map`, `Set` as library types defined in Codex (not hardcoded in the C# reference compiler). Bootstrap the prelude from `.codex` source. | Small-Medium |
-| L4 | **Do-notation completion** | Full monadic do-notation: `let!`, `return`, `do` blocks that desugar to `bind`/`pure` for any effect. Currently `do` works but is limited to built-in effects. | Small |
-| L5 | **String interpolation** | `"Hello, {name}!"` syntax that desugars to concatenation. Quality-of-life for real programs. | Small |
-| L6 | **REPL** | `codex repl` — interactive evaluation loop. Parse, type-check, and evaluate expressions on the fly. Huge for learning and debugging. | Medium |
-| L7 | **Better error messages** | Source-span-accurate errors with suggestions. "Did you mean X?" for misspelled names. Show expected vs actual types clearly. | Ongoing |
+| # | Task | Status | What |
+|---|------|--------|------|
+| L1 | **User-defined effects** | 🔶 Phase 1 done | `effect MyEffect where ...` declarations land (parser, desugarer, name resolver, type checker). Remaining: handler syntax + `resume` continuation + lowering/emission. Linux agent working on Phase 2. |
+| L2 | **Module system** | ⬜ Not started | Proper `import`/`export` between files. Namespace management. Multi-file compilation exists but has no module boundaries or visibility control. |
+| L3 | **Standard prelude** | ⬜ Not started | `Maybe`, `Result`, `Either`, `Tuple`, `Map`, `Set` as library types defined in Codex. Blocked by L2. |
+| L4 | **Do-notation completion** | ⬜ Not started | Full monadic do-notation: `let!`, `return`, `do` blocks that desugar to `bind`/`pure` for any effect. |
+| L5 | **String interpolation** | ✅ Done | `"Hello, #{name}!"` syntax (hash-brace). Lexer, parser, desugarer, all backends, 12-backend corpus. |
+| L6 | **REPL** | ✅ Done | `codex repl` — interactive evaluation loop with `:help`, `:type`, `:defs`, `:reset`. Compiles through full pipeline, executes via `dotnet run`. |
+| L7 | **Better error messages** | 🔶 In progress | "Did you mean X?" for undefined names ✅. Readable type formatting with `TypeFormatter` ✅. Related spans on type mismatches ✅. Ongoing. |
 
 **Exit criterion**: A non-trivial program (e.g., a JSON parser, a small web server,
 or a toy database) can be written entirely in Codex without hitting language gaps.
@@ -80,14 +81,14 @@ or a toy database) can be written entirely in Codex without hitting language gap
 > The language has a standard library and can produce executables without depending
 > on external toolchains.
 
-| # | Task | What | Effort |
-|---|------|------|--------|
-| R1 | **IL emitter: generics + TCO** | Complete the IL emitter (`Codex.Emit.IL`) so it handles generic functions and tail-call optimization. This is the path to native `.exe` without the C# transpile step. | Medium |
-| R2 | **Standard library** | Collections (Map, Set, Array, Queue), string utilities, IO abstractions, concurrency primitives. Written in Codex, compiled to all backends. | Large (incremental) |
-| R3 | **FFI / host interop** | Call .NET APIs from Codex (for C#/IL targets), call JS APIs (for JS target), call C APIs (for Rust/C++ targets). Defined per-backend with a common interface. | Medium-Large |
-| R4 | **Package management** | Repository-based package resolution. `codex add <package>`, dependency graphs, version resolution via the fact store. | Medium |
-| R5 | **Build system: `codex.project.json`** | Project file format that specifies source files, dependencies, target backends, and build options. `codex build` reads this instead of requiring CLI flags. | Small-Medium |
-| R6 | **Native executable bootstrap** | Once the IL emitter handles the full language, compile the Codex compiler to a native `.exe` that doesn't need `dotnet` at all. True independence. | Medium (depends on R1) |
+| # | Task | Status | What |
+|---|------|--------|------|
+| R1 | **IL emitter: generics + TCO** | ✅ Done | Generics (ForAllType → IL generic params, method specs), TCO (tail-recursive → loop transform), records, sum types, pattern matching. 50 IL tests passing. |
+| R2 | **Standard library** | ⬜ Not started | Collections, string utilities, IO abstractions. Written in Codex, compiled to all backends. |
+| R3 | **FFI / host interop** | ⬜ Not started | Call .NET/JS/C APIs from Codex. Per-backend with common interface. |
+| R4 | **Package management** | ⬜ Not started | Repository-based package resolution. `codex add <package>`. |
+| R5 | **Build system: `codex.project.json`** | 🔶 Started | `CodexProject` model + `LoadProjectFile` + source glob resolution in CLI. Remaining: wire into `codex build` flow, dependency resolution. |
+| R6 | **Native executable bootstrap** | ⬜ Not started | Compile Codex compiler to native `.exe` via IL emitter. Depends on R1 (done) + standard library gaps. |
 
 **Exit criterion**: `codex build myproject/ --target il` produces a runnable `.exe`
 with standard library support, no C# toolchain needed.
@@ -99,63 +100,43 @@ with standard library support, no C# toolchain needed.
 > The full vision from `NewRepository.txt` — proof-carrying code, federated repositories,
 > the intelligence layer, and Codex as a platform for verified software.
 
-| # | Task | What | Effort |
-|---|------|------|--------|
-| V1 | **Views** | First-class consistent selections of facts. Your dev environment shows a view. Production runs a view. Views compose. | Medium |
-| V2 | **The Narration layer** | `Codex.Narration` — prose-aware compilation where English text is load-bearing. Template matching: "An X is a record containing:" generates a record type. | Large |
-| V3 | **Repository federation** | Multi-repository sync, cross-repo trust, global namespace management. Facts flow between independent repos. | Large |
-| V4 | **Proof-carrying packages** | Every fact in the repository carries its proofs. Import a function, get its correctness guarantee. The type checker verifies proofs on import. | Large |
-| V5 | **Intelligence layer integration** | AI agents as first-class participants in the development process. The cognitive dashboard is step one. Next: agents that can propose facts, review proposals, vouch for correctness. | Exploratory |
-| V6 | **Trust lattice** | Vouching with degrees (Reviewed, Tested, Verified, Critical). Trust-ranked search. Capability-based discovery. The social infrastructure for verified code. | Medium |
-| V7 | **Type-level function reduction** | Proof steps that unfold function definitions. Arithmetic induction with Peano encoding. Full normalization-by-evaluation for type-level terms. | Medium-Large |
-
-**Exit criterion**: A team of developers (human + AI) collaborates on a Codex project
-using the repository protocol, with proofs verified on import and trust tracked across
-contributors.
+| # | Task | Status | What |
+|---|------|--------|------|
+| V1 | **Views** | ⬜ | First-class consistent selections of facts. |
+| V2 | **The Narration layer** | ⬜ | Prose-aware compilation where English text is load-bearing. |
+| V3 | **Repository federation** | ⬜ | Multi-repository sync, cross-repo trust. |
+| V4 | **Proof-carrying packages** | ⬜ | Every fact carries its proofs. Verified on import. |
+| V5 | **Intelligence layer** | ⬜ | AI agents as first-class participants. Dashboard is step one. |
+| V6 | **Trust lattice** | ⬜ | Vouching with degrees, trust-ranked search. |
+| V7 | **Type-level function reduction** | ⬜ | Proof steps that unfold function definitions. |
 
 ---
 
 ## Recommended Sequence
 
-The horizons are not strictly sequential — work can happen in parallel. But the
-dependencies suggest a natural flow:
-
 ```
-Now ──→ L1 (user effects) + L2 (modules) ──→ L3 (prelude) ──→ L4-L7 (polish)
+Now ──→ L1 Phase 2 (handlers) + L6 (REPL) ──→ L2 (modules) ──→ L3 (prelude) ──→ L4 (do-notation)
                     │
-                    ├──→ R1 (IL generics) ──→ R6 (native bootstrap)
+                    ├──→ R5 (build system) ──→ R6 (native bootstrap)
                     │
-                    └──→ R2 (stdlib) + R3 (FFI) ──→ R4 (packages) + R5 (build)
+                    └──→ R2 (stdlib) + R3 (FFI) ──→ R4 (packages)
                                                           │
                                                           └──→ V1-V7 (the vision)
 ```
 
-**Immediate next session**: L1 (user-defined effects) or L2 (module system) — both
-unblock the prelude (L3), which unblocks everything else.
+**Current parallel work**:
+- Linux agent: L1 Phase 2 (effect handlers with resume)
+- Windows agent: L6 (REPL) — orthogonal, small, high-value
 
 ---
 
 ## Process Notes
 
-- **Agent workflow**: Dual-agent mutual review via branch workflow. See `.github/agent-rules/`.
-- **Cognitive load**: Use `tools/codexdashboard.sh` (Linux) or `tools/codex-dashboard.ps1`
-  (Windows) at session start. The hot-path files are 237% of context budget — work on
-  one pipeline stage at a time.
+- **Agent toolkit**: `tools/agent/` — `peek`, `fstat`, `sdiff`, `trun`, `gstat`. Use these instead of unreliable built-in tools.
+- **Cognitive load**: Use `tools/codex-dashboard.ps1` (Windows) or `tools/codexdashboard.sh` (Linux) at session start.
 - **Dates**: Always `checkdate()` before writing dates. Never trust training data.
 - **Commits**: Working branches (`windows/<topic>`, `linux/<topic>`), review before merge.
 
 ---
 
 ## Archived Documents
-
-The following documents are superseded by this plan and archived in `docs/OldStatus/`:
-
-| Document | Status |
-|----------|--------|
-| `FORWARD-PLAN.md` | Superseded. Stale bootstrap numbers. |
-| `PostFixedPointCleanUp.md` | Audited and closed. See `PostFixedPointCleanUp-AUDIT.md`. |
-| `ITERATION-*-HANDOFF.md` (1–11) | Historical record. Date corrections applied. |
-| `HANDOFF-BOOTSTRAP-FIXEDPOINT.md` | Complete. Fixed point achieved. |
-| `HANDOFF-TYPED-LOWERING.md` | Complete. |
-| `DECISIONS.md` | Still active — append new decisions here. |
-| `REFLECTIONS.md` | Historical. |
