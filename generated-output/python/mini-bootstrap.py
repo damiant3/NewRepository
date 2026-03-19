@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from typing import Any
 
 @dataclass(frozen=True)
+class Point:
+    x: Any = None
+    y: Any = None
+
+@dataclass(frozen=True)
 class Red:
     tag: str = "Red"
 
@@ -14,11 +19,6 @@ class Green:
 class Blue:
     field0: Any = None
     tag: str = "Blue"
-
-@dataclass(frozen=True)
-class Point:
-    x: Any = None
-    y: Any = None
 
 def show_color(c):
     return (lambda _s: ("red" if isinstance(_s, Red) else ("green" if isinstance(_s, Green) else ((lambda n: "blue")(_s.field0) if isinstance(_s, Blue) else (_ for _ in ()).throw(Exception("Non-exhaustive match"))))))(c)
