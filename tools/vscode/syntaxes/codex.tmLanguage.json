@@ -1,113 +1,175 @@
 {
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Codex",
   "scopeName": "source.codex",
+  "fileTypes": [".codex"],
   "patterns": [
-    { "include": "#chapter-header" },
-    { "include": "#section-header" },
-    { "include": "#comment" },
-    { "include": "#string" },
-    { "include": "#number" },
-    { "include": "#type-annotation" },
-    { "include": "#keyword" },
-    { "include": "#proof-keyword" },
-    { "include": "#boolean" },
-    { "include": "#type-name" },
-    { "include": "#operator" },
-    { "include": "#punctuation" },
-    { "include": "#wildcard" },
-    { "include": "#function-def" },
-    { "include": "#identifier" }
+    { "include": "#prose-headers" },
+    { "include": "#type-signatures" },
+    { "include": "#annotations" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#proof-keywords" },
+    { "include": "#effect-brackets" },
+    { "include": "#operators" },
+    { "include": "#boolean-constants" },
+    { "include": "#types" },
+    { "include": "#function-definition" },
+    { "include": "#identifiers" }
   ],
   "repository": {
-    "chapter-header": {
-      "match": "^(Chapter)(:)\\s*(.*)",
-      "captures": {
-        "1": { "name": "markup.heading.1.codex keyword.control.codex" },
-        "2": { "name": "punctuation.separator.codex" },
-        "3": { "name": "markup.heading.1.codex entity.name.section.codex" }
-      }
-    },
-    "section-header": {
-      "match": "^(Section)(:)\\s*(.*)",
-      "captures": {
-        "1": { "name": "markup.heading.2.codex keyword.control.codex" },
-        "2": { "name": "punctuation.separator.codex" },
-        "3": { "name": "markup.heading.2.codex entity.name.section.codex" }
-      }
-    },
-    "comment": {
-      "match": "--.*$",
-      "name": "comment.line.double-dash.codex"
-    },
-    "string": {
-      "begin": "\"",
-      "end": "\"",
-      "name": "string.quoted.double.codex",
+    "prose-headers": {
       "patterns": [
         {
-          "match": "\\\\.",
-          "name": "constant.character.escape.codex"
+          "match": "^(Chapter|Section):\\s*(.*)$",
+          "captures": {
+            "1": { "name": "keyword.control.header.codex" },
+            "2": { "name": "markup.heading.codex" }
+          }
         }
       ]
     },
-    "number": {
-      "match": "\\b\\d[\\d_]*(\\.[\\d_]+)?\\b",
-      "name": "constant.numeric.codex"
+    "type-signatures": {
+      "patterns": [
+        {
+          "match": "^(\\s*)((?:[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*))(\\s*:)(\\s.+)$",
+          "captures": {
+            "2": { "name": "entity.name.function.codex" },
+            "3": { "name": "keyword.operator.type-annotation.codex" },
+            "4": {
+              "patterns": [
+                { "include": "#effect-brackets" },
+                { "include": "#types" },
+                { "include": "#operators" }
+              ]
+            }
+          }
+        }
+      ]
     },
-    "type-annotation": {
-      "comment": "name : Type -> Type  (type annotation line)",
-      "match": "^(\\s+)([a-z][a-zA-Z0-9_-]*)\\s+(:)\\s+(.+)$",
-      "captures": {
-        "2": { "name": "entity.name.function.codex" },
-        "3": { "name": "keyword.operator.type.codex" },
-        "4": {
+    "function-definition": {
+      "patterns": [
+        {
+          "match": "^(\\s*)((?:[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*))(\\s+\\(|\\s+=)",
+          "captures": {
+            "2": { "name": "entity.name.function.codex" }
+          }
+        }
+      ]
+    },
+    "annotations": {
+      "patterns": [
+        {
+          "match": "@[a-z][a-z0-9-]*",
+          "name": "entity.name.tag.annotation.codex"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "begin": "\"\"\"",
+          "end": "\"\"\"",
+          "name": "string.quoted.triple.codex",
           "patterns": [
-            { "include": "#type-name" },
-            { "include": "#keyword" },
-            { "include": "#operator" },
-            { "include": "#punctuation" },
-            { "include": "#identifier" }
+            {
+              "match": "\\\\.",
+              "name": "constant.character.escape.codex"
+            }
+          ]
+        },
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.codex",
+          "patterns": [
+            {
+              "match": "\\\\.",
+              "name": "constant.character.escape.codex"
+            }
           ]
         }
-      }
+      ]
     },
-    "keyword": {
-      "match": "\\b(if|then|else|let|in|when|where|do|record|import|export|linear|such-that)\\b",
-      "name": "keyword.control.codex"
+    "numbers": {
+      "patterns": [
+        {
+          "match": "\\b[0-9][0-9_]*(\\.[0-9][0-9_]*)?\\b",
+          "name": "constant.numeric.codex"
+        }
+      ]
     },
-    "proof-keyword": {
-      "match": "\\b(claim|proof|forall|exists|Refl|assume|sym|trans|cong|induction)\\b",
-      "name": "keyword.other.proof.codex"
+    "keywords": {
+      "patterns": [
+        {
+          "match": "\\b(let|in|if|then|else|when|where|such-that|do|record|import|export|linear)\\b",
+          "name": "keyword.control.codex"
+        }
+      ]
     },
-    "boolean": {
-      "match": "\\b(True|False)\\b",
-      "name": "constant.language.boolean.codex"
+    "proof-keywords": {
+      "patterns": [
+        {
+          "match": "\\b(claim|proof|forall|exists|induction|assume)\\b",
+          "name": "keyword.other.proof.codex"
+        }
+      ]
     },
-    "type-name": {
-      "match": "\\b[A-Z][a-zA-Z0-9]*\\b",
-      "name": "entity.name.type.codex"
+    "effect-brackets": {
+      "patterns": [
+        {
+          "match": "\\[([A-Z][A-Za-z0-9]*)\\]",
+          "captures": {
+            "0": { "name": "storage.type.effect.codex" },
+            "1": { "name": "entity.name.type.effect.codex" }
+          }
+        }
+      ]
     },
-    "operator": {
-      "match": "->|→|<-|←|::|\\+\\+|===|==|/=|<=|>=|⊗|⊢|∀|∃|[=:<>+\\-*/^&|]",
-      "name": "keyword.operator.codex"
+    "operators": {
+      "patterns": [
+        {
+          "match": "→|←|≡|≠|≤|≥|⊢|⊗|∀|∃",
+          "name": "keyword.operator.unicode.codex"
+        },
+        {
+          "match": "->|<-|===|/=|<=|>=|==|\\+\\+|::|\\|-|\\(\\*\\*\\)",
+          "name": "keyword.operator.ascii.codex"
+        },
+        {
+          "match": "\\|",
+          "name": "keyword.operator.pipe.codex"
+        },
+        {
+          "match": "[=+\\-*/^&<>]",
+          "name": "keyword.operator.codex"
+        }
+      ]
     },
-    "punctuation": {
-      "match": "[()\\[\\]{}.,]",
-      "name": "punctuation.codex"
+    "types": {
+      "patterns": [
+        {
+          "match": "\\b[A-Z][A-Za-z0-9]*\\b",
+          "name": "entity.name.type.codex"
+        }
+      ]
     },
-    "wildcard": {
-      "match": "\\b_\\b",
-      "name": "variable.language.wildcard.codex"
+    "boolean-constants": {
+      "patterns": [
+        {
+          "match": "\\b(True|False)\\b",
+          "name": "constant.language.boolean.codex"
+        }
+      ]
     },
-    "function-def": {
-      "comment": "name (param) (param) = body",
-      "match": "^(\\s+)([a-z][a-zA-Z0-9_-]*)(?=\\s+\\()",
-      "captures": {
-        "2": { "name": "entity.name.function.codex" }
-      }
-    },
-    "identifier": {
-      "match": "\\b[a-z][a-zA-Z0-9_-]*\\b",
-      "name": "variable.other.codex"
+    "identifiers": {
+      "patterns": [
+        {
+          "match": "\\b[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*\\b",
+          "name": "variable.other.codex"
+        }
+      ]
     }
   }
 }

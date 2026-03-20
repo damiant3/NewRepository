@@ -28,99 +28,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{A000
 		samples\type-checker-test.codex = samples\type-checker-test.codex
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A0000000-0000-0000-0000-000000000006}"
-	ProjectSection(SolutionItems) = preProject
-		docs\00-OVERVIEW.md = docs\00-OVERVIEW.md
-		docs\10-PRINCIPLES.md = docs\10-PRINCIPLES.md
-		docs\CurrentPlan.md = docs\CurrentPlan.md
-		docs\REFERENCE-COMPILER-LOCK.md = docs\REFERENCE-COMPILER-LOCK.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vision", "Vision", "{A0000000-0000-0000-0000-000000000009}"
-	ProjectSection(SolutionItems) = preProject
-		docs\Vision\IntelligenceLayer.txt = docs\Vision\IntelligenceLayer.txt
-		docs\Vision\NewRepository.txt = docs\Vision\NewRepository.txt
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OldStatus", "OldStatus", "{A0000000-0000-0000-0000-00000000000A}"
-	ProjectSection(SolutionItems) = preProject
-		docs\OldStatus\BOOTSTRAP-CONVERGENCE-PLAN.md = docs\OldStatus\BOOTSTRAP-CONVERGENCE-PLAN.md
-		docs\OldStatus\BOOTSTRAP-FIXEDPOINT-PLAN.md = docs\OldStatus\BOOTSTRAP-FIXEDPOINT-PLAN.md
-		docs\OldStatus\BOOTSTRAP-STATUS.md = docs\OldStatus\BOOTSTRAP-STATUS.md
-		docs\OldStatus\DECISIONS.md = docs\OldStatus\DECISIONS.md
-		docs\OldStatus\FORWARD-PLAN.md = docs\OldStatus\FORWARD-PLAN.md
-		docs\OldStatus\HANDOFF-BOOTSTRAP-FIXEDPOINT.md = docs\OldStatus\HANDOFF-BOOTSTRAP-FIXEDPOINT.md
-		docs\OldStatus\HANDOFF-STAGE1-OUTPUT.md = docs\OldStatus\HANDOFF-STAGE1-OUTPUT.md
-		docs\OldStatus\HANDOFF-TYPED-LOWERING.md = docs\OldStatus\HANDOFF-TYPED-LOWERING.md
-		docs\OldStatus\ITERATION-10-HANDOFF.md = docs\OldStatus\ITERATION-10-HANDOFF.md
-		docs\OldStatus\ITERATION-11-HANDOFF.md = docs\OldStatus\ITERATION-11-HANDOFF.md
-		docs\OldStatus\ITERATION-12-HANDOFF.md = docs\OldStatus\ITERATION-12-HANDOFF.md
-		docs\OldStatus\ITERATION-3-HANDOFF.md = docs\OldStatus\ITERATION-3-HANDOFF.md
-		docs\OldStatus\ITERATION-4-HANDOFF.md = docs\OldStatus\ITERATION-4-HANDOFF.md
-		docs\OldStatus\ITERATION-5-HANDOFF.md = docs\OldStatus\ITERATION-5-HANDOFF.md
-		docs\OldStatus\ITERATION-6-HANDOFF.md = docs\OldStatus\ITERATION-6-HANDOFF.md
-		docs\OldStatus\ITERATION-7-HANDOFF.md = docs\OldStatus\ITERATION-7-HANDOFF.md
-		docs\OldStatus\ITERATION-8-HANDOFF.md = docs\OldStatus\ITERATION-8-HANDOFF.md
-		docs\OldStatus\ITERATION-9-HANDOFF.md = docs\OldStatus\ITERATION-9-HANDOFF.md
-		docs\OldStatus\M13-BOOTSTRAP-PLAN.md = docs\OldStatus\M13-BOOTSTRAP-PLAN.md
-		docs\OldStatus\PostFixedPointCleanUp.md = docs\OldStatus\PostFixedPointCleanUp.md
-		docs\OldStatus\REFLECTIONS.md = docs\OldStatus\REFLECTIONS.md
-		docs\OldStatus\Reflections2.md = docs\OldStatus\Reflections2.md
-		docs\OldStatus\WINDOWS-REVIEW-HANDOFF.md = docs\OldStatus\WINDOWS-REVIEW-HANDOFF.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MM1", "MM1", "{A0000000-0000-0000-0000-00000000000B}"
-	ProjectSection(SolutionItems) = preProject
-		docs\MM1\00-OVERVIEW.md = docs\MM1\00-OVERVIEW.md
-		docs\MM1\01-ARCHITECTURE.md = docs\MM1\01-ARCHITECTURE.md
-		docs\MM1\02-LANGUAGE-DESIGN.md = docs\MM1\02-LANGUAGE-DESIGN.md
-		docs\MM1\03-TYPE-SYSTEM.md = docs\MM1\03-TYPE-SYSTEM.md
-		docs\MM1\04-COMPILER-PIPELINE.md = docs\MM1\04-COMPILER-PIPELINE.md
-		docs\MM1\05-REPOSITORY-MODEL.md = docs\MM1\05-REPOSITORY-MODEL.md
-		docs\MM1\06-ENVIRONMENT.md = docs\MM1\06-ENVIRONMENT.md
-		docs\MM1\07-TRANSPILATION.md = docs\MM1\07-TRANSPILATION.md
-		docs\MM1\08-MILESTONES.md = docs\MM1\08-MILESTONES.md
-		docs\MM1\09-RISKS.md = docs\MM1\09-RISKS.md
-		docs\MM1\10-PRINCIPLES.md = docs\MM1\10-PRINCIPLES.md
-		docs\MM1\GLOSSARY.md = docs\MM1\GLOSSARY.md
-		docs\MM1\README.md = docs\MM1\README.md
-		docs\MM1\PreviouslyCurrentPlan.md = docs\MM1\PreviouslyCurrentPlan.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Stories", "Stories", "{A0000000-0000-0000-0000-00000000000C}"
-	ProjectSection(SolutionItems) = preProject
-		docs\Stories\2bFixConfirm.txt = docs\Stories\2bFixConfirm.txt
-		docs\Stories\2bFixConfirm2.txt = docs\Stories\2bFixConfirm2.txt
-		docs\Stories\2bRootCause.txt = docs\Stories\2bRootCause.txt
-		docs\Stories\DATE-AUDIT.md = docs\Stories\DATE-AUDIT.md
-		docs\Stories\Opus.md = docs\Stories\Opus.md
-		docs\Stories\parser.txt = docs\Stories\parser.txt
-		docs\Stories\PostFixedPointCleanUp-AUDIT.md = docs\Stories\PostFixedPointCleanUp-AUDIT.md
-		docs\Stories\REVIEW-NITS.md = docs\Stories\REVIEW-NITS.md
-		docs\Stories\SelfHost.md = docs\Stories\SelfHost.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "User", "User", "{A0000000-0000-0000-0000-00000000000D}"
-	ProjectSection(SolutionItems) = preProject
-		docs\User\VSCODE-SETUP.md = docs\User\VSCODE-SETUP.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codex", "codex", "{F0000000-0000-0000-0000-000000000001}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{F0000000-0000-0000-0000-000000000002}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Syntax", "Syntax", "{F0000000-0000-0000-0000-000000000003}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ast", "Ast", "{F0000000-0000-0000-0000-000000000004}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Semantics", "Semantics", "{F0000000-0000-0000-0000-000000000005}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Types", "Types", "{F0000000-0000-0000-0000-000000000006}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "IR", "IR", "{F0000000-0000-0000-0000-000000000007}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Emit", "Emit", "{F0000000-0000-0000-0000-000000000008}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Core", "src\Codex.Core\Codex.Core.csproj", "{B1000000-0000-0000-0000-000000000001}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Syntax", "src\Codex.Syntax\Codex.Syntax.csproj", "{B1000000-0000-0000-0000-000000000002}"
@@ -169,8 +76,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.IL", "src\Codex.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Cli", "tools\Codex.Cli\Codex.Cli.csproj", "{C1000000-0000-0000-0000-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.VsExtension", "tools\Codex.VsExtension\Codex.VsExtension.csproj", "{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Bootstrap", "tools\Codex.Bootstrap\Codex.Bootstrap.csproj", "{22945126-2CA6-6E15-B2C6-F2A387131518}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Codex", "Codex.Codex\Codex.Codex.csproj", "{E64958B8-1790-4757-BDC7-4F119888469F}"
@@ -201,25 +106,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ForFun", "ForFun", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
-	ProjectSection(SolutionItems) = preProject
-		docs\ForFun\Clarifier.txt = docs\ForFun\Clarifier.txt
-		docs\ForFun\CompilableLaws.txt = docs\ForFun\CompilableLaws.txt
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "vscode", "vscode", "{E693D3C3-4C1F-4A96-ADA4-3FF981952E10}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Designs", "Designs", "{0AA77BFE-C701-40FA-BF8C-5D9934C77802}"
-	ProjectSection(SolutionItems) = preProject
-		docs\Designs\CCE-DESIGN.md = docs\Designs\CCE-DESIGN.md
-		docs\Designs\HAMT-DESIGN.md = docs\Designs\HAMT-DESIGN.md
-		docs\Designs\PerformanceReportAndRecommendation.md = docs\Designs\PerformanceReportAndRecommendation.md
-		docs\Designs\ProseGrammarProposal.md = docs\Designs\ProseGrammarProposal.md
-		docs\Designs\REPL.md = docs\Designs\REPL.md
-		docs\Designs\STDLIB-AND-CONCURRENCY.md = docs\Designs\STDLIB-AND-CONCURRENCY.md
-	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Mcp", "tools\Codex.Mcp\Codex.Mcp.csproj", "{EF92DF72-42E8-49B2-95C9-F75AF9833E27}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Mcp", "tools\Codex.Mcp\Codex.Mcp.csproj", "{0F179B4B-59D7-4C87-B5BD-01682A999332}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -519,18 +408,6 @@ Global
 		{C1000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{C1000000-0000-0000-0000-000000000001}.Release|x86.ActiveCfg = Release|Any CPU
 		{C1000000-0000-0000-0000-000000000001}.Release|x86.Build.0 = Release|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|x64.Build.0 = Debug|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Debug|x86.Build.0 = Debug|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|x64.ActiveCfg = Release|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|x64.Build.0 = Release|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|x86.ActiveCfg = Release|Any CPU
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30}.Release|x86.Build.0 = Release|Any CPU
 		{22945126-2CA6-6E15-B2C6-F2A387131518}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{22945126-2CA6-6E15-B2C6-F2A387131518}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{22945126-2CA6-6E15-B2C6-F2A387131518}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -639,35 +516,23 @@ Global
 		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|x64.Build.0 = Release|Any CPU
 		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|x86.ActiveCfg = Release|Any CPU
 		{176BA98E-C341-4503-B743-1982DB4236C4}.Release|x86.Build.0 = Release|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Debug|x64.Build.0 = Debug|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Debug|x86.Build.0 = Debug|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|x64.ActiveCfg = Release|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|x64.Build.0 = Release|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|x86.ActiveCfg = Release|Any CPU
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|x86.Build.0 = Release|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Debug|x64.Build.0 = Debug|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Debug|x86.Build.0 = Debug|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Release|x64.ActiveCfg = Release|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Release|x64.Build.0 = Release|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Release|x86.ActiveCfg = Release|Any CPU
+		{0F179B4B-59D7-4C87-B5BD-01682A999332}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{A0000000-0000-0000-0000-000000000009} = {A0000000-0000-0000-0000-000000000006}
-		{A0000000-0000-0000-0000-00000000000A} = {A0000000-0000-0000-0000-000000000006}
-		{A0000000-0000-0000-0000-00000000000B} = {A0000000-0000-0000-0000-000000000006}
-		{A0000000-0000-0000-0000-00000000000C} = {A0000000-0000-0000-0000-000000000006}
-		{A0000000-0000-0000-0000-00000000000D} = {A0000000-0000-0000-0000-000000000006}
-		{F0000000-0000-0000-0000-000000000002} = {F0000000-0000-0000-0000-000000000001}
-		{F0000000-0000-0000-0000-000000000003} = {F0000000-0000-0000-0000-000000000001}
-		{F0000000-0000-0000-0000-000000000004} = {F0000000-0000-0000-0000-000000000001}
-		{F0000000-0000-0000-0000-000000000005} = {F0000000-0000-0000-0000-000000000001}
-		{F0000000-0000-0000-0000-000000000006} = {F0000000-0000-0000-0000-000000000001}
-		{F0000000-0000-0000-0000-000000000007} = {F0000000-0000-0000-0000-000000000001}
-		{F0000000-0000-0000-0000-000000000008} = {F0000000-0000-0000-0000-000000000001}
 		{B1000000-0000-0000-0000-000000000001} = {A0000000-0000-0000-0000-000000000001}
 		{B1000000-0000-0000-0000-000000000002} = {A0000000-0000-0000-0000-000000000001}
 		{B1000000-0000-0000-0000-000000000003} = {A0000000-0000-0000-0000-000000000001}
@@ -692,7 +557,6 @@ Global
 		{8B16F91F-D010-433A-AF36-D740B3192D71} = {A0000000-0000-0000-0000-000000000001}
 		{B1D4509F-0F25-49DF-93BF-31E8226B831A} = {A0000000-0000-0000-0000-000000000001}
 		{C1000000-0000-0000-0000-000000000001} = {A0000000-0000-0000-0000-000000000003}
-		{D2A8BA59-7275-4D3A-A7BE-40F566D37F30} = {A0000000-0000-0000-0000-000000000003}
 		{22945126-2CA6-6E15-B2C6-F2A387131518} = {A0000000-0000-0000-0000-000000000003}
 		{D1000000-0000-0000-0000-000000000001} = {A0000000-0000-0000-0000-000000000002}
 		{D1000000-0000-0000-0000-000000000002} = {A0000000-0000-0000-0000-000000000002}
@@ -701,10 +565,8 @@ Global
 		{8AA30FCE-8396-4A86-B82C-D9B9A894DEE6} = {A0000000-0000-0000-0000-000000000002}
 		{0EE1DF46-B772-4374-84EE-859DAE4DF5C3} = {A0000000-0000-0000-0000-000000000002}
 		{176BA98E-C341-4503-B743-1982DB4236C4} = {A0000000-0000-0000-0000-000000000002}
-		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {A0000000-0000-0000-0000-000000000006}
 		{E693D3C3-4C1F-4A96-ADA4-3FF981952E10} = {A0000000-0000-0000-0000-000000000003}
-		{0AA77BFE-C701-40FA-BF8C-5D9934C77802} = {A0000000-0000-0000-0000-000000000006}
-		{EF92DF72-42E8-49B2-95C9-F75AF9833E27} = {A0000000-0000-0000-0000-000000000003}
+		{0F179B4B-59D7-4C87-B5BD-01682A999332} = {A0000000-0000-0000-0000-000000000003}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}

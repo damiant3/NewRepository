@@ -1,5 +1,6 @@
 // Codex Language Registration for Visual Studio 2022
-// This pkgdef registers .codex files with the TextMate grammar engine.
+// Registers .codex files with the TextMate grammar engine for syntax highlighting.
+// Project template is installed separately via the user templates folder.
 
 // Register the .codex file extension
 [$RootKey$\Languages\File Extensions\.codex]

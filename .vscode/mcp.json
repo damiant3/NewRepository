@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "codex": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/tools/Codex.Mcp/Codex.Mcp.csproj",
+        "--no-build"
+      ]
+    }
+  }
+}

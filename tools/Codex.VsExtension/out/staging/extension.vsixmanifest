@@ -3,11 +3,11 @@
                  xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
     <Identity Id="CodexLanguage.a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-              Version="0.1.0"
+              Version="0.2.0"
               Language="en-US"
               Publisher="Codex" />
     <DisplayName>Codex Language Support</DisplayName>
-    <Description xml:space="preserve">Syntax highlighting, file icons, and bracket matching for the Codex programming language (.codex files).</Description>
+    <Description xml:space="preserve">Syntax highlighting for the Codex programming language (.codex files). Pair with install-vs.ps1 for project templates and Build menu integration.</Description>
     <Tags>codex, programming language, syntax highlighting</Tags>
   </Metadata>
   <Installation>

@@ -15,7 +15,7 @@ The LSP server is a .NET executable. Check if it is already installed:
 dotnet --version
 ```
 If the output is `8.x.x` or higher you are fine. Otherwise download it from
-https://dotnet.microsoft.com/download/dotnet/8.0
+https://dot.net.microsoft.com/download/dotnet/8.0
 
 ### 2. Node.js (LTS)
 The extension build step uses `npm`. Check:
@@ -32,11 +32,11 @@ Download from https://code.visualstudio.com if you do not have it.
 
 ## One-time setup: build the extension
 
-The VS Code extension lives in `editors\vscode` **inside the repo root** (not in any project `bin` folder).
+The VS Code extension lives in `tools\vscode` **inside the repo root** (not in any project `bin` folder).
 Open a terminal at the repo root and run:
 
 ```
-cd editors\vscode
+cd tools\vscode
 npm install
 npm run compile
 ```
@@ -58,19 +58,19 @@ directly in "development mode", which is what we do here.
 2. Press `Ctrl+Shift+P` to open the Command Palette.
 3. Type **"Extensions: Install from VSIX..."** — but do **not** click that yet.
    Instead, type **"Developer: Install Extension from Location..."** and press Enter.
-4. Browse to `editors\vscode` inside the repo root and click **Select Folder**.
+4. Browse to `tools\vscode` inside the repo root and click **Select Folder**.
 5. VS Code will ask you to reload — click **Reload**.
 
 After reloading, open any `.codex` file. You should see syntax highlighting immediately.
 
 > **Tip:** You can also open the repo root as a workspace folder (`File → Open Folder`) and
-> VS Code will automatically find the extension via the `editors/vscode` folder if you add
+> VS Code will automatically find the extension via the `tools/vscode` folder if you add
 > it to your workspace.
 
 ### Option B — Package and install (more permanent)
 
 ```
-cd editors\vscode
+cd tools\vscode
 npm install -g @vscode/vsce      # install the VS Code packaging tool once
 vsce package                     # creates codex-lang-0.1.0.vsix
 ```
@@ -148,3 +148,14 @@ The most common cause is the solution has not been built — run `dotnet build C
 **I get an error about a missing project file.**
 Make sure you opened the repo root folder in VS Code (`File → Open Folder → NewRepository`),
 not a subfolder. The extension finds the server project relative to the workspace root.
+
+---
+
+## MCP Server (AI Tool Integration)
+
+This workspace also includes a **Codex MCP server** that exposes the compiler pipeline
+as tools for AI agents (Claude Desktop, GitHub Copilot, etc.). The workspace already
+ships a `.vscode/mcp.json` that registers the server automatically.
+
+For full setup instructions — including Claude Desktop configuration — see
+[MCP-SETUP.md](MCP-SETUP.md).
