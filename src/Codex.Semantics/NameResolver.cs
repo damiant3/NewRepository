@@ -25,7 +25,7 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
         "char-at", "text-length", "substring",
         "is-letter", "is-digit", "is-whitespace",
         "text-to-integer", "integer-to-text", "text-replace",
-        "char-code", "code-to-char",
+        "char-code", "char-code-at", "code-to-char",
         "list-length", "list-at",
         "map",
         "get-state", "set-state", "run-state"
