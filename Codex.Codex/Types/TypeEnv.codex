@@ -78,4 +78,5 @@ Section: Builtins
    in let e19 = env-bind e18 "filter" (ForAllTy 0 (FunTy (FunTy (TypeVar 0) BooleanTy) (FunTy (ListTy (TypeVar 0)) (ListTy (TypeVar 0)))))
    in let e20 = env-bind e19 "fold" (ForAllTy 0 (ForAllTy 1 (FunTy (FunTy (TypeVar 1) (FunTy (TypeVar 0) (TypeVar 1))) (FunTy (TypeVar 1) (FunTy (ListTy (TypeVar 0)) (TypeVar 1))))))
    in let e21 = env-bind e20 "read-line" TextTy
-   in e21
+   in let e22 = env-bind e21 "read-file" (FunTy TextTy TextTy)
+   in e22

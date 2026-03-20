@@ -36,7 +36,7 @@ Section: Built-in Names
   builtin-names : List Text
   builtin-names =
    [ "show", "negate", "True", "False", "Nothing",
-    "print-line", "read-line",
+    "print-line", "read-line", "read-file",
     "open-file", "read-all", "close-file",
     "char-at", "text-length", "substring",
     "is-letter", "is-digit", "is-whitespace",

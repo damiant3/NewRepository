@@ -170,6 +170,12 @@ public sealed partial class CSharpEmitter
             EmitExpr(sb, app.Argument, indent);
             sb.Append(".Dispose()");
         }
+        else if (app.Function is IRName fn6b && fn6b.Name == "read-file")
+        {
+            sb.Append("File.ReadAllText(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(')');
+        }
         else if (app.Function is IRName fn7 && fn7.Name == "text-length")
         {
             sb.Append("((long)");

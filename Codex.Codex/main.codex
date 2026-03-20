@@ -1,7 +1,7 @@
 Chapter: Main
 
- Entry point for the Codex compiler. Reads source, runs the pipeline,
- and writes the C# output.
+ Entry point for the Codex compiler. Reads a source file path from stdin,
+ compiles the source, and writes the C# output.
 
 Section: Pipeline
 
@@ -41,9 +41,8 @@ Section: Pipeline with Name Resolution
 
 Section: Entry Point
 
-  test-source : Text
-  test-source = "square : Integer -> Integer\nsquare (x) = x * x\nmain = square 5"
-
-  main : [Console] Nothing
+  main : [Console, FileSystem] Nothing
   main = do
-   print-line (compile test-source "test")
+   path <- read-line
+   source <- read-file path
+   print-line (compile source "Program")

@@ -1,6 +1,6 @@
 # Current Plan
 
-**Date**: 2026-03-19 (verified via system clock)
+**Date**: 2026-03-20 (verified via system clock)
 
 ---
 
@@ -19,10 +19,38 @@ in `docs/MM1/`.
 | Self-hosted compiler | 26 files, ~4,900 lines |
 | Prelude | 11 modules, ~1,200 lines |
 | Backends | 12 |
-| Tests | 843 passing, 2 skipped |
+| Tests | 854 passing, 2 skipped |
 | Type debt | 0 |
-| Fixed point | Proven |
-| Reference compiler | 🔒 Locked |
+| Fixed point | Broken (re-verify needed after P1/P2 changes) |
+| Reference compiler | 🔒 Locked (with `read-file` builtin override) |
+
+---
+
+## Completed Work
+
+### P1 — Self-Hosted Builtin Expansion ✅
+
+**Completed.** All 22 builtins are now inlined by the self-hosted emitter. `read-line`
+was the last gap; added in the linux/p1-read-line branch.
+
+### P2 — File Input & Stage 1 Verification ✅
+
+**Completed.** The self-hosted compiler now accepts file input:
+
+```
+echo path/to/file.codex | dotnet run --project Codex.Codex
+```
+
+Changes:
+- Added `read-file : Text -> [FileSystem] Text` builtin to the reference compiler
+  (override of lock — authorized by user). Emits `File.ReadAllText(path)`.
+- Updated `main.codex` to read a file path from stdin, read the file, compile it,
+  and print the C# output.
+- Fixed `emit-do` in the self-hosted emitter: `NothingTy`/`VoidTy` do-blocks now
+  emit `Func<object>` with `return null;` instead of `Action` (which returns `void`
+  and isn't assignable to `object`).
+- Verified: `samples/stage1-test.codex` compiles through Stage 1 and the output
+  runs correctly, printing `Hello, Codex!` and `49`.
 
 ---
 
