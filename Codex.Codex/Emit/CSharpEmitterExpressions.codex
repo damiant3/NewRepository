@@ -181,6 +181,7 @@ Section: Apply Chain
    else if n == "read-all" then True
    else if n == "close-file" then True
    else if n == "read-line" then True
+   else if n == "read-file" then True
    else False
 
   emit-builtin : Text -> List IRExpr -> List ArityEntry -> Text
@@ -206,6 +207,7 @@ Section: Apply Chain
    else if n == "read-all" then "new System.IO.StreamReader(" ++ emit-expr (list-at args 0) arities ++ ").ReadToEnd()"
    else if n == "close-file" then emit-expr (list-at args 0) arities ++ ".Dispose()"
    else if n == "read-line" then "Console.ReadLine()"
+   else if n == "read-file" then "File.ReadAllText(" ++ emit-expr (list-at args 0) arities ++ ")"
    else ""
 
   emit-apply : IRExpr -> List ArityEntry -> Text
@@ -382,9 +384,9 @@ Section: Expression Emission
    let ret-type = cs-type ty
    in let len = list-length stmts
    in when ty
-    if VoidTy -> "((Action)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " }))()"
-    if NothingTy -> "((Action)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " }))()"
-    if ErrorTy -> "((Action)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " }))()"
+    if VoidTy -> "((Func<object>)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " return null; }))()"
+    if NothingTy -> "((Func<object>)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " return null; }))()"
+    if ErrorTy -> "((Func<object>)(() => { " ++ emit-do-stmts stmts 0 len False arities ++ " return null; }))()"
     if _ -> if len == 0 then "((Func<" ++ ret-type ++ ">)(() => { return null; }))()"
      else "((Func<" ++ ret-type ++ ">)(() => { " ++ emit-do-stmts stmts 0 len True arities ++ " }))()"
 

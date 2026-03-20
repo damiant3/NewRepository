@@ -633,6 +633,11 @@ public sealed class Lowering(
             NothingType.s_instance);
         map = map.Set("close-file", new FunctionType(fileHandle, fsNothing));
 
+        EffectfulType fsText = new(
+            [new EffectType(new Name("FileSystem"))],
+            TextType.s_instance);
+        map = map.Set("read-file", new FunctionType(TextType.s_instance, fsText));
+
         map = map.Set("char-at", new FunctionType(TextType.s_instance,
             new FunctionType(IntegerType.s_instance, TextType.s_instance)));
         map = map.Set("text-length", new FunctionType(TextType.s_instance, IntegerType.s_instance));

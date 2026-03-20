@@ -21,7 +21,7 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
     static readonly Set<string> s_builtins = Set<string>.Of(
         "show", "negate", "True", "False", "Nothing",
         "print-line", "read-line",
-        "open-file", "read-all", "close-file",
+        "open-file", "read-all", "close-file", "read-file",
         "char-at", "text-length", "substring",
         "is-letter", "is-digit", "is-whitespace",
         "text-to-integer", "integer-to-text", "text-replace",

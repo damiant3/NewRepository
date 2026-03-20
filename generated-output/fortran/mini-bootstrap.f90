@@ -4,11 +4,6 @@
 module codex_mini_bootstrap
   implicit none
 
-  type :: Point
-    integer(8) :: x
-    integer(8) :: y
-  end type Point
-
   ! Sum type: Color
   ! Tag constants:
   integer, parameter :: TAG_Red = 1
@@ -19,6 +14,11 @@ module codex_mini_bootstrap
     integer :: tag
     integer(8) :: field0
   end type Color
+
+  type :: Point
+    integer(8) :: x
+    integer(8) :: y
+  end type Point
 
 contains
 

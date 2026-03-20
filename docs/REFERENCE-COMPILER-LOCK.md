@@ -108,3 +108,24 @@ type checking, or any existing behavior. No existing tests are affected (836 pas
 
 **Impact**: Enables the self-hosted lexer to use integer character codes on the hot path,
 eliminating per-character string allocation. Projected: lexer 800× → ~5×, overall 28× → ~4×.
+
+### Override 2: `read-file` builtin (2026-03-20)
+
+**Authorized by**: User (project owner)
+**Agent**: Copilot (VS 2022, Windows)
+**Justification**: The self-hosted compiler needed to read source files from disk.
+The existing `open-file`/`read-all`/`close-file` builtins use linear `FileHandle` types
+and return `Pair Text FileHandle`, which the self-hosted type checker doesn't model.
+A clean `Text -> Text` builtin is the right abstraction for "read a file."
+
+**Change**: Added `read-file : Text -> [FileSystem] Text` as a new builtin.
+Emits `File.ReadAllText(path)`.
+
+**Files modified** (4 files, ~10 lines total):
+- `src/Codex.Types/TypeEnvironment.cs` — type binding
+- `src/Codex.IR/Lowering.cs` — builtin type map
+- `src/Codex.Emit.CSharp/CSharpEmitter.Expressions.cs` — emission rule
+- `src/Codex.Semantics/NameResolver.cs` — builtin name set
+
+**Scope**: New builtin, not a language feature. No parsing, type checking, or existing
+behavior changes. All 854 tests passing.

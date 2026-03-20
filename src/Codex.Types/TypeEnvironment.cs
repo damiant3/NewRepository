@@ -59,6 +59,11 @@ public sealed class TypeEnvironment
             NothingType.s_instance);
         env = env.Bind("close-file", new FunctionType(fileHandle, fsNothing));
 
+        EffectfulType fsText = new(
+            [new EffectType(new Name("FileSystem"))],
+            TextType.s_instance);
+        env = env.Bind("read-file", new FunctionType(TextType.s_instance, fsText));
+
         env = env.Bind("char-at", new FunctionType(TextType.s_instance,
             new FunctionType(IntegerType.s_instance, TextType.s_instance)));
         env = env.Bind("text-length", new FunctionType(TextType.s_instance, IntegerType.s_instance));
