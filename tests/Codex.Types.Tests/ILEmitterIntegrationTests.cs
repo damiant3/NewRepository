@@ -383,6 +383,104 @@ public class ILEmitterIntegrationTests
         Assert.Equal("50", output.Trim());
     }
 
+    [Fact]
+    public void Show_integer_exe_runs_correctly()
+    {
+        string source = """
+            main : Text
+            main = show 42
+            """;
+        string? output = CompileAndRun(source, "show_int_run");
+        Assert.NotNull(output);
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Show_boolean_exe_runs_correctly()
+    {
+        string source = """
+            main : Text
+            main = show (1 == 1)
+            """;
+        string? output = CompileAndRun(source, "show_bool_run");
+        Assert.NotNull(output);
+        Assert.Equal("True", output.Trim());
+    }
+
+    [Fact]
+    public void Show_text_exe_runs_correctly()
+    {
+        string source = """
+            main : Text
+            main = show "hello"
+            """;
+        string? output = CompileAndRun(source, "show_text_run");
+        Assert.NotNull(output);
+        Assert.Equal("hello", output.Trim());
+    }
+
+    [Fact]
+    public void PrintLine_exe_runs_correctly()
+    {
+        string source = """
+            main : [Console] Nothing
+            main = print-line "Hello from IL!"
+            """;
+        string? output = CompileAndRun(source, "print_run");
+        Assert.NotNull(output);
+        Assert.Equal("Hello from IL!", output.Trim());
+    }
+
+    [Fact]
+    public void Do_block_exe_runs_correctly()
+    {
+        string source = """
+            main : [Console] Nothing
+            main = do
+              print-line "first"
+              print-line "second"
+            """;
+        string? output = CompileAndRun(source, "do_run");
+        Assert.NotNull(output);
+        Assert.Contains("first", output);
+        Assert.Contains("second", output);
+    }
+
+    [Fact]
+    public void Generic_sum_type_with_show_exe_runs_correctly()
+    {
+        string source = """
+            Result (a) =
+              | Success (a)
+              | Failure (Text)
+
+            safe-divide (x) (y) = if y == 0 then Failure "division by zero" else Success (x / y)
+
+            describe (result) = when result if Success (n) -> "got " ++ show n if Failure (msg) -> "error: " ++ msg
+
+            main : Text
+            main = describe (safe-divide 42 7)
+            """;
+        string? output = CompileAndRun(source, "generic_sum_run");
+        Assert.NotNull(output);
+        Assert.Equal("got 6", output.Trim());
+    }
+
+    [Fact]
+    public void Effectful_do_with_read_line_emits_il()
+    {
+        string source = """
+            main : [Console] Nothing
+            main = do
+              print-line "What is your name?"
+              name <- read-line
+              print-line ("Hello, " ++ name ++ "!")
+            """;
+        byte[]? bytes = Helpers.CompileToIL(source, "effectful_do");
+        Assert.NotNull(bytes);
+        Assert.True(bytes.Length > 0);
+    }
+
     // ── Helpers ────────────────────────────────────────────────
 
     static List<string> GetMethodNames(byte[] peBytes)

@@ -64,12 +64,14 @@ The `.codex` compiler now handles:
 | M1 | **Self-hosted import/module system** | ✅ Done | CST `ImportDecl`, parser `parse-imports`, AST `AImportDecl`, desugarer threading, `resolve-module-with-imports` for cross-file name resolution, `compile-with-imports` pipeline entry point. Bootstrap verified: 458 defs, 0 errors. |
 | R2 | **Standard library** | ✅ Done | 11 prelude modules (1,208 lines): Maybe, Result, Either, Pair, List, CCE (character encoding), Hamt (persistent map), StringBuilder, Set, Queue, TextSearch. Auto-discovered by `PackageResolver`. |
 | R4 | **Package management** | ✅ Done | `PackageResolver` with local cache, version constraints (`*`, exact, prefix, `>=`). CLI: `codex add/remove/pack/packages`. Lock files. Auto-prelude for non-prelude projects. |
+| E1 | **Exit criterion: real programs** | ✅ Done | `samples/word-freq/` — 3-file word frequency counter (139 lines). Multi-file build, cross-file defs, records, variants, pattern matching, effects, do-notation. Compiles and runs correctly via `codex build`. |
 
 ### Near Term: Make the Language Practical
 
 | # | Task | Status | What |
 |---|------|--------|------|
-| E1 | **Exit criterion: real programs** | 🔶 Next | `expr-calculator.codex` (10/10 PASS) proves the compiler works. Next: a multi-file project that exercises imports, prelude types, packages, and effects together. All infrastructure is now in place. |
+| E1 | **Exit criterion: real programs** | ✅ Done | `samples/word-freq/` — 3-file word frequency counter (139 lines). Multi-file build, cross-file defs, records, variants, pattern matching, effects, do-notation. Compiles and runs correctly via `codex build`. |
+| Perf-P1 | **Lexer zero-alloc optimization** | ✅ Done | Added `char-code-at` builtin (reference compiler lock override, user-authorized). Rewrote self-hosted lexer: `peek-char` (Text, alloc) → `peek-code` (Integer, zero-alloc). All character comparisons now integer ==. Projected: lexer 800× → ~5×, overall 28× → ~4×. |
 
 ### Medium Term: Library & Runtime
 

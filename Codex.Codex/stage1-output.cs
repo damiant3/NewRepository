@@ -1199,9 +1199,9 @@ public static class Codex_Codex_Codex
 
     public static string emit_partial_wrappers(long i, long count) => ((i == count) ? "" : ("(_p" + ((i).ToString() + ("_) => " + emit_partial_wrappers((i + 1), count)))));
 
-    public static bool is_builtin_name(string n) => ((n == "show") ? true : ((n == "negate") ? true : ((n == "print-line") ? true : ((n == "text-length") ? true : ((n == "is-letter") ? true : ((n == "is-digit") ? true : ((n == "is-whitespace") ? true : ((n == "text-to-integer") ? true : ((n == "integer-to-text") ? true : ((n == "char-code") ? true : ((n == "code-to-char") ? true : ((n == "list-length") ? true : ((n == "char-at") ? true : ((n == "substring") ? true : ((n == "list-at") ? true : ((n == "text-replace") ? true : ((n == "open-file") ? true : ((n == "read-all") ? true : ((n == "close-file") ? true : false)))))))))))))))))));
+    public static bool is_builtin_name(string n) => ((n == "show") ? true : ((n == "negate") ? true : ((n == "print-line") ? true : ((n == "text-length") ? true : ((n == "is-letter") ? true : ((n == "is-digit") ? true : ((n == "is-whitespace") ? true : ((n == "text-to-integer") ? true : ((n == "integer-to-text") ? true : ((n == "char-code") ? true : ((n == "char-code-at") ? true : ((n == "code-to-char") ? true : ((n == "list-length") ? true : ((n == "char-at") ? true : ((n == "substring") ? true : ((n == "list-at") ? true : ((n == "text-replace") ? true : ((n == "open-file") ? true : ((n == "read-all") ? true : ((n == "close-file") ? true : false))))))))))))))))))));
 
-    public static string emit_builtin(string n, List<IRExpr> args, List<ArityEntry> arities) => ((n == "show") ? ("Convert.ToString(" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "negate") ? ("(-" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "print-line") ? ("Console.WriteLine(" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "text-length") ? ("((long)" + (emit_expr(args[(int)0], arities) + ".Length)")) : ((n == "is-letter") ? ("(" + (emit_expr(args[(int)0], arities) + (".Length > 0 && char.IsLetter(" + (emit_expr(args[(int)0], arities) + "[0]))")))) : ((n == "is-digit") ? ("(" + (emit_expr(args[(int)0], arities) + (".Length > 0 && char.IsDigit(" + (emit_expr(args[(int)0], arities) + "[0]))")))) : ((n == "is-whitespace") ? ("(" + (emit_expr(args[(int)0], arities) + (".Length > 0 && char.IsWhiteSpace(" + (emit_expr(args[(int)0], arities) + "[0]))")))) : ((n == "text-to-integer") ? ("long.Parse(" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "integer-to-text") ? ("(" + (emit_expr(args[(int)0], arities) + ").ToString()")) : ((n == "char-code") ? ("((long)" + (emit_expr(args[(int)0], arities) + "[0])")) : ((n == "code-to-char") ? ("((char)" + (emit_expr(args[(int)0], arities) + ").ToString()")) : ((n == "list-length") ? ("((long)" + (emit_expr(args[(int)0], arities) + ".Count)")) : ((n == "char-at") ? (emit_expr(args[(int)0], arities) + ("[(int)" + (emit_expr(args[(int)1], arities) + "].ToString()"))) : ((n == "substring") ? (emit_expr(args[(int)0], arities) + (".Substring((int)" + (emit_expr(args[(int)1], arities) + (", (int)" + (emit_expr(args[(int)2], arities) + ")"))))) : ((n == "list-at") ? (emit_expr(args[(int)0], arities) + ("[(int)" + (emit_expr(args[(int)1], arities) + "]"))) : ((n == "text-replace") ? (emit_expr(args[(int)0], arities) + (".Replace(" + (emit_expr(args[(int)1], arities) + (", " + (emit_expr(args[(int)2], arities) + ")"))))) : ((n == "open-file") ? ("File.OpenRead(" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "read-all") ? ("new System.IO.StreamReader(" + (emit_expr(args[(int)0], arities) + ").ReadToEnd()")) : ((n == "close-file") ? (emit_expr(args[(int)0], arities) + ".Dispose()") : "")))))))))))))))))));
+    public static string emit_builtin(string n, List<IRExpr> args, List<ArityEntry> arities) => ((n == "show") ? ("Convert.ToString(" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "negate") ? ("(-" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "print-line") ? ("Console.WriteLine(" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "text-length") ? ("((long)" + (emit_expr(args[(int)0], arities) + ".Length)")) : ((n == "is-letter") ? ("(" + (emit_expr(args[(int)0], arities) + (".Length > 0 && char.IsLetter(" + (emit_expr(args[(int)0], arities) + "[0]))")))) : ((n == "is-digit") ? ("(" + (emit_expr(args[(int)0], arities) + (".Length > 0 && char.IsDigit(" + (emit_expr(args[(int)0], arities) + "[0]))")))) : ((n == "is-whitespace") ? ("(" + (emit_expr(args[(int)0], arities) + (".Length > 0 && char.IsWhiteSpace(" + (emit_expr(args[(int)0], arities) + "[0]))")))) : ((n == "text-to-integer") ? ("long.Parse(" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "integer-to-text") ? ("(" + (emit_expr(args[(int)0], arities) + ").ToString()")) : ((n == "char-code") ? ("((long)" + (emit_expr(args[(int)0], arities) + "[0])")) : ((n == "char-code-at") ? ("((long)" + (emit_expr(args[(int)0], arities) + ("[(int)" + (emit_expr(args[(int)1], arities) + "])")))) : ((n == "code-to-char") ? ("((char)" + (emit_expr(args[(int)0], arities) + ").ToString()")) : ((n == "list-length") ? ("((long)" + (emit_expr(args[(int)0], arities) + ".Count)")) : ((n == "char-at") ? (emit_expr(args[(int)0], arities) + ("[(int)" + (emit_expr(args[(int)1], arities) + "].ToString()"))) : ((n == "substring") ? (emit_expr(args[(int)0], arities) + (".Substring((int)" + (emit_expr(args[(int)1], arities) + (", (int)" + (emit_expr(args[(int)2], arities) + ")"))))) : ((n == "list-at") ? (emit_expr(args[(int)0], arities) + ("[(int)" + (emit_expr(args[(int)1], arities) + "]"))) : ((n == "text-replace") ? (emit_expr(args[(int)0], arities) + (".Replace(" + (emit_expr(args[(int)1], arities) + (", " + (emit_expr(args[(int)2], arities) + ")"))))) : ((n == "open-file") ? ("File.OpenRead(" + (emit_expr(args[(int)0], arities) + ")")) : ((n == "read-all") ? ("new System.IO.StreamReader(" + (emit_expr(args[(int)0], arities) + ").ReadToEnd()")) : ((n == "close-file") ? (emit_expr(args[(int)0], arities) + ".Dispose()") : ""))))))))))))))))))));
 
     public static string emit_apply(IRExpr e, List<ArityEntry> arities) => ((Func<ApplyChain, string>)((chain) => ((Func<IRExpr, string>)((root) => ((Func<List<IRExpr>, string>)((args) => root switch { IrName(var n, var ty) => (is_builtin_name(n) ? emit_builtin(n, args, arities) : (((((long)n.Length) > 0) && is_upper_letter(n[(int)0].ToString())) ? ((Func<CodexType, string>)((result_ty) => ((Func<string, string>)((ctor_type_args) => ("new " + (sanitize(n) + (ctor_type_args + ("(" + (emit_apply_args(args, arities, 0) + ")")))))))(extract_ctor_type_args(result_ty))))(ir_expr_type(e)) : ((Func<long, string>)((ar) => (((ar > 1) && (((long)args.Count) == ar)) ? (sanitize(n) + ("(" + (emit_apply_args(args, arities, 0) + ")"))) : (((ar > 1) && (((long)args.Count) < ar)) ? ((Func<long, string>)((remaining) => (emit_partial_wrappers(0, remaining) + (sanitize(n) + ("(" + (emit_apply_args(args, arities, 0) + (", " + (emit_partial_params(0, remaining) + ")"))))))))((ar - ((long)args.Count))) : emit_expr_curried(e, arities)))))(lookup_arity(arities, n)))), _ => emit_expr_curried(e, arities), }))(chain.args)))(chain.root)))(collect_apply_chain(e, new List<IRExpr>()));
 
@@ -1906,7 +1906,7 @@ public static class Codex_Codex_Codex
 
     public static Scope scope_add(Scope sc, string name) => new Scope(names: Enumerable.Concat(new List<string> { name }, sc.names).ToList());
 
-    public static List<string> builtin_names() => new List<string> { "show", "negate", "True", "False", "Nothing", "print-line", "read-line", "open-file", "read-all", "close-file", "char-at", "text-length", "substring", "is-letter", "is-digit", "is-whitespace", "text-to-integer", "integer-to-text", "text-replace", "char-code", "code-to-char", "list-length", "list-at", "map", "filter", "fold" };
+    public static List<string> builtin_names() => new List<string> { "show", "negate", "True", "False", "Nothing", "print-line", "read-line", "open-file", "read-all", "close-file", "char-at", "text-length", "substring", "is-letter", "is-digit", "is-whitespace", "text-to-integer", "integer-to-text", "text-replace", "char-code", "char-code-at", "code-to-char", "list-length", "list-at", "map", "filter", "fold" };
 
     public static bool is_type_name(string name) => ((((long)name.Length) == 0) ? false : ((name[(int)0].ToString().Length > 0 && char.IsLetter(name[(int)0].ToString()[0])) && is_upper_char(name[(int)0].ToString())));
 
@@ -2490,13 +2490,85 @@ public static class Codex_Codex_Codex
         }
     }
 
+    public static long cc_newline() => 10;
+
+    public static long cc_carriage_return() => 13;
+
+    public static long cc_space() => 32;
+
+    public static long cc_double_quote() => 34;
+
+    public static long cc_ampersand() => 38;
+
+    public static long cc_left_paren() => 40;
+
+    public static long cc_right_paren() => 41;
+
+    public static long cc_star() => 42;
+
+    public static long cc_plus() => 43;
+
+    public static long cc_comma() => 44;
+
+    public static long cc_minus() => 45;
+
+    public static long cc_dot() => 46;
+
+    public static long cc_slash() => 47;
+
+    public static long cc_zero() => 48;
+
+    public static long cc_nine() => 57;
+
+    public static long cc_colon() => 58;
+
+    public static long cc_less() => 60;
+
+    public static long cc_equals() => 61;
+
+    public static long cc_greater() => 62;
+
+    public static long cc_upper_a() => 65;
+
+    public static long cc_upper_z() => 90;
+
+    public static long cc_left_bracket() => 91;
+
+    public static long cc_backslash() => 92;
+
+    public static long cc_right_bracket() => 93;
+
+    public static long cc_caret() => 94;
+
+    public static long cc_underscore() => 95;
+
+    public static long cc_lower_a() => 97;
+
+    public static long cc_lower_n() => 110;
+
+    public static long cc_lower_r() => 114;
+
+    public static long cc_lower_t() => 116;
+
+    public static long cc_lower_z() => 122;
+
+    public static long cc_left_brace() => 123;
+
+    public static long cc_pipe() => 124;
+
+    public static long cc_right_brace() => 125;
+
+    public static bool is_letter_code(long c) => ((c >= cc_upper_a()) ? ((c <= cc_upper_z()) ? true : ((c >= cc_lower_a()) ? (c <= cc_lower_z()) : false)) : false);
+
+    public static bool is_digit_code(long c) => ((c >= cc_zero()) ? (c <= cc_nine()) : false);
+
     public static LexState make_lex_state(string src) => new LexState(source: src, offset: 0, line: 1, column: 1);
 
     public static bool is_at_end(LexState st) => (st.offset >= ((long)st.source.Length));
 
-    public static string peek_char(LexState st) => (is_at_end(st) ? "" : st.source[(int)st.offset].ToString());
+    public static long peek_code(LexState st) => (is_at_end(st) ? 0 : ((long)st.source[(int)st.offset]));
 
-    public static LexState advance_char(LexState st) => ((peek_char(st) == "\n") ? new LexState(source: st.source, offset: (st.offset + 1), line: (st.line + 1), column: 1) : new LexState(source: st.source, offset: (st.offset + 1), line: st.line, column: (st.column + 1)));
+    public static LexState advance_char(LexState st) => ((peek_code(st) == cc_newline()) ? new LexState(source: st.source, offset: (st.offset + 1), line: (st.line + 1), column: 1) : new LexState(source: st.source, offset: (st.offset + 1), line: st.line, column: (st.column + 1)));
 
     public static LexState skip_spaces(LexState st)
     {
@@ -2508,7 +2580,8 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((peek_char(st) == " "))
+            var c = peek_code(st);
+            if ((c == cc_space()))
             {
             var _tco_0 = advance_char(st);
             st = _tco_0;
@@ -2516,7 +2589,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((peek_char(st) == "\r"))
+            if ((c == cc_carriage_return()))
             {
             var _tco_0 = advance_char(st);
             st = _tco_0;
@@ -2541,8 +2614,8 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            var ch = peek_char(st);
-            if ((ch.Length > 0 && char.IsLetter(ch[0])))
+            var c = peek_code(st);
+            if (is_letter_code(c))
             {
             var _tco_0 = advance_char(st);
             st = _tco_0;
@@ -2550,7 +2623,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((ch.Length > 0 && char.IsDigit(ch[0])))
+            if (is_digit_code(c))
             {
             var _tco_0 = advance_char(st);
             st = _tco_0;
@@ -2558,7 +2631,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((ch == "_"))
+            if ((c == cc_underscore()))
             {
             var _tco_0 = advance_char(st);
             st = _tco_0;
@@ -2566,7 +2639,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((ch == "-"))
+            if ((c == cc_minus()))
             {
             var next = advance_char(st);
             if (is_at_end(next))
@@ -2575,7 +2648,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((peek_char(next).Length > 0 && char.IsLetter(peek_char(next)[0])))
+            if (is_letter_code(peek_code(next)))
             {
             var _tco_0 = next;
             st = _tco_0;
@@ -2608,8 +2681,8 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            var ch = peek_char(st);
-            if ((ch.Length > 0 && char.IsDigit(ch[0])))
+            var c = peek_code(st);
+            if (is_digit_code(c))
             {
             var _tco_0 = advance_char(st);
             st = _tco_0;
@@ -2617,7 +2690,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((ch == "_"))
+            if ((c == cc_underscore()))
             {
             var _tco_0 = advance_char(st);
             st = _tco_0;
@@ -2642,20 +2715,20 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            var ch = peek_char(st);
-            if ((ch == "\""))
+            var c = peek_code(st);
+            if ((c == cc_double_quote()))
             {
             return advance_char(st);
             }
             else
             {
-            if ((ch == "\n"))
+            if ((c == cc_newline()))
             {
             return st;
             }
             else
             {
-            if ((ch == "\\"))
+            if ((c == cc_backslash()))
             {
             var _tco_0 = advance_char(advance_char(st));
             st = _tco_0;
@@ -2683,13 +2756,13 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            var ch = s[(int)i].ToString();
-            if ((ch == "\\"))
+            var c = ((long)s[(int)i]);
+            if ((c == cc_backslash()))
             {
             if (((i + 1) < len))
             {
-            var next = s[(int)(i + 1)].ToString();
-            if ((next == "n"))
+            var nc = ((long)s[(int)(i + 1)]);
+            if ((nc == cc_lower_n()))
             {
             var _tco_0 = s;
             var _tco_1 = (i + 2);
@@ -2703,7 +2776,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((next == "t"))
+            if ((nc == cc_lower_t()))
             {
             var _tco_0 = s;
             var _tco_1 = (i + 2);
@@ -2717,7 +2790,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((next == "r"))
+            if ((nc == cc_lower_r()))
             {
             var _tco_0 = s;
             var _tco_1 = (i + 2);
@@ -2731,7 +2804,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((next == "\\"))
+            if ((nc == cc_backslash()))
             {
             var _tco_0 = s;
             var _tco_1 = (i + 2);
@@ -2745,7 +2818,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            if ((next == "\""))
+            if ((nc == cc_double_quote()))
             {
             var _tco_0 = s;
             var _tco_1 = (i + 2);
@@ -2762,7 +2835,7 @@ public static class Codex_Codex_Codex
             var _tco_0 = s;
             var _tco_1 = (i + 2);
             var _tco_2 = len;
-            var _tco_3 = (acc + next);
+            var _tco_3 = (acc + s[(int)(i + 1)].ToString());
             s = _tco_0;
             i = _tco_1;
             len = _tco_2;
@@ -2776,7 +2849,7 @@ public static class Codex_Codex_Codex
             }
             else
             {
-            return (acc + ch);
+            return (acc + s[(int)i].ToString());
             }
             }
             else
@@ -2784,7 +2857,7 @@ public static class Codex_Codex_Codex
             var _tco_0 = s;
             var _tco_1 = (i + 1);
             var _tco_2 = len;
-            var _tco_3 = (acc + ch);
+            var _tco_3 = (acc + s[(int)i].ToString());
             s = _tco_0;
             i = _tco_1;
             len = _tco_2;
@@ -2795,17 +2868,17 @@ public static class Codex_Codex_Codex
         }
     }
 
-    public static TokenKind classify_word(string w) => ((w == "let") ? new LetKeyword() : ((w == "in") ? new InKeyword() : ((w == "if") ? new IfKeyword() : ((w == "then") ? new ThenKeyword() : ((w == "else") ? new ElseKeyword() : ((w == "when") ? new WhenKeyword() : ((w == "where") ? new WhereKeyword() : ((w == "do") ? new DoKeyword() : ((w == "record") ? new RecordKeyword() : ((w == "import") ? new ImportKeyword() : ((w == "export") ? new ExportKeyword() : ((w == "claim") ? new ClaimKeyword() : ((w == "proof") ? new ProofKeyword() : ((w == "forall") ? new ForAllKeyword() : ((w == "exists") ? new ThereExistsKeyword() : ((w == "linear") ? new LinearKeyword() : ((w == "effect") ? new EffectKeyword() : ((w == "with") ? new WithKeyword() : ((w == "True") ? new TrueKeyword() : ((w == "False") ? new FalseKeyword() : ((Func<long, TokenKind>)((first_code) => ((first_code >= 65) ? ((first_code <= 90) ? new TypeIdentifier() : new Identifier()) : new Identifier())))(((long)w[(int)0].ToString()[0]))))))))))))))))))))));
+    public static TokenKind classify_word(string w) => ((w == "let") ? new LetKeyword() : ((w == "in") ? new InKeyword() : ((w == "if") ? new IfKeyword() : ((w == "then") ? new ThenKeyword() : ((w == "else") ? new ElseKeyword() : ((w == "when") ? new WhenKeyword() : ((w == "where") ? new WhereKeyword() : ((w == "do") ? new DoKeyword() : ((w == "record") ? new RecordKeyword() : ((w == "import") ? new ImportKeyword() : ((w == "export") ? new ExportKeyword() : ((w == "claim") ? new ClaimKeyword() : ((w == "proof") ? new ProofKeyword() : ((w == "forall") ? new ForAllKeyword() : ((w == "exists") ? new ThereExistsKeyword() : ((w == "linear") ? new LinearKeyword() : ((w == "effect") ? new EffectKeyword() : ((w == "with") ? new WithKeyword() : ((w == "True") ? new TrueKeyword() : ((w == "False") ? new FalseKeyword() : ((Func<long, TokenKind>)((first_code) => ((first_code >= cc_upper_a()) ? ((first_code <= cc_upper_z()) ? new TypeIdentifier() : new Identifier()) : new Identifier())))(((long)w[(int)0]))))))))))))))))))))));
 
     public static Token make_token(TokenKind kind, string text, LexState st) => new Token(kind: kind, text: text, offset: st.offset, line: st.line, column: st.column);
 
     public static string extract_text(LexState st, long start, LexState end_st) => st.source.Substring((int)start, (int)(end_st.offset - start));
 
-    public static LexResult scan_token(LexState st) => ((Func<LexState, LexResult>)((s) => (is_at_end(s) ? new LexEnd() : ((Func<string, LexResult>)((ch) => ((ch == "\n") ? new LexToken(make_token(new Newline(), "\n", s), advance_char(s)) : ((ch == "\"") ? ((Func<long, LexResult>)((start) => ((Func<LexState, LexResult>)((after) => ((Func<long, LexResult>)((text_len) => ((Func<string, LexResult>)((raw) => new LexToken(make_token(new TextLiteral(), process_escapes(raw, 0, ((long)raw.Length), ""), s), after)))(s.source.Substring((int)start, (int)text_len))))(((after.offset - start) - 1))))(scan_string_body(advance_char(s)))))((s.offset + 1)) : ((ch.Length > 0 && char.IsLetter(ch[0])) ? ((Func<long, LexResult>)((start) => ((Func<LexState, LexResult>)((after) => ((Func<string, LexResult>)((word) => new LexToken(make_token(classify_word(word), word, s), after)))(extract_text(s, start, after))))(scan_ident_rest(advance_char(s)))))(s.offset) : ((ch == "_") ? ((Func<long, LexResult>)((start) => ((Func<LexState, LexResult>)((after) => ((Func<string, LexResult>)((word) => ((((long)word.Length) == 1) ? new LexToken(make_token(new Underscore(), "_", s), after) : new LexToken(make_token(classify_word(word), word, s), after))))(extract_text(s, start, after))))(scan_ident_rest(advance_char(s)))))(s.offset) : ((ch.Length > 0 && char.IsDigit(ch[0])) ? ((Func<long, LexResult>)((start) => ((Func<LexState, LexResult>)((after) => (is_at_end(after) ? new LexToken(make_token(new IntegerLiteral(), extract_text(s, start, after), s), after) : ((peek_char(after) == ".") ? ((Func<LexState, LexResult>)((after2) => new LexToken(make_token(new NumberLiteral(), extract_text(s, start, after2), s), after2)))(scan_digits(advance_char(after))) : new LexToken(make_token(new IntegerLiteral(), extract_text(s, start, after), s), after)))))(scan_digits(advance_char(s)))))(s.offset) : scan_operator(s))))))))(peek_char(s)))))(skip_spaces(st));
+    public static LexResult scan_token(LexState st) => ((Func<LexState, LexResult>)((s) => (is_at_end(s) ? new LexEnd() : ((Func<long, LexResult>)((c) => ((c == cc_newline()) ? new LexToken(make_token(new Newline(), "\n", s), advance_char(s)) : ((c == cc_double_quote()) ? ((Func<long, LexResult>)((start) => ((Func<LexState, LexResult>)((after) => ((Func<long, LexResult>)((text_len) => ((Func<string, LexResult>)((raw) => new LexToken(make_token(new TextLiteral(), process_escapes(raw, 0, ((long)raw.Length), ""), s), after)))(s.source.Substring((int)start, (int)text_len))))(((after.offset - start) - 1))))(scan_string_body(advance_char(s)))))((s.offset + 1)) : (is_letter_code(c) ? ((Func<long, LexResult>)((start) => ((Func<LexState, LexResult>)((after) => ((Func<string, LexResult>)((word) => new LexToken(make_token(classify_word(word), word, s), after)))(extract_text(s, start, after))))(scan_ident_rest(advance_char(s)))))(s.offset) : ((c == cc_underscore()) ? ((Func<long, LexResult>)((start) => ((Func<LexState, LexResult>)((after) => ((Func<string, LexResult>)((word) => ((((long)word.Length) == 1) ? new LexToken(make_token(new Underscore(), "_", s), after) : new LexToken(make_token(classify_word(word), word, s), after))))(extract_text(s, start, after))))(scan_ident_rest(advance_char(s)))))(s.offset) : (is_digit_code(c) ? ((Func<long, LexResult>)((start) => ((Func<LexState, LexResult>)((after) => (is_at_end(after) ? new LexToken(make_token(new IntegerLiteral(), extract_text(s, start, after), s), after) : ((peek_code(after) == cc_dot()) ? ((Func<LexState, LexResult>)((after2) => new LexToken(make_token(new NumberLiteral(), extract_text(s, start, after2), s), after2)))(scan_digits(advance_char(after))) : new LexToken(make_token(new IntegerLiteral(), extract_text(s, start, after), s), after)))))(scan_digits(advance_char(s)))))(s.offset) : scan_operator(s))))))))(peek_code(s)))))(skip_spaces(st));
 
-    public static LexResult scan_operator(LexState s) => ((Func<string, LexResult>)((ch) => ((Func<LexState, LexResult>)((next) => ((ch == "(") ? new LexToken(make_token(new LeftParen(), "(", s), next) : ((ch == ")") ? new LexToken(make_token(new RightParen(), ")", s), next) : ((ch == "[") ? new LexToken(make_token(new LeftBracket(), "[", s), next) : ((ch == "]") ? new LexToken(make_token(new RightBracket(), "]", s), next) : ((ch == "{") ? new LexToken(make_token(new LeftBrace(), "{", s), next) : ((ch == "}") ? new LexToken(make_token(new RightBrace(), "}", s), next) : ((ch == ",") ? new LexToken(make_token(new Comma(), ",", s), next) : ((ch == ".") ? new LexToken(make_token(new Dot(), ".", s), next) : ((ch == "^") ? new LexToken(make_token(new Caret(), "^", s), next) : ((ch == "&") ? new LexToken(make_token(new Ampersand(), "&", s), next) : scan_multi_char_operator(s)))))))))))))(advance_char(s))))(peek_char(s));
+    public static LexResult scan_operator(LexState s) => ((Func<long, LexResult>)((c) => ((Func<LexState, LexResult>)((next) => ((c == cc_left_paren()) ? new LexToken(make_token(new LeftParen(), "(", s), next) : ((c == cc_right_paren()) ? new LexToken(make_token(new RightParen(), ")", s), next) : ((c == cc_left_bracket()) ? new LexToken(make_token(new LeftBracket(), "[", s), next) : ((c == cc_right_bracket()) ? new LexToken(make_token(new RightBracket(), "]", s), next) : ((c == cc_left_brace()) ? new LexToken(make_token(new LeftBrace(), "{", s), next) : ((c == cc_right_brace()) ? new LexToken(make_token(new RightBrace(), "}", s), next) : ((c == cc_comma()) ? new LexToken(make_token(new Comma(), ",", s), next) : ((c == cc_dot()) ? new LexToken(make_token(new Dot(), ".", s), next) : ((c == cc_caret()) ? new LexToken(make_token(new Caret(), "^", s), next) : ((c == cc_ampersand()) ? new LexToken(make_token(new Ampersand(), "&", s), next) : scan_multi_char_operator(s)))))))))))))(advance_char(s))))(peek_code(s));
 
-    public static LexResult scan_multi_char_operator(LexState s) => ((Func<string, LexResult>)((ch) => ((Func<LexState, LexResult>)((next) => ((Func<string, LexResult>)((next_ch) => ((ch == "+") ? ((next_ch == "+") ? new LexToken(make_token(new PlusPlus(), "++", s), advance_char(next)) : new LexToken(make_token(new Plus(), "+", s), next)) : ((ch == "-") ? ((next_ch == ">") ? new LexToken(make_token(new Arrow(), "->", s), advance_char(next)) : new LexToken(make_token(new Minus(), "-", s), next)) : ((ch == "*") ? new LexToken(make_token(new Star(), "*", s), next) : ((ch == "/") ? ((next_ch == "=") ? new LexToken(make_token(new NotEquals(), "/=", s), advance_char(next)) : new LexToken(make_token(new Slash(), "/", s), next)) : ((ch == "=") ? ((next_ch == "=") ? ((Func<LexState, LexResult>)((next2) => ((Func<string, LexResult>)((next2_ch) => ((next2_ch == "=") ? new LexToken(make_token(new TripleEquals(), "===", s), advance_char(next2)) : new LexToken(make_token(new DoubleEquals(), "==", s), next2))))((is_at_end(next2) ? "" : peek_char(next2)))))(advance_char(next)) : new LexToken(make_token(new Equals_(), "=", s), next)) : ((ch == ":") ? ((next_ch == ":") ? new LexToken(make_token(new ColonColon(), "::", s), advance_char(next)) : new LexToken(make_token(new Colon(), ":", s), next)) : ((ch == "|") ? ((next_ch == "-") ? new LexToken(make_token(new Turnstile(), "|-", s), advance_char(next)) : new LexToken(make_token(new Pipe(), "|", s), next)) : ((ch == "<") ? ((next_ch == "=") ? new LexToken(make_token(new LessOrEqual(), "<=", s), advance_char(next)) : ((next_ch == "-") ? new LexToken(make_token(new LeftArrow(), "<-", s), advance_char(next)) : new LexToken(make_token(new LessThan(), "<", s), next))) : ((ch == ">") ? ((next_ch == "=") ? new LexToken(make_token(new GreaterOrEqual(), ">=", s), advance_char(next)) : new LexToken(make_token(new GreaterThan(), ">", s), next)) : new LexToken(make_token(new ErrorToken(), s.source[(int)s.offset].ToString(), s), next))))))))))))((is_at_end(next) ? "" : peek_char(next)))))(advance_char(s))))(peek_char(s));
+    public static LexResult scan_multi_char_operator(LexState s) => ((Func<long, LexResult>)((c) => ((Func<LexState, LexResult>)((next) => ((Func<long, LexResult>)((nc) => ((c == cc_plus()) ? ((nc == cc_plus()) ? new LexToken(make_token(new PlusPlus(), "++", s), advance_char(next)) : new LexToken(make_token(new Plus(), "+", s), next)) : ((c == cc_minus()) ? ((nc == cc_greater()) ? new LexToken(make_token(new Arrow(), "->", s), advance_char(next)) : new LexToken(make_token(new Minus(), "-", s), next)) : ((c == cc_star()) ? new LexToken(make_token(new Star(), "*", s), next) : ((c == cc_slash()) ? ((nc == cc_equals()) ? new LexToken(make_token(new NotEquals(), "/=", s), advance_char(next)) : new LexToken(make_token(new Slash(), "/", s), next)) : ((c == cc_equals()) ? ((nc == cc_equals()) ? ((Func<LexState, LexResult>)((next2) => ((Func<long, LexResult>)((nc2) => ((nc2 == cc_equals()) ? new LexToken(make_token(new TripleEquals(), "===", s), advance_char(next2)) : new LexToken(make_token(new DoubleEquals(), "==", s), next2))))((is_at_end(next2) ? 0 : peek_code(next2)))))(advance_char(next)) : new LexToken(make_token(new Equals_(), "=", s), next)) : ((c == cc_colon()) ? ((nc == cc_colon()) ? new LexToken(make_token(new ColonColon(), "::", s), advance_char(next)) : new LexToken(make_token(new Colon(), ":", s), next)) : ((c == cc_pipe()) ? ((nc == cc_minus()) ? new LexToken(make_token(new Turnstile(), "|-", s), advance_char(next)) : new LexToken(make_token(new Pipe(), "|", s), next)) : ((c == cc_less()) ? ((nc == cc_equals()) ? new LexToken(make_token(new LessOrEqual(), "<=", s), advance_char(next)) : ((nc == cc_minus()) ? new LexToken(make_token(new LeftArrow(), "<-", s), advance_char(next)) : new LexToken(make_token(new LessThan(), "<", s), next))) : ((c == cc_greater()) ? ((nc == cc_equals()) ? new LexToken(make_token(new GreaterOrEqual(), ">=", s), advance_char(next)) : new LexToken(make_token(new GreaterThan(), ">", s), next)) : new LexToken(make_token(new ErrorToken(), s.source[(int)s.offset].ToString(), s), next))))))))))))((is_at_end(next) ? 0 : peek_code(next)))))(advance_char(s))))(peek_code(s));
 
     public static List<Token> tokenize_loop(LexState st, List<Token> acc)
     {
@@ -4316,7 +4389,7 @@ public static class Codex_Codex_Codex
 
     public static TypeEnv env_bind(TypeEnv env, string name, CodexType ty) => new TypeEnv(bindings: Enumerable.Concat(new List<TypeBinding> { new TypeBinding(name: name, bound_type: ty) }, env.bindings).ToList());
 
-    public static TypeEnv builtin_type_env() => ((Func<TypeEnv, TypeEnv>)((e) => ((Func<TypeEnv, TypeEnv>)((e2) => ((Func<TypeEnv, TypeEnv>)((e3) => ((Func<TypeEnv, TypeEnv>)((e4) => ((Func<TypeEnv, TypeEnv>)((e5) => ((Func<TypeEnv, TypeEnv>)((e6) => ((Func<TypeEnv, TypeEnv>)((e7) => ((Func<TypeEnv, TypeEnv>)((e8) => ((Func<TypeEnv, TypeEnv>)((e9) => ((Func<TypeEnv, TypeEnv>)((e10) => ((Func<TypeEnv, TypeEnv>)((e11) => ((Func<TypeEnv, TypeEnv>)((e12) => ((Func<TypeEnv, TypeEnv>)((e13) => ((Func<TypeEnv, TypeEnv>)((e14) => ((Func<TypeEnv, TypeEnv>)((e15) => ((Func<TypeEnv, TypeEnv>)((e16) => ((Func<TypeEnv, TypeEnv>)((e17) => ((Func<TypeEnv, TypeEnv>)((e18) => ((Func<TypeEnv, TypeEnv>)((e19) => ((Func<TypeEnv, TypeEnv>)((e20) => ((Func<TypeEnv, TypeEnv>)((e21) => e21))(env_bind(e20, "read-line", new TextTy()))))(env_bind(e19, "fold", new ForAllTy(0, new ForAllTy(1, new FunTy(new FunTy(new TypeVar(1), new FunTy(new TypeVar(0), new TypeVar(1))), new FunTy(new TypeVar(1), new FunTy(new ListTy(new TypeVar(0)), new TypeVar(1))))))))))(env_bind(e18, "filter", new ForAllTy(0, new FunTy(new FunTy(new TypeVar(0), new BooleanTy()), new FunTy(new ListTy(new TypeVar(0)), new ListTy(new TypeVar(0)))))))))(env_bind(e17, "map", new ForAllTy(0, new ForAllTy(1, new FunTy(new FunTy(new TypeVar(0), new TypeVar(1)), new FunTy(new ListTy(new TypeVar(0)), new ListTy(new TypeVar(1))))))))))(env_bind(e16, "list-at", new ForAllTy(0, new FunTy(new ListTy(new TypeVar(0)), new FunTy(new IntegerTy(), new TypeVar(0))))))))(env_bind(e15, "list-length", new ForAllTy(0, new FunTy(new ListTy(new TypeVar(0)), new IntegerTy()))))))(env_bind(e14, "print-line", new FunTy(new TextTy(), new NothingTy())))))(env_bind(e13, "show", new ForAllTy(0, new FunTy(new TypeVar(0), new TextTy()))))))(env_bind(e12, "text-to-integer", new FunTy(new TextTy(), new IntegerTy())))))(env_bind(e11, "text-replace", new FunTy(new TextTy(), new FunTy(new TextTy(), new FunTy(new TextTy(), new TextTy())))))))(env_bind(e10, "code-to-char", new FunTy(new IntegerTy(), new TextTy())))))(env_bind(e9, "char-code", new FunTy(new TextTy(), new IntegerTy())))))(env_bind(e8, "is-whitespace", new FunTy(new TextTy(), new BooleanTy())))))(env_bind(e7, "is-digit", new FunTy(new TextTy(), new BooleanTy())))))(env_bind(e6, "is-letter", new FunTy(new TextTy(), new BooleanTy())))))(env_bind(e5, "substring", new FunTy(new TextTy(), new FunTy(new IntegerTy(), new FunTy(new IntegerTy(), new TextTy())))))))(env_bind(e4, "char-at", new FunTy(new TextTy(), new FunTy(new IntegerTy(), new TextTy()))))))(env_bind(e3, "integer-to-text", new FunTy(new IntegerTy(), new TextTy())))))(env_bind(e2, "text-length", new FunTy(new TextTy(), new IntegerTy())))))(env_bind(e, "negate", new FunTy(new IntegerTy(), new IntegerTy())))))(empty_type_env());
+    public static TypeEnv builtin_type_env() => ((Func<TypeEnv, TypeEnv>)((e) => ((Func<TypeEnv, TypeEnv>)((e2) => ((Func<TypeEnv, TypeEnv>)((e3) => ((Func<TypeEnv, TypeEnv>)((e4) => ((Func<TypeEnv, TypeEnv>)((e5) => ((Func<TypeEnv, TypeEnv>)((e6) => ((Func<TypeEnv, TypeEnv>)((e7) => ((Func<TypeEnv, TypeEnv>)((e8) => ((Func<TypeEnv, TypeEnv>)((e9) => ((Func<TypeEnv, TypeEnv>)((e10) => ((Func<TypeEnv, TypeEnv>)((e10b) => ((Func<TypeEnv, TypeEnv>)((e11) => ((Func<TypeEnv, TypeEnv>)((e12) => ((Func<TypeEnv, TypeEnv>)((e13) => ((Func<TypeEnv, TypeEnv>)((e14) => ((Func<TypeEnv, TypeEnv>)((e15) => ((Func<TypeEnv, TypeEnv>)((e16) => ((Func<TypeEnv, TypeEnv>)((e17) => ((Func<TypeEnv, TypeEnv>)((e18) => ((Func<TypeEnv, TypeEnv>)((e19) => ((Func<TypeEnv, TypeEnv>)((e20) => ((Func<TypeEnv, TypeEnv>)((e21) => e21))(env_bind(e20, "read-line", new TextTy()))))(env_bind(e19, "fold", new ForAllTy(0, new ForAllTy(1, new FunTy(new FunTy(new TypeVar(1), new FunTy(new TypeVar(0), new TypeVar(1))), new FunTy(new TypeVar(1), new FunTy(new ListTy(new TypeVar(0)), new TypeVar(1))))))))))(env_bind(e18, "filter", new ForAllTy(0, new FunTy(new FunTy(new TypeVar(0), new BooleanTy()), new FunTy(new ListTy(new TypeVar(0)), new ListTy(new TypeVar(0)))))))))(env_bind(e17, "map", new ForAllTy(0, new ForAllTy(1, new FunTy(new FunTy(new TypeVar(0), new TypeVar(1)), new FunTy(new ListTy(new TypeVar(0)), new ListTy(new TypeVar(1))))))))))(env_bind(e16, "list-at", new ForAllTy(0, new FunTy(new ListTy(new TypeVar(0)), new FunTy(new IntegerTy(), new TypeVar(0))))))))(env_bind(e15, "list-length", new ForAllTy(0, new FunTy(new ListTy(new TypeVar(0)), new IntegerTy()))))))(env_bind(e14, "print-line", new FunTy(new TextTy(), new NothingTy())))))(env_bind(e13, "show", new ForAllTy(0, new FunTy(new TypeVar(0), new TextTy()))))))(env_bind(e12, "text-to-integer", new FunTy(new TextTy(), new IntegerTy())))))(env_bind(e11, "text-replace", new FunTy(new TextTy(), new FunTy(new TextTy(), new FunTy(new TextTy(), new TextTy())))))))(env_bind(e10b, "code-to-char", new FunTy(new IntegerTy(), new TextTy())))))(env_bind(e10, "char-code-at", new FunTy(new TextTy(), new FunTy(new IntegerTy(), new IntegerTy()))))))(env_bind(e9, "char-code", new FunTy(new TextTy(), new IntegerTy())))))(env_bind(e8, "is-whitespace", new FunTy(new TextTy(), new BooleanTy())))))(env_bind(e7, "is-digit", new FunTy(new TextTy(), new BooleanTy())))))(env_bind(e6, "is-letter", new FunTy(new TextTy(), new BooleanTy())))))(env_bind(e5, "substring", new FunTy(new TextTy(), new FunTy(new IntegerTy(), new FunTy(new IntegerTy(), new TextTy())))))))(env_bind(e4, "char-at", new FunTy(new TextTy(), new FunTy(new IntegerTy(), new TextTy()))))))(env_bind(e3, "integer-to-text", new FunTy(new IntegerTy(), new TextTy())))))(env_bind(e2, "text-length", new FunTy(new TextTy(), new IntegerTy())))))(env_bind(e, "negate", new FunTy(new IntegerTy(), new IntegerTy())))))(empty_type_env());
 
     public static UnificationState empty_unification_state() => new UnificationState(substitutions: new List<SubstEntry>(), next_id: 2, errors: new List<Diagnostic>());
 
