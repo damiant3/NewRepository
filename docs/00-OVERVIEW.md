@@ -52,8 +52,6 @@ no new features. See `docs/REFERENCE-COMPILER-LOCK.md`.
 
 The compiler is free of its C# cradle. The road forward is written in Codex:
 
-- **R6 — Native executable bootstrap**: compile the Codex compiler to a standalone `.exe`
-  via the IL emitter. No C# toolchain needed.
 - **V1 — Views**: first-class consistent selections of facts from the repository.
 - **V2 — Narration layer**: prose-aware compilation where English text is load-bearing.
 - **V3 — Repository federation**: multi-repo sync, cross-repo trust and identity.

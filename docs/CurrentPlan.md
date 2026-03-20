@@ -28,17 +28,6 @@ in `docs/MM1/`.
 
 ## Active Work
 
-### R6 — Native Executable Bootstrap
-
-**Goal**: `codex build myproject/ --target il` produces a runnable `.exe` with standard
-library support. No C# toolchain required.
-
-**Status**: Unblocked. IL emitter has basic builtins (show, print-line, do-blocks,
-generic sum boxing). Needs: full standard library emission, entry point generation,
-assembly linking.
-
-**Why this matters**: R6 is the second liberation. MM1 freed the language from being
-*written* in C#. R6 frees it from *depending* on C# to run.
 
 ---
 
@@ -47,7 +36,6 @@ assembly linking.
 The project moves away from the C# codebase and toward a self-sustaining Codex ecosystem.
 
 ### Near Term
-- **R6**: Native executable bootstrap (IL emitter → standalone `.exe`)
 - **Stdlib hardening**: exercise the prelude with real programs, fill gaps
 
 ### Medium Term

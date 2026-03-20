@@ -31,20 +31,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A0000000-0000-0000-0000-000000000006}"
 	ProjectSection(SolutionItems) = preProject
 		docs\00-OVERVIEW.md = docs\00-OVERVIEW.md
-		docs\01-ARCHITECTURE.md = docs\01-ARCHITECTURE.md
-		docs\02-LANGUAGE-DESIGN.md = docs\02-LANGUAGE-DESIGN.md
-		docs\03-TYPE-SYSTEM.md = docs\03-TYPE-SYSTEM.md
-		docs\04-COMPILER-PIPELINE.md = docs\04-COMPILER-PIPELINE.md
-		docs\05-REPOSITORY-MODEL.md = docs\05-REPOSITORY-MODEL.md
-		docs\06-ENVIRONMENT.md = docs\06-ENVIRONMENT.md
-		docs\07-TRANSPILATION.md = docs\07-TRANSPILATION.md
-		docs\08-MILESTONES.md = docs\08-MILESTONES.md
-		docs\09-RISKS.md = docs\09-RISKS.md
 		docs\10-PRINCIPLES.md = docs\10-PRINCIPLES.md
 		docs\CurrentPlan.md = docs\CurrentPlan.md
-		docs\GLOSSARY.md = docs\GLOSSARY.md
 		docs\REFERENCE-COMPILER-LOCK.md = docs\REFERENCE-COMPILER-LOCK.md
-		docs\VSCODE-SETUP.md = docs\VSCODE-SETUP.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vision", "Vision", "{A0000000-0000-0000-0000-000000000009}"
@@ -55,6 +44,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vision", "Vision", "{A00000
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OldStatus", "OldStatus", "{A0000000-0000-0000-0000-00000000000A}"
 	ProjectSection(SolutionItems) = preProject
+		docs\OldStatus\BOOTSTRAP-CONVERGENCE-PLAN.md = docs\OldStatus\BOOTSTRAP-CONVERGENCE-PLAN.md
 		docs\OldStatus\BOOTSTRAP-FIXEDPOINT-PLAN.md = docs\OldStatus\BOOTSTRAP-FIXEDPOINT-PLAN.md
 		docs\OldStatus\BOOTSTRAP-STATUS.md = docs\OldStatus\BOOTSTRAP-STATUS.md
 		docs\OldStatus\DECISIONS.md = docs\OldStatus\DECISIONS.md
@@ -73,8 +63,46 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OldStatus", "OldStatus", "{
 		docs\OldStatus\ITERATION-8-HANDOFF.md = docs\OldStatus\ITERATION-8-HANDOFF.md
 		docs\OldStatus\ITERATION-9-HANDOFF.md = docs\OldStatus\ITERATION-9-HANDOFF.md
 		docs\OldStatus\M13-BOOTSTRAP-PLAN.md = docs\OldStatus\M13-BOOTSTRAP-PLAN.md
+		docs\OldStatus\PostFixedPointCleanUp.md = docs\OldStatus\PostFixedPointCleanUp.md
 		docs\OldStatus\REFLECTIONS.md = docs\OldStatus\REFLECTIONS.md
 		docs\OldStatus\Reflections2.md = docs\OldStatus\Reflections2.md
+		docs\OldStatus\WINDOWS-REVIEW-HANDOFF.md = docs\OldStatus\WINDOWS-REVIEW-HANDOFF.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MM1", "MM1", "{A0000000-0000-0000-0000-00000000000B}"
+	ProjectSection(SolutionItems) = preProject
+		docs\MM1\00-OVERVIEW.md = docs\MM1\00-OVERVIEW.md
+		docs\MM1\01-ARCHITECTURE.md = docs\MM1\01-ARCHITECTURE.md
+		docs\MM1\02-LANGUAGE-DESIGN.md = docs\MM1\02-LANGUAGE-DESIGN.md
+		docs\MM1\03-TYPE-SYSTEM.md = docs\MM1\03-TYPE-SYSTEM.md
+		docs\MM1\04-COMPILER-PIPELINE.md = docs\MM1\04-COMPILER-PIPELINE.md
+		docs\MM1\05-REPOSITORY-MODEL.md = docs\MM1\05-REPOSITORY-MODEL.md
+		docs\MM1\06-ENVIRONMENT.md = docs\MM1\06-ENVIRONMENT.md
+		docs\MM1\07-TRANSPILATION.md = docs\MM1\07-TRANSPILATION.md
+		docs\MM1\08-MILESTONES.md = docs\MM1\08-MILESTONES.md
+		docs\MM1\09-RISKS.md = docs\MM1\09-RISKS.md
+		docs\MM1\10-PRINCIPLES.md = docs\MM1\10-PRINCIPLES.md
+		docs\MM1\GLOSSARY.md = docs\MM1\GLOSSARY.md
+		docs\MM1\README.md = docs\MM1\README.md
+		docs\MM1\PreviouslyCurrentPlan.md = docs\MM1\PreviouslyCurrentPlan.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Stories", "Stories", "{A0000000-0000-0000-0000-00000000000C}"
+	ProjectSection(SolutionItems) = preProject
+		docs\Stories\2bFixConfirm.txt = docs\Stories\2bFixConfirm.txt
+		docs\Stories\2bFixConfirm2.txt = docs\Stories\2bFixConfirm2.txt
+		docs\Stories\2bRootCause.txt = docs\Stories\2bRootCause.txt
+		docs\Stories\DATE-AUDIT.md = docs\Stories\DATE-AUDIT.md
+		docs\Stories\Opus.md = docs\Stories\Opus.md
+		docs\Stories\parser.txt = docs\Stories\parser.txt
+		docs\Stories\PostFixedPointCleanUp-AUDIT.md = docs\Stories\PostFixedPointCleanUp-AUDIT.md
+		docs\Stories\REVIEW-NITS.md = docs\Stories\REVIEW-NITS.md
+		docs\Stories\SelfHost.md = docs\Stories\SelfHost.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "User", "User", "{A0000000-0000-0000-0000-00000000000D}"
+	ProjectSection(SolutionItems) = preProject
+		docs\User\VSCODE-SETUP.md = docs\User\VSCODE-SETUP.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "codex", "codex", "{F0000000-0000-0000-0000-000000000001}"
@@ -616,6 +644,9 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{A0000000-0000-0000-0000-000000000009} = {A0000000-0000-0000-0000-000000000006}
 		{A0000000-0000-0000-0000-00000000000A} = {A0000000-0000-0000-0000-000000000006}
+		{A0000000-0000-0000-0000-00000000000B} = {A0000000-0000-0000-0000-000000000006}
+		{A0000000-0000-0000-0000-00000000000C} = {A0000000-0000-0000-0000-000000000006}
+		{A0000000-0000-0000-0000-00000000000D} = {A0000000-0000-0000-0000-000000000006}
 		{F0000000-0000-0000-0000-000000000002} = {F0000000-0000-0000-0000-000000000001}
 		{F0000000-0000-0000-0000-000000000003} = {F0000000-0000-0000-0000-000000000001}
 		{F0000000-0000-0000-0000-000000000004} = {F0000000-0000-0000-0000-000000000001}
