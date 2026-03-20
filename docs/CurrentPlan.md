@@ -28,6 +28,63 @@ in `docs/MM1/`.
 
 ## Active Work
 
+### R2b — Stdlib Completion
+
+The prelude shipped 11 modules (1,208 lines) covering Layers 1–3 of the design
+(`docs/Designs/STDLIB-AND-CONCURRENCY.md`). One gap remains, plus several
+hardening tasks surfaced by the audit.
+
+#### Stdlib Audit Summary
+
+| Layer | Module | Lines | Status |
+|-------|--------|-------|--------|
+| 1 — Core Types | Maybe | 28 | ✅ Complete |
+| 1 — Core Types | Result | 28 | ✅ Complete |
+| 1 — Core Types | Either | 28 | ✅ Complete |
+| 1 — Core Types | Pair | 13 | ✅ Complete |
+| 2 — Collections | List (ConsList) | 100 | ✅ Complete |
+| 2 — Collections | Hamt | 271 | ✅ Complete |
+| 2 — Collections | Set | 110 | ✅ Complete (Text-keyed only) |
+| 2 — Collections | Queue | 51 | ✅ Complete |
+| 3 — Text | CCE | 353 | ✅ Complete |
+| 3 — Text | StringBuilder | 84 | ✅ Complete |
+| 3 — Text | TextSearch | 142 | ✅ Complete |
+| 4 — Effects | (formalized) | — | ❌ Not started |
+
+#### Tasks
+
+| # | Task | Effort | Priority | Why |
+|---|------|--------|----------|-----|
+| R2b-1 | **Formalize effects in `.codex`** | ~50 lines | High | Last R2 gap. Declare `Console`, `FileSystem`, `State`, `Time`, `Random` as effect definitions in `.codex` source instead of hard-coding in the type env. Makes the effect system self-documenting. |
+| R2b-2 | **Add `hamt-map` / `hamt-filter`** | ~30 lines | Medium | Natural operations missing from an otherwise complete Hamt module. |
+| R2b-3 | **Add `list-sort`** (built-in List) | ~40 lines | Medium | Merge sort on index-based list. Needed for any program that ranks or orders results. |
+| R2b-4 | **Add `Number` math module** | ~60 lines | Medium | `abs`, `min`, `max`, `floor`, `ceil`, `round`. Currently no floating-point support beyond arithmetic operators. |
+| R2b-5 | **Reconcile ConsList vs built-in List** | Design decision | Low | The prelude defines `ConsList a` (Cons/Nil) but the compiler and all samples use the built-in `List` with `list-length`/`list-at`. These don't interoperate. Either retire ConsList or make it canonical. |
+
+#### Known Limitations (not blocking, noted for future)
+
+- `Set` is `TextSet` only — generic sets need type classes or a hash/compare constraint.
+- `Hamt` is `Text`-keyed only — same constraint.
+- `StringBuilder` uses a list-of-parts model (`O(n)` join) — adequate for current use but
+  not a true rope. Sufficient until profiling says otherwise.
+
+---
+
+### R6 — Native Executable Bootstrap ✅
+
+**Completed.** The IL emitter (2,300 lines across 4 files) produces standalone `.exe`
+assemblies with `runtimeconfig.json`. Supports: records, sum types, pattern matching,
+generics, tail-call optimization, builtins (show, print-line, do-blocks), generic sum
+boxing, and entry point generation.
+
+```sh
+dotnet run --project tools/Codex.Cli -- build samples/hello.codex --target il
+# → outputs hello.exe + hello.runtimeconfig.json
+dotnet hello.exe
+```
+
+Still depends on the .NET runtime (`dotnet` to execute), but the C# *compiler* toolchain
+is no longer required. The `.exe` is pure IL, not C# source.
 
 ---
 
@@ -36,7 +93,10 @@ in `docs/MM1/`.
 The project moves away from the C# codebase and toward a self-sustaining Codex ecosystem.
 
 ### Near Term
-- **Stdlib hardening**: exercise the prelude with real programs, fill gaps
+
+| Task | What | Depends on |
+|------|------|------------|
+| R2b | Stdlib completion (effects, hamt-map, sort, math) | Nothing — ready now |
 
 ### Medium Term
 - **V1 — Views**: first-class consistent selections of facts from the repository
@@ -54,6 +114,7 @@ The project moves away from the C# codebase and toward a self-sustaining Codex e
 ## Process
 
 - **Reference compiler is LOCKED.** See `docs/REFERENCE-COMPILER-LOCK.md`.
+- **Stdlib design**: `docs/Designs/STDLIB-AND-CONCURRENCY.md` — small core, 4 layers, concurrency via effects (V5+).
 - **Agent toolkit**: `tools/agent/` — PowerShell + Bash: `peek`, `fstat`, `sdiff`, `trun`, `gstat`.
 - **Cognitive dashboard**: `tools/codex-dashboard.ps1` (Windows) or `tools/codexdashboard.sh` (Linux).
 - **Principles**: `docs/10-PRINCIPLES.md` — unchanged, still governing.

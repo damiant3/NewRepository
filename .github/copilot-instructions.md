@@ -5,18 +5,20 @@
 
 ## What This Repository Is
 
-Codex is a bootstrapped programming language compiler written in C# (.NET 8) that
-compiles itself. The solution is `Codex.sln`. The compiler pipeline:
+Codex is a self-hosting programming language compiler. The compiler is written in
+Codex and compiles itself. The C# bootstrap implementation (.NET 8) is locked.
+The solution is `Codex.sln`. The compiler pipeline:
 
 ```
-Source (.codex) → Lexer → Parser → Desugarer → NameResolver → TypeChecker → Lowering → Emitter → dotnet/node/rustc/...
+Source (.codex) -> Lexer -> Parser -> Desugarer -> NameResolver -> TypeChecker -> Lowering -> Emitter -> dotnet/node/rustc/...
 ```
 
 12 backends (C#, JavaScript, Python, Rust, C++, Go, Java, Ada, Fortran, COBOL, IL, Babbage).
-722+ tests. Self-hosting achieved. Content-addressed fact store with collaboration protocol.
+843+ tests. Self-hosting achieved. Content-addressed fact store with collaboration protocol.
 
-Design docs live in `docs/`. `00-OVERVIEW.md` through `10-PRINCIPLES.md` are the
-north-star specification — do not modify them unless explicitly asked.
+Design docs: `docs/00-OVERVIEW.md` (project overview) and `docs/10-PRINCIPLES.md`
+(engineering principles) live in docs root. Bootstrap-era design docs (01-09, Glossary)
+are archived in `docs/MM1/`. Do not modify Vision docs without explicit permission.
 
 
 
@@ -91,6 +93,57 @@ date +%Y-%m-%d
 - **Don't invent conventions.** If you're about to introduce a new pattern (naming, file layout,
   architecture), check whether one already exists. If not, propose it to the user first.
 
+
+---
+
+## Agent Toolkit (USE THESE)
+
+The repository includes purpose-built tools in `tools/agent/` that work around known
+limitations of the built-in `get_file`, `edit_file`, and `run_command_in_terminal` tools.
+**Use these instead of the built-in equivalents whenever possible.**
+
+| Tool | Command (Windows) | Replaces | Why |
+|------|-------------------|----------|-----|
+| **peek** | `pwsh -File tools/agent/peek.ps1 <file> <start> <end>` | `get_file` | Never drops line 1. Reliable line numbers. Use `0 0` for full file. |
+| **fstat** | `pwsh -File tools/agent/fstat.ps1 <file-or-glob>` | manual line counting | Line/char/byte counts. **Run before editing** to pick the right edit strategy. |
+| **sdiff** | `pwsh -File tools/agent/sdiff.ps1 snap <file>` | manual `.bak` workflow | Snapshot before edit, diff after, restore if broken. **Non-negotiable for files >100 lines.** |
+| **trun** | `pwsh -File tools/agent/trun.ps1` | `dotnet test` | Captures full output. Filters to failures + summary. No truncation. Use `-Project Types` to scope. |
+| **gstat** | `pwsh -File tools/agent/gstat.ps1` | `git status` | Branch, dirty files, ahead/behind, recent commits, feature branches. **Run at session start.** |
+| **dashboard** | `pwsh -File tools/codex-dashboard.ps1` | nothing | Cognitive load meter. Thrash risk score. Run before touching hot-path files. |
+
+### Session Start Checklist
+
+```powershell
+pwsh -File tools/agent/gstat.ps1              # Where are we?
+pwsh -File tools/codex-dashboard.ps1          # How hot is the context?
+```
+
+### Before Editing Any File
+
+```powershell
+pwsh -File tools/agent/fstat.ps1 <file>       # How big is it?
+pwsh -File tools/agent/peek.ps1 <file> 1 30   # Read the top
+pwsh -File tools/agent/sdiff.ps1 snap <file>  # Snapshot before edit
+# ... make edit ...
+pwsh -File tools/agent/sdiff.ps1 diff <file>  # Verify only intended changes
+```
+
+### If an Edit Goes Wrong
+
+```powershell
+pwsh -File tools/agent/sdiff.ps1 restore <file>  # Restore from snapshot
+```
+
+### End of Session
+
+```powershell
+pwsh -File tools/agent/sdiff.ps1 clean            # Remove all .snap files
+```
+
+### Linux Equivalents
+
+Replace `pwsh -File tools/agent/<tool>.ps1` with `bash tools/agent/<tool>.sh`.
+Same arguments, same behavior. See `tools/agent/README.md` for full docs.
 
 ---
 
@@ -284,20 +337,35 @@ careless edits.
 ## Golden Rule: Read Before You Edit
 
 **Always read a file before editing it**, unless you just created it in this session.
+Use `peek` (not `get_file`) to avoid the first-line-drop bug:
+
+```powershell
+pwsh -File tools/agent/peek.ps1 <file> 1 30   # read lines 1-30
+pwsh -File tools/agent/peek.ps1 <file> 0 0    # read entire file
+```
 
 ---
 
 ## Backup Before Editing
 
-Always back up a file locally before making non-trivial edits. The file-edit tool
-occasionally corrupts content (renames variables, swaps function names, truncates files).
-A `.bak` copy lets you recover in seconds instead of rewriting from scratch.
+Use `sdiff snap` before making non-trivial edits. This replaces the manual `.bak`
+workflow and provides diff verification:
 
-```
-original.cs  →  original.cs.bak  →  edit original.cs  →  verify  →  delete .bak
+```powershell
+pwsh -File tools/agent/fstat.ps1 <file>       # check size -> pick strategy
+pwsh -File tools/agent/sdiff.ps1 snap <file>  # snapshot before edit
+# ... make edit ...
+pwsh -File tools/agent/sdiff.ps1 diff <file>  # verify only intended changes
 ```
 
-Clean up `.bak` files before ending your session.
+If an edit goes wrong:
+
+```powershell
+pwsh -File tools/agent/sdiff.ps1 restore <file>  # revert to snapshot
+```
+
+**Non-negotiable for files over 100 lines.** Clean up snapshots (`sdiff clean`)
+before ending a session.
 
 ---
 
@@ -312,7 +380,7 @@ reading the file back.
 
 Use `edit_file` / `str_replace` with **generous context** — unique lines above and
 below the change site so the tool can locate the edit unambiguously. If an edit fails,
-re-read the file and provide more context.
+re-read the file and provide more context. **Always `sdiff snap` first.**
 
 ---
 
@@ -320,17 +388,18 @@ re-read the file and provide more context.
 
 ### Copilot (Windows): Write-Full-File Strategy
 
-The `edit_file` tool is unreliable on large files. It silently corrupts unrelated lines.
+The `edit_file` tool is unreliable on large files. It silently corrupts unrelated
+lines or truncates content.
 
 **Required workflow:**
 
-1. Write the complete new file to `<filename>.new` using `create_file`.
-2. Back up the current file: copy `<filename>` to `<filename>.bak`.
-3. Swap: copy `<filename>.new` to `<filename>`.
-4. Verify: diff against `.bak` to confirm only intended changes.
-   Check line count: `$new.Count` should equal `$old.Count + expected delta`.
-5. If the build fails: restore from `.bak`, inspect, and retry.
-6. Clean up `.bak` and `.new` files when done.
+1. `sdiff snap` the file.
+2. Write the complete new file to `<filename>.new` using `create_file`.
+3. Swap: copy `<filename>.new` to `<filename>` in the terminal.
+4. `sdiff diff` to confirm only intended changes.
+   Check line count: `fstat` on old vs new.
+5. If the build fails: `sdiff restore`, inspect, and retry.
+6. Clean up `.new` files when done.
 
 ### Partial Class Strategy
 
@@ -404,7 +473,6 @@ verify the build afterward:
 
 | File(s) | Why |
 |---------|-----|
-| `docs/00-OVERVIEW.md` through `docs/10-PRINCIPLES.md` | Architecture specification / north-star design docs |
 | `Directory.Build.props` | Governs the entire solution build (TreatWarningsAsErrors, TFM, etc.) |
 | `docs/Vision/NewRepository.txt` | Original vision document |
 | `docs/Vision/IntelligenceLayer.txt` | Design philosophy essay |
@@ -571,7 +639,7 @@ Codex.Core → Codex.Syntax → Codex.Ast → Codex.Semantics → Codex.Types �
 | Ada | `Codex.Emit.Ada` | Full |
 | Fortran | `Codex.Emit.Fortran` | Full |
 | COBOL | `Codex.Emit.Cobol` | Full |
-| IL | `Codex.Emit.IL` | Limited (no generics/TCO) |
+| IL | `Codex.Emit.IL` | Full (generics, TCO, builtins, standalone .exe) |
 | Babbage | `Codex.Emit.Babbage` | Analytical Engine, intentionally limited |
 
 All mainstream backends support: records, sum types, pattern matching, recursion,
@@ -581,7 +649,7 @@ effects, and tail call optimization.
 
 ## Self-Hosted Pipeline
 
-The compiler is also written in Codex itself (21 `.codex` files in `Codex.Codex/`).
+The compiler is also written in Codex itself (26 `.codex` files in `Codex.Codex/`).
 
 ```
 .codex source → [Stage 0: C# compiler] → output.cs (Stage 1)
