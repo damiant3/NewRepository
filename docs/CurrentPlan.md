@@ -21,7 +21,7 @@ in `docs/MM1/`.
 | Backends | 12 |
 | Tests | 854 passing, 2 skipped |
 | Type debt | 0 |
-| Fixed point | Broken (re-verify needed after P1/P2 changes) |
+| Fixed point | Proven (Stage 1 = Stage 3 at 255,344 chars) |
 | Reference compiler | 🔒 Locked (with `read-file` builtin override) |
 
 ---
