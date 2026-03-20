@@ -22,6 +22,7 @@ class Program
             return RunMini(args[1]);
 
         string codexDir = args.Length > 0 ? args[0] : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "Codex.Codex"));
+        string? outputOverride = args.Length > 1 ? args[1] : null;
 
         if (!Directory.Exists(codexDir))
         {
@@ -131,9 +132,9 @@ class Program
             }
 
             string output = Codex_Codex_Codex.emit_full_module(ir, ast.type_defs);
-            string outputPath = Path.Combine(codexDir, "stage1-output.cs");
+            string outputPath = outputOverride ?? Path.Combine(codexDir, "stage1-output.cs");
             File.WriteAllText(outputPath, output);
-            Console.WriteLine($"Stage 1 output written to: {outputPath}");
+            Console.WriteLine($"Output written to: {outputPath}");
             Console.WriteLine($"Output size: {output.Length} chars");
             return 0;
         }

@@ -490,5 +490,4 @@
 489: compile : Func<string, Func<string, string>>
 490: compile-checked : Func<string, Func<string, CompileResult>>
 491: compile-with-imports : Func<string, Func<string, Func<List<ResolveResult>, CompileResult>>>
-492: test-source : string
-493: main : object [HAS-OBJECT]
+492: main : object [HAS-OBJECT]
