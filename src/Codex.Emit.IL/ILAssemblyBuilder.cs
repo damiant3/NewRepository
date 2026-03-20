@@ -20,13 +20,30 @@ sealed partial class ILAssemblyBuilder
     TypeReferenceHandle m_consoleRef;
     TypeReferenceHandle m_stringRef;
     TypeReferenceHandle m_objectRef;
+    TypeReferenceHandle m_charRef;
+    TypeReferenceHandle m_int64Ref;
+    TypeReferenceHandle m_doubleRef;
     MemberReferenceHandle m_writeLineStringRef;
     MemberReferenceHandle m_writeLineInt64Ref;
     MemberReferenceHandle m_writeLineBoolRef;
+    MemberReferenceHandle m_writeLineDoubleRef;
     MemberReferenceHandle m_stringConcatRef;
     MemberReferenceHandle m_int64ToStringRef;
     MemberReferenceHandle m_boolToStringRef;
     MemberReferenceHandle m_objectCtorRef;
+    MemberReferenceHandle m_objectToStringRef;
+    MemberReferenceHandle m_consoleReadLineRef;
+    MemberReferenceHandle m_stringGetLengthRef;
+    MemberReferenceHandle m_stringGetCharsRef;
+    MemberReferenceHandle m_stringSubstringRef;
+    MemberReferenceHandle m_stringReplaceRef;
+    MemberReferenceHandle m_int64ParseRef;
+    MemberReferenceHandle m_doubleParseRef;
+    MemberReferenceHandle m_charToStringRef;
+    MemberReferenceHandle m_charIsLetterRef;
+    MemberReferenceHandle m_charIsDigitRef;
+    MemberReferenceHandle m_charIsWhiteSpaceRef;
+    MemberReferenceHandle m_doubleToStringRef;
 
     TypeDefinitionHandle m_moduleClassDef;
     ValueMap<string, MethodDefinitionHandle> m_definedMethods = ValueMap<string, MethodDefinitionHandle>.s_empty;
@@ -117,7 +134,7 @@ sealed partial class ILAssemblyBuilder
                 }));
 
         m_int64ToStringRef = m_metadata.AddMemberReference(
-            m_objectRef,
+            m_int64Ref,
             m_metadata.GetOrAddString("ToString"),
             EncodeMethodSignature(SignatureCallingConvention.Default, false,
                 returnType: b => b.Type().String(),
@@ -134,6 +151,141 @@ sealed partial class ILAssemblyBuilder
             m_objectRef,
             m_metadata.GetOrAddString(".ctor"),
             EncodeCtorSignature(Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        m_objectToStringRef = m_metadata.AddMemberReference(
+            m_objectRef,
+            m_metadata.GetOrAddString("ToString"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().String(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // Type references for value types
+        m_charRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Char"));
+
+        m_int64Ref = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Int64"));
+
+        m_doubleRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Double"));
+
+        // Console.ReadLine() : string
+        m_consoleReadLineRef = m_metadata.AddMemberReference(
+            m_consoleRef,
+            m_metadata.GetOrAddString("ReadLine"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().String(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // Console.WriteLine(double)
+        m_writeLineDoubleRef = m_metadata.AddMemberReference(
+            m_consoleRef,
+            m_metadata.GetOrAddString("WriteLine"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Void(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Double() }));
+
+        // String.get_Length() : int  (instance)
+        m_stringGetLengthRef = m_metadata.AddMemberReference(
+            m_stringRef,
+            m_metadata.GetOrAddString("get_Length"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().Int32(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // String.get_Chars(int) : char  (instance)
+        m_stringGetCharsRef = m_metadata.AddMemberReference(
+            m_stringRef,
+            m_metadata.GetOrAddString("get_Chars"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().Char(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Int32() }));
+
+        // String.Substring(int, int) : string  (instance)
+        m_stringSubstringRef = m_metadata.AddMemberReference(
+            m_stringRef,
+            m_metadata.GetOrAddString("Substring"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().String(),
+                parameters: new Action<ParameterTypeEncoder>[]
+                {
+                    p => p.Type().Int32(),
+                    p => p.Type().Int32()
+                }));
+
+        // String.Replace(string, string) : string  (instance)
+        m_stringReplaceRef = m_metadata.AddMemberReference(
+            m_stringRef,
+            m_metadata.GetOrAddString("Replace"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().String(),
+                parameters: new Action<ParameterTypeEncoder>[]
+                {
+                    p => p.Type().String(),
+                    p => p.Type().String()
+                }));
+
+        // Int64.Parse(string) : long  (static)
+        m_int64ParseRef = m_metadata.AddMemberReference(
+            m_int64Ref,
+            m_metadata.GetOrAddString("Parse"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Int64(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // Double.Parse(string) : double  (static)
+        m_doubleParseRef = m_metadata.AddMemberReference(
+            m_doubleRef,
+            m_metadata.GetOrAddString("Parse"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Double(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // Char.ToString() : string  (instance on char)
+        m_charToStringRef = m_metadata.AddMemberReference(
+            m_charRef,
+            m_metadata.GetOrAddString("ToString"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().String(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // Char.IsLetter(char) : bool  (static)
+        m_charIsLetterRef = m_metadata.AddMemberReference(
+            m_charRef,
+            m_metadata.GetOrAddString("IsLetter"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Boolean(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Char() }));
+
+        // Char.IsDigit(char) : bool  (static)
+        m_charIsDigitRef = m_metadata.AddMemberReference(
+            m_charRef,
+            m_metadata.GetOrAddString("IsDigit"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Boolean(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Char() }));
+
+        // Char.IsWhiteSpace(char) : bool  (static)
+        m_charIsWhiteSpaceRef = m_metadata.AddMemberReference(
+            m_charRef,
+            m_metadata.GetOrAddString("IsWhiteSpace"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Boolean(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Char() }));
+
+        // Double.ToString() : string  (instance on double)
+        m_doubleToStringRef = m_metadata.AddMemberReference(
+            m_doubleRef,
+            m_metadata.GetOrAddString("ToString"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().String(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
     }
 
     public void EmitModule(IRModule module)
@@ -371,6 +523,10 @@ sealed partial class ILAssemblyBuilder
                 {
                     il.LoadLocal(localIndex);
                 }
+                else if (name.Name == "read-line")
+                {
+                    il.Call(m_consoleReadLineRef);
+                }
                 else if (m_ctorDefs.TryGet(name.Name, out MethodDefinitionHandle ctorDef)
                     && name.Type is not FunctionType)
                 {
@@ -519,6 +675,9 @@ sealed partial class ILAssemblyBuilder
 
         if (func is IRName funcName)
         {
+            if (TryEmitBuiltin(il, funcName.Name, args, locals, parameters))
+                return;
+
             if (m_ctorDefs.TryGet(funcName.Name, out MethodDefinitionHandle ctorDef))
             {
                 foreach (IRExpr arg in args)
@@ -540,6 +699,190 @@ sealed partial class ILAssemblyBuilder
                 EmitCallToMethod(il, funcName.Name, methodDef, argArray);
             }
         }
+    }
+
+    bool TryEmitBuiltin(InstructionEncoder il, string name, List<IRExpr> args,
+        LocalsBuilder locals, ImmutableArray<IRParameter> parameters)
+    {
+        return TryEmitBuiltinCore(il, name, args, locals,
+            expr => EmitExpr(il, expr, locals, parameters));
+    }
+
+    bool TryEmitBuiltinCore(InstructionEncoder il, string name, List<IRExpr> args,
+        LocalsBuilder locals, Action<IRExpr> emitSub)
+    {
+        switch (name)
+        {
+            case "print-line" when args.Count == 1:
+                emitSub(args[0]);
+                // Choose the right overload based on the argument type
+                MemberReferenceHandle writeLine = args[0].Type switch
+                {
+                    IntegerType => m_writeLineInt64Ref,
+                    NumberType => m_writeLineDoubleRef,
+                    BooleanType => m_writeLineBoolRef,
+                    _ => m_writeLineStringRef,
+                };
+                il.Call(writeLine);
+                return true;
+
+            case "show" when args.Count == 1:
+                emitSub(args[0]); EmitValueToString(il, locals, args[0].Type);
+                return true;
+
+            case "negate" when args.Count == 1:
+                emitSub(args[0]);
+                il.OpCode(ILOpCode.Neg);
+                return true;
+
+            case "text-length" when args.Count == 1:
+                emitSub(args[0]);
+                il.Call(m_stringGetLengthRef);
+                il.OpCode(ILOpCode.Conv_i8);
+                return true;
+
+            case "char-at" when args.Count == 2:
+                // s[(int)i].ToString()
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.OpCode(ILOpCode.Conv_i4);
+                il.Call(m_stringGetCharsRef);
+                EmitCharToString(il, locals);
+                return true;
+
+            case "char-code-at" when args.Count == 2:
+                // (long)s[(int)i]
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.OpCode(ILOpCode.Conv_i4);
+                il.Call(m_stringGetCharsRef);
+                il.OpCode(ILOpCode.Conv_i8);
+                return true;
+
+            case "char-code" when args.Count == 1:
+                // (long)s[0]
+                emitSub(args[0]);
+                il.LoadConstantI4(0);
+                il.Call(m_stringGetCharsRef);
+                il.OpCode(ILOpCode.Conv_i8);
+                return true;
+
+            case "code-to-char" when args.Count == 1:
+                // ((char)n).ToString()
+                emitSub(args[0]);
+                il.OpCode(ILOpCode.Conv_u2);
+                EmitCharToString(il, locals);
+                return true;
+
+            case "substring" when args.Count == 3:
+                // s.Substring((int)start, (int)len)
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.OpCode(ILOpCode.Conv_i4);
+                emitSub(args[2]);
+                il.OpCode(ILOpCode.Conv_i4);
+                il.Call(m_stringSubstringRef);
+                return true;
+
+            case "text-replace" when args.Count == 3:
+                // s.Replace(old, new)
+                emitSub(args[0]);
+                emitSub(args[1]);
+                emitSub(args[2]);
+                il.Call(m_stringReplaceRef);
+                return true;
+
+            case "text-to-integer" when args.Count == 1:
+                emitSub(args[0]);
+                il.Call(m_int64ParseRef);
+                return true;
+
+            case "integer-to-text" when args.Count == 1:
+                emitSub(args[0]);
+                EmitValueToString(il, locals, args[0].Type);
+                return true;
+
+            case "is-letter" when args.Count == 1:
+                // Char.IsLetter(s[0])
+                emitSub(args[0]);
+                il.LoadConstantI4(0);
+                il.Call(m_stringGetCharsRef);
+                il.Call(m_charIsLetterRef);
+                return true;
+
+            case "is-digit" when args.Count == 1:
+                emitSub(args[0]);
+                il.LoadConstantI4(0);
+                il.Call(m_stringGetCharsRef);
+                il.Call(m_charIsDigitRef);
+                return true;
+
+            case "is-whitespace" when args.Count == 1:
+                emitSub(args[0]);
+                il.LoadConstantI4(0);
+                il.Call(m_stringGetCharsRef);
+                il.Call(m_charIsWhiteSpaceRef);
+                return true;
+
+            case "read-line" when args.Count == 0:
+                il.Call(m_consoleReadLineRef);
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    void EmitValueToString(InstructionEncoder il, LocalsBuilder locals, CodexType type)
+    {
+        switch (type)
+        {
+            case IntegerType:
+            {
+                // Store to local, ldloca, call Int64::ToString()
+                int tmp = locals.AddLocal("__show_i64", type);
+                il.StoreLocal(tmp);
+                il.OpCode(ILOpCode.Ldloca_s);
+                il.CodeBuilder.WriteByte((byte)tmp);
+                il.Call(m_int64ToStringRef);
+                break;
+            }
+            case NumberType:
+            {
+                int tmp = locals.AddLocal("__show_f64", type);
+                il.StoreLocal(tmp);
+                il.OpCode(ILOpCode.Ldloca_s);
+                il.CodeBuilder.WriteByte((byte)tmp);
+                il.Call(m_doubleToStringRef);
+                break;
+            }
+            case BooleanType:
+            {
+                int tmp = locals.AddLocal("__show_bool", type);
+                il.StoreLocal(tmp);
+                il.OpCode(ILOpCode.Ldloca_s);
+                il.CodeBuilder.WriteByte((byte)tmp);
+                il.Call(m_boolToStringRef);
+                break;
+            }
+            case TextType:
+                // Already a string, nothing to do
+                break;
+            default:
+                // Box and call Object.ToString()
+                il.OpCode(ILOpCode.Box);
+                il.Token(m_objectRef);
+                il.Call(m_objectToStringRef);
+                break;
+        }
+    }
+
+    void EmitCharToString(InstructionEncoder il, LocalsBuilder locals)
+    {
+        // Box the char value and call Object.ToString()
+        il.OpCode(ILOpCode.Box);
+        il.Token(m_charRef);
+        il.Call(m_objectToStringRef);
     }
 
     void EmitCallToMethod(InstructionEncoder il, string name,
@@ -1065,6 +1408,10 @@ sealed partial class ILAssemblyBuilder
                 {
                     il.LoadLocal(localIndex);
                 }
+                else if (name.Name == "read-line")
+                {
+                    il.Call(m_consoleReadLineRef);
+                }
                 else if (m_ctorDefs.TryGet(name.Name, out MethodDefinitionHandle ctorDef)
                     && name.Type is not FunctionType)
                 {
@@ -1244,6 +1591,10 @@ sealed partial class ILAssemblyBuilder
 
         if (func is IRName funcName)
         {
+            if (TryEmitBuiltinCore(il, funcName.Name, args, locals,
+                    expr => EmitTcoExpr(il, expr, locals, parameters, paramLocals)))
+                return;
+
             if (m_ctorDefs.TryGet(funcName.Name, out MethodDefinitionHandle ctorDef))
             {
                 foreach (IRExpr arg in args)
