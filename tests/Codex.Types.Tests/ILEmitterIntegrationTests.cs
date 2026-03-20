@@ -383,6 +383,42 @@ public class ILEmitterIntegrationTests
         Assert.Equal("50", output.Trim());
     }
 
+    [Fact]
+    public void Show_integer_exe_runs_correctly()
+    {
+        string source = """
+            main : Text
+            main = show 42
+            """;
+        string? output = CompileAndRun(source, "show_int_run");
+        Assert.NotNull(output);
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Show_boolean_exe_runs_correctly()
+    {
+        string source = """
+            main : Text
+            main = show (1 == 1)
+            """;
+        string? output = CompileAndRun(source, "show_bool_run");
+        Assert.NotNull(output);
+        Assert.Equal("True", output.Trim());
+    }
+
+    [Fact]
+    public void Show_text_exe_runs_correctly()
+    {
+        string source = """
+            main : Text
+            main = show "hello"
+            """;
+        string? output = CompileAndRun(source, "show_text_run");
+        Assert.NotNull(output);
+        Assert.Equal("hello", output.Trim());
+    }
+
     // ── Helpers ────────────────────────────────────────────────
 
     static List<string> GetMethodNames(byte[] peBytes)

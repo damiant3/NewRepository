@@ -13,10 +13,15 @@
 
 namespace codex {
 
+struct Point;
 struct Red;
 struct Green;
 struct Blue;
-struct Point;
+
+struct Point {
+    int64_t x;
+    int64_t y;
+};
 
 struct Red {
 };
@@ -29,11 +34,6 @@ struct Blue {
 };
 
 using Color = std::variant<Red, Green, Blue>;
-
-struct Point {
-    int64_t x;
-    int64_t y;
-};
 
 std::string show_color(Color c) {
     return std::visit([&](auto&& _s) -> std::string { if constexpr (std::is_same_v<std::decay_t<decltype(_s)>, Red>) { return std::string("red"); } else if constexpr (std::is_same_v<std::decay_t<decltype(_s)>, Green>) { return std::string("green"); } else if constexpr (std::is_same_v<std::decay_t<decltype(_s)>, Blue>) { auto n = _s.field0; return std::string("blue"); } else { throw std::runtime_error("non-exhaustive match"); } }, c);

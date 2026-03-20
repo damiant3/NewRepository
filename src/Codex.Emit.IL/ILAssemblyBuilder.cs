@@ -23,6 +23,7 @@ sealed partial class ILAssemblyBuilder
     TypeReferenceHandle m_charRef;
     TypeReferenceHandle m_int64Ref;
     TypeReferenceHandle m_doubleRef;
+    TypeReferenceHandle m_booleanRef;
     MemberReferenceHandle m_writeLineStringRef;
     MemberReferenceHandle m_writeLineInt64Ref;
     MemberReferenceHandle m_writeLineBoolRef;
@@ -101,6 +102,27 @@ sealed partial class ILAssemblyBuilder
             m_metadata.GetOrAddString("System"),
             m_metadata.GetOrAddString("Object"));
 
+        // Type references for value types — must be before member references that use them
+        m_charRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Char"));
+
+        m_int64Ref = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Int64"));
+
+        m_doubleRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Double"));
+
+        m_booleanRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Boolean"));
+
         m_writeLineStringRef = m_metadata.AddMemberReference(
             m_consoleRef,
             m_metadata.GetOrAddString("WriteLine"),
@@ -141,7 +163,7 @@ sealed partial class ILAssemblyBuilder
                 parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
 
         m_boolToStringRef = m_metadata.AddMemberReference(
-            m_objectRef,
+            m_booleanRef,
             m_metadata.GetOrAddString("ToString"),
             EncodeMethodSignature(SignatureCallingConvention.Default, false,
                 returnType: b => b.Type().String(),
@@ -158,22 +180,6 @@ sealed partial class ILAssemblyBuilder
             EncodeMethodSignature(SignatureCallingConvention.Default, false,
                 returnType: b => b.Type().String(),
                 parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
-
-        // Type references for value types
-        m_charRef = m_metadata.AddTypeReference(
-            m_corlibRef,
-            m_metadata.GetOrAddString("System"),
-            m_metadata.GetOrAddString("Char"));
-
-        m_int64Ref = m_metadata.AddTypeReference(
-            m_corlibRef,
-            m_metadata.GetOrAddString("System"),
-            m_metadata.GetOrAddString("Int64"));
-
-        m_doubleRef = m_metadata.AddTypeReference(
-            m_corlibRef,
-            m_metadata.GetOrAddString("System"),
-            m_metadata.GetOrAddString("Double"));
 
         // Console.ReadLine() : string
         m_consoleReadLineRef = m_metadata.AddMemberReference(
@@ -869,10 +875,9 @@ sealed partial class ILAssemblyBuilder
                 // Already a string, nothing to do
                 break;
             default:
-                // Box and call Object.ToString()
-                il.OpCode(ILOpCode.Box);
-                il.Token(m_objectRef);
-                il.Call(m_objectToStringRef);
+                // Reference type — just callvirt Object.ToString()
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_objectToStringRef);
                 break;
         }
     }
