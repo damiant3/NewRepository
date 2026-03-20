@@ -180,6 +180,7 @@ Section: Apply Chain
    else if n == "open-file" then True
    else if n == "read-all" then True
    else if n == "close-file" then True
+   else if n == "read-line" then True
    else False
 
   emit-builtin : Text -> List IRExpr -> List ArityEntry -> Text
@@ -204,6 +205,7 @@ Section: Apply Chain
    else if n == "open-file" then "File.OpenRead(" ++ emit-expr (list-at args 0) arities ++ ")"
    else if n == "read-all" then "new System.IO.StreamReader(" ++ emit-expr (list-at args 0) arities ++ ").ReadToEnd()"
    else if n == "close-file" then emit-expr (list-at args 0) arities ++ ".Dispose()"
+   else if n == "read-line" then "Console.ReadLine()"
    else ""
 
   emit-apply : IRExpr -> List ArityEntry -> Text
@@ -242,7 +244,7 @@ Section: Expression Emission
     if IrNumLit (n) -> integer-to-text n
     if IrTextLit (s) -> "\"" ++ escape-text s ++ "\""
     if IrBoolLit (b) -> if b then "true" else "false"
-    if IrName (n) (ty) -> if text-length n > 0 & is-upper-letter (char-at n 0) then "new " ++ sanitize n ++ "()" else if lookup-arity arities n == 0 then sanitize n ++ "()" else let ar = lookup-arity arities n in if ar >= 2 then emit-partial-wrappers 0 ar ++ sanitize n ++ "(" ++ emit-partial-params 0 ar ++ ")" else sanitize n
+    if IrName (n) (ty) -> if n == "read-line" then "Console.ReadLine()" else if text-length n > 0 & is-upper-letter (char-at n 0) then "new " ++ sanitize n ++ "()" else if lookup-arity arities n == 0 then sanitize n ++ "()" else let ar = lookup-arity arities n in if ar >= 2 then emit-partial-wrappers 0 ar ++ sanitize n ++ "(" ++ emit-partial-params 0 ar ++ ")" else sanitize n
     if IrBinary (op) (l) (r) (ty) -> emit-binary op l r ty arities
     if IrNegate (operand) -> "(-" ++ emit-expr operand arities ++ ")"
     if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c arities ++ " ? " ++ emit-expr t arities ++ " : " ++ emit-expr el arities ++ ")"
