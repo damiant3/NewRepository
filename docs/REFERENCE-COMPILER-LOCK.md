@@ -81,3 +81,30 @@ Stage 2+: stage1-output.cs → compiles .codex → stage2-output.cs  (= stage1-o
 3. **Test projects (`tests/`) may still be modified** — they test the reference compiler which remains the build system.
 4. **The CLI (`tools/Codex.Cli/`) may still be modified** — it's the driver, not the compiler.
 5. **Regenerating Stage 0 output** (`codex build Codex.Codex/`) is permitted and expected as `.codex` source evolves.
+
+---
+
+## Lock Overrides
+
+### Override 1: `char-code-at` builtin (2026-03-20)
+
+**Authorized by**: User (project owner)
+**Agent**: Claude (Opus 4.6, Linux)
+**Justification**: Performance-critical. The self-hosted lexer was **800× slower** than the
+reference compiler's lexer because `char-at` returns `Text` (heap-allocated string per
+character). For a 163K-char input, this produces billions of bytes of garbage.
+
+**Change**: Added `char-code-at : Text -> Integer -> Integer` as a new builtin.
+Emits `((long)source[(int)index])` — zero allocation.
+
+**Files modified** (4 files, ~10 lines total):
+- `src/Codex.Types/TypeEnvironment.cs` — type binding
+- `src/Codex.IR/Lowering.cs` — builtin type map
+- `src/Codex.Emit.CSharp/CSharpEmitter.Expressions.cs` — emission + multi-arg set
+- `src/Codex.Semantics/NameResolver.cs` — builtin name set
+
+**Scope**: This is a new builtin, not a language feature. It does not change parsing,
+type checking, or any existing behavior. No existing tests are affected (836 passing).
+
+**Impact**: Enables the self-hosted lexer to use integer character codes on the hot path,
+eliminating per-character string allocation. Projected: lexer 800× → ~5×, overall 28× → ~4×.

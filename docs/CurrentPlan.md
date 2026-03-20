@@ -70,7 +70,8 @@ The `.codex` compiler now handles:
 
 | # | Task | Status | What |
 |---|------|--------|------|
-| E1 | **Exit criterion: real programs** | ✅ Done | `samples/word-freq/` — 3-file project (139 lines): Tokenizer, Counter, main. Exercises multi-file compilation, cross-file definitions, record types, variant types, pattern matching, recursive text processing, do-notation with Console effect, and the full `codex build` pipeline with auto-prelude discovery. Compiles to C# and runs correctly. |
+| E1 | **Exit criterion: real programs** | ✅ Done | `samples/word-freq/` — 3-file word frequency counter (139 lines). Multi-file build, cross-file defs, records, variants, pattern matching, effects, do-notation. Compiles and runs correctly via `codex build`. |
+| Perf-P1 | **Lexer zero-alloc optimization** | ✅ Done | Added `char-code-at` builtin (reference compiler lock override, user-authorized). Rewrote self-hosted lexer: `peek-char` (Text, alloc) → `peek-code` (Integer, zero-alloc). All character comparisons now integer ==. Projected: lexer 800× → ~5×, overall 28× → ~4×. |
 
 ### Medium Term: Library & Runtime
 

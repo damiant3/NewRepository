@@ -648,6 +648,8 @@ public sealed class Lowering(
             new FunctionType(TextType.s_instance,
                 new FunctionType(TextType.s_instance, TextType.s_instance))));
         map = map.Set("char-code", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        map = map.Set("char-code-at", new FunctionType(TextType.s_instance,
+            new FunctionType(IntegerType.s_instance, IntegerType.s_instance)));
         map = map.Set("code-to-char", new FunctionType(IntegerType.s_instance, TextType.s_instance));
 
         map = map.Set("list-length", new ForAllType(0,

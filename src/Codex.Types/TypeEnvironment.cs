@@ -74,6 +74,8 @@ public sealed class TypeEnvironment
             new FunctionType(TextType.s_instance,
                 new FunctionType(TextType.s_instance, TextType.s_instance))));
         env = env.Bind("char-code", new FunctionType(TextType.s_instance, IntegerType.s_instance));
+        env = env.Bind("char-code-at", new FunctionType(TextType.s_instance,
+            new FunctionType(IntegerType.s_instance, IntegerType.s_instance)));
         env = env.Bind("code-to-char", new FunctionType(IntegerType.s_instance, TextType.s_instance));
 
         env = env.Bind("list-length", new ForAllType(0,

@@ -333,7 +333,7 @@ public sealed partial class CSharpEmitter
         args.Add(app.Argument);
     }
 
-    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "substring", "list-at", "text-replace");
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "char-code-at", "substring", "list-at", "text-replace");
 
     static string? FindBuiltinRoot(IRApply app)
     {
@@ -360,6 +360,14 @@ public sealed partial class CSharpEmitter
                 sb.Append("[(int)");
                 EmitExpr(sb, args[1], indent);
                 sb.Append("].ToString()");
+                return true;
+
+            case "char-code-at" when args.Count == 2:
+                sb.Append("((long)");
+                EmitExpr(sb, args[0], indent);
+                sb.Append("[(int)");
+                EmitExpr(sb, args[1], indent);
+                sb.Append("])");
                 return true;
 
             case "substring" when args.Count == 3:

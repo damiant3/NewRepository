@@ -170,6 +170,7 @@ Section: Apply Chain
    else if n == "text-to-integer" then True
    else if n == "integer-to-text" then True
    else if n == "char-code" then True
+   else if n == "char-code-at" then True
    else if n == "code-to-char" then True
    else if n == "list-length" then True
    else if n == "char-at" then True
@@ -193,6 +194,7 @@ Section: Apply Chain
    else if n == "text-to-integer" then "long.Parse(" ++ emit-expr (list-at args 0) arities ++ ")"
    else if n == "integer-to-text" then "(" ++ emit-expr (list-at args 0) arities ++ ").ToString()"
    else if n == "char-code" then "((long)" ++ emit-expr (list-at args 0) arities ++ "[0])"
+   else if n == "char-code-at" then "((long)" ++ emit-expr (list-at args 0) arities ++ "[(int)" ++ emit-expr (list-at args 1) arities ++ "])"
    else if n == "code-to-char" then "((char)" ++ emit-expr (list-at args 0) arities ++ ").ToString()"
    else if n == "list-length" then "((long)" ++ emit-expr (list-at args 0) arities ++ ".Count)"
    else if n == "char-at" then emit-expr (list-at args 0) arities ++ "[(int)" ++ emit-expr (list-at args 1) arities ++ "].ToString()"
