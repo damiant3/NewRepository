@@ -469,6 +469,7 @@ sealed partial class ILAssemblyBuilder
             MemberReferenceHandle writeLine = mainDef.Type switch
             {
                 IntegerType => m_writeLineInt64Ref,
+                NumberType => m_writeLineDoubleRef,
                 BooleanType => m_writeLineBoolRef,
                 _ => m_writeLineStringRef,
             };
@@ -686,9 +687,15 @@ sealed partial class ILAssemblyBuilder
 
             if (m_ctorDefs.TryGet(funcName.Name, out MethodDefinitionHandle ctorDef))
             {
-                foreach (IRExpr arg in args)
+                string ctorSanitized = SanitizeName(funcName.Name);
+                List<(string Name, CodexType Type)>? fieldTypes = m_typeFields[ctorSanitized];
+                for (int ai = 0; ai < args.Count; ai++)
                 {
-                    EmitExpr(il, arg, locals, parameters);
+                    EmitExpr(il, args[ai], locals, parameters);
+                    if (fieldTypes is not null && ai < fieldTypes.Count)
+                    {
+                        EmitBoxIfNeeded(il, args[ai].Type, fieldTypes[ai].Type);
+                    }
                 }
                 il.OpCode(ILOpCode.Newobj);
                 il.Token(ctorDef);
@@ -931,7 +938,7 @@ sealed partial class ILAssemblyBuilder
                 case IRDoExec exec:
                     EmitExpr(il, exec.Expression, locals, parameters);
                     bool isLast = i == doExpr.Statements.Length - 1;
-                    if (!isLast && exec.Expression.Type is not VoidType)
+                    if (!isLast && !IsVoidLike(exec.Expression.Type))
                     {
                         il.OpCode(ILOpCode.Pop);
                     }
@@ -1051,6 +1058,62 @@ sealed partial class ILAssemblyBuilder
     }
 
     static string SanitizeName(string name) => name.Replace('-', '_').Replace('.', '_');
+
+    static bool IsVoidLike(CodexType type) => type is VoidType or NothingType
+        or EffectfulType { Return: VoidType or NothingType };
+
+    void EmitBoxIfNeeded(InstructionEncoder il, CodexType actualType, CodexType expectedType)
+    {
+        if (expectedType is not (TypeVariable or ForAllType))
+            return;
+        TypeReferenceHandle? boxTarget = actualType switch
+        {
+            IntegerType => m_int64Ref,
+            NumberType => m_doubleRef,
+            BooleanType => m_booleanRef,
+            _ => null
+        };
+        if (boxTarget is not null)
+        {
+            il.OpCode(ILOpCode.Box);
+            il.Token(boxTarget.Value);
+        }
+    }
+
+    void EmitUnboxIfNeeded(InstructionEncoder il, CodexType storedType, CodexType targetType)
+    {
+        if (storedType is not (TypeVariable or ForAllType))
+            return;
+        TypeReferenceHandle? unboxTarget = targetType switch
+        {
+            IntegerType => m_int64Ref,
+            NumberType => m_doubleRef,
+            BooleanType => m_booleanRef,
+            _ => null
+        };
+        if (unboxTarget is not null)
+        {
+            il.OpCode(ILOpCode.Unbox_any);
+            il.Token(unboxTarget.Value);
+        }
+        else if (targetType is not TypeVariable and not ForAllType
+            and not TextType)
+        {
+            // Reference type stored as object — cast down
+            string? typeName = targetType switch
+            {
+                RecordType rec => SanitizeName(rec.TypeName.Value),
+                SumType sum => SanitizeName(sum.TypeName.Value),
+                ConstructedType ct => SanitizeName(ct.Constructor.Value),
+                _ => null
+            };
+            if (typeName is not null && m_emittedTypes.TryGet(typeName, out TypeDefinitionHandle typeDef))
+            {
+                il.OpCode(ILOpCode.Castclass);
+                il.Token(typeDef);
+            }
+        }
+    }
 
     static CodexType ComputeReturnType(CodexType fullType, int parameterCount)
     {
@@ -1360,19 +1423,17 @@ sealed partial class ILAssemblyBuilder
     void EmitTcoExpr(InstructionEncoder il, IRExpr expr, LocalsBuilder locals,
         ImmutableArray<IRParameter> parameters, int[] paramLocals)
     {
-        // In TCO context, parameter references need to read from locals instead of args
-        if (expr is IRName name)
+        switch (expr)
         {
-            int paramIndex = FindParameter(name.Name, parameters);
-            if (paramIndex >= 0)
-            {
-                il.LoadLocal(paramLocals[paramIndex]);
-                return;
-            }
+            case IRName name:
+                int paramIndex = FindParameter(name.Name, parameters);
+                if (paramIndex >= 0)
+                {
+                    il.LoadLocal(paramLocals[paramIndex]);
+                    return;
+                }
+                break;
         }
-        // For compound expressions that contain IRName references to params,
-        // we swap out the EmitExpr call temporarily. We handle this by wrapping
-        // with a special parameters mapping.
         EmitExprWithParamLocals(il, expr, locals, parameters, paramLocals);
     }
 
@@ -1473,7 +1534,7 @@ sealed partial class ILAssemblyBuilder
                         case IRDoExec exec:
                             EmitTcoExpr(il, exec.Expression, locals, parameters, paramLocals);
                             bool isLast = i == doExpr.Statements.Length - 1;
-                            if (!isLast && exec.Expression.Type is not VoidType)
+                            if (!isLast && !IsVoidLike(exec.Expression.Type))
                             {
                                 il.OpCode(ILOpCode.Pop);
                             }
@@ -1602,9 +1663,15 @@ sealed partial class ILAssemblyBuilder
 
             if (m_ctorDefs.TryGet(funcName.Name, out MethodDefinitionHandle ctorDef))
             {
-                foreach (IRExpr arg in args)
+                string ctorSanitized = SanitizeName(funcName.Name);
+                List<(string Name, CodexType Type)>? fieldTypes = m_typeFields[ctorSanitized];
+                for (int ai = 0; ai < args.Count; ai++)
                 {
-                    EmitTcoExpr(il, arg, locals, parameters, paramLocals);
+                    EmitTcoExpr(il, args[ai], locals, parameters, paramLocals);
+                    if (fieldTypes is not null && ai < fieldTypes.Count)
+                    {
+                        EmitBoxIfNeeded(il, args[ai].Type, fieldTypes[ai].Type);
+                    }
                 }
                 il.OpCode(ILOpCode.Newobj);
                 il.Token(ctorDef);

@@ -378,9 +378,13 @@ sealed partial class ILAssemblyBuilder
         string ctorName, int castLocal, LocalsBuilder locals,
         ImmutableArray<IRParameter> parameters)
     {
+        List<(string Name, CodexType Type)>? fieldTypes = m_typeFields[ctorName];
+
         for (int i = 0; i < ctorPat.SubPatterns.Length; i++)
         {
             string fieldKey = $"{ctorName}.Field{i}";
+            CodexType? storedType = (fieldTypes is not null && i < fieldTypes.Count)
+                ? fieldTypes[i].Type : null;
 
             switch (ctorPat.SubPatterns[i])
             {
@@ -390,6 +394,8 @@ sealed partial class ILAssemblyBuilder
                         il.LoadLocal(castLocal);
                         il.OpCode(ILOpCode.Ldfld);
                         il.Token(fh);
+                        if (storedType is not null)
+                            EmitUnboxIfNeeded(il, storedType, vp.Type);
                         int varLocal = locals.AddLocal(vp.Name, vp.Type);
                         il.StoreLocal(varLocal);
                     }
@@ -404,6 +410,8 @@ sealed partial class ILAssemblyBuilder
                         il.LoadLocal(castLocal);
                         il.OpCode(ILOpCode.Ldfld);
                         il.Token(nestedFh);
+                        if (storedType is not null)
+                            EmitUnboxIfNeeded(il, storedType, nested.Type);
                         int nestedLocal = locals.AddLocal($"__nested_{i}", nested.Type);
                         il.StoreLocal(nestedLocal);
                         string nestedName = SanitizeName(nested.Name);
