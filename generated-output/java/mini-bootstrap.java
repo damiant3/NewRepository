@@ -3,12 +3,12 @@ import java.util.*;
 import java.util.function.*;
 import java.io.*;
 
+record Point(long x, long y) {}
+
 sealed interface Color {}
 record Red() implements Color {}
 record Green() implements Color {}
 record Blue(long field0) implements Color {}
-
-record Point(long x, long y) {}
 
 public class Mini_bootstrap {
     public static String show_color(Color c) {
