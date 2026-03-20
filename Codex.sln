@@ -185,6 +185,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Designs", "Designs", "{0AA7
 	ProjectSection(SolutionItems) = preProject
 		docs\Designs\CCE-DESIGN.md = docs\Designs\CCE-DESIGN.md
 		docs\Designs\HAMT-DESIGN.md = docs\Designs\HAMT-DESIGN.md
+		docs\Designs\PerformanceReportAndRecommendation.md = docs\Designs\PerformanceReportAndRecommendation.md
 		docs\Designs\ProseGrammarProposal.md = docs\Designs\ProseGrammarProposal.md
 		docs\Designs\REPL.md = docs\Designs\REPL.md
 		docs\Designs\STDLIB-AND-CONCURRENCY.md = docs\Designs\STDLIB-AND-CONCURRENCY.md
