@@ -76,6 +76,18 @@ sealed partial class ILAssemblyBuilder
     MemberReferenceHandle m_psiSetRedirectRef;        // set_RedirectStandardOutput(bool)
     MemberReferenceHandle m_psiSetShellRef;           // set_UseShellExecute(bool)
 
+    // ── Directory ───────────────────────────────────────────────
+    TypeReferenceHandle m_directoryRef;
+    MemberReferenceHandle m_directoryGetFilesRef;     // Directory.GetFiles(string, string) : string[]
+    MemberReferenceHandle m_directoryGetCurrentRef;   // Directory.GetCurrentDirectory() : string
+
+    // ── Additional String instance methods ──────────────────────
+    MemberReferenceHandle m_stringContainsRef;        // String.Contains(string) : bool
+    MemberReferenceHandle m_stringStartsWithRef;      // String.StartsWith(string) : bool
+
+    // ── Additional Environment statics ──────────────────────────
+    MemberReferenceHandle m_getEnvVarRef;             // Environment.GetEnvironmentVariable(string) : string
+
     TypeDefinitionHandle m_moduleClassDef;
     ValueMap<string, MethodDefinitionHandle> m_definedMethods = ValueMap<string, MethodDefinitionHandle>.s_empty;
     ValueMap<string, TypeDefinitionHandle> m_emittedTypes = ValueMap<string, TypeDefinitionHandle>.s_empty;
@@ -571,6 +583,63 @@ sealed partial class ILAssemblyBuilder
             EncodeMethodSignature(SignatureCallingConvention.Default, false,
                 returnType: b => b.Type().String(),
                 parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // ── Additional String instance methods ──────────────────
+        // String.Contains(string) : bool (instance)
+        m_stringContainsRef = m_metadata.AddMemberReference(
+            m_stringRef,
+            m_metadata.GetOrAddString("Contains"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().Boolean(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // String.StartsWith(string) : bool (instance)
+        m_stringStartsWithRef = m_metadata.AddMemberReference(
+            m_stringRef,
+            m_metadata.GetOrAddString("StartsWith"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().Boolean(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // ── Environment.GetEnvironmentVariable ──────────────────
+        m_getEnvVarRef = m_metadata.AddMemberReference(
+            m_environmentRef,
+            m_metadata.GetOrAddString("GetEnvironmentVariable"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().String(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // ── Directory (System.IO) ───────────────────────────────
+        m_directoryRef = m_metadata.AddTypeReference(
+            fileSystemAsmRef,
+            m_metadata.GetOrAddString("System.IO"),
+            m_metadata.GetOrAddString("Directory"));
+
+        // Directory.GetCurrentDirectory() : string (static)
+        m_directoryGetCurrentRef = m_metadata.AddMemberReference(
+            m_directoryRef,
+            m_metadata.GetOrAddString("GetCurrentDirectory"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().String(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // Directory.GetFiles(string, string) : string[] (static)
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: false)
+                .Parameters(2,
+                    returnType => returnType.Type().SZArray().String(),
+                    parameters =>
+                    {
+                        parameters.AddParameter().Type().String();
+                        parameters.AddParameter().Type().String();
+                    });
+            m_directoryGetFilesRef = m_metadata.AddMemberReference(
+                m_directoryRef,
+                m_metadata.GetOrAddString("GetFiles"),
+                m_metadata.GetOrAddBlob(sig));
+        }
     }
 
     public void EmitModule(IRModule module)
@@ -1259,6 +1328,47 @@ sealed partial class ILAssemblyBuilder
                     il.LoadLocal(tmpOut);
                 }
                 return true;
+
+            // ── Additional text builtins ─────────────────────────
+            case "text-contains" when args.Count == 2:
+                // text.Contains(substring) : bool
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_stringContainsRef);
+                return true;
+
+            case "text-starts-with" when args.Count == 2:
+                // text.StartsWith(prefix) : bool
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_stringStartsWithRef);
+                return true;
+
+            // ── Environment / Directory builtins ─────────────────
+            case "get-env" when args.Count == 1:
+                // Environment.GetEnvironmentVariable(name) : string
+                emitSub(args[0]);
+                il.Call(m_getEnvVarRef);
+                return true;
+
+            case "current-dir" when args.Count == 0:
+                // Directory.GetCurrentDirectory() : string
+                il.Call(m_directoryGetCurrentRef);
+                return true;
+
+            case "list-files" when args.Count == 2:
+            {
+                // new List<string>(Directory.GetFiles(path, pattern))
+                ListInstantiation inst = GetOrCreateListInstantiation(TextType.s_instance);
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.Call(m_directoryGetFilesRef);
+                il.OpCode(ILOpCode.Newobj);
+                il.Token(inst.CtorIEnumerable);
+                return true;
+            }
 
             default:
                 return false;
