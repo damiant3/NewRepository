@@ -45,6 +45,7 @@ sealed partial class ILAssemblyBuilder
     MemberReferenceHandle m_charIsDigitRef;
     MemberReferenceHandle m_charIsWhiteSpaceRef;
     MemberReferenceHandle m_doubleToStringRef;
+    MemberReferenceHandle m_stringEqualsRef;
 
     // ── List<T> support ──────────────────────────────────────────
     TypeReferenceHandle m_listOpenRef;              // System.Collections.Generic.List`1
@@ -65,6 +66,7 @@ sealed partial class ILAssemblyBuilder
     TypeReferenceHandle m_fileRef;
     MemberReferenceHandle m_fileReadAllTextRef;       // File.ReadAllText(string) : string
     MemberReferenceHandle m_fileExistsRef;            // File.Exists(string) : bool
+    MemberReferenceHandle m_fileWriteAllTextRef;      // File.WriteAllText(string, string) : void
 
     TypeDefinitionHandle m_moduleClassDef;
     ValueMap<string, MethodDefinitionHandle> m_definedMethods = ValueMap<string, MethodDefinitionHandle>.s_empty;
@@ -169,6 +171,18 @@ sealed partial class ILAssemblyBuilder
             m_metadata.GetOrAddString("Concat"),
             EncodeMethodSignature(SignatureCallingConvention.Default, true,
                 returnType: b => b.Type().String(),
+                parameters: new Action<ParameterTypeEncoder>[]
+                {
+                    p => p.Type().String(),
+                    p => p.Type().String()
+                }));
+
+        // String.op_Equality(string, string) : bool  (static)
+        m_stringEqualsRef = m_metadata.AddMemberReference(
+            m_stringRef,
+            m_metadata.GetOrAddString("op_Equality"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Boolean(),
                 parameters: new Action<ParameterTypeEncoder>[]
                 {
                     p => p.Type().String(),
@@ -495,6 +509,18 @@ sealed partial class ILAssemblyBuilder
             EncodeMethodSignature(SignatureCallingConvention.Default, true,
                 returnType: b => b.Type().Boolean(),
                 parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // File.WriteAllText(string, string) : void  (static)
+        m_fileWriteAllTextRef = m_metadata.AddMemberReference(
+            m_fileRef,
+            m_metadata.GetOrAddString("WriteAllText"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Void(),
+                parameters: new Action<ParameterTypeEncoder>[]
+                {
+                    p => p.Type().String(),
+                    p => p.Type().String()
+                }));
     }
 
     public void EmitModule(IRModule module)
@@ -812,12 +838,24 @@ sealed partial class ILAssemblyBuilder
                 il.OpCode(ILOpCode.Div);
                 break;
             case IRBinaryOp.Eq:
-                il.OpCode(ILOpCode.Ceq);
+                if (IsTextLike(bin.Left.Type))
+                    il.Call(m_stringEqualsRef);
+                else
+                    il.OpCode(ILOpCode.Ceq);
                 break;
             case IRBinaryOp.NotEq:
-                il.OpCode(ILOpCode.Ceq);
-                il.LoadConstantI4(0);
-                il.OpCode(ILOpCode.Ceq);
+                if (IsTextLike(bin.Left.Type))
+                {
+                    il.Call(m_stringEqualsRef);
+                    il.LoadConstantI4(0);
+                    il.OpCode(ILOpCode.Ceq);
+                }
+                else
+                {
+                    il.OpCode(ILOpCode.Ceq);
+                    il.LoadConstantI4(0);
+                    il.OpCode(ILOpCode.Ceq);
+                }
                 break;
             case IRBinaryOp.Lt:
                 il.OpCode(ILOpCode.Clt);
@@ -1092,6 +1130,14 @@ sealed partial class ILAssemblyBuilder
                 il.Call(m_fileExistsRef);
                 return true;
 
+            case "write-file" when args.Count == 2:
+                // File.WriteAllText(path, content) — void return, push null for let bindings
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.Call(m_fileWriteAllTextRef);
+                il.OpCode(ILOpCode.Ldnull);
+                return true;
+
             default:
                 return false;
         }
@@ -1318,6 +1364,9 @@ sealed partial class ILAssemblyBuilder
 
     static bool IsVoidLike(CodexType type) => type is VoidType or NothingType
         or EffectfulType { Return: VoidType or NothingType };
+
+    static bool IsTextLike(CodexType type) => type is TextType
+        or EffectfulType { Return: TextType };
 
     void EmitBoxIfNeeded(InstructionEncoder il, CodexType actualType, CodexType expectedType)
     {
@@ -1869,12 +1918,24 @@ sealed partial class ILAssemblyBuilder
                 il.OpCode(ILOpCode.Div);
                 break;
             case IRBinaryOp.Eq:
-                il.OpCode(ILOpCode.Ceq);
+                if (IsTextLike(bin.Left.Type))
+                    il.Call(m_stringEqualsRef);
+                else
+                    il.OpCode(ILOpCode.Ceq);
                 break;
             case IRBinaryOp.NotEq:
-                il.OpCode(ILOpCode.Ceq);
-                il.LoadConstantI4(0);
-                il.OpCode(ILOpCode.Ceq);
+                if (IsTextLike(bin.Left.Type))
+                {
+                    il.Call(m_stringEqualsRef);
+                    il.LoadConstantI4(0);
+                    il.OpCode(ILOpCode.Ceq);
+                }
+                else
+                {
+                    il.OpCode(ILOpCode.Ceq);
+                    il.LoadConstantI4(0);
+                    il.OpCode(ILOpCode.Ceq);
+                }
                 break;
             case IRBinaryOp.Lt:
                 il.OpCode(ILOpCode.Clt);
