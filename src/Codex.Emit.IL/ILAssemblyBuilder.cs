@@ -2171,7 +2171,7 @@ sealed partial class ILAssemblyBuilder
                     EmitTcoExpr(il, args[ai], locals, parameters, paramLocals);
                     if (fieldTypes is not null && ai < fieldTypes.Count)
                     {
-                        EmitBoxIfNeeded(il, args[ai].Type, fieldTypes[ai]. Type);
+                        EmitBoxIfNeeded(il, args[ai].Type, fieldTypes[ai].Type);
                     }
                 }
                 il.OpCode(ILOpCode.Newobj);

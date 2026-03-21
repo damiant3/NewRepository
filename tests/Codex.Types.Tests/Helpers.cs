@@ -142,6 +142,14 @@ namespace Codex.Types.Tests
 #else
         public static string? CompileToJS(string source, string moduleName = "test") => null;
         public static string? CompileToPython(string source, string moduleName = "test") => null;
+        public static string? CompileToRust(string source, string moduleName = "test") => null;
+        public static string? CompileToCpp(string source, string moduleName = "test") => null;
+        public static string? CompileToGo(string source, string moduleName = "test") => null;
+        public static string? CompileToJava(string source, string moduleName = "test") => null;
+        public static string? CompileToAda(string source, string moduleName = "test") => null;
+        public static string? CompileToBabbage(string source, string moduleName = "test") => null;
+        public static string? CompileToFortran(string source, string moduleName = "test") => null;
+        public static string? CompileToCobol(string source, string moduleName = "test") => null;
 #endif
 
         public static byte[]? CompileToIL(string source, string moduleName = "test")
