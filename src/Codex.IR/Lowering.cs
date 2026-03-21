@@ -638,6 +638,23 @@ public sealed class Lowering(
             TextType.s_instance);
         map = map.Set("read-file", new FunctionType(TextType.s_instance, fsText));
 
+        map = map.Set("write-file", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance, fsNothing)));
+        map = map.Set("file-exists", new FunctionType(TextType.s_instance, BooleanType.s_instance));
+        map = map.Set("list-files", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance,
+                new ListType(TextType.s_instance))));
+        map = map.Set("text-split", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance,
+                new ListType(TextType.s_instance))));
+        map = map.Set("text-contains", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance, BooleanType.s_instance)));
+        map = map.Set("text-starts-with", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance, BooleanType.s_instance)));
+        map = map.Set("get-args", new ListType(TextType.s_instance));
+        map = map.Set("get-env", new FunctionType(TextType.s_instance, TextType.s_instance));
+        map = map.Set("current-dir", TextType.s_instance);
+
         map = map.Set("char-at", new FunctionType(TextType.s_instance,
             new FunctionType(IntegerType.s_instance, TextType.s_instance)));
         map = map.Set("text-length", new FunctionType(TextType.s_instance, IntegerType.s_instance));

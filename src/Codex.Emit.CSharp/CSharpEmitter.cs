@@ -33,6 +33,7 @@ public sealed partial class CSharpEmitter : ICodeEmitter
         StringBuilder sb = new();
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using System.IO;");
         sb.AppendLine("using System.Linq;");
         sb.AppendLine();
 
