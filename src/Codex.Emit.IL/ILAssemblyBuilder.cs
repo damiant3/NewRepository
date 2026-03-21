@@ -39,6 +39,7 @@ sealed partial class ILAssemblyBuilder
     MemberReferenceHandle m_stringSubstringRef;
     MemberReferenceHandle m_stringReplaceRef;
     MemberReferenceHandle m_int64ParseRef;
+    MemberReferenceHandle m_int64TryParseRef;
     MemberReferenceHandle m_doubleParseRef;
     MemberReferenceHandle m_charToStringRef;
     MemberReferenceHandle m_charIsLetterRef;
@@ -287,6 +288,26 @@ sealed partial class ILAssemblyBuilder
             EncodeMethodSignature(SignatureCallingConvention.Default, true,
                 returnType: b => b.Type().Int64(),
                 parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // Int64.TryParse(string, out long) : bool  (static)
+        {
+            BlobBuilder sig = new();
+            BlobEncoder encoder = new(sig);
+            MethodSignatureEncoder methodSig = encoder.MethodSignature(SignatureCallingConvention.Default, 0, false);
+            methodSig.Parameters(2,
+                ret => ret.Type().Boolean(),
+                p =>
+                {
+                    p.AddParameter().Type().String();
+                    // out long = byref int64
+                    SignatureTypeEncoder byRefEncoder = p.AddParameter().Type(isByRef: true);
+                    byRefEncoder.Int64();
+                });
+            m_int64TryParseRef = m_metadata.AddMemberReference(
+                m_int64Ref,
+                m_metadata.GetOrAddString("TryParse"),
+                m_metadata.GetOrAddBlob(sig));
+        }
 
         // Double.Parse(string) : double  (static)
         m_doubleParseRef = m_metadata.AddMemberReference(
@@ -1154,9 +1175,23 @@ sealed partial class ILAssemblyBuilder
                 return true;
 
             case "text-to-integer" when args.Count == 1:
+            {
+                // Safe parse: Int64.TryParse(s, out result) ? result : 0L
                 emitSub(args[0]);
-                il.Call(m_int64ParseRef);
+                int tmpResult = locals.AddLocal("__tti_result", IntegerType.s_instance);
+                il.OpCode(ILOpCode.Ldloca_s);
+                il.CodeBuilder.WriteByte((byte)tmpResult);
+                il.Call(m_int64TryParseRef);
+                LabelHandle successLabel = il.DefineLabel();
+                LabelHandle endLabel = il.DefineLabel();
+                il.Branch(ILOpCode.Brtrue_s, successLabel);
+                il.LoadConstantI8(0);
+                il.Branch(ILOpCode.Br_s, endLabel);
+                il.MarkLabel(successLabel);
+                il.LoadLocal(tmpResult);
+                il.MarkLabel(endLabel);
                 return true;
+            }
 
             case "integer-to-text" when args.Count == 1:
                 emitSub(args[0]);
@@ -2136,7 +2171,7 @@ sealed partial class ILAssemblyBuilder
                     EmitTcoExpr(il, args[ai], locals, parameters, paramLocals);
                     if (fieldTypes is not null && ai < fieldTypes.Count)
                     {
-                        EmitBoxIfNeeded(il, args[ai].Type, fieldTypes[ai].Type);
+                        EmitBoxIfNeeded(il, args[ai].Type, fieldTypes[ai]. Type);
                     }
                 }
                 il.OpCode(ILOpCode.Newobj);

@@ -221,6 +221,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Designs", "Designs", "{0AA7
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Mcp", "tools\Codex.Mcp\Codex.Mcp.csproj", "{EF92DF72-42E8-49B2-95C9-F75AF9833E27}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.AgentToolkit.Tests", "tests\Codex.AgentToolkit.Tests\Codex.AgentToolkit.Tests.csproj", "{A0153615-F4B1-45F5-94FB-088D7210A3B7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -651,6 +653,18 @@ Global
 		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|x64.Build.0 = Release|Any CPU
 		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|x86.ActiveCfg = Release|Any CPU
 		{EF92DF72-42E8-49B2-95C9-F75AF9833E27}.Release|x86.Build.0 = Release|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Debug|x64.Build.0 = Debug|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Debug|x86.Build.0 = Debug|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|x64.ActiveCfg = Release|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|x64.Build.0 = Release|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|x86.ActiveCfg = Release|Any CPU
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -705,6 +719,7 @@ Global
 		{E693D3C3-4C1F-4A96-ADA4-3FF981952E10} = {A0000000-0000-0000-0000-000000000003}
 		{0AA77BFE-C701-40FA-BF8C-5D9934C77802} = {A0000000-0000-0000-0000-000000000006}
 		{EF92DF72-42E8-49B2-95C9-F75AF9833E27} = {A0000000-0000-0000-0000-000000000003}
+		{A0153615-F4B1-45F5-94FB-088D7210A3B7} = {A0000000-0000-0000-0000-000000000002}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}
