@@ -2,7 +2,7 @@
   <PropertyGroup>
     <RootNamespace>Codex.Cli</RootNamespace>
     <OutputType>Exe</OutputType>
-    <DefineConstants Condition="'$(LegacyEmitters)' != 'false'">$(DefineConstants);LEGACY_EMITTERS</DefineConstants>
+    <DefineConstants Condition="'$(LegacyEmitters)' == 'true'">$(DefineConstants);LEGACY_EMITTERS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Codex.Core\Codex.Core.csproj" />

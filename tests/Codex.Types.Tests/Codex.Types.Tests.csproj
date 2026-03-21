@@ -3,7 +3,7 @@
     <RootNamespace>Codex.Types.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <DefineConstants Condition="'$(LegacyEmitters)' != 'false'">$(DefineConstants);LEGACY_EMITTERS</DefineConstants>
+    <DefineConstants Condition="'$(LegacyEmitters)' == 'true'">$(DefineConstants);LEGACY_EMITTERS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />

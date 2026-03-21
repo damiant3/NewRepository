@@ -89,6 +89,7 @@ namespace Codex.Types.Tests
             return CompileToTarget(source, moduleName, new CSharpEmitter());
         }
 
+#if LEGACY_EMITTERS
         public static string? CompileToJS(string source, string moduleName = "test")
         {
             return CompileToTarget(source, moduleName, new Codex.Emit.JavaScript.JavaScriptEmitter());
@@ -99,7 +100,6 @@ namespace Codex.Types.Tests
             return CompileToTarget(source, moduleName, new Codex.Emit.Python.PythonEmitter());
         }
 
-#if LEGACY_EMITTERS
         public static string? CompileToRust(string source, string moduleName = "test")
         {
             return CompileToTarget(source, moduleName, new Codex.Emit.Rust.RustEmitter());
@@ -139,6 +139,17 @@ namespace Codex.Types.Tests
         {
             return CompileToTarget(source, moduleName, new Codex.Emit.Cobol.CobolEmitter());
         }
+#else
+        public static string? CompileToJS(string source, string moduleName = "test") => null;
+        public static string? CompileToPython(string source, string moduleName = "test") => null;
+        public static string? CompileToRust(string source, string moduleName = "test") => null;
+        public static string? CompileToCpp(string source, string moduleName = "test") => null;
+        public static string? CompileToGo(string source, string moduleName = "test") => null;
+        public static string? CompileToJava(string source, string moduleName = "test") => null;
+        public static string? CompileToAda(string source, string moduleName = "test") => null;
+        public static string? CompileToBabbage(string source, string moduleName = "test") => null;
+        public static string? CompileToFortran(string source, string moduleName = "test") => null;
+        public static string? CompileToCobol(string source, string moduleName = "test") => null;
 #endif
 
         public static byte[]? CompileToIL(string source, string moduleName = "test")
