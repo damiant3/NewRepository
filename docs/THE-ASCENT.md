@@ -98,7 +98,7 @@ tail calls, file I/O, process launching. The gaps are known and finite:
 - Effect handlers (closure-based, no CLR exceptions needed)
 - ~~Generic type instantiation beyond `List<string>`~~ ✅ (2026-03-21 — generic `List<T>` instantiation cache)
 - User-defined type constructors in pattern match dispatch
-- Remaining builtins (`write-file` in IL, `list-files`, etc.)
+- ~~Remaining builtins (`write-file` in IL, `list-files`, etc.)~~ ✅ (2026-03-21 — text-contains, text-starts-with, get-env, current-dir, list-files)
 
 This camp gets us to: **any `.codex` program compiles to a working `.exe`
 with no C# intermediate step.**
