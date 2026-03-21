@@ -51,10 +51,8 @@ sealed partial class ILAssemblyBuilder
     // ── List<T> support ──────────────────────────────────────────
     TypeReferenceHandle m_listOpenRef;              // System.Collections.Generic.List`1
     TypeReferenceHandle m_ienumerableOpenRef;        // System.Collections.Generic.IEnumerable`1
-    TypeSpecificationHandle m_listStringSpec;        // List<string> instantiation
-    MemberReferenceHandle m_listStringCtorRef;       // List<string>(IEnumerable<string>)
-    MemberReferenceHandle m_listStringCountRef;      // List<string>.get_Count() : int
-    MemberReferenceHandle m_listStringGetItemRef;    // List<string>.get_Item(int) : string
+    // Per-element-type instantiations (TypeSpec + MemberRefs) are cached
+    // in m_listCache — see ILAssemblyBuilder.Generics.cs
 
     // ── String.Split ─────────────────────────────────────────────
     MemberReferenceHandle m_stringSplitRef;           // String.Split(string, StringSplitOptions) : string[]
@@ -378,85 +376,9 @@ sealed partial class ILAssemblyBuilder
             m_metadata.GetOrAddString("System.Collections.Generic"),
             m_metadata.GetOrAddString("IEnumerable`1"));
 
-        // TypeSpec for List<string>
-        {
-            BlobBuilder blob = new();
-            new BlobEncoder(blob)
-                .TypeSpecificationSignature()
-                .GenericInstantiation(m_listOpenRef, 1, isValueType: false)
-                .AddArgument()
-                .String();
-            m_listStringSpec = m_metadata.AddTypeSpecification(
-                m_metadata.GetOrAddBlob(blob));
-        }
-
-        // TypeSpec for IEnumerable<string> (needed for List<string> ctor param)
-        TypeSpecificationHandle ienumStringSpec;
-        {
-            BlobBuilder blob = new();
-            new BlobEncoder(blob)
-                .TypeSpecificationSignature()
-                .GenericInstantiation(m_ienumerableOpenRef, 1, isValueType: false)
-                .AddArgument()
-                .String();
-            ienumStringSpec = m_metadata.AddTypeSpecification(
-                m_metadata.GetOrAddBlob(blob));
-        }
-
-        // List<string>.ctor(IEnumerable<string>)
-        // Signature uses !0 (GenericTypeParameter 0) — CLR substitutes with string
-        {
-            BlobBuilder sig = new();
-            new BlobEncoder(sig).MethodSignature(
-                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
-                .Parameters(1,
-                    returnType => returnType.Void(),
-                    parameters =>
-                    {
-                        SignatureTypeEncoder paramType = parameters.AddParameter().Type();
-                        GenericTypeArgumentsEncoder genArgs = paramType
-                            .GenericInstantiation(m_ienumerableOpenRef, 1, isValueType: false);
-                        // !0 = GenericTypeParameter(0) — the T in List<T>
-                        SignatureTypeEncoder argEncoder = genArgs.AddArgument();
-                        argEncoder.Builder.WriteByte((byte)SignatureTypeCode.GenericTypeParameter);
-                        argEncoder.Builder.WriteCompressedInteger(0);
-                    });
-            m_listStringCtorRef = m_metadata.AddMemberReference(
-                m_listStringSpec,
-                m_metadata.GetOrAddString(".ctor"),
-                m_metadata.GetOrAddBlob(sig));
-        }
-
-        // List<string>.get_Count() : int  (instance)
-        m_listStringCountRef = m_metadata.AddMemberReference(
-            m_listStringSpec,
-            m_metadata.GetOrAddString("get_Count"),
-            EncodeMethodSignature(SignatureCallingConvention.Default, false,
-                returnType: b => b.Type().Int32(),
-                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
-
-        // List<string>.get_Item(int) : !0  (instance)
-        // Return type is !0 (GenericTypeParameter 0 = string for List<string>)
-        {
-            BlobBuilder sig = new();
-            new BlobEncoder(sig).MethodSignature(
-                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
-                .Parameters(1,
-                    returnType =>
-                    {
-                        SignatureTypeEncoder retEncoder = returnType.Type();
-                        retEncoder.Builder.WriteByte((byte)SignatureTypeCode.GenericTypeParameter);
-                        retEncoder.Builder.WriteCompressedInteger(0);
-                    },
-                    parameters =>
-                    {
-                        parameters.AddParameter().Type().Int32();
-                    });
-            m_listStringGetItemRef = m_metadata.AddMemberReference(
-                m_listStringSpec,
-                m_metadata.GetOrAddString("get_Item"),
-                m_metadata.GetOrAddBlob(sig));
-        }
+        // Build reusable List<T> signature blobs — per-element-type
+        // instantiations are created on demand via GetOrCreateListInstantiation()
+        InitializeListSignatureBlobs();
 
         // ── String.Split(string, StringSplitOptions) : string[] ──
         {
@@ -934,6 +856,10 @@ sealed partial class ILAssemblyBuilder
             case IRMatch match:
                 EmitMatch(il, match, locals, parameters);
                 break;
+
+            case IRList list:
+                EmitListLiteral(il, list, locals, parameters);
+                break;
         }
     }
 
@@ -1226,38 +1152,52 @@ sealed partial class ILAssemblyBuilder
 
             // ── List<T> builtins ─────────────────────────────────
             case "get-args" when args.Count == 0:
+            {
                 // new List<string>(Environment.GetCommandLineArgs())
+                ListInstantiation inst = GetOrCreateListInstantiation(TextType.s_instance);
                 il.Call(m_getCommandLineArgsRef);
                 il.OpCode(ILOpCode.Newobj);
-                il.Token(m_listStringCtorRef);
+                il.Token(inst.CtorIEnumerable);
                 return true;
+            }
 
             case "text-split" when args.Count == 2:
+            {
                 // new List<string>(text.Split(delim, StringSplitOptions.None))
+                ListInstantiation inst = GetOrCreateListInstantiation(TextType.s_instance);
                 emitSub(args[0]);               // push text
                 emitSub(args[1]);               // push delimiter
                 il.LoadConstantI4(0);           // StringSplitOptions.None
                 il.Call(m_stringSplitRef);       // → string[]
                 il.OpCode(ILOpCode.Newobj);
-                il.Token(m_listStringCtorRef);  // → List<string>
+                il.Token(inst.CtorIEnumerable); // → List<string>
                 return true;
+            }
 
             case "list-length" when args.Count == 1:
-                // (long)list.Count
+            {
+                // (long)list.Count — works for any List<T>
+                CodexType elemType = ExtractListElementType(args, 0);
+                ListInstantiation inst = GetOrCreateListInstantiation(elemType);
                 emitSub(args[0]);
                 il.OpCode(ILOpCode.Callvirt);
-                il.Token(m_listStringCountRef);
+                il.Token(inst.GetCount);
                 il.OpCode(ILOpCode.Conv_i8);
                 return true;
+            }
 
             case "list-at" when args.Count == 2:
-                // list[(int)index]
+            {
+                // list[(int)index] — returns element of the actual type
+                CodexType elemType = ExtractListElementType(args, 0);
+                ListInstantiation inst = GetOrCreateListInstantiation(elemType);
                 emitSub(args[0]);
                 emitSub(args[1]);
                 il.OpCode(ILOpCode.Conv_i4);
                 il.OpCode(ILOpCode.Callvirt);
-                il.Token(m_listStringGetItemRef);
+                il.Token(inst.GetItem);
                 return true;
+            }
 
             // ── File I/O builtins ────────────────────────────────
             case "read-file" when args.Count == 1:
@@ -1487,11 +1427,12 @@ sealed partial class ILAssemblyBuilder
             case ForAllType fa:
                 EncodeType(encoder, fa.Body);
                 break;
-            case ListType:
-                // Encode as generic instantiation: List<string>
-                encoder.GenericInstantiation(m_listOpenRef, 1, isValueType: false)
-                    .AddArgument()
-                    .String();
+            case ListType lt:
+                // Encode as generic instantiation: List<elementType>
+                EncodeType(
+                    encoder.GenericInstantiation(m_listOpenRef, 1, isValueType: false)
+                        .AddArgument(),
+                    lt.Element);
                 break;
             default:
                 encoder.Object();
