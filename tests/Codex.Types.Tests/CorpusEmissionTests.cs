@@ -13,9 +13,9 @@ public class CorpusEmissionTests
     static readonly ICodeEmitter[] s_emitters =
     [
         new CSharpEmitter(),
+#if LEGACY_EMITTERS
         new Emit.JavaScript.JavaScriptEmitter(),
         new Emit.Python.PythonEmitter(),
-#if LEGACY_EMITTERS
         new Emit.Rust.RustEmitter(),
         new Emit.Cpp.CppEmitter(),
         new Emit.Go.GoEmitter(),

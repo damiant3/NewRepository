@@ -207,9 +207,9 @@ public static partial class Program
 
     static Emit.ICodeEmitter CreateEmitter(string target) => target switch
     {
+#if LEGACY_EMITTERS
         "js" or "javascript" => new Emit.JavaScript.JavaScriptEmitter(),
         "python" or "py" => new Emit.Python.PythonEmitter(),
-#if LEGACY_EMITTERS
         "rust" or "rs" => new Emit.Rust.RustEmitter(),
         "cpp" or "c++" => new Emit.Cpp.CppEmitter(),
         "go" => new Emit.Go.GoEmitter(),

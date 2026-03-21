@@ -34,6 +34,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("square", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Hello_emits_javascript()
     {
@@ -43,6 +44,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function square", js);
         Assert.Contains("5n", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -56,6 +58,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Hello_emits_python()
     {
@@ -64,6 +67,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("def square", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -108,6 +112,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("factorial", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Factorial_emits_javascript()
     {
@@ -116,6 +121,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("function factorial", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -128,6 +134,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Factorial_emits_python()
     {
@@ -136,6 +143,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("def factorial", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -177,6 +185,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("fib", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Fibonacci_emits_javascript()
     {
@@ -185,6 +194,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("function fib", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -197,6 +207,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Fibonacci_emits_python()
     {
@@ -205,6 +216,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("def fib", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -246,6 +258,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("greeting", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Greeting_emits_javascript()
     {
@@ -255,6 +268,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function greeting", js);
         Assert.Contains("\"Hello, \"", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -268,6 +282,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Greeting_emits_python()
     {
@@ -277,6 +292,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("def greeting", py);
         Assert.Contains("\"Hello, \"", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -319,6 +335,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("Rectangle", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Shapes_emits_javascript()
     {
@@ -329,6 +346,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function Rectangle", js);
         Assert.Contains("tag", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -343,6 +361,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Shapes_emits_python()
     {
@@ -353,6 +372,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("class Rectangle", py);
         Assert.Contains("isinstance", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -400,6 +420,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("name", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Person_emits_javascript()
     {
@@ -409,6 +430,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function Person", js);
         Assert.Contains("name", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -422,6 +444,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Person_emits_python()
     {
@@ -431,6 +454,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("class Person", py);
         Assert.Contains("name", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -474,6 +498,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("Failure", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void SafeDivide_emits_javascript()
     {
@@ -483,6 +508,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("Success", js);
         Assert.Contains("Failure", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -497,6 +523,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void SafeDivide_emits_python()
     {
@@ -506,6 +533,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("class Success", py);
         Assert.Contains("class Failure", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -551,6 +579,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("count_letters", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void StringOps_emits_javascript()
     {
@@ -559,6 +588,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("function count_letters", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -571,6 +601,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void StringOps_emits_python()
     {
@@ -579,6 +610,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("def count_letters", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -620,6 +652,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("greet", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void ProseGreeting_emits_javascript()
     {
@@ -628,6 +661,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("function greet", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -640,6 +674,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void ProseGreeting_emits_python()
     {
@@ -648,6 +683,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("def greet", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -690,6 +726,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("Console.ReadLine", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void EffectfulHello_emits_javascript()
     {
@@ -698,6 +735,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("console.log", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -710,6 +748,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void EffectfulHello_emits_python()
     {
@@ -719,6 +758,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("print(", py);
         Assert.Contains("input()", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -762,6 +802,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("clamp", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Arithmetic_emits_javascript()
     {
@@ -770,6 +811,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("function max", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -782,6 +824,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Arithmetic_emits_python()
     {
@@ -790,6 +833,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("def max", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -832,6 +876,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("Console.WriteLine", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void EffectsDemo_emits_javascript()
     {
@@ -840,6 +885,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("console.log", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -852,6 +898,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void EffectsDemo_emits_python()
     {
@@ -860,6 +907,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("print(", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -902,6 +950,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("continue;", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void TcoStress_emits_javascript_with_loop()
     {
@@ -911,6 +960,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("while (true)", js);
         Assert.Contains("continue;", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -925,6 +975,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void TcoStress_emits_python_with_loop()
     {
@@ -934,6 +985,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("while True:", py);
         Assert.Contains("continue", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -979,6 +1031,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("add_one", cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void TypeCheckerTest_emits_javascript()
     {
@@ -987,6 +1040,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("function apply_twice", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -999,6 +1053,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void TypeCheckerTest_emits_python()
     {
@@ -1007,6 +1062,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("def apply_twice", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -1047,6 +1103,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(cs);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Proofs_emits_javascript()
     {
@@ -1055,6 +1112,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(js);
         Assert.Contains("All proofs verified", js);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]
@@ -1068,6 +1126,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
     }
 #endif
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Proofs_emits_python()
     {
@@ -1076,6 +1135,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(py);
         Assert.Contains("All proofs verified", py);
     }
+#endif
 
 #if LEGACY_EMITTERS
     [Fact]

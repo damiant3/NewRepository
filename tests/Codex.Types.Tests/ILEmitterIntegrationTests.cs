@@ -549,4 +549,76 @@ public class ILEmitterIntegrationTests
             try { Directory.Delete(tempDir, true); } catch { }
         }
     }
+
+    [Fact]
+    public void Text_to_integer_on_valid_input()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "42"
+            """;
+        string? output = CompileAndRun(source, "tti_valid");
+        Assert.NotNull(output);
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_on_non_numeric_returns_zero()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "abc"
+            """;
+        string? output = CompileAndRun(source, "tti_abc");
+        Assert.NotNull(output);
+        Assert.Equal("0", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_on_empty_string_returns_zero()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer ""
+            """;
+        string? output = CompileAndRun(source, "tti_empty");
+        Assert.NotNull(output);
+        Assert.Equal("0", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_on_negative_number()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "-7"
+            """;
+        string? output = CompileAndRun(source, "tti_neg");
+        Assert.NotNull(output);
+        Assert.Equal("-7", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_on_float_string_returns_zero()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "3.14"
+            """;
+        string? output = CompileAndRun(source, "tti_float");
+        Assert.NotNull(output);
+        Assert.Equal("0", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_on_overflow_returns_zero()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "99999999999999999999"
+            """;
+        string? output = CompileAndRun(source, "tti_overflow");
+        Assert.NotNull(output);
+        Assert.Equal("0", output.Trim());
+    }
 }
