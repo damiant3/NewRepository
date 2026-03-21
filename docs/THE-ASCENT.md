@@ -95,7 +95,7 @@ The IL emitter produces standalone `.exe` files from `.codex` source. It works
 for the agent toolkit. It handles lists, records, sum types, pattern matching,
 tail calls, file I/O, process launching. The gaps are known and finite:
 
-- Effect handlers (closure-based, no CLR exceptions needed)
+- ~~Effect handlers (closure-based, no CLR exceptions needed)~~ ✅ (2026-03-21 — run-state IL + inline user-defined `with` handlers)
 - ~~Generic type instantiation beyond `List<string>`~~ ✅ (2026-03-21 — generic `List<T>` instantiation cache)
 - User-defined type constructors in pattern match dispatch
 - ~~Remaining builtins (`write-file` in IL, `list-files`, etc.)~~ ✅ (2026-03-21 — text-contains, text-starts-with, get-env, current-dir, list-files)

@@ -621,4 +621,188 @@ public class ILEmitterIntegrationTests
         Assert.NotNull(output);
         Assert.Equal("0", output.Trim());
     }
+
+    // ── run-state effect handler (IL) ──────────────────────────
+
+    [Fact]
+    public void Run_state_simple_get_returns_initial()
+    {
+        string source = """
+            main : Integer
+            main = run-state 42 get-state
+            """;
+        string? output = CompileAndRun(source, "rs_simple_get");
+        Assert.NotNull(output);
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Run_state_set_then_get()
+    {
+        string source = """
+            main : Integer
+            main = run-state 0 do
+              set-state 10
+              get-state
+            """;
+        string? output = CompileAndRun(source, "rs_set_get");
+        Assert.NotNull(output);
+        Assert.Equal("10", output.Trim());
+    }
+
+    [Fact]
+    public void Run_state_increment()
+    {
+        string source = """
+            main : Integer
+            main = run-state 0 do
+              x <- get-state
+              set-state (x + 1)
+              get-state
+            """;
+        string? output = CompileAndRun(source, "rs_increment");
+        Assert.NotNull(output);
+        Assert.Equal("1", output.Trim());
+    }
+
+    [Fact]
+    public void Run_state_arithmetic_chain()
+    {
+        string source = """
+            main : Integer
+            main = run-state 0 do
+              x <- get-state
+              set-state (x + 10)
+              y <- get-state
+              set-state (y * 2)
+              get-state
+            """;
+        string? output = CompileAndRun(source, "rs_arith_chain");
+        Assert.NotNull(output);
+        Assert.Equal("20", output.Trim());
+    }
+
+    [Fact]
+    public void Run_state_with_text()
+    {
+        string source = """
+            main : Text
+            main = run-state "hello" do
+              s <- get-state
+              set-state (s ++ " world")
+              get-state
+            """;
+        string? output = CompileAndRun(source, "rs_text");
+        Assert.NotNull(output);
+        Assert.Equal("hello world", output.Trim());
+    }
+
+    [Fact]
+    public void Run_state_emits_valid_il()
+    {
+        string source = """
+            main : Integer
+            main = run-state 0 do
+              x <- get-state
+              set-state (x + 1)
+              get-state
+            """;
+        byte[]? bytes = Helpers.CompileToIL(source, "rs_emit");
+        Assert.NotNull(bytes);
+        Assert.True(bytes.Length > 0);
+    }
+
+    // ── user-defined effect handlers (IL) ─────────────────────────
+
+    [Fact]
+    public void Handle_ask_returns_42()
+    {
+        string source = """
+            effect Ask where
+              ask : Integer
+
+            comp : [Ask] Integer
+            comp = ask
+
+            main : Integer
+            main = with Ask comp
+              ask (resume) = resume 42
+            """;
+        string? output = CompileAndRun(source, "handle_ask");
+        Assert.NotNull(output);
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Handle_ask_direct_computation()
+    {
+        string source = """
+            effect Ask where
+              ask : Integer
+
+            main : Integer
+            main = with Ask ask
+              ask (resume) = resume 99
+            """;
+        string? output = CompileAndRun(source, "handle_ask_direct");
+        Assert.NotNull(output);
+        Assert.Equal("99", output.Trim());
+    }
+
+    [Fact]
+    public void Handle_log_with_parameter()
+    {
+        string source = """
+            effect Logger where
+              log : Text -> Integer
+
+            program : [Logger] Integer
+            program = log "hello"
+
+            main : Integer
+            main = with Logger program
+              log (msg) (resume) = resume 0
+            """;
+        string? output = CompileAndRun(source, "handle_log");
+        Assert.NotNull(output);
+        Assert.Equal("0", output.Trim());
+    }
+
+    [Fact]
+    public void Handle_ask_resume_with_arithmetic()
+    {
+        string source = """
+            effect Ask where
+              ask : Integer
+
+            comp : [Ask] Integer
+            comp = ask + 8
+
+            main : Integer
+            main = with Ask comp
+              ask (resume) = resume 34
+            """;
+        string? output = CompileAndRun(source, "handle_ask_arith");
+        Assert.NotNull(output);
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Handle_emits_valid_il()
+    {
+        string source = """
+            effect Ask where
+              ask : Integer
+
+            comp : [Ask] Integer
+            comp = ask
+
+            main : Integer
+            main = with Ask comp
+              ask (resume) = resume 42
+            """;
+        byte[]? bytes = Helpers.CompileToIL(source, "handle_emit");
+        Assert.NotNull(bytes);
+        Assert.True(bytes.Length > 0);
+    }
 }

@@ -100,6 +100,11 @@ sealed partial class ILAssemblyBuilder
     ValueMap<string, ImmutableArray<int>> m_definitionTypeVarIds = ValueMap<string, ImmutableArray<int>>.s_empty;
     ImmutableArray<int> m_currentTypeVarIds = ImmutableArray<int>.Empty;
 
+    // ── Effect handler inlining context ───────────────────────────
+    Map<string, IRDefinition> m_definitions = Map<string, IRDefinition>.s_empty;
+    Map<string, IRHandleClause> m_activeHandlerClauses = Map<string, IRHandleClause>.s_empty;
+    string? m_activeResumeName;
+
     public ILAssemblyBuilder(string assemblyName)
     {
         m_assemblyName = assemblyName;
@@ -700,6 +705,12 @@ sealed partial class ILAssemblyBuilder
         // Reserve a row for the synthetic Main entry point.
         m_definedMethods = m_definedMethods.Set("__entryMain", MetadataTokens.MethodDefinitionHandle(methodRow));
 
+        // Store definitions for handler inlining (must be before EmitDefinition calls).
+        foreach (IRDefinition def in module.Definitions)
+        {
+            m_definitions = m_definitions.Set(def.Name, def);
+        }
+
         foreach (IRDefinition def in module.Definitions)
         {
             EmitDefinition(def);
@@ -878,6 +889,12 @@ sealed partial class ILAssemblyBuilder
                 {
                     il.LoadLocal(localIndex);
                 }
+                else if (m_activeHandlerClauses.TryGet(name.Name, out IRHandleClause? zeroArgClause)
+                    && zeroArgClause.Parameters.Length == 0)
+                {
+                    // Zero-arg effect operation (e.g. `ask`): inline the handler clause body.
+                    EmitHandlerClauseInline(il, zeroArgClause, ImmutableArray<IRExpr>.Empty, locals, parameters);
+                }
                 else if (TryEmitBuiltin(il, name.Name, new List<IRExpr>(), locals, parameters))
                 {
                     // Zero-arg builtin handled (read-line, get-args, etc.)
@@ -928,6 +945,25 @@ sealed partial class ILAssemblyBuilder
 
             case IRList list:
                 EmitListLiteral(il, list, locals, parameters);
+                break;
+
+            case IRGetState:
+                if (locals.TryGetLocal("__state", out int getStateIdx))
+                    il.LoadLocal(getStateIdx);
+                break;
+
+            case IRSetState setState:
+                EmitExpr(il, setState.NewValue, locals, parameters);
+                if (locals.TryGetLocal("__state", out int setStateIdx))
+                    il.StoreLocal(setStateIdx);
+                break;
+
+            case IRRunState runState:
+                EmitRunState(il, runState, locals, parameters);
+                break;
+
+            case IRHandle handle:
+                EmitHandle(il, handle, locals, parameters);
                 break;
         }
     }
@@ -1046,6 +1082,24 @@ sealed partial class ILAssemblyBuilder
 
         if (func is IRName funcName)
         {
+            // Resume interception: `resume x` in a handler clause just produces x.
+            if (m_activeResumeName is not null && funcName.Name == m_activeResumeName
+                && args.Count >= 1)
+            {
+                EmitExpr(il, args[args.Count - 1], locals, parameters);
+                return;
+            }
+
+            // Effect operation interception: inline the handler clause body.
+            if (m_activeHandlerClauses.TryGet(funcName.Name, out IRHandleClause? opClause)
+                && args.Count >= opClause.Parameters.Length)
+            {
+                ImmutableArray<IRExpr> clauseArgs = args.Take(opClause.Parameters.Length)
+                    .ToImmutableArray();
+                EmitHandlerClauseInline(il, opClause, clauseArgs, locals, parameters);
+                return;
+            }
+
             if (TryEmitBuiltin(il, funcName.Name, args, locals, parameters))
                 return;
 
@@ -1474,6 +1528,106 @@ sealed partial class ILAssemblyBuilder
                     break;
             }
         }
+    }
+
+    void EmitRunState(InstructionEncoder il, IRRunState runState, LocalsBuilder locals,
+        ImmutableArray<IRParameter> parameters)
+    {
+        // Evaluate the initial state and store in a __state local.
+        EmitExpr(il, runState.InitialState, locals, parameters);
+        int stateLocal = locals.AddLocal("__state", runState.StateType);
+        il.StoreLocal(stateLocal);
+
+        // Emit the computation.  If it is a do-block we inline the statements
+        // directly so that IRGetState / IRSetState resolve the __state local.
+        if (runState.Computation is IRDo doExpr)
+        {
+            for (int i = 0; i < doExpr.Statements.Length; i++)
+            {
+                IRDoStatement stmt = doExpr.Statements[i];
+                switch (stmt)
+                {
+                    case IRDoBind bind:
+                        EmitExpr(il, bind.Value, locals, parameters);
+                        // The lowering may assign ErrorType to binds of get-state
+                        // because the do-block is lowered without state-type context.
+                        // Use the run-state's StateType when the bind type is unusable.
+                        CodexType bindType = bind.NameType is ErrorType
+                            ? runState.StateType
+                            : bind.NameType;
+                        int bindLocal = locals.AddLocal(bind.Name, bindType);
+                        il.StoreLocal(bindLocal);
+                        break;
+                    case IRDoExec exec:
+                        EmitExpr(il, exec.Expression, locals, parameters);
+                        bool isLast = i == doExpr.Statements.Length - 1;
+                        if (!isLast && !IsVoidLike(exec.Expression.Type))
+                        {
+                            il.OpCode(ILOpCode.Pop);
+                        }
+                        break;
+                }
+            }
+        }
+        else
+        {
+            // Single-expression computation (e.g. `run-state 42 get-state`).
+            EmitExpr(il, runState.Computation, locals, parameters);
+        }
+    }
+
+    void EmitHandle(InstructionEncoder il, IRHandle handle, LocalsBuilder locals,
+        ImmutableArray<IRParameter> parameters)
+    {
+        // Build a map from operation name to handler clause.
+        Map<string, IRHandleClause> clauseMap = Map<string, IRHandleClause>.s_empty;
+        foreach (IRHandleClause clause in handle.Clauses)
+        {
+            clauseMap = clauseMap.Set(clause.OperationName, clause);
+        }
+
+        // Save and install the handler context so that EmitExpr intercepts
+        // effect operation calls and resume invocations within the computation.
+        Map<string, IRHandleClause> savedClauses = m_activeHandlerClauses;
+        string? savedResume = m_activeResumeName;
+        m_activeHandlerClauses = clauseMap;
+
+        // Resolve the computation body.  If it is a reference to a zero-param
+        // definition, inline that definition's body so operations are intercepted
+        // at emit time (a plain method call would not be rewritten).
+        IRExpr computation = handle.Computation;
+        if (computation is IRName nameRef
+            && m_definitions.TryGet(nameRef.Name, out IRDefinition? def)
+            && def.Parameters.Length == 0)
+        {
+            computation = def.Body;
+        }
+
+        EmitExpr(il, computation, locals, parameters);
+
+        // Restore previous handler context (supports nesting).
+        m_activeHandlerClauses = savedClauses;
+        m_activeResumeName = savedResume;
+    }
+
+    void EmitHandlerClauseInline(InstructionEncoder il, IRHandleClause clause,
+        ImmutableArray<IRExpr> args, LocalsBuilder locals, ImmutableArray<IRParameter> parameters)
+    {
+        // Bind operation parameters as locals.
+        for (int i = 0; i < clause.Parameters.Length && i < args.Length; i++)
+        {
+            EmitExpr(il, args[i], locals, parameters);
+            int paramLocal = locals.AddLocal(clause.Parameters[i], clause.ParameterTypes[i]);
+            il.StoreLocal(paramLocal);
+        }
+
+        // Install resume name so `resume x` in the clause body is intercepted.
+        string? savedResume = m_activeResumeName;
+        m_activeResumeName = clause.ResumeName;
+
+        EmitExpr(il, clause.Body, locals, parameters);
+
+        m_activeResumeName = savedResume;
     }
 
     public byte[] Build()

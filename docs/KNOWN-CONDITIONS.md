@@ -44,8 +44,33 @@ When running `dotnet test Codex.sln`, the `Codex.Codex` project will fail to bui
 (CS5001, see above). Test results from all other projects are valid. The overall test
 command may report "build failed" but individual test project results are trustworthy.
 
-## How to Use This File
+## Editing Hazards
 
-Agents should run `codex-agent doctor` at session start. The doctor command checks
-for these known conditions and prints a compact briefing so the agent doesn't waste
-context re-investigating them.
+### edit_file `else`→`then` corruption — RECURRING, UNDER INVESTIGATION
+
+When using `edit_file` or `create_file` on `.codex` source files, the keyword `else`
+is sometimes silently replaced with `then`, producing invalid Codex syntax such as:
+
+```
+if text-contains line ": error " then line
+ then first-error-line lines (idx + 1)   ← should be `else`
+```
+
+This has been observed multiple times across different sessions and different files.
+The corruption appears to happen during tool-mediated writes, not in manual edits.
+Root cause is unknown — may be a tokenization issue in the edit tool's diff engine
+treating `else` and `then` as interchangeable Codex keywords.
+
+Also observed: `else 0` → `then 0` on if/then/else ternary expressions (line 53 of
+`codex-agent.codex` in the original doctor/session-memory session).
+
+**Action**: After ANY edit to a `.codex` file, always verify with `snap diff` and
+visually inspect for `then`→`else` swaps. Use `peek` to check if/then/else chains.
+When using the `.new` file swap approach for large files, grep the output for
+suspicious `then` patterns before swapping:
+
+```powershell
+Select-String -Path "file.codex.new" -Pattern "^\s+then\s" | Select-Object LineNumber, Line
+```
+
+**Status**: Under investigation as of 2026-03-21. Documenting all occurrences.

@@ -167,12 +167,201 @@ test-log = ".codex-agent/last-test.txt"
 known-conditions-file : Text
 known-conditions-file = "docs/KNOWN-CONDITIONS.md"
 
+handoff-file : Text
+handoff-file = ".handoff"
+
 collect-args : List Text -> Integer -> Integer -> Text
 collect-args (args) (idx) (start) =
  if idx >= list-length args then ""
  else let word = list-at args idx
   in if idx == start then word ++ collect-args args (idx + 1) start
    else " " ++ word ++ collect-args args (idx + 1) start
+
+kv-get : Text -> List Text -> Integer -> Text
+kv-get (key) (lines) (idx) =
+ if idx >= list-length lines then ""
+ else let line = list-at lines idx
+  in let prefix = key ++ "="
+   in if text-starts-with line prefix then substring line (text-length prefix) (text-length line - text-length prefix)
+    else kv-get key lines (idx + 1)
+
+kv-set-loop : Text -> Text -> List Text -> Text -> Integer -> Integer -> Text
+kv-set-loop (key) (value) (lines) (prefix) (idx) (found) =
+ if idx >= list-length lines then
+  if found == 0 then key ++ "=" ++ value ++ "\n"
+  else ""
+ else let line = list-at lines idx
+  in let rest = kv-set-loop key value lines prefix (idx + 1) (if text-starts-with line prefix then 1 else found)
+   in if text-starts-with line prefix then key ++ "=" ++ value ++ "\n" ++ rest
+    else if text-length line == 0 then rest
+     else line ++ "\n" ++ rest
+
+kv-set : Text -> Text -> Text -> Text
+kv-set (key) (value) (content) =
+ let lines = text-split content "\n"
+ in let prefix = key ++ "="
+  in kv-set-loop key value lines prefix 0 0
+
+valid-transition : Text -> Text -> Integer
+valid-transition (from-state) (to-state) =
+ if from-state == "draft" then if to-state == "awaiting-review" then 1 else 0
+ else if from-state == "awaiting-review" then if to-state == "under-review" then 1 else if to-state == "abandoned" then 1 else 0
+  else if from-state == "under-review" then if to-state == "approved" then 1 else if to-state == "changes-requested" then 1 else if to-state == "abandoned" then 1 else 0
+   else if from-state == "changes-requested" then if to-state == "awaiting-review" then 1 else if to-state == "abandoned" then 1 else 0
+    else if from-state == "approved" then if to-state == "merged" then 1 else if to-state == "abandoned" then 1 else 0
+     else 0
+
+next-action-hint : Text -> Text
+next-action-hint (state) =
+ if state == "draft" then "Author: run 'handoff push <summary>' to request review"
+ else if state == "awaiting-review" then "Reviewer: run 'handoff review' to begin review"
+  else if state == "under-review" then "Reviewer: run 'handoff approve' or 'handoff request-changes <reason>'"
+   else if state == "changes-requested" then "Author: fix issues, then 'handoff push <summary>' to re-request review"
+    else if state == "approved" then "Anyone: run 'handoff merge' to merge to master"
+     else if state == "merged" then "Done. Branch can be deleted."
+      else if state == "abandoned" then "Abandoned. No action needed."
+       else "Unknown state."
+
+detect-agent : [FileSystem] Text
+detect-agent =
+ let dir = current-dir
+ in if text-contains dir "linux" then "linux-agent"
+  else if text-contains dir "Linux" then "linux-agent"
+   else "windows-agent"
+
+get-current-branch : [FileSystem] Text
+get-current-branch =
+ let result = run-process "git" "rev-parse --abbrev-ref HEAD"
+ in let lines = text-split result "\n"
+  in if list-length lines > 0 then list-at lines 0 else "unknown"
+
+do-handoff-show : [Console, FileSystem] Nothing
+do-handoff-show =
+ if file-exists handoff-file then
+  let content = read-file handoff-file
+  in let lines = text-split content "\n"
+   in let state = kv-get "state" lines 0
+    in let branch = kv-get "branch" lines 0
+     in let author = kv-get "author" lines 0
+      in let reviewer = kv-get "reviewer" lines 0
+       in let summary = kv-get "summary" lines 0
+        in let updated = kv-get "updated" lines 0
+         in let notes = kv-get "notes" lines 0
+          in print-line ("=== Handoff ===\n  State:    " ++ state ++ "\n  Branch:   " ++ branch ++ "\n  Author:   " ++ author ++ "\n  Reviewer: " ++ (if text-length reviewer == 0 then "(none yet)" else reviewer) ++ "\n  Summary:  " ++ summary ++ "\n  Updated:  " ++ updated ++ "\n  Notes:    " ++ notes ++ "\n  Next:     " ++ next-action-hint state ++ "\n===============")
+ else print-line "  No active handoff. Use 'codex-agent handoff push <summary>' to create one."
+
+make-handoff-content : Text -> Text -> Text -> Text -> Text
+make-handoff-content (branch) (agent) (summary) (state) =
+ "state=" ++ state ++ "\nbranch=" ++ branch ++ "\nauthor=" ++ agent ++ "\nreviewer=\nsummary=" ++ summary ++ "\nupdated=see-git-log\nnotes=\n"
+
+do-handoff-push : List Text -> [Console, FileSystem] Nothing
+do-handoff-push (args) =
+ let argc = list-length args
+ in if argc < 4 then print-line "Usage: codex-agent handoff push <summary>"
+  else let summary = collect-args args 3 3
+   in let branch = get-current-branch
+    in let agent = detect-agent
+     in let old-content = if file-exists handoff-file then read-file handoff-file else ""
+      in let old-lines = text-split old-content "\n"
+       in let old-state = kv-get "state" old-lines 0
+        in let from-state = if text-length old-state == 0 then "draft" else old-state
+         in let ok = valid-transition from-state "awaiting-review"
+          in if ok == 0 then print-line ("  ERROR: cannot transition from '" ++ from-state ++ "' to 'awaiting-review'")
+           else let new-content = make-handoff-content branch agent summary "awaiting-review"
+            in let _ = write-file handoff-file new-content
+             in let _ = run-process "git" ("add " ++ handoff-file)
+              in let _ = run-process "git" ("commit -m \"handoff: " ++ summary ++ "\"")
+               in print-line ("  Handoff created: awaiting-review\n  Branch:  " ++ branch ++ "\n  Author:  " ++ agent ++ "\n  Summary: " ++ summary ++ "\n  Next: push branch to origin, then another agent runs 'handoff review'")
+
+do-handoff-review : List Text -> [Console, FileSystem] Nothing
+do-handoff-review (args) =
+ if file-exists handoff-file then
+  let content = read-file handoff-file
+  in let lines = text-split content "\n"
+   in let state = kv-get "state" lines 0
+    in let ok = valid-transition state "under-review"
+     in if ok == 0 then print-line ("  ERROR: cannot review from state '" ++ state ++ "' (need awaiting-review)")
+      else let agent = detect-agent
+       in let new-content = kv-set "state" "under-review" (kv-set "reviewer" agent content)
+        in let _ = write-file handoff-file new-content
+         in let branch = kv-get "branch" lines 0
+          in let summary = kv-get "summary" lines 0
+           in print-line ("  Review started\n  Branch:   " ++ branch ++ "\n  Summary:  " ++ summary ++ "\n  Reviewer: " ++ agent ++ "\n  Next: build, test, review code, then 'handoff approve' or 'handoff request-changes <reason>'")
+ else print-line "  No handoff found. Nothing to review."
+
+do-handoff-approve : List Text -> [Console, FileSystem] Nothing
+do-handoff-approve (args) =
+ if file-exists handoff-file then
+  let content = read-file handoff-file
+  in let lines = text-split content "\n"
+   in let state = kv-get "state" lines 0
+    in let ok = valid-transition state "approved"
+     in if ok == 0 then print-line ("  ERROR: cannot approve from state '" ++ state ++ "' (need under-review)")
+      else let new-content = kv-set "state" "approved" content
+       in let _ = write-file handoff-file new-content
+        in let branch = kv-get "branch" lines 0
+         in print-line ("  APPROVED\n  Branch: " ++ branch ++ "\n  Next: run 'handoff merge' to merge to master and clean up")
+ else print-line "  No handoff found."
+
+do-handoff-request-changes : List Text -> [Console, FileSystem] Nothing
+do-handoff-request-changes (args) =
+ if file-exists handoff-file then
+  let content = read-file handoff-file
+  in let lines = text-split content "\n"
+   in let state = kv-get "state" lines 0
+    in let ok = valid-transition state "changes-requested"
+     in if ok == 0 then print-line ("  ERROR: cannot request changes from state '" ++ state ++ "' (need under-review)")
+      else let reason = if list-length args > 3 then collect-args args 3 3 else "(no reason given)"
+       in let new-content = kv-set "state" "changes-requested" (kv-set "notes" reason content)
+        in let _ = write-file handoff-file new-content
+         in let branch = kv-get "branch" lines 0
+          in print-line ("  CHANGES REQUESTED\n  Branch: " ++ branch ++ "\n  Reason: " ++ reason ++ "\n  Next: author fixes issues, then 'handoff push <summary>'")
+ else print-line "  No handoff found."
+
+do-handoff-merge : List Text -> [Console, FileSystem] Nothing
+do-handoff-merge (args) =
+ if file-exists handoff-file then
+  let content = read-file handoff-file
+  in let lines = text-split content "\n"
+   in let state = kv-get "state" lines 0
+    in let ok = valid-transition state "merged"
+     in if ok == 0 then print-line ("  ERROR: cannot merge from state '" ++ state ++ "' (need approved)")
+      else let branch = kv-get "branch" lines 0
+       in let summary = kv-get "summary" lines 0
+        in let author = kv-get "author" lines 0
+         in let reviewer = kv-get "reviewer" lines 0
+          in let merge-msg = "merge: " ++ branch ++ " -- " ++ summary ++ " (author: " ++ author ++ ", reviewer: " ++ reviewer ++ ")"
+           in let _ = write-file handoff-file (kv-set "state" "merged" content)
+            in let _ = run-process "git" "checkout master"
+             in let _ = run-process "git" ("merge " ++ branch ++ " --no-ff -m \"" ++ merge-msg ++ "\"")
+              in print-line ("  MERGED to master\n  Commit: " ++ merge-msg ++ "\n  Next: push master, delete branch if done")
+ else print-line "  No handoff found."
+
+do-handoff-abandon : List Text -> [Console, FileSystem] Nothing
+do-handoff-abandon (args) =
+ if file-exists handoff-file then
+  let content = read-file handoff-file
+  in let lines = text-split content "\n"
+   in let state = kv-get "state" lines 0
+    in let new-content = kv-set "state" "abandoned" content
+     in let _ = write-file handoff-file new-content
+      in let branch = kv-get "branch" lines 0
+       in print-line ("  ABANDONED\n  Branch: " ++ branch ++ "\n  Previous state: " ++ state)
+ else print-line "  No handoff found."
+
+do-handoff : List Text -> [Console, FileSystem] Nothing
+do-handoff (args) =
+ let argc = list-length args
+ in if argc < 3 then do-handoff-show
+  else let action = list-at args 2
+   in if action == "show" then do-handoff-show
+    else if action == "push" then do-handoff-push args
+     else if action == "review" then do-handoff-review args
+      else if action == "approve" then do-handoff-approve args
+       else if action == "request-changes" then do-handoff-request-changes args
+        else if action == "merge" then do-handoff-merge args
+         else if action == "abandon" then do-handoff-abandon args
+          else print-line ("Unknown handoff action: " ++ action ++ ". Use show, push, review, approve, request-changes, merge, or abandon.")
 
 count-error-lines : List Text -> Integer -> Integer -> Integer
 count-error-lines (lines) (idx) (acc) =
@@ -235,42 +424,12 @@ do-doctor (args) =
   in let kc-lines = if text-length kc-body > 0 then text-split kc-body "\n" else text-split "" "\n"
    in let n-conditions = count-condition-headers kc-lines 0 0
     in let summaries = collect-condition-summaries kc-lines 0
-     in let cs5001-check = if file-exists "Codex.Codex/Codex.Codex.csproj" then
-      let csproj = read-file "Codex.Codex/Codex.Codex.csproj"
-      in if text-contains csproj "<OutputType>Exe</OutputType>" then "  CS5001 trap: ACTIVE (Codex.Codex is Exe, will emit CS5001 — this is expected)"
-       else "  CS5001 trap: cleared"
-     else "  CS5001 trap: n/a (no Codex.Codex project)"
-      in let session-status = if file-exists log-file then
-       let log-content = read-file log-file
-       in let log-lines = count-lines log-content
-        in "  Session log: " ++ integer-to-text log-lines ++ " entries"
-      else "  Session log: (none — new session)"
-       in let last-build-status = if file-exists build-log then
-        let bc = read-file build-log
-        in let bl = text-split bc "\n"
-         in let be = count-error-lines bl 0 0
-          in "  Last build: " ++ integer-to-text be ++ " errors (see " ++ build-log ++ ")"
-       else "  Last build: (no record)"
-        in let last-test-status = if file-exists test-log then
-         let tc = read-file test-log
-         in let tl = text-split tc "\n"
-          in let tp = count-test-passed tl 0
-           in "  Last test: " ++ tp ++ " (see " ++ test-log ++ ")"
-        else "  Last test: (no record)"
-         in print-line (
-          "=== Doctor — Known Conditions & Diagnostics ===\n" ++
-          "  Conditions file: " ++ kc-status ++ " (" ++ integer-to-text n-conditions ++ " known)\n" ++
-          summaries ++
-          cs5001-check ++ "\n" ++
-          session-status ++ "\n" ++
-          last-build-status ++ "\n" ++
-          last-test-status ++ "\n" ++
-          "  Advice: CS5001 in Codex.Codex is PRE-EXISTING. Do NOT investigate.\n" ++
-          "  Advice: Peek_non_numeric_start_does_not_crash may fail. Do NOT investigate.\n" ++
-          "  Advice: Do NOT extract effectful helper functions in .codex — inline instead.\n" ++
-          "  See: docs/KNOWN-CONDITIONS.md for full details.\n" ++
-          "================================================"
-         )
+     in let cs5001-check = if file-exists "Codex.Codex/Codex.Codex.csproj" then let csproj = read-file "Codex.Codex/Codex.Codex.csproj" in if text-contains csproj "<OutputType>Exe</OutputType>" then "  CS5001 trap: ACTIVE (Codex.Codex is Exe, will emit CS5001 -- this is expected)" else "  CS5001 trap: cleared" else "  CS5001 trap: n/a (no Codex.Codex project)"
+      in let session-status = if file-exists log-file then let log-content = read-file log-file in let log-lines = count-lines log-content in "  Session log: " ++ integer-to-text log-lines ++ " entries" else "  Session log: (none -- new session)"
+       in let last-build-status = if file-exists build-log then let bc = read-file build-log in let bl = text-split bc "\n" in let be = count-error-lines bl 0 0 in "  Last build: " ++ integer-to-text be ++ " errors (see " ++ build-log ++ ")" else "  Last build: (no record)"
+        in let last-test-status = if file-exists test-log then let tc = read-file test-log in let tl = text-split tc "\n" in let tp = count-test-passed tl 0 in "  Last test: " ++ tp ++ " (see " ++ test-log ++ ")" else "  Last test: (no record)"
+         in let handoff-status = if file-exists handoff-file then let hc = read-file handoff-file in let hl = text-split hc "\n" in let hs = kv-get "state" hl 0 in let hb = kv-get "branch" hl 0 in "  Handoff: " ++ hs ++ " on " ++ hb ++ " -- " ++ next-action-hint hs else "  Handoff: (none active)"
+          in print-line ("=== Doctor -- Known Conditions & Diagnostics ===\n" ++ "  Conditions file: " ++ kc-status ++ " (" ++ integer-to-text n-conditions ++ " known)\n" ++ summaries ++ cs5001-check ++ "\n" ++ session-status ++ "\n" ++ last-build-status ++ "\n" ++ last-test-status ++ "\n" ++ handoff-status ++ "\n" ++ "  Advice: CS5001 in Codex.Codex is PRE-EXISTING. Do NOT investigate.\n" ++ "  Advice: Peek_non_numeric_start_does_not_crash may fail. Do NOT investigate.\n" ++ "  Advice: Do NOT extract effectful helper functions in .codex -- inline instead.\n" ++ "  Advice: After editing .codex files, check for else->then corruption.\n" ++ "  See: docs/KNOWN-CONDITIONS.md for full details.\n" ++ "================================================")
 
 do-log : List Text -> [Console, FileSystem] Nothing
 do-log (args) =
@@ -406,11 +565,21 @@ print-help =
   "  plan [add <task>|show|clear]       Task list (survives context loss)\n" ++
   "  check                              Cognitive load estimate\n" ++
   "  doctor                             Known conditions & diagnostics briefing\n" ++
-  "  log <message>                      Append to session log (decisions, errors, notes)\n" ++
+  "  handoff [show]                     Show current handoff state\n" ++
+  "  handoff push <summary>             Create/update handoff, request review\n" ++
+  "  handoff review                     Pick up handoff for review\n" ++
+  "  handoff approve                    Approve after review\n" ++
+  "  handoff request-changes <reason>   Request changes with reason\n" ++
+  "  handoff merge                      Merge approved branch to master\n" ++
+  "  handoff abandon                    Abandon handoff\n" ++
+  "  log <message>                      Append to session log\n" ++
   "  recall [n]                         Show last N session log entries (default 10)\n" ++
   "  build                              Build + compact summary (full log stored)\n" ++
   "  test [filter]                      Test + compact summary (full log stored)\n" ++
   "  help                               This message\n" ++
+  "\n" ++
+  "Handoff lifecycle: draft -> awaiting-review -> under-review -> approved -> merged\n" ++
+  "                                             \\-> changes-requested -> awaiting-review\n" ++
   "\n" ++
   "Usage: dotnet codex-agent.exe <command> [args]\n" ++
   "Built from codex-agent.codex via the Codex IL backend."
@@ -429,9 +598,10 @@ main = do
         else if cmd == "plan" then do-plan args
          else if cmd == "check" then do-check args
           else if cmd == "doctor" then do-doctor args
-           else if cmd == "log" then do-log args
-            else if cmd == "recall" then do-recall args
-             else if cmd == "build" then do-build args
-              else if cmd == "test" then do-test args
-               else if cmd == "help" then print-help
-                else print-line ("Unknown command: " ++ cmd ++ ". Run 'codex-agent help' for usage.")
+           else if cmd == "handoff" then do-handoff args
+            else if cmd == "log" then do-log args
+             else if cmd == "recall" then do-recall args
+              else if cmd == "build" then do-build args
+               else if cmd == "test" then do-test args
+                else if cmd == "help" then print-help
+                 else print-line ("Unknown command: " ++ cmd ++ ". Run 'codex-agent help' for usage.")

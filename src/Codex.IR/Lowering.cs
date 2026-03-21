@@ -16,6 +16,7 @@ public sealed class Lowering(
     readonly Map<string, CodexType> m_typeDefMap = typeDefMap;
     readonly DiagnosticBag m_diagnostics = diagnostics;
     Map<string, CodexType> m_localEnv = Map<string, CodexType>.s_empty;
+    CodexType m_currentStateType = ErrorType.s_instance;
 
     static readonly Map<string, CodexType> s_builtinTypes = BuildBuiltinTypes();
 
@@ -79,7 +80,9 @@ public sealed class Lowering(
             case NameExpr name:
                 if (name.Name.Value == "get-state")
                 {
-                    CodexType stateType = expectedType;
+                    CodexType stateType = m_currentStateType is not ErrorType
+                        ? m_currentStateType
+                        : expectedType;
                     return new IRGetState(stateType);
                 }
                 return new IRName(name.Name.Value, LookupName(name.Name.Value, expectedType));
@@ -239,7 +242,10 @@ public sealed class Lowering(
         {
             IRExpr init = LowerExpr(innerApp.Argument, ErrorType.s_instance);
             CodexType stateType = init.Type;
+            CodexType savedStateType = m_currentStateType;
+            m_currentStateType = stateType;
             IRExpr comp = LowerExpr(app.Argument, ErrorType.s_instance);
+            m_currentStateType = savedStateType;
             CodexType resultType = expectedType;
             if (resultType is ErrorType or EffectfulType)
             {

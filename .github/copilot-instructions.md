@@ -60,6 +60,13 @@ dotnet tools/codex-agent/codex-agent.exe <command> [args]
 | `plan clear` | Clear task list |
 | `check` | Cognitive load estimate — hot-path sizes vs budget |
 | `doctor` | Known conditions & diagnostics briefing (run at session start) |
+| `handoff [show]` | Show current handoff state machine status |
+| `handoff push <summary>` | Create/update handoff, auto-commits `.handoff`, requests review |
+| `handoff review` | Pick up handoff for review (transitions to under-review) |
+| `handoff approve` | Approve reviewed handoff |
+| `handoff request-changes <reason>` | Request changes with reason |
+| `handoff merge` | Merge approved branch to master (auto `git merge --no-ff`) |
+| `handoff abandon` | Abandon handoff |
 | `log <message>` | Append to persistent session log (decisions, errors, notes) |
 | `recall [n]` | Show last N session log entries (default 10) |
 | `build` | `dotnet build Codex.sln` — stores full log, prints compact summary |
@@ -71,6 +78,7 @@ dotnet tools/codex-agent/codex-agent.exe <command> [args]
 dotnet tools/codex-agent/codex-agent.exe doctor
 dotnet tools/codex-agent/codex-agent.exe check
 dotnet tools/codex-agent/codex-agent.exe status
+dotnet tools/codex-agent/codex-agent.exe handoff show
 ```
 
 ### Before Editing Any File
