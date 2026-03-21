@@ -96,7 +96,7 @@ for the agent toolkit. It handles lists, records, sum types, pattern matching,
 tail calls, file I/O, process launching. The gaps are known and finite:
 
 - Effect handlers (closure-based, no CLR exceptions needed)
-- Generic type instantiation beyond `List<string>`
+- ~~Generic type instantiation beyond `List<string>`~~ ✅ (2026-03-21 — generic `List<T>` instantiation cache)
 - User-defined type constructors in pattern match dispatch
 - Remaining builtins (`write-file` in IL, `list-files`, etc.)
 
