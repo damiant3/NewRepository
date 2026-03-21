@@ -434,17 +434,18 @@ and away from big thinks.
    engine detect when a file has changed since the agent last read it (stale
    reads). Cost: slightly more I/O per command. Benefit: catches "you're
    reasoning about a version of this file that no longer exists."
-
+Damian: sounds like a great idea.  running a hash on the file is cheap compared to the cognitive cost of stale assumptions.
 2. **Should the dashboard auto-run on every command?** Currently proposed as
    opt-in (warnings appended to output). Could be always-on with a `--quiet`
    flag to suppress. The risk is noise fatigue — if every command has a
    warning footer, agents learn to ignore them.
-
+Damian: Yes. The proactive warnings are the whole point. If the agent learns to ignore them, that's a failure mode we want to detect and address (e.g., by tuning thresholds or improving messaging). The goal is to make the warnings salient and actionable enough that the agent pays attention.
 3. **Should session history be committed?** Currently proposed as gitignored.
    But the handoff docs serve a similar purpose. Could session summaries
    auto-generate handoff docs. Or could be overkill.
-
+Damian: Depends on mode.  Researchers will (should?) love it.  but it would get in our way moving forward.  put it in opt-in.
 4. **Should the toolkit be usable outside the Codex project?** The cognitive
    engine is project-specific (it knows about Parser, TypeChecker, etc.).
    But the session tracking and loop detection are generic. Could be split
    into a general-purpose library + Codex-specific configuration.
+Damian: Of course.
