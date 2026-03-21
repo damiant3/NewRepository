@@ -14,8 +14,9 @@ public class CorpusEmissionTests
     [
         new CSharpEmitter(),
         new Emit.JavaScript.JavaScriptEmitter(),
-        new Emit.Rust.RustEmitter(),
         new Emit.Python.PythonEmitter(),
+#if LEGACY_EMITTERS
+        new Emit.Rust.RustEmitter(),
         new Emit.Cpp.CppEmitter(),
         new Emit.Go.GoEmitter(),
         new Emit.Java.JavaEmitter(),
@@ -23,6 +24,7 @@ public class CorpusEmissionTests
         new Emit.Babbage.BabbageEmitter(),
         new Emit.Fortran.FortranEmitter(),
         new Emit.Cobol.CobolEmitter(),
+#endif
     ];
 
     static string FindSamplesDir()

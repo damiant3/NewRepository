@@ -17,11 +17,6 @@ var _ = math.Pow
 var _ = os.Open
 var _ = bufio.NewReader
 
-type ParseResult struct {
-	Expr interface{}
-	Pos int64
-}
-
 type Expr interface { isExpr() }
 
 type Lit struct {
@@ -52,6 +47,11 @@ type Div struct {
 	Field1 interface{}
 }
 func (Div) isExpr() {}
+
+type ParseResult struct {
+	Expr interface{}
+	Pos int64
+}
 
 func skip_ws(input string, pos int64) int64 {
 	for {

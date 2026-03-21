@@ -17,11 +17,6 @@ var _ = math.Pow
 var _ = os.Open
 var _ = bufio.NewReader
 
-type Point struct {
-	X int64
-	Y int64
-}
-
 type Color interface { isColor() }
 
 type Red struct {
@@ -36,6 +31,11 @@ type Blue struct {
 	Field0 int64
 }
 func (Blue) isColor() {}
+
+type Point struct {
+	X int64
+	Y int64
+}
 
 func show_color(c Color) string {
 	return func() string { switch _v := (c).(type) { case Red: return "red"; case Green: return "green"; case Blue: n := _v.Field0; return "blue"; default: panic("non-exhaustive") } }()

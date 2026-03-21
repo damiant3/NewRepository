@@ -3,5 +3,5 @@
 
 program main_program
   implicit none
-  print *, trim('dotnet version: ') // trim(result_v)
+  print *, 'All proofs verified at compile time.'
 end program main_program

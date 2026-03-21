@@ -9,10 +9,6 @@
 . ---------------------------------------------------
 
 . === MAIN PROGRAM ===
-N000  . Unsupported expression (IRDo) - load 0
-S000
-
-P  . Print result from Store column 0
-L000
+. All proofs verified. No computation required.
 
 H  . Halt the Engine

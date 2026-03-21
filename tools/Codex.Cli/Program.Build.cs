@@ -208,8 +208,9 @@ public static partial class Program
     static Emit.ICodeEmitter CreateEmitter(string target) => target switch
     {
         "js" or "javascript" => new Emit.JavaScript.JavaScriptEmitter(),
-        "rust" or "rs" => new Emit.Rust.RustEmitter(),
         "python" or "py" => new Emit.Python.PythonEmitter(),
+#if LEGACY_EMITTERS
+        "rust" or "rs" => new Emit.Rust.RustEmitter(),
         "cpp" or "c++" => new Emit.Cpp.CppEmitter(),
         "go" => new Emit.Go.GoEmitter(),
         "java" => new Emit.Java.JavaEmitter(),
@@ -217,6 +218,7 @@ public static partial class Program
         "babbage" or "ae" => new Emit.Babbage.BabbageEmitter(),
         "fortran" or "f90" => new Emit.Fortran.FortranEmitter(),
         "cobol" or "cob" => new Emit.Cobol.CobolEmitter(),
+#endif
         _ => new CSharpEmitter()
     };
 }

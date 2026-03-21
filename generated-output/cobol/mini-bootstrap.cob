@@ -6,15 +6,15 @@
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
-       01 WS-POINT.
-         05 WS-POINT-X PIC S9(18).
-         05 WS-POINT-Y PIC S9(18).
        01 WS-COLOR.
          05 WS-COLOR-TAG    PIC 9(2).
          05 WS-COLOR-F0     PIC S9(18).
        01 TAG-RED      PIC 9(2) VALUE 1.
        01 TAG-GREEN      PIC 9(2) VALUE 2.
        01 TAG-BLUE      PIC 9(2) VALUE 3.
+       01 WS-POINT.
+         05 WS-POINT-X PIC S9(18).
+         05 WS-POINT-Y PIC S9(18).
        01 WS-SHOW_COLOR-C  PIC S9(18).
        01 WS-SHOW_COLOR-RET     PIC X(256).
        01 WS-GET_X-P  PIC S9(18).

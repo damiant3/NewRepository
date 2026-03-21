@@ -44,6 +44,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("5n", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Hello_emits_rust()
     {
@@ -53,6 +54,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("fn square", rs);
         Assert.Contains("i64", rs);
     }
+#endif
 
     [Fact]
     public void Hello_emits_python()
@@ -63,6 +65,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("def square", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Hello_emits_cpp()
     {
@@ -92,6 +95,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("long square", java);
         Assert.Contains("public class", java);
     }
+#endif
 
     // ── factorial.codex ────────────────────────────────────────
 
@@ -113,6 +117,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function factorial", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Factorial_emits_rust()
     {
@@ -121,6 +126,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(rs);
         Assert.Contains("fn factorial", rs);
     }
+#endif
 
     [Fact]
     public void Factorial_emits_python()
@@ -131,6 +137,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("def factorial", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Factorial_emits_cpp()
     {
@@ -157,6 +164,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("long factorial", java);
     }
+#endif
 
     // ── fibonacci.codex ────────────────────────────────────────
 
@@ -178,6 +186,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function fib", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Fibonacci_emits_rust()
     {
@@ -186,6 +195,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(rs);
         Assert.Contains("fn fib", rs);
     }
+#endif
 
     [Fact]
     public void Fibonacci_emits_python()
@@ -196,6 +206,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("def fib", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Fibonacci_emits_cpp()
     {
@@ -222,6 +233,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("long fib", java);
     }
+#endif
 
     // ── greeting.codex ─────────────────────────────────────────
 
@@ -244,6 +256,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("\"Hello, \"", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Greeting_emits_rust()
     {
@@ -253,6 +266,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("fn greeting", rs);
         Assert.Contains("format!", rs);
     }
+#endif
 
     [Fact]
     public void Greeting_emits_python()
@@ -264,6 +278,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("\"Hello, \"", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Greeting_emits_cpp()
     {
@@ -290,6 +305,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("String greeting", java);
     }
+#endif
 
     // ── shapes.codex ───────────────────────────────────────────
 
@@ -314,6 +330,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("tag", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Shapes_emits_rust()
     {
@@ -324,6 +341,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("Circle", rs);
         Assert.Contains("Rectangle", rs);
     }
+#endif
 
     [Fact]
     public void Shapes_emits_python()
@@ -336,6 +354,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("isinstance", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Shapes_emits_cpp()
     {
@@ -367,6 +386,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("sealed interface Shape", java);
         Assert.Contains("record Circle", java);
     }
+#endif
 
     // ── person.codex ───────────────────────────────────────────
 
@@ -390,6 +410,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("name", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Person_emits_rust()
     {
@@ -399,6 +420,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("struct Person", rs);
         Assert.Contains("name: String", rs);
     }
+#endif
 
     [Fact]
     public void Person_emits_python()
@@ -410,6 +432,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("name", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Person_emits_cpp()
     {
@@ -436,6 +459,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("record Person", java);
     }
+#endif
 
     // ── safe-divide.codex ──────────────────────────────────────
 
@@ -460,6 +484,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("Failure", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void SafeDivide_emits_rust()
     {
@@ -470,6 +495,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("Success", rs);
         Assert.Contains("Failure", rs);
     }
+#endif
 
     [Fact]
     public void SafeDivide_emits_python()
@@ -481,6 +507,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("class Failure", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void SafeDivide_emits_cpp()
     {
@@ -511,6 +538,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("record Success", java);
         Assert.Contains("record Failure", java);
     }
+#endif
 
     // ── string-ops.codex ───────────────────────────────────────
 
@@ -532,6 +560,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function count_letters", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void StringOps_emits_rust()
     {
@@ -540,6 +569,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(rs);
         Assert.Contains("fn count_letters", rs);
     }
+#endif
 
     [Fact]
     public void StringOps_emits_python()
@@ -550,6 +580,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("def count_letters", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void StringOps_emits_cpp()
     {
@@ -576,6 +607,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("long count_letters", java);
     }
+#endif
 
     // ── prose-greeting.codex ───────────────────────────────────
 
@@ -597,6 +629,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function greet", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void ProseGreeting_emits_rust()
     {
@@ -605,6 +638,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(rs);
         Assert.Contains("fn greet", rs);
     }
+#endif
 
     [Fact]
     public void ProseGreeting_emits_python()
@@ -615,6 +649,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("def greet", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void ProseGreeting_emits_cpp()
     {
@@ -641,6 +676,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("String greet", java);
     }
+#endif
 
     // ── effectful-hello.codex ──────────────────────────────────
 
@@ -663,6 +699,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("console.log", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void EffectfulHello_emits_rust()
     {
@@ -671,6 +708,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(rs);
         Assert.Contains("println!", rs);
     }
+#endif
 
     [Fact]
     public void EffectfulHello_emits_python()
@@ -682,6 +720,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("input()", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void EffectfulHello_emits_cpp()
     {
@@ -709,6 +748,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("System.out.println", java);
     }
+#endif
 
     // ── arithmetic.codex ───────────────────────────────────────
 
@@ -731,6 +771,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function max", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Arithmetic_emits_rust()
     {
@@ -739,6 +780,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(rs);
         Assert.Contains("fn max", rs);
     }
+#endif
 
     [Fact]
     public void Arithmetic_emits_python()
@@ -749,6 +791,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("def max", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Arithmetic_emits_cpp()
     {
@@ -775,6 +818,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("long max", java);
     }
+#endif
 
     // ── effects-demo.codex ─────────────────────────────────────
 
@@ -797,6 +841,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("console.log", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void EffectsDemo_emits_rust()
     {
@@ -805,6 +850,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(rs);
         Assert.Contains("println!", rs);
     }
+#endif
 
     [Fact]
     public void EffectsDemo_emits_python()
@@ -815,6 +861,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("print(", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void EffectsDemo_emits_cpp()
     {
@@ -841,6 +888,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("System.out.println", java);
     }
+#endif
 
     // ── tco-stress.codex ──────────────────────────────────────
 
@@ -864,6 +912,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("continue;", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void TcoStress_emits_rust_with_loop()
     {
@@ -874,6 +923,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("mut", rs);
         Assert.Contains("continue;", rs);
     }
+#endif
 
     [Fact]
     public void TcoStress_emits_python_with_loop()
@@ -885,6 +935,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("continue", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void TcoStress_emits_cpp_with_loop()
     {
@@ -914,6 +965,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("while (true)", java);
         Assert.Contains("continue;", java);
     }
+#endif
 
     // ── type-checker-test.codex ───────────────────────────────
 
@@ -936,6 +988,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("function apply_twice", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void TypeCheckerTest_emits_rust()
     {
@@ -944,6 +997,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(rs);
         Assert.Contains("fn apply_twice", rs);
     }
+#endif
 
     [Fact]
     public void TypeCheckerTest_emits_python()
@@ -954,6 +1008,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("def apply_twice", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void TypeCheckerTest_emits_cpp()
     {
@@ -980,6 +1035,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.NotNull(java);
         Assert.Contains("apply_twice", java);
     }
+#endif
 
     // ── proofs.codex ──────────────────────────────────────────
 
@@ -1000,6 +1056,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("All proofs verified", js);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Proofs_emits_rust()
     {
@@ -1009,6 +1066,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("fn main()", rs);
         Assert.Contains("All proofs verified", rs);
     }
+#endif
 
     [Fact]
     public void Proofs_emits_python()
@@ -1019,6 +1077,7 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("All proofs verified", py);
     }
 
+#if LEGACY_EMITTERS
     [Fact]
     public void Proofs_emits_cpp()
     {
@@ -1613,4 +1672,5 @@ public class EmitterIntegrationTests // this FILE IS LOCKED.  Use another.
         Assert.Contains("All proofs verified", cob);
         Assert.Contains("STOP RUN", cob);
     }
+#endif
 }

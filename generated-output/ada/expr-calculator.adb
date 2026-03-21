@@ -6,11 +6,6 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 procedure Expr_calculator is
 
-   type ParseResult is record
-      Expr : Long_Long_Integer;
-      Pos : Long_Long_Integer;
-   end record;
-
    type Expr_Tag is (Tag_Lit, Tag_Add, Tag_Sub, Tag_Mul, Tag_Div);
    type Expr(Kind : Expr_Tag := Expr_Tag'First) is record
       case Kind is
@@ -29,6 +24,11 @@ procedure Expr_calculator is
             Tag_Div_F0 : Long_Long_Integer;
             Tag_Div_F1 : Long_Long_Integer;
       end case;
+   end record;
+
+   type ParseResult is record
+      Expr : Long_Long_Integer;
+      Pos : Long_Long_Integer;
    end record;
 
    function Skip_ws(Input_0 : Unbounded_String; Pos_0 : Long_Long_Integer) return Long_Long_Integer is

@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 Console.WriteLine(Codex_mini_bootstrap.main());
-
-public sealed record Point(long x, long y);
 
 public abstract record Color;
 
 public sealed record Red : Color;
 public sealed record Green : Color;
 public sealed record Blue(long Field0) : Color;
+
+public sealed record Point(long x, long y);
 
 public static class Codex_mini_bootstrap
 {

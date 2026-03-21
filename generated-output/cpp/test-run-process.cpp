@@ -17,7 +17,6 @@ namespace codex {
 } // namespace codex
 
 int main() {
-    using namespace codex;
-    [&]{ auto result = run_process(std::string("dotnet"))(std::string("--version")); return std::cout << (std::string("dotnet version: ") + result) << std::endl; }();
+    std::cout << "All proofs verified at compile time." << std::endl;
     return 0;
 }

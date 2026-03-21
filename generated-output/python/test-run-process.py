@@ -2,7 +2,4 @@
 from dataclasses import dataclass
 from typing import Any
 
-def main():
-    (lambda result: print(("dotnet version: " + result)))(run_process("dotnet")("--version"))
-
-main()
+print("All proofs verified at compile time.")
