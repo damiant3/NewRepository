@@ -59,12 +59,16 @@ dotnet tools/codex-agent/codex-agent.exe <command> [args]
 | `plan` / `plan show` | Show current task list |
 | `plan clear` | Clear task list |
 | `check` | Cognitive load estimate — hot-path sizes vs budget |
-| `build` | `dotnet build Codex.sln` |
-| `test [filter]` | `dotnet test Codex.sln` (optional filter) |
+| `doctor` | Known conditions & diagnostics briefing (run at session start) |
+| `log <message>` | Append to persistent session log (decisions, errors, notes) |
+| `recall [n]` | Show last N session log entries (default 10) |
+| `build` | `dotnet build Codex.sln` — stores full log, prints compact summary |
+| `test [filter]` | `dotnet test Codex.sln` — stores full log, prints compact summary |
 
 ### Session Start
 
 ```powershell
+dotnet tools/codex-agent/codex-agent.exe doctor
 dotnet tools/codex-agent/codex-agent.exe check
 dotnet tools/codex-agent/codex-agent.exe status
 ```
