@@ -45,6 +45,28 @@ sealed partial class ILAssemblyBuilder
     MemberReferenceHandle m_charIsDigitRef;
     MemberReferenceHandle m_charIsWhiteSpaceRef;
     MemberReferenceHandle m_doubleToStringRef;
+    MemberReferenceHandle m_stringEqualsRef;
+
+    // ── List<T> support ──────────────────────────────────────────
+    TypeReferenceHandle m_listOpenRef;              // System.Collections.Generic.List`1
+    TypeReferenceHandle m_ienumerableOpenRef;        // System.Collections.Generic.IEnumerable`1
+    TypeSpecificationHandle m_listStringSpec;        // List<string> instantiation
+    MemberReferenceHandle m_listStringCtorRef;       // List<string>(IEnumerable<string>)
+    MemberReferenceHandle m_listStringCountRef;      // List<string>.get_Count() : int
+    MemberReferenceHandle m_listStringGetItemRef;    // List<string>.get_Item(int) : string
+
+    // ── String.Split ─────────────────────────────────────────────
+    MemberReferenceHandle m_stringSplitRef;           // String.Split(string, StringSplitOptions) : string[]
+
+    // ── Environment ──────────────────────────────────────────────
+    TypeReferenceHandle m_environmentRef;
+    MemberReferenceHandle m_getCommandLineArgsRef;    // Environment.GetCommandLineArgs() : string[]
+
+    // ── File I/O ─────────────────────────────────────────────────
+    TypeReferenceHandle m_fileRef;
+    MemberReferenceHandle m_fileReadAllTextRef;       // File.ReadAllText(string) : string
+    MemberReferenceHandle m_fileExistsRef;            // File.Exists(string) : bool
+    MemberReferenceHandle m_fileWriteAllTextRef;      // File.WriteAllText(string, string) : void
 
     TypeDefinitionHandle m_moduleClassDef;
     ValueMap<string, MethodDefinitionHandle> m_definedMethods = ValueMap<string, MethodDefinitionHandle>.s_empty;
@@ -149,6 +171,18 @@ sealed partial class ILAssemblyBuilder
             m_metadata.GetOrAddString("Concat"),
             EncodeMethodSignature(SignatureCallingConvention.Default, true,
                 returnType: b => b.Type().String(),
+                parameters: new Action<ParameterTypeEncoder>[]
+                {
+                    p => p.Type().String(),
+                    p => p.Type().String()
+                }));
+
+        // String.op_Equality(string, string) : bool  (static)
+        m_stringEqualsRef = m_metadata.AddMemberReference(
+            m_stringRef,
+            m_metadata.GetOrAddString("op_Equality"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Boolean(),
                 parameters: new Action<ParameterTypeEncoder>[]
                 {
                     p => p.Type().String(),
@@ -292,6 +326,201 @@ sealed partial class ILAssemblyBuilder
             EncodeMethodSignature(SignatureCallingConvention.Default, false,
                 returnType: b => b.Type().String(),
                 parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // ── List<T> support ──────────────────────────────────────
+        AssemblyReferenceHandle collectionsAsmRef = m_metadata.AddAssemblyReference(
+            m_metadata.GetOrAddString("System.Collections"),
+            new Version(8, 0, 0, 0),
+            default,
+            m_metadata.GetOrAddBlob(
+                ImmutableArray.Create<byte>(
+                    0xB0, 0x3F, 0x5F, 0x7F, 0x11, 0xD5, 0x0A, 0x3A)),
+            default,
+            default);
+
+        m_listOpenRef = m_metadata.AddTypeReference(
+            collectionsAsmRef,
+            m_metadata.GetOrAddString("System.Collections.Generic"),
+            m_metadata.GetOrAddString("List`1"));
+
+        m_ienumerableOpenRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System.Collections.Generic"),
+            m_metadata.GetOrAddString("IEnumerable`1"));
+
+        // TypeSpec for List<string>
+        {
+            BlobBuilder blob = new();
+            new BlobEncoder(blob)
+                .TypeSpecificationSignature()
+                .GenericInstantiation(m_listOpenRef, 1, isValueType: false)
+                .AddArgument()
+                .String();
+            m_listStringSpec = m_metadata.AddTypeSpecification(
+                m_metadata.GetOrAddBlob(blob));
+        }
+
+        // TypeSpec for IEnumerable<string> (needed for List<string> ctor param)
+        TypeSpecificationHandle ienumStringSpec;
+        {
+            BlobBuilder blob = new();
+            new BlobEncoder(blob)
+                .TypeSpecificationSignature()
+                .GenericInstantiation(m_ienumerableOpenRef, 1, isValueType: false)
+                .AddArgument()
+                .String();
+            ienumStringSpec = m_metadata.AddTypeSpecification(
+                m_metadata.GetOrAddBlob(blob));
+        }
+
+        // List<string>.ctor(IEnumerable<string>)
+        // Signature uses !0 (GenericTypeParameter 0) — CLR substitutes with string
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
+                .Parameters(1,
+                    returnType => returnType.Void(),
+                    parameters =>
+                    {
+                        SignatureTypeEncoder paramType = parameters.AddParameter().Type();
+                        GenericTypeArgumentsEncoder genArgs = paramType
+                            .GenericInstantiation(m_ienumerableOpenRef, 1, isValueType: false);
+                        // !0 = GenericTypeParameter(0) — the T in List<T>
+                        SignatureTypeEncoder argEncoder = genArgs.AddArgument();
+                        argEncoder.Builder.WriteByte((byte)SignatureTypeCode.GenericTypeParameter);
+                        argEncoder.Builder.WriteCompressedInteger(0);
+                    });
+            m_listStringCtorRef = m_metadata.AddMemberReference(
+                m_listStringSpec,
+                m_metadata.GetOrAddString(".ctor"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // List<string>.get_Count() : int  (instance)
+        m_listStringCountRef = m_metadata.AddMemberReference(
+            m_listStringSpec,
+            m_metadata.GetOrAddString("get_Count"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().Int32(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // List<string>.get_Item(int) : !0  (instance)
+        // Return type is !0 (GenericTypeParameter 0 = string for List<string>)
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
+                .Parameters(1,
+                    returnType =>
+                    {
+                        SignatureTypeEncoder retEncoder = returnType.Type();
+                        retEncoder.Builder.WriteByte((byte)SignatureTypeCode.GenericTypeParameter);
+                        retEncoder.Builder.WriteCompressedInteger(0);
+                    },
+                    parameters =>
+                    {
+                        parameters.AddParameter().Type().Int32();
+                    });
+            m_listStringGetItemRef = m_metadata.AddMemberReference(
+                m_listStringSpec,
+                m_metadata.GetOrAddString("get_Item"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // ── String.Split(string, StringSplitOptions) : string[] ──
+        {
+            // StringSplitOptions is an enum in System namespace — must be referenced as the type
+            TypeReferenceHandle stringSplitOptionsRef = m_metadata.AddTypeReference(
+                m_corlibRef,
+                m_metadata.GetOrAddString("System"),
+                m_metadata.GetOrAddString("StringSplitOptions"));
+
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
+                .Parameters(2,
+                    returnType =>
+                    {
+                        returnType.Type().SZArray().String();
+                    },
+                    parameters =>
+                    {
+                        parameters.AddParameter().Type().String();
+                        parameters.AddParameter().Type().Type(stringSplitOptionsRef, isValueType: true);
+                    });
+            m_stringSplitRef = m_metadata.AddMemberReference(
+                m_stringRef,
+                m_metadata.GetOrAddString("Split"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // ── Environment ──────────────────────────────────────────
+        m_environmentRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Environment"));
+
+        // Environment.GetCommandLineArgs() : string[]  (static)
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: false)
+                .Parameters(0,
+                    returnType =>
+                    {
+                        returnType.Type().SZArray().String();
+                    },
+                    _ => { });
+            m_getCommandLineArgsRef = m_metadata.AddMemberReference(
+                m_environmentRef,
+                m_metadata.GetOrAddString("GetCommandLineArgs"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // ── File I/O ─────────────────────────────────────────────
+        AssemblyReferenceHandle fileSystemAsmRef = m_metadata.AddAssemblyReference(
+            m_metadata.GetOrAddString("System.IO.FileSystem"),
+            new Version(8, 0, 0, 0),
+            default,
+            m_metadata.GetOrAddBlob(
+                ImmutableArray.Create<byte>(
+                    0xB0, 0x3F, 0x5F, 0x7F, 0x11, 0xD5, 0x0A, 0x3A)),
+            default,
+            default);
+
+        m_fileRef = m_metadata.AddTypeReference(
+            fileSystemAsmRef,
+            m_metadata.GetOrAddString("System.IO"),
+            m_metadata.GetOrAddString("File"));
+
+        // File.ReadAllText(string) : string  (static)
+        m_fileReadAllTextRef = m_metadata.AddMemberReference(
+            m_fileRef,
+            m_metadata.GetOrAddString("ReadAllText"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().String(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // File.Exists(string) : bool  (static)
+        m_fileExistsRef = m_metadata.AddMemberReference(
+            m_fileRef,
+            m_metadata.GetOrAddString("Exists"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Boolean(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // File.WriteAllText(string, string) : void  (static)
+        m_fileWriteAllTextRef = m_metadata.AddMemberReference(
+            m_fileRef,
+            m_metadata.GetOrAddString("WriteAllText"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Void(),
+                parameters: new Action<ParameterTypeEncoder>[]
+                {
+                    p => p.Type().String(),
+                    p => p.Type().String()
+                }));
     }
 
     public void EmitModule(IRModule module)
@@ -405,11 +634,11 @@ sealed partial class ILAssemblyBuilder
         if (locals.Count > 0)
         {
             StandaloneSignatureHandle localSig = locals.BuildSignature();
-            bodyOffset = m_methodBodies.AddMethodBody(il, localVariablesSignature: localSig);
+            bodyOffset = m_methodBodies.AddMethodBody(il, maxStack: 32, localVariablesSignature: localSig);
         }
         else
         {
-            bodyOffset = m_methodBodies.AddMethodBody(il);
+            bodyOffset = m_methodBodies.AddMethodBody(il, maxStack: 32);
         }
 
         MethodDefinitionHandle methodDef = m_metadata.AddMethodDefinition(
@@ -530,9 +759,9 @@ sealed partial class ILAssemblyBuilder
                 {
                     il.LoadLocal(localIndex);
                 }
-                else if (name.Name == "read-line")
+                else if (TryEmitBuiltin(il, name.Name, new List<IRExpr>(), locals, parameters))
                 {
-                    il.Call(m_consoleReadLineRef);
+                    // Zero-arg builtin handled (read-line, get-args, etc.)
                 }
                 else if (m_ctorDefs.TryGet(name.Name, out MethodDefinitionHandle ctorDef)
                     && name.Type is not FunctionType)
@@ -609,12 +838,24 @@ sealed partial class ILAssemblyBuilder
                 il.OpCode(ILOpCode.Div);
                 break;
             case IRBinaryOp.Eq:
-                il.OpCode(ILOpCode.Ceq);
+                if (IsTextLike(bin.Left.Type))
+                    il.Call(m_stringEqualsRef);
+                else
+                    il.OpCode(ILOpCode.Ceq);
                 break;
             case IRBinaryOp.NotEq:
-                il.OpCode(ILOpCode.Ceq);
-                il.LoadConstantI4(0);
-                il.OpCode(ILOpCode.Ceq);
+                if (IsTextLike(bin.Left.Type))
+                {
+                    il.Call(m_stringEqualsRef);
+                    il.LoadConstantI4(0);
+                    il.OpCode(ILOpCode.Ceq);
+                }
+                else
+                {
+                    il.OpCode(ILOpCode.Ceq);
+                    il.LoadConstantI4(0);
+                    il.OpCode(ILOpCode.Ceq);
+                }
                 break;
             case IRBinaryOp.Lt:
                 il.OpCode(ILOpCode.Clt);
@@ -841,6 +1082,62 @@ sealed partial class ILAssemblyBuilder
                 il.Call(m_consoleReadLineRef);
                 return true;
 
+            // ── List<T> builtins ─────────────────────────────────
+            case "get-args" when args.Count == 0:
+                // new List<string>(Environment.GetCommandLineArgs())
+                il.Call(m_getCommandLineArgsRef);
+                il.OpCode(ILOpCode.Newobj);
+                il.Token(m_listStringCtorRef);
+                return true;
+
+            case "text-split" when args.Count == 2:
+                // new List<string>(text.Split(delim, StringSplitOptions.None))
+                emitSub(args[0]);               // push text
+                emitSub(args[1]);               // push delimiter
+                il.LoadConstantI4(0);           // StringSplitOptions.None
+                il.Call(m_stringSplitRef);       // → string[]
+                il.OpCode(ILOpCode.Newobj);
+                il.Token(m_listStringCtorRef);  // → List<string>
+                return true;
+
+            case "list-length" when args.Count == 1:
+                // (long)list.Count
+                emitSub(args[0]);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_listStringCountRef);
+                il.OpCode(ILOpCode.Conv_i8);
+                return true;
+
+            case "list-at" when args.Count == 2:
+                // list[(int)index]
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.OpCode(ILOpCode.Conv_i4);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_listStringGetItemRef);
+                return true;
+
+            // ── File I/O builtins ────────────────────────────────
+            case "read-file" when args.Count == 1:
+                // File.ReadAllText(path)
+                emitSub(args[0]);
+                il.Call(m_fileReadAllTextRef);
+                return true;
+
+            case "file-exists" when args.Count == 1:
+                // File.Exists(path)
+                emitSub(args[0]);
+                il.Call(m_fileExistsRef);
+                return true;
+
+            case "write-file" when args.Count == 2:
+                // File.WriteAllText(path, content) — void return, push null for let bindings
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.Call(m_fileWriteAllTextRef);
+                il.OpCode(ILOpCode.Ldnull);
+                return true;
+
             default:
                 return false;
         }
@@ -1008,6 +1305,12 @@ sealed partial class ILAssemblyBuilder
             case ForAllType fa:
                 EncodeType(encoder, fa.Body);
                 break;
+            case ListType:
+                // Encode as generic instantiation: List<string>
+                encoder.GenericInstantiation(m_listOpenRef, 1, isValueType: false)
+                    .AddArgument()
+                    .String();
+                break;
             default:
                 encoder.Object();
                 break;
@@ -1061,6 +1364,9 @@ sealed partial class ILAssemblyBuilder
 
     static bool IsVoidLike(CodexType type) => type is VoidType or NothingType
         or EffectfulType { Return: VoidType or NothingType };
+
+    static bool IsTextLike(CodexType type) => type is TextType
+        or EffectfulType { Return: TextType };
 
     void EmitBoxIfNeeded(InstructionEncoder il, CodexType actualType, CodexType expectedType)
     {
@@ -1474,9 +1780,10 @@ sealed partial class ILAssemblyBuilder
                 {
                     il.LoadLocal(localIndex);
                 }
-                else if (name.Name == "read-line")
+                else if (TryEmitBuiltinCore(il, name.Name, new List<IRExpr>(), locals,
+                    expr => EmitTcoExpr(il, expr, locals, parameters, paramLocals)))
                 {
-                    il.Call(m_consoleReadLineRef);
+                    // Zero-arg builtin handled
                 }
                 else if (m_ctorDefs.TryGet(name.Name, out MethodDefinitionHandle ctorDef)
                     && name.Type is not FunctionType)
@@ -1611,12 +1918,24 @@ sealed partial class ILAssemblyBuilder
                 il.OpCode(ILOpCode.Div);
                 break;
             case IRBinaryOp.Eq:
-                il.OpCode(ILOpCode.Ceq);
+                if (IsTextLike(bin.Left.Type))
+                    il.Call(m_stringEqualsRef);
+                else
+                    il.OpCode(ILOpCode.Ceq);
                 break;
             case IRBinaryOp.NotEq:
-                il.OpCode(ILOpCode.Ceq);
-                il.LoadConstantI4(0);
-                il.OpCode(ILOpCode.Ceq);
+                if (IsTextLike(bin.Left.Type))
+                {
+                    il.Call(m_stringEqualsRef);
+                    il.LoadConstantI4(0);
+                    il.OpCode(ILOpCode.Ceq);
+                }
+                else
+                {
+                    il.OpCode(ILOpCode.Ceq);
+                    il.LoadConstantI4(0);
+                    il.OpCode(ILOpCode.Ceq);
+                }
                 break;
             case IRBinaryOp.Lt:
                 il.OpCode(ILOpCode.Clt);

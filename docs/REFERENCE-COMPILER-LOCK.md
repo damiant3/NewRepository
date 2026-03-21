@@ -168,3 +168,41 @@ reference, do it, write the justify, port this to real code and emit the IL."
 **Scope**: New builtins only. No parsing, type checking, or existing behavior changes.
 All changes are additive — existing builtins untouched. Both reference and self-hosted
 emitters updated in parallel to maintain bootstrap consistency.
+
+### Override 4: IL emitter — List\<T\> support + dogfood builtins (2026-03-21)
+
+**Authorized by**: User (project owner)
+**Agent**: Claude (Opus 4.6, Linux)
+**Justification**: The agent toolkit (`tools/codex-agent/peek.codex`) compiled to C# but
+produced invalid IL because the IL emitter had no `List<T>` support — no constructor, no
+`Count`, no indexer. This meant `.codex` source could not produce standalone `.exe` files
+for any program using lists. The user explicitly directed: "if that takes us breaking seal
+again, fine do it and write the justify. that is why we are dogfooding this."
+
+**What was missing**: The IL emitter could emit all primitive types, records, sum types,
+generics, pattern matching, and tail-call optimization — but had zero support for
+`System.Collections.Generic.List<T>`, which is the CLR backing type for all Codex `List`
+values. It also lacked `File.ReadAllText`, `File.Exists`, `Environment.GetCommandLineArgs`,
+and `String.Split` — all required by Override 3's dogfood builtins.
+
+**Changes to `src/Codex.Emit.IL/ILAssemblyBuilder.cs`** (1 file, ~250 lines added):
+
+| Category | What |
+|----------|------|
+| Assembly refs | `System.Collections`, `System.IO.FileSystem` |
+| Type refs | `List`1`, `IEnumerable`1`, `Environment`, `File`, `StringSplitOptions` |
+| TypeSpecs | `List<string>`, `IEnumerable<string>` (generic instantiation blobs) |
+| Member refs | `List<string>.ctor(IEnumerable<!0>)`, `.get_Count()`, `.get_Item(int)` |
+| Member refs | `String.Split(string, StringSplitOptions)`, `Environment.GetCommandLineArgs()` |
+| Member refs | `File.ReadAllText(string)`, `File.Exists(string)` |
+| EncodeType | `ListType` → `GenericInstantiation(List`1`, string)` |
+| Builtins (6) | `get-args`, `text-split`, `list-length`, `list-at`, `read-file`, `file-exists` |
+| IRName dispatch | Zero-arg builtins now route through `TryEmitBuiltinCore` (was hardcoded `read-line` only) |
+| maxstack | Increased from 8 to 32 for user definitions (deeply nested Codex expressions exceed 8) |
+
+**Scope**: IL emitter only. No changes to parsing, type checking, IR, or C# emitter.
+All 700 tests pass (659 + 23 + 18). Existing IL compilation (e.g., `hello.codex`) unaffected.
+
+**Proof**: `peek.codex` compiles through the IL backend and the resulting `peek.exe` correctly
+reads files, displays line ranges, handles missing files, and prints usage — all from pure
+`.codex` source → IL → native execution.
