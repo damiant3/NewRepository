@@ -360,6 +360,7 @@ sealed partial class ILAssemblyBuilder
         }
 
         // List<string>.ctor(IEnumerable<string>)
+        // Signature uses !0 (GenericTypeParameter 0) — CLR substitutes with string
         {
             BlobBuilder sig = new();
             new BlobEncoder(sig).MethodSignature(
@@ -368,10 +369,13 @@ sealed partial class ILAssemblyBuilder
                     returnType => returnType.Void(),
                     parameters =>
                     {
-                        parameters.AddParameter().Type()
-                            .GenericInstantiation(m_ienumerableOpenRef, 1, isValueType: false)
-                            .AddArgument()
-                            .String();
+                        SignatureTypeEncoder paramType = parameters.AddParameter().Type();
+                        GenericTypeArgumentsEncoder genArgs = paramType
+                            .GenericInstantiation(m_ienumerableOpenRef, 1, isValueType: false);
+                        // !0 = GenericTypeParameter(0) — the T in List<T>
+                        SignatureTypeEncoder argEncoder = genArgs.AddArgument();
+                        argEncoder.Builder.WriteByte((byte)SignatureTypeCode.GenericTypeParameter);
+                        argEncoder.Builder.WriteCompressedInteger(0);
                     });
             m_listStringCtorRef = m_metadata.AddMemberReference(
                 m_listStringSpec,
@@ -387,17 +391,37 @@ sealed partial class ILAssemblyBuilder
                 returnType: b => b.Type().Int32(),
                 parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
 
-        // List<string>.get_Item(int) : string  (instance)
-        m_listStringGetItemRef = m_metadata.AddMemberReference(
-            m_listStringSpec,
-            m_metadata.GetOrAddString("get_Item"),
-            EncodeMethodSignature(SignatureCallingConvention.Default, false,
-                returnType: b => b.Type().String(),
-                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Int32() }));
+        // List<string>.get_Item(int) : !0  (instance)
+        // Return type is !0 (GenericTypeParameter 0 = string for List<string>)
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
+                .Parameters(1,
+                    returnType =>
+                    {
+                        SignatureTypeEncoder retEncoder = returnType.Type();
+                        retEncoder.Builder.WriteByte((byte)SignatureTypeCode.GenericTypeParameter);
+                        retEncoder.Builder.WriteCompressedInteger(0);
+                    },
+                    parameters =>
+                    {
+                        parameters.AddParameter().Type().Int32();
+                    });
+            m_listStringGetItemRef = m_metadata.AddMemberReference(
+                m_listStringSpec,
+                m_metadata.GetOrAddString("get_Item"),
+                m_metadata.GetOrAddBlob(sig));
+        }
 
         // ── String.Split(string, StringSplitOptions) : string[] ──
         {
-            // StringSplitOptions is an enum (Int32) in System namespace
+            // StringSplitOptions is an enum in System namespace — must be referenced as the type
+            TypeReferenceHandle stringSplitOptionsRef = m_metadata.AddTypeReference(
+                m_corlibRef,
+                m_metadata.GetOrAddString("System"),
+                m_metadata.GetOrAddString("StringSplitOptions"));
+
             BlobBuilder sig = new();
             new BlobEncoder(sig).MethodSignature(
                 SignatureCallingConvention.Default, 0, isInstanceMethod: true)
@@ -409,7 +433,7 @@ sealed partial class ILAssemblyBuilder
                     parameters =>
                     {
                         parameters.AddParameter().Type().String();
-                        parameters.AddParameter().Type().Int32(); // StringSplitOptions enum
+                        parameters.AddParameter().Type().Type(stringSplitOptionsRef, isValueType: true);
                     });
             m_stringSplitRef = m_metadata.AddMemberReference(
                 m_stringRef,
@@ -584,11 +608,11 @@ sealed partial class ILAssemblyBuilder
         if (locals.Count > 0)
         {
             StandaloneSignatureHandle localSig = locals.BuildSignature();
-            bodyOffset = m_methodBodies.AddMethodBody(il, localVariablesSignature: localSig);
+            bodyOffset = m_methodBodies.AddMethodBody(il, maxStack: 32, localVariablesSignature: localSig);
         }
         else
         {
-            bodyOffset = m_methodBodies.AddMethodBody(il);
+            bodyOffset = m_methodBodies.AddMethodBody(il, maxStack: 32);
         }
 
         MethodDefinitionHandle methodDef = m_metadata.AddMethodDefinition(
@@ -709,9 +733,9 @@ sealed partial class ILAssemblyBuilder
                 {
                     il.LoadLocal(localIndex);
                 }
-                else if (name.Name == "read-line")
+                else if (TryEmitBuiltin(il, name.Name, new List<IRExpr>(), locals, parameters))
                 {
-                    il.Call(m_consoleReadLineRef);
+                    // Zero-arg builtin handled (read-line, get-args, etc.)
                 }
                 else if (m_ctorDefs.TryGet(name.Name, out MethodDefinitionHandle ctorDef)
                     && name.Type is not FunctionType)
@@ -1707,9 +1731,10 @@ sealed partial class ILAssemblyBuilder
                 {
                     il.LoadLocal(localIndex);
                 }
-                else if (name.Name == "read-line")
+                else if (TryEmitBuiltinCore(il, name.Name, new List<IRExpr>(), locals,
+                    expr => EmitTcoExpr(il, expr, locals, parameters, paramLocals)))
                 {
-                    il.Call(m_consoleReadLineRef);
+                    // Zero-arg builtin handled
                 }
                 else if (m_ctorDefs.TryGet(name.Name, out MethodDefinitionHandle ctorDef)
                     && name.Type is not FunctionType)
