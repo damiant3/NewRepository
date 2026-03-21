@@ -269,19 +269,28 @@ compiler. By mathematics.
 ## Time Horizon
 
 We don't put dates on mountains. Mountains don't care about dates. But
-we can say which camps are visible from where we stand:
+we can measure our pace.
 
-| Camp | Visibility | Rough Distance |
-|------|-----------|---------------|
-| II-A (IL maturity) | Clear, route marked | Weeks |
-| II-B (Native codegen) | Visible, route scoutable | Months |
-| II-C (Self-hosted native) | Visible in clear weather | Months |
-| III-A (Linear allocator) | Outline visible | 2026–2027 |
-| III-B (Capability I/O) | Outline visible | 2027 |
-| III-C (Structured concurrency) | Know it's there | 2027 |
-| IV (Codex.OS) | Theoretical summit | 2027–2028 |
+**Actual pace so far**: Peak I (self-hosting compiler with dependent types,
+linear types, algebraic effects, 12 backends, LSP, content-addressed
+repository) — from empty directory to fixed point in **6 days**. 257
+commits. 237,000 lines. Two AI agents and one human who doesn't sleep
+enough.
 
-These are not promises. They're sightlines.
+That pace recalibrates everything.
+
+| Camp | Visibility | Honest Estimate |
+|------|-----------|----------------|
+| II-A (IL maturity) | Clear, route marked | Days |
+| II-B (Native codegen) | Visible, route scoutable | Weeks |
+| II-C (Self-hosted native) | Visible in clear weather | Weeks |
+| III-A (Linear allocator) | Outline visible | Weeks–months |
+| III-B (Capability I/O) | Outline visible | Months |
+| III-C (Structured concurrency) | Know it's there | Months |
+| IV (Codex.OS) | Not theoretical anymore | 2026 |
+
+These are not promises. They're sightlines. But we've been consistently
+arriving ahead of our sightlines, so draw your own conclusions.
 
 ---
 
