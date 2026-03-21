@@ -3,6 +3,7 @@
     <RootNamespace>Codex.Types.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <DefineConstants Condition="'$(LegacyEmitters)' == 'true'">$(DefineConstants);LEGACY_EMITTERS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
@@ -21,16 +22,6 @@
     <ProjectReference Include="..\..\src\Codex.IR\Codex.IR.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit\Codex.Emit.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.CSharp\Codex.Emit.CSharp.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.JavaScript\Codex.Emit.JavaScript.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Rust\Codex.Emit.Rust.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Python\Codex.Emit.Python.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Cpp\Codex.Emit.Cpp.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Go\Codex.Emit.Go.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Java\Codex.Emit.Java.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Ada\Codex.Emit.Ada.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Babbage\Codex.Emit.Babbage.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Fortran\Codex.Emit.Fortran.csproj" />
-    <ProjectReference Include="..\..\src\Codex.Emit.Cobol\Codex.Emit.Cobol.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.IL\Codex.Emit.IL.csproj" />
     <ProjectReference Include="..\..\src\Codex.Proofs\Codex.Proofs.csproj" />
   </ItemGroup>

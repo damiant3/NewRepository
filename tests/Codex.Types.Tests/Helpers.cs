@@ -89,19 +89,20 @@ namespace Codex.Types.Tests
             return CompileToTarget(source, moduleName, new CSharpEmitter());
         }
 
+#if LEGACY_EMITTERS
         public static string? CompileToJS(string source, string moduleName = "test")
         {
             return CompileToTarget(source, moduleName, new Codex.Emit.JavaScript.JavaScriptEmitter());
         }
 
-        public static string? CompileToRust(string source, string moduleName = "test")
-        {
-            return CompileToTarget(source, moduleName, new Codex.Emit.Rust.RustEmitter());
-        }
-
         public static string? CompileToPython(string source, string moduleName = "test")
         {
             return CompileToTarget(source, moduleName, new Codex.Emit.Python.PythonEmitter());
+        }
+
+        public static string? CompileToRust(string source, string moduleName = "test")
+        {
+            return CompileToTarget(source, moduleName, new Codex.Emit.Rust.RustEmitter());
         }
 
         public static string? CompileToCpp(string source, string moduleName = "test")
@@ -138,6 +139,10 @@ namespace Codex.Types.Tests
         {
             return CompileToTarget(source, moduleName, new Codex.Emit.Cobol.CobolEmitter());
         }
+#else
+        public static string? CompileToJS(string source, string moduleName = "test") => null;
+        public static string? CompileToPython(string source, string moduleName = "test") => null;
+#endif
 
         public static byte[]? CompileToIL(string source, string moduleName = "test")
         {

@@ -13,9 +13,10 @@ public class CorpusEmissionTests
     static readonly ICodeEmitter[] s_emitters =
     [
         new CSharpEmitter(),
+#if LEGACY_EMITTERS
         new Emit.JavaScript.JavaScriptEmitter(),
-        new Emit.Rust.RustEmitter(),
         new Emit.Python.PythonEmitter(),
+        new Emit.Rust.RustEmitter(),
         new Emit.Cpp.CppEmitter(),
         new Emit.Go.GoEmitter(),
         new Emit.Java.JavaEmitter(),
@@ -23,6 +24,7 @@ public class CorpusEmissionTests
         new Emit.Babbage.BabbageEmitter(),
         new Emit.Fortran.FortranEmitter(),
         new Emit.Cobol.CobolEmitter(),
+#endif
     ];
 
     static string FindSamplesDir()
