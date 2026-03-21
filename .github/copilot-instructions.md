@@ -98,52 +98,77 @@ date +%Y-%m-%d
 
 ## Agent Toolkit (USE THESE)
 
-The repository includes purpose-built tools in `tools/agent/` that work around known
-limitations of the built-in `get_file`, `edit_file`, and `run_command_in_terminal` tools.
-**Use these instead of the built-in equivalents whenever possible.**
+The primary agent tool is `codex-agent` — a unified toolkit written in Codex itself,
+compiled to a standalone .exe via the IL backend. It lives in `tools/codex-agent/`.
 
-| Tool | Command (Windows) | Replaces | Why |
-|------|-------------------|----------|-----|
-| **peek** | `pwsh -File tools/agent/peek.ps1 <file> <start> <end>` | `get_file` | Never drops line 1. Reliable line numbers. Use `0 0` for full file. |
-| **fstat** | `pwsh -File tools/agent/fstat.ps1 <file-or-glob>` | manual line counting | Line/char/byte counts. **Run before editing** to pick the right edit strategy. |
-| **sdiff** | `pwsh -File tools/agent/sdiff.ps1 snap <file>` | manual `.bak` workflow | Snapshot before edit, diff after, restore if broken. **Non-negotiable for files >100 lines.** |
-| **trun** | `pwsh -File tools/agent/trun.ps1` | `dotnet test` | Captures full output. Filters to failures + summary. No truncation. Use `-Project Types` to scope. |
-| **gstat** | `pwsh -File tools/agent/gstat.ps1` | `git status` | Branch, dirty files, ahead/behind, recent commits, feature branches. **Run at session start.** |
-| **dashboard** | `pwsh -File tools/codex-dashboard.ps1` | nothing | Cognitive load meter. Thrash risk score. Run before touching hot-path files. |
+### codex-agent (preferred)
+
+```
+dotnet tools/codex-agent/codex-agent.exe <command> [args]
+```
+
+| Command | What it does |
+|---------|-------------|
+| `peek <file> [start] [end]` | Read file lines safely with line numbers. Fixes the `get_file` first-line-drop bug. |
+| `stat <file> [file2] ...` | File statistics: line count, char count, size hints, totals. **Run before editing.** |
+| `snap save <file>` | Snapshot before editing. **Non-negotiable for files >100 lines.** |
+| `snap diff <file>` | Compare current file to snapshot — verify only intended changes. |
+| `snap restore <file>` | Restore from snapshot if edit goes wrong. |
+| `status` | Project health check — verifies key files exist. |
+| `plan add <task>` | Stash a task that survives context window loss. |
+| `plan` / `plan show` | Show current task list. |
+| `plan clear` | Clear the task list. |
+| `check` | Cognitive load estimate — hot-path file sizes vs 60K budget, load level, plan status. |
+| `help` | Usage information. |
 
 ### Session Start Checklist
 
 ```powershell
-pwsh -File tools/agent/gstat.ps1              # Where are we?
-pwsh -File tools/codex-dashboard.ps1          # How hot is the context?
+dotnet tools/codex-agent/codex-agent.exe check    # Cognitive load + plan
+dotnet tools/codex-agent/codex-agent.exe status    # Key files present?
 ```
 
 ### Before Editing Any File
 
 ```powershell
-pwsh -File tools/agent/fstat.ps1 <file>       # How big is it?
-pwsh -File tools/agent/peek.ps1 <file> 1 30   # Read the top
-pwsh -File tools/agent/sdiff.ps1 snap <file>  # Snapshot before edit
+dotnet tools/codex-agent/codex-agent.exe stat <file>       # How big is it?
+dotnet tools/codex-agent/codex-agent.exe peek <file> 1 30  # Read the top
+dotnet tools/codex-agent/codex-agent.exe snap save <file>  # Snapshot before edit
 # ... make edit ...
-pwsh -File tools/agent/sdiff.ps1 diff <file>  # Verify only intended changes
+dotnet tools/codex-agent/codex-agent.exe snap diff <file>  # Verify only intended changes
 ```
 
 ### If an Edit Goes Wrong
 
 ```powershell
-pwsh -File tools/agent/sdiff.ps1 restore <file>  # Restore from snapshot
+dotnet tools/codex-agent/codex-agent.exe snap restore <file>  # Restore from snapshot
 ```
 
-### End of Session
+### Stashing Tasks Across Context Loss
+
+The `plan` command writes to `.codex-agent/plan.txt` — a file that persists across
+conversation resets. Use it to record multi-step plans, TODOs, or notes that would
+otherwise be lost when the context window rolls over.
 
 ```powershell
-pwsh -File tools/agent/sdiff.ps1 clean            # Remove all .snap files
+dotnet tools/codex-agent/codex-agent.exe plan add "Fix the lowerer inference bug"
+dotnet tools/codex-agent/codex-agent.exe plan add "Update tests for new pattern"
+dotnet tools/codex-agent/codex-agent.exe plan       # Review at start of next session
 ```
 
-### Linux Equivalents
+### Legacy Shell Scripts (fallback)
 
-Replace `pwsh -File tools/agent/<tool>.ps1` with `bash tools/agent/<tool>.sh`.
-Same arguments, same behavior. See `tools/agent/README.md` for full docs.
+The old PowerShell/Bash scripts in `tools/agent/` still work if `codex-agent.exe`
+is unavailable. They are deprecated in favor of the unified tool.
+
+| Tool | Windows | Linux |
+|------|---------|-------|
+| peek | `pwsh -File tools/agent/peek.ps1 <file> <start> <end>` | `bash tools/agent/peek.sh` |
+| fstat | `pwsh -File tools/agent/fstat.ps1 <file>` | `bash tools/agent/fstat.sh` |
+| sdiff | `pwsh -File tools/agent/sdiff.ps1 snap <file>` | `bash tools/agent/sdiff.sh` |
+| trun | `pwsh -File tools/agent/trun.ps1` | `bash tools/agent/trun.sh` |
+| gstat | `pwsh -File tools/agent/gstat.ps1` | `bash tools/agent/gstat.sh` |
+| dashboard | `pwsh -File tools/codex-dashboard.ps1` | `bash tools/codexdashboard.sh` |
 
 ---
 
@@ -340,31 +365,31 @@ careless edits.
 Use `peek` (not `get_file`) to avoid the first-line-drop bug:
 
 ```powershell
-pwsh -File tools/agent/peek.ps1 <file> 1 30   # read lines 1-30
-pwsh -File tools/agent/peek.ps1 <file> 0 0    # read entire file
+dotnet tools/codex-agent/codex-agent.exe peek <file> 1 30  # read lines 1-30
+dotnet tools/codex-agent/codex-agent.exe peek <file> 0 0   # read entire file
 ```
 
 ---
 
 ## Backup Before Editing
 
-Use `sdiff snap` before making non-trivial edits. This replaces the manual `.bak`
+Use `snap save` before making non-trivial edits. This replaces the manual `.bak`
 workflow and provides diff verification:
 
 ```powershell
-pwsh -File tools/agent/fstat.ps1 <file>       # check size -> pick strategy
-pwsh -File tools/agent/sdiff.ps1 snap <file>  # snapshot before edit
+dotnet tools/codex-agent/codex-agent.exe stat <file>       # check size -> pick strategy
+dotnet tools/codex-agent/codex-agent.exe snap save <file>  # snapshot before edit
 # ... make edit ...
-pwsh -File tools/agent/sdiff.ps1 diff <file>  # verify only intended changes
+dotnet tools/codex-agent/codex-agent.exe snap diff <file>  # verify only intended changes
 ```
 
 If an edit goes wrong:
 
 ```powershell
-pwsh -File tools/agent/sdiff.ps1 restore <file>  # revert to snapshot
+dotnet tools/codex-agent/codex-agent.exe snap restore <file>  # revert to snapshot
 ```
 
-**Non-negotiable for files over 100 lines.** Clean up snapshots (`sdiff clean`)
+**Non-negotiable for files over 100 lines.** Clean up snapshots (delete `.snap` files)
 before ending a session.
 
 ---
@@ -944,11 +969,19 @@ When both agents are active on the same repository:
 
 ## Cognitive Load Meter
 
-The project includes a **dashboard tool** that tracks cognitive load metrics —
-predicting when an agent is likely to thrash (chase red herrings, corrupt files,
-burn cycles on symptoms instead of root causes).
+The project includes a **cognitive load meter** that tracks how much context budget
+the hot-path compiler files consume — predicting when an agent is likely to thrash.
 
-### Running the Dashboard
+### Quick Check (preferred)
+
+```powershell
+dotnet tools/codex-agent/codex-agent.exe check
+```
+
+This shows hot-path file sizes vs the 60K budget, load level (GREEN/YELLOW/ORANGE/RED),
+and current plan status. Use this at session start and before touching hot-path files.
+
+### Full Dashboard (legacy, more metrics)
 
 ```powershell
 # Windows
@@ -959,222 +992,3 @@ bash tools/codexdashboard.sh
 
 # JSON output (for programmatic use)
 pwsh -File tools/codex-dashboard.ps1 -Json
-```
-
-### What It Tracks
-
-| Metric | Why It Matters |
-|--------|---------------|
-| **Hot path ratio** | How much of the context budget the key files consume. >80% = danger. |
-| **Type debt** | `object` refs + `_p0_` proxies in generated output. Tracks bootstrap fidelity. |
-| **Fixed-point status** | Whether Stage 2 = Stage 3 (self-hosting invariant). |
-| **Thrash risk score** | Composite 0–6 score → LOW / MEDIUM / HIGH / CRITICAL. |
-| **Cascade risk** | Parser and Lexer bugs cascade to all downstream stages. |
-| **Dirty file count** | Uncommitted changes accumulate assumptions. |
-
-### When to Use It
-
-- **At session start** — get a baseline before diving in.
-- **Before touching hot-path files** (Parser, TypeChecker, Emitter) — check if you
-  have context budget for what you're about to do.
-- **After a series of fixes** — verify the thrash score is going down, not up.
-- **When stuck** — a HIGH or CRITICAL thrash risk means you should scope down to
-  one pipeline stage at a time.
-
-### Key Insight
-
-The agent can hold ~60K characters of effective working memory. The six hottest
-compiler files total ~116% of that budget. **You cannot hold Parser + TypeChecker +
-Emitter simultaneously.** Work on one stage at a time, build, verify, then move to
-the next. The dashboard makes this constraint visible.
-
-See `tools/CognitiveMeterReport.md` for field observations from a real session.
-
-
----
-
-# Windows Agent Notes
-
-Notes from the Windows agent (Copilot in VS) that supplement the other rule files.
-Created 2026-03-18 during the first mutual-review session.
-
----
-
-## Review of Linux Agent's Rule Decomposition
-
-Reviewed by: Copilot (VS 2022, Windows)
-Date: 2026-03-18 (verified via `Get-Date`)
-
-### Overall Assessment
-
-The decomposition from the monolithic `copilot-instructions.md` into 9 modular files
-is **well done**. Nothing important was lost. The new structure is easier to navigate
-and the per-file focus means agents can load only what they need. Specific findings:
-
-### 00-META.md — ✅ Good
-- The `checkdate()` rule is the single most important addition. Prior sessions
-  hallucinated dates from training data (June 2025 for a project that started
-  March 2026). This rule prevents recurrence.
-- Session hygiene rules are clear and actionable.
-
-### 01-CODE-STYLE.md — ✅ Good, matches CONTRIBUTING.md
-- All rules from CONTRIBUTING.md are present.
-- The `Map<K,V>` preference and `new()` target-type rules are good additions that
-  weren't in the original CONTRIBUTING.md.
-- Codex (.codex) style section is a useful addition.
-
-### 02-TERMINAL.md — ⚠️ Minor correction needed
-- See "PowerShell Version" section below.
-- Otherwise accurate for the Windows agent's environment.
-
-### 03-FILE-EDITING.md — ⚠️ See corrections below
-- The "Write-Full-File Strategy" for large files is good advice but overstates the
-  problem. See "edit_file Reliability" below.
-- The backup workflow is sound practice.
-
-### 04-SCOPE.md — ✅ Good
-- Clear, complete, matches the old instructions.
-
-### 05-BUILD-VERIFY.md — ✅ Good
-- Bootstrap verification section is a valuable addition.
-- Test count says "654+" — actual count is 722+ as of this session.
-
-### 06-PIPELINE.md — ✅ Good
-- Accurate and complete. The backend status table is useful.
-
-### 07-GIT-WORKFLOW.md — ✅ Good, workable
-- The dual-agent review workflow is clear and practical.
-- The simplified flow for single-agent sessions with user supervision is a good escape
-  hatch that avoids over-ceremony.
-- The `--no-ff` merge flag is the right call for preserving review history.
-
-### 08-PROJECT-MGMT.md — ✅ Good
-- The "Two-Failures Rule" is excellent — matches real experience.
-- Handoff template with `checkdate()` reminder is well-placed.
-
----
-
-## PowerShell Version
-
-This workspace has **PowerShell 7+** (`pwsh.exe`) installed, so the `pwsh -File`
-command in `02-TERMINAL.md` is correct. Note that the VS terminal's
-`run_command_in_terminal` tool runs commands directly and handles this transparently
-— the `.ps1` file approach is rarely needed because single-line commands work fine
-in the agent terminal.
-
-If `pwsh` is ever unavailable, fall back to `powershell -File` (Windows PowerShell 5.1).
-
----
-
-## edit_file Reliability
-
-The `03-FILE-EDITING.md` rule states that `edit_file` is "unreliable on large files"
-and "silently corrupts unrelated lines." From the Windows agent's experience:
-
-### When edit_file Works Well
-- Files of any size when the edit is **well-localized** (changing a few lines in one place).
-- When sufficient context is provided (unique surrounding lines).
-- When the agent provides concise diffs with `// ...existing code...` markers.
-
-### When edit_file Struggles
-- **Multiple dispersed edits** in a single call on a large file.
-- **Ambiguous context** — if the same pattern appears multiple times in a file, the
-  tool may edit the wrong occurrence.
-- **Whitespace-sensitive edits** where indentation matters but the context doesn't
-  make the indentation level clear.
-
-### Practical Advice
-- For large files, prefer **multiple small `edit_file` calls** over one big one.
-- The "write-full-file" strategy (create `.new`, swap) is a last resort, not the default.
-  It's needed maybe 5% of the time, not the majority.
-- The partial class strategy is genuinely useful for adding methods to large classes.
-- Always re-read the file after editing to verify the result.
-
----
-
-## get_file Tool Quirk: First Line Dropped
-
-The `get_file` tool frequently fails to return the first line of a file, especially
-markdown files that start with `# Heading`. The tool shows the file starting at what
-is actually line 2, making it appear the heading is missing.
-
-**Workaround**: When the first line matters (e.g., verifying a heading exists), use
-the terminal instead:
-
-```powershell
-Get-Content "path/to/file" -TotalCount 5
-```
-
-**Impact on edits**: If you trust `get_file` and think line 1 is blank, you may
-accidentally delete the heading when editing. Always verify line 1 via the terminal
-before editing the top of any file.
-
----
-
-## Terminal Limitations in VS
-
-### Output Truncation
-The `run_command_in_terminal` tool truncates output beyond ~4,000 characters. For
-commands that produce long output (e.g., `dotnet test` with many test results), only
-the tail end is returned. Workarounds:
-- Pipe to `Select-Object -Last N` for focused output.
-- Use `Select-String` to filter for specific patterns (e.g., `Failed`).
-- Use `Out-File` to write to a temp file, then read with `get_file`.
-
-### No Interactive Input
-The terminal cannot receive interactive input after a command starts. Commands that
-prompt for input (e.g., `dotnet new` with template selection, `git` with credential
-prompts) will hang. Always use non-interactive flags.
-
-### Encoding
-The terminal uses the system's default encoding, which on Windows is typically
-Windows-1252, not UTF-8. This means Unicode characters in command output may appear
-garbled (e.g., `—` appearing as `ΓÇö`). This is cosmetic and does not affect file
-content written via `create_file` / `edit_file`, which correctly use UTF-8.
-
----
-
-## PowerShell Pitfalls
-
-### Semicolons for Multi-Statement Lines
-PowerShell in the agent terminal treats each tool call as a single command. To chain
-commands, use semicolons: `cd D:\path; git status`. Do NOT use `&&` (that's bash) or
-line breaks (the tool sends the entire string as one command).
-
-### Select-String vs grep
-Use `Select-String -Pattern "foo" -Path src/**/*.cs` instead of `grep`. Note that
-`-Path` with `**` globbing works in PowerShell 5.1 but only one level deep. For
-truly recursive search: `Get-ChildItem -Recurse -Filter *.cs | Select-String "foo"`.
-
-### Path Separators
-Windows uses `\` but PowerShell accepts `/` in most contexts. Git commands should
-use `/` for consistency with `.gitignore` patterns. The `get_file` and `edit_file`
-tools accept both separators.
-
-### Get-Content vs cat
-`Get-Content` (alias `gc`, `cat`, `type`) returns an array of lines, not a string.
-For line counting: `(Get-Content file.txt).Count`. For string operations, use
-`Get-Content file.txt -Raw`.
-
----
-
-## Things the Linux Agent Got Right
-
-For the record, these things were particularly well done:
-
-1. **The `checkdate()` concept itself.** This is the most impactful rule added. The
-   date hallucination problem was real and caused confusion in the handoff docs.
-
-2. **Decomposing into numbered files.** The ordering (`00` through `08`) creates a
-   natural reading order and makes it easy to reference specific topics.
-
-3. **The DATE-AUDIT.md document.** Cataloging the problems before fixing them is good
-   practice. The suggested fixes with commit hashes are helpful.
-
-4. **Keeping both copilot-instructions.md files in sync.** The root copy and the
-   `.github/` copy are identical, which is correct — different tools read from
-   different locations.
-
-5. **The "Who Watches the Watcher?" framing.** The mutual-review workflow is a genuine
-   improvement over the old "no commits" restriction, which was unworkable for
-   productive sessions.

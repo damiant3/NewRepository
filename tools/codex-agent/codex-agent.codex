@@ -1,0 +1,244 @@
+parse-int-or : Text -> Integer -> Integer
+parse-int-or (s) (default-val) =
+ if text-length s == 0 then default-val
+ else text-to-integer s
+
+pad-right : Text -> Integer -> Text
+pad-right (s) (width) =
+ if text-length s >= width then s
+ else pad-right (s ++ " ") width
+
+pad-left : Text -> Integer -> Text
+pad-left (s) (width) =
+ if text-length s >= width then s
+ else pad-left (" " ++ s) width
+
+count-lines : Text -> Integer
+count-lines (content) =
+ if text-length content == 0 then 0
+ else list-length (text-split content "\n")
+
+snap-path : Text -> Text
+snap-path (file) = file ++ ".snap"
+
+size-hint : Integer -> Text
+size-hint (lines) =
+ if lines > 300 then " !! LARGE"
+ else if lines > 100 then " ~  medium"
+ else ""
+
+format-line : Integer -> Text -> Text
+format-line (num) (line) =
+ pad-left (integer-to-text num) 5 ++ "  " ++ line
+
+format-lines-loop : List Text -> Integer -> Integer -> Text
+format-lines-loop (lines) (current) (end-line) =
+ if current > end-line then ""
+ else if current > list-length lines then ""
+ else let line = list-at lines (current - 1)
+  in let formatted = format-line current line
+   in let rest = format-lines-loop lines (current + 1) end-line
+    in if text-length rest == 0 then formatted
+     else formatted ++ "\n" ++ rest
+
+do-peek : List Text -> [Console, FileSystem] Nothing
+do-peek (args) =
+ let argc = list-length args
+ in if argc < 3 then print-line "Usage: codex-agent peek <file> [start] [end]"
+  else let file = list-at args 2
+   in if file-exists file then
+    let content = read-file file
+    in let all-lines = text-split content "\n"
+     in let total = list-length all-lines
+      in let start = if argc > 3 then parse-int-or (list-at args 3) 1 else 1
+       in let end-line = if argc > 4 then parse-int-or (list-at args 4) 0 else 0
+        in let actual-end = if end-line == 0 then total else end-line
+         in let header = "--- " ++ file ++ " lines " ++ integer-to-text start ++ ".." ++ integer-to-text actual-end ++ " of " ++ integer-to-text total ++ " ---"
+          in print-line (header ++ "\n" ++ format-lines-loop all-lines start actual-end)
+   else print-line ("File not found: " ++ file)
+
+stat-loop : List Text -> Integer -> Integer -> Integer -> [FileSystem] Text
+stat-loop (args) (idx) (total-lines) (total-chars) =
+ if idx >= list-length args then
+  if idx > 3 then
+   "\n" ++ pad-right ("TOTAL (" ++ integer-to-text (idx - 2) ++ " files)") 50 ++ pad-left (integer-to-text total-lines) 7 ++ pad-left (integer-to-text total-chars) 9
+  else ""
+ else let file = list-at args idx
+  in if file-exists file then
+   let content = read-file file
+   in let lines = count-lines content
+    in let chars = text-length content
+     in let row = pad-right file 50 ++ pad-left (integer-to-text lines) 7 ++ pad-left (integer-to-text chars) 9 ++ size-hint lines
+      in let rest = stat-loop args (idx + 1) (total-lines + lines) (total-chars + chars)
+       in row ++ "\n" ++ rest
+  else let rest = stat-loop args (idx + 1) total-lines total-chars
+   in "  (not found: " ++ file ++ ")\n" ++ rest
+
+do-stat : List Text -> [Console, FileSystem] Nothing
+do-stat (args) =
+ let argc = list-length args
+ in if argc < 3 then print-line "Usage: codex-agent stat <file> [file2] ..."
+  else let header = pad-right "File" 50 ++ pad-left "Lines" 7 ++ pad-left "Chars" 9
+   in let sep = "-------------------------------------------------- ------- --------"
+    in print-line (header ++ "\n" ++ sep ++ "\n" ++ stat-loop args 2 0 0)
+
+do-snap-save : Text -> [Console, FileSystem] Nothing
+do-snap-save (file) =
+ if file-exists file then
+  let content = read-file file
+  in let lines = count-lines content
+   in let _ = write-file (snap-path file) content
+    in print-line ("  Snapshot saved: " ++ file ++ " (" ++ integer-to-text lines ++ " lines)")
+ else print-line ("  File not found: " ++ file)
+
+do-snap-restore : Text -> [Console, FileSystem] Nothing
+do-snap-restore (file) =
+ let snap = snap-path file
+ in if file-exists snap then
+  let content = read-file snap
+  in let lines = count-lines content
+   in let _ = write-file file content
+    in print-line ("  Restored: " ++ file ++ " (" ++ integer-to-text lines ++ " lines)")
+ else print-line ("  No snapshot found for " ++ file ++ ". Run 'snap save' first.")
+
+do-snap-diff : Text -> [Console, FileSystem] Nothing
+do-snap-diff (file) =
+ let snap = snap-path file
+ in if file-exists snap then
+  if file-exists file then
+   let old-content = read-file snap
+   in let new-content = read-file file
+    in let old-lines = count-lines old-content
+     in let new-lines = count-lines new-content
+      in let delta = new-lines - old-lines
+       in if old-content == new-content then
+        print-line ("-- " ++ file ++ ": no changes (" ++ integer-to-text old-lines ++ " lines) --")
+       else
+        print-line ("-- " ++ file ++ " --\n  Before: " ++ integer-to-text old-lines ++ " lines   After: " ++ integer-to-text new-lines ++ " lines   Delta: " ++ integer-to-text delta ++ "\n  Use 'codex-agent peek " ++ file ++ "' to inspect.\n-- End diff --")
+  else print-line ("  File not found: " ++ file)
+ else print-line ("  No snapshot for " ++ file ++ ". Run 'codex-agent snap save " ++ file ++ "' first.")
+
+do-snap : List Text -> [Console, FileSystem] Nothing
+do-snap (args) =
+ let argc = list-length args
+ in if argc < 3 then print-line "Usage: codex-agent snap <save|diff|restore> <file>"
+  else let action = list-at args 2
+   in if action == "save" then
+    if argc < 4 then print-line "Usage: codex-agent snap save <file>"
+    else do-snap-save (list-at args 3)
+   else if action == "diff" then
+    if argc < 4 then print-line "Usage: codex-agent snap diff <file>"
+    else do-snap-diff (list-at args 3)
+   else if action == "restore" then
+    if argc < 4 then print-line "Usage: codex-agent snap restore <file>"
+    else do-snap-restore (list-at args 3)
+   else print-line ("Unknown snap action: " ++ action ++ ". Use save, diff, or restore.")
+
+check-file-status : Text -> Text -> Text
+check-file-status (label) (path) =
+ if file-exists path then label ++ ": found"
+ else label ++ ": MISSING"
+
+do-status : List Text -> [Console, FileSystem] Nothing
+do-status (args) =
+ print-line (
+  "=== Codex Agent Status ===\n" ++
+  check-file-status "  Solution     " "Codex.sln" ++ "\n" ++
+  check-file-status "  Build props  " "Directory.Build.props" ++ "\n" ++
+  check-file-status "  Contributing " "CONTRIBUTING.md" ++ "\n" ++
+  check-file-status "  Lock doc     " "docs/REFERENCE-COMPILER-LOCK.md" ++ "\n" ++
+  check-file-status "  Current plan " "docs/CurrentPlan.md" ++ "\n" ++
+  check-file-status "  Agent rules  " ".github/copilot-instructions.md" ++ "\n" ++
+  "=========================="
+ )
+
+plan-file : Text
+plan-file = ".codex-agent/plan.txt"
+
+do-plan-show : [Console, FileSystem] Nothing
+do-plan-show =
+ if file-exists plan-file then
+  let content = read-file plan-file
+  in if text-length content == 0 then print-line "  (no tasks)"
+   else print-line ("=== Agent Plan ===\n" ++ content ++ "==================")
+ else print-line "  (no plan file yet. Use 'codex-agent plan add <task>' to start.)"
+
+do-plan-add : List Text -> Integer -> Text
+do-plan-add (args) (idx) =
+ if idx >= list-length args then ""
+ else if idx == 3 then list-at args idx ++ do-plan-add args (idx + 1)
+  else " " ++ list-at args idx ++ do-plan-add args (idx + 1)
+
+do-plan : List Text -> [Console, FileSystem] Nothing
+do-plan (args) =
+ let argc = list-length args
+ in if argc < 3 then do-plan-show
+  else let action = list-at args 2
+   in if action == "show" then do-plan-show
+    else if action == "clear" then
+     let _ = write-file plan-file ""
+     in print-line "  Plan cleared."
+    else if action == "add" then
+     if argc < 4 then print-line "Usage: codex-agent plan add <task description>"
+     else let task = do-plan-add args 3
+      in let existing = if file-exists plan-file then read-file plan-file else ""
+       in let new-content = if text-length existing == 0 then "- " ++ task ++ "\n" else existing ++ "- " ++ task ++ "\n"
+        in let _ = write-file plan-file new-content
+         in print-line ("  Added: " ++ task)
+    else print-line ("Unknown plan action: " ++ action ++ ". Use add, show, or clear.")
+
+do-check : List Text -> [Console, FileSystem] Nothing
+do-check (args) =
+ let budget = 60000
+ in let pc = if file-exists "Codex.Codex/Syntax/Parser.codex" then read-file "Codex.Codex/Syntax/Parser.codex" else ""
+  in let parser-chars = text-length pc
+   in let tc = if file-exists "Codex.Codex/Types/TypeChecker.codex" then read-file "Codex.Codex/Types/TypeChecker.codex" else ""
+    in let tc-chars = text-length tc
+     in let ec = if file-exists "Codex.Codex/Emit/CSharpEmitter.codex" then read-file "Codex.Codex/Emit/CSharpEmitter.codex" else ""
+      in let emitter-chars = text-length ec
+       in let lc = if file-exists "Codex.Codex/IR/Lowering.codex" then read-file "Codex.Codex/IR/Lowering.codex" else ""
+        in let lowering-chars = text-length lc
+         in let uc = if file-exists "Codex.Codex/Types/Unifier.codex" then read-file "Codex.Codex/Types/Unifier.codex" else ""
+          in let unifier-chars = text-length uc
+           in let xc = if file-exists "Codex.Codex/Syntax/Lexer.codex" then read-file "Codex.Codex/Syntax/Lexer.codex" else ""
+            in let lexer-chars = text-length xc
+             in let total-hot = parser-chars + tc-chars + emitter-chars + lowering-chars + unifier-chars + lexer-chars
+              in let pct = (total-hot * 100) / budget
+               in let level = if pct > 90 then "RED - overloaded, build and verify NOW" else if pct > 70 then "ORANGE - high load, finish current task then build" else if pct > 40 then "YELLOW - moderate, stay focused" else "GREEN - plenty of headroom"
+                in let plan-status = if file-exists plan-file then let planc = read-file plan-file in if text-length planc == 0 then "  Plan: (empty)" else "  Plan: " ++ integer-to-text (list-length (text-split planc "\n") - 1) ++ " tasks" else "  Plan: (none)"
+                 in print-line ("=== Cognitive Check ===\n" ++ "  Hot path files: " ++ integer-to-text total-hot ++ " chars / " ++ integer-to-text budget ++ " budget (" ++ integer-to-text pct ++ "%)\n" ++ "  Load: " ++ level ++ "\n" ++ "  Parser.codex:       " ++ pad-left (integer-to-text parser-chars) 6 ++ " chars\n" ++ "  TypeChecker.codex:  " ++ pad-left (integer-to-text tc-chars) 6 ++ " chars\n" ++ "  CSharpEmitter.codex:" ++ pad-left (integer-to-text emitter-chars) 6 ++ " chars\n" ++ "  Lowering.codex:     " ++ pad-left (integer-to-text lowering-chars) 6 ++ " chars\n" ++ "  Unifier.codex:      " ++ pad-left (integer-to-text unifier-chars) 6 ++ " chars\n" ++ "  Lexer.codex:        " ++ pad-left (integer-to-text lexer-chars) 6 ++ " chars\n" ++ plan-status ++ "\n" ++ "=======================")
+
+print-help : [Console] Nothing
+print-help =
+ print-line (
+  "codex-agent - Codex compiler toolkit for AI agents\n" ++
+  "\n" ++
+  "Commands:\n" ++
+  "  peek <file> [start] [end]          Read file lines safely\n" ++
+  "  stat <file> [file2] ...            File statistics (lines, chars)\n" ++
+  "  snap save <file>                   Snapshot before editing\n" ++
+  "  snap diff <file>                   Compare file to snapshot\n" ++
+  "  snap restore <file>                Restore from snapshot\n" ++
+  "  status                             Project status check\n" ++
+  "  plan [add <task>|show|clear]       Task list (survives context loss)\n" ++
+  "  check                              Cognitive load estimate\n" ++
+  "  help                               This message\n" ++
+  "\n" ++
+  "Usage: dotnet codex-agent.exe <command> [args]\n" ++
+  "Built from codex-agent.codex via the Codex IL backend."
+ )
+
+main : [Console, FileSystem] Nothing
+main = do
+ let args = get-args
+ in let argc = list-length args
+  in if argc < 2 then print-help
+   else let cmd = list-at args 1
+    in if cmd == "peek" then do-peek args
+     else if cmd == "stat" then do-stat args
+      else if cmd == "snap" then do-snap args
+       else if cmd == "status" then do-status args
+        else if cmd == "plan" then do-plan args
+         else if cmd == "check" then do-check args
+          else if cmd == "help" then print-help
+           else print-line ("Unknown command: " ++ cmd ++ ". Run 'codex-agent help' for usage.")
