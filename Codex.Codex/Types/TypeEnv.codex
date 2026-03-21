@@ -79,4 +79,13 @@ Section: Builtins
    in let e20 = env-bind e19 "fold" (ForAllTy 0 (ForAllTy 1 (FunTy (FunTy (TypeVar 1) (FunTy (TypeVar 0) (TypeVar 1))) (FunTy (TypeVar 1) (FunTy (ListTy (TypeVar 0)) (TypeVar 1))))))
    in let e21 = env-bind e20 "read-line" TextTy
    in let e22 = env-bind e21 "read-file" (FunTy TextTy TextTy)
-   in e22
+   in let e23 = env-bind e22 "write-file" (FunTy TextTy (FunTy TextTy NothingTy))
+   in let e24 = env-bind e23 "file-exists" (FunTy TextTy BooleanTy)
+   in let e25 = env-bind e24 "list-files" (FunTy TextTy (FunTy TextTy (ListTy TextTy)))
+   in let e26 = env-bind e25 "text-split" (FunTy TextTy (FunTy TextTy (ListTy TextTy)))
+   in let e27 = env-bind e26 "text-contains" (FunTy TextTy (FunTy TextTy BooleanTy))
+   in let e28 = env-bind e27 "text-starts-with" (FunTy TextTy (FunTy TextTy BooleanTy))
+   in let e29 = env-bind e28 "get-args" (ListTy TextTy)
+   in let e30 = env-bind e29 "get-env" (FunTy TextTy TextTy)
+   in let e31 = env-bind e30 "current-dir" TextTy
+   in e31

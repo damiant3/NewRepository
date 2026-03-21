@@ -129,3 +129,42 @@ Emits `File.ReadAllText(path)`.
 
 **Scope**: New builtin, not a language feature. No parsing, type checking, or existing
 behavior changes. All 854 tests passing.
+
+### Override 3: Dogfood builtins — 9 new system/IO/string builtins (2026-03-21)
+
+**Authorized by**: User (project owner)
+**Agent**: Claude (Opus 4.6, claude.ai, Linux)
+**Justification**: To write the agent toolkit in .codex (dogfooding), the language
+needed system interaction primitives that didn't exist. Without these builtins, every
+tool had to be written in C# or shell scripts — defeating the purpose of having a
+self-hosting language. The user explicitly directed: "if we have to break the seal on
+reference, do it, write the justify, port this to real code and emit the IL."
+
+**New builtins** (9):
+
+| Builtin | C# Emission | Type |
+|---------|-------------|------|
+| `get-args` | `Environment.GetCommandLineArgs()` | `→ List Text` |
+| `write-file` | `File.WriteAllText(path, text)` | `Text → Text → Nothing` |
+| `file-exists` | `File.Exists(path)` | `Text → Boolean` |
+| `list-files` | `Directory.GetFiles(dir, pattern)` | `Text → Text → List Text` |
+| `text-split` | `text.Split(delim)` | `Text → Text → List Text` |
+| `text-contains` | `text.Contains(sub)` | `Text → Text → Boolean` |
+| `text-starts-with` | `text.StartsWith(prefix)` | `Text → Text → Boolean` |
+| `get-env` | `Environment.GetEnvironmentVariable(name)` | `Text → Text` |
+| `current-dir` | `Directory.GetCurrentDirectory()` | `→ Text` |
+
+**Files modified** (9 files across reference + self-hosted compilers):
+- `src/Codex.Semantics/NameResolver.cs` — builtin name set
+- `src/Codex.Types/TypeEnvironment.cs` — type bindings
+- `src/Codex.IR/Lowering.cs` — builtin type map
+- `src/Codex.Emit.CSharp/CSharpEmitter.cs` — added `using System.IO;` to output
+- `src/Codex.Emit.CSharp/CSharpEmitter.Expressions.cs` — emission rules (zero-arg, single-arg, multi-arg)
+- `Codex.Codex/Semantics/NameResolver.codex` — self-hosted builtin names
+- `Codex.Codex/Types/TypeEnv.codex` — self-hosted type bindings
+- `Codex.Codex/Emit/CSharpEmitter.codex` — added `using System.IO;` to self-hosted output
+- `Codex.Codex/Emit/CSharpEmitterExpressions.codex` — self-hosted emission rules
+
+**Scope**: New builtins only. No parsing, type checking, or existing behavior changes.
+All changes are additive — existing builtins untouched. Both reference and self-hosted
+emitters updated in parallel to maintain bootstrap consistency.

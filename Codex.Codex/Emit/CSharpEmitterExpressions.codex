@@ -182,6 +182,15 @@ Section: Apply Chain
    else if n == "close-file" then True
    else if n == "read-line" then True
    else if n == "read-file" then True
+   else if n == "write-file" then True
+   else if n == "file-exists" then True
+   else if n == "list-files" then True
+   else if n == "text-split" then True
+   else if n == "text-contains" then True
+   else if n == "text-starts-with" then True
+   else if n == "get-args" then True
+   else if n == "get-env" then True
+   else if n == "current-dir" then True
    else False
 
   emit-builtin : Text -> List IRExpr -> List ArityEntry -> Text
@@ -208,6 +217,15 @@ Section: Apply Chain
    else if n == "close-file" then emit-expr (list-at args 0) arities ++ ".Dispose()"
    else if n == "read-line" then "Console.ReadLine()"
    else if n == "read-file" then "File.ReadAllText(" ++ emit-expr (list-at args 0) arities ++ ")"
+   else if n == "write-file" then "File.WriteAllText(" ++ emit-expr (list-at args 0) arities ++ ", " ++ emit-expr (list-at args 1) arities ++ ")"
+   else if n == "file-exists" then "File.Exists(" ++ emit-expr (list-at args 0) arities ++ ")"
+   else if n == "list-files" then "new List<string>(Directory.GetFiles(" ++ emit-expr (list-at args 0) arities ++ ", " ++ emit-expr (list-at args 1) arities ++ "))"
+   else if n == "text-split" then "new List<string>(" ++ emit-expr (list-at args 0) arities ++ ".Split(" ++ emit-expr (list-at args 1) arities ++ "))"
+   else if n == "text-contains" then emit-expr (list-at args 0) arities ++ ".Contains(" ++ emit-expr (list-at args 1) arities ++ ")"
+   else if n == "text-starts-with" then emit-expr (list-at args 0) arities ++ ".StartsWith(" ++ emit-expr (list-at args 1) arities ++ ")"
+   else if n == "get-args" then "new List<string>(Environment.GetCommandLineArgs())"
+   else if n == "get-env" then "(Environment.GetEnvironmentVariable(" ++ emit-expr (list-at args 0) arities ++ ") ?? \"\")"
+   else if n == "current-dir" then "Directory.GetCurrentDirectory()"
    else ""
 
   emit-apply : IRExpr -> List ArityEntry -> Text
@@ -246,7 +264,7 @@ Section: Expression Emission
     if IrNumLit (n) -> integer-to-text n
     if IrTextLit (s) -> "\"" ++ escape-text s ++ "\""
     if IrBoolLit (b) -> if b then "true" else "false"
-    if IrName (n) (ty) -> if n == "read-line" then "Console.ReadLine()" else if text-length n > 0 & is-upper-letter (char-at n 0) then "new " ++ sanitize n ++ "()" else if lookup-arity arities n == 0 then sanitize n ++ "()" else let ar = lookup-arity arities n in if ar >= 2 then emit-partial-wrappers 0 ar ++ sanitize n ++ "(" ++ emit-partial-params 0 ar ++ ")" else sanitize n
+    if IrName (n) (ty) -> if n == "read-line" then "Console.ReadLine()" else if n == "get-args" then "new List<string>(Environment.GetCommandLineArgs())" else if n == "current-dir" then "Directory.GetCurrentDirectory()" else if text-length n > 0 & is-upper-letter (char-at n 0) then "new " ++ sanitize n ++ "()" else if lookup-arity arities n == 0 then sanitize n ++ "()" else let ar = lookup-arity arities n in if ar >= 2 then emit-partial-wrappers 0 ar ++ sanitize n ++ "(" ++ emit-partial-params 0 ar ++ ")" else sanitize n
     if IrBinary (op) (l) (r) (ty) -> emit-binary op l r ty arities
     if IrNegate (operand) -> "(-" ++ emit-expr operand arities ++ ")"
     if IrIf (c) (t) (el) (ty) -> "(" ++ emit-expr c arities ++ " ? " ++ emit-expr t arities ++ " : " ++ emit-expr el arities ++ ")"

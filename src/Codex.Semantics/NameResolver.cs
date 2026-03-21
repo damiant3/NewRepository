@@ -22,11 +22,14 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
         "show", "negate", "True", "False", "Nothing",
         "print-line", "read-line",
         "open-file", "read-all", "close-file", "read-file",
+        "write-file", "file-exists", "list-files",
         "char-at", "text-length", "substring",
         "is-letter", "is-digit", "is-whitespace",
         "text-to-integer", "integer-to-text", "text-replace",
+        "text-split", "text-contains", "text-starts-with",
         "char-code", "char-code-at", "code-to-char",
         "list-length", "list-at",
+        "get-args", "get-env", "current-dir",
         "map",
         "get-state", "set-state", "run-state"
     );

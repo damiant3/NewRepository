@@ -31,6 +31,10 @@ public sealed partial class CSharpEmitter
             case IRName name:
                 if (name.Name == "read-line")
                     sb.Append("Console.ReadLine()");
+                else if (name.Name == "get-args")
+                    sb.Append("new List<string>(Environment.GetCommandLineArgs())");
+                else if (name.Name == "current-dir")
+                    sb.Append("Directory.GetCurrentDirectory()");
                 else if (name.Name == "show")
                     sb.Append("new Func<object, string>(x => Convert.ToString(x))");
                 else if (name.Name == "negate")
@@ -175,6 +179,18 @@ public sealed partial class CSharpEmitter
             sb.Append("File.ReadAllText(");
             EmitExpr(sb, app.Argument, indent);
             sb.Append(')');
+        }
+        else if (app.Function is IRName fn6c && fn6c.Name == "file-exists")
+        {
+            sb.Append("File.Exists(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(')');
+        }
+        else if (app.Function is IRName fn6d && fn6d.Name == "get-env")
+        {
+            sb.Append("(Environment.GetEnvironmentVariable(");
+            EmitExpr(sb, app.Argument, indent);
+            sb.Append(") ?? \"\")");
         }
         else if (app.Function is IRName fn7 && fn7.Name == "text-length")
         {
@@ -339,7 +355,9 @@ public sealed partial class CSharpEmitter
         args.Add(app.Argument);
     }
 
-    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of("char-at", "char-code-at", "substring", "list-at", "text-replace");
+    static readonly Set<string> s_multiArgBuiltins = Set<string>.Of(
+        "char-at", "char-code-at", "substring", "list-at", "text-replace",
+        "write-file", "list-files", "text-split", "text-contains", "text-starts-with");
 
     static string? FindBuiltinRoot(IRApply app)
     {
@@ -398,6 +416,44 @@ public sealed partial class CSharpEmitter
                 EmitExpr(sb, args[1], indent);
                 sb.Append(", ");
                 EmitExpr(sb, args[2], indent);
+                sb.Append(')');
+                return true;
+
+            case "write-file" when args.Count == 2:
+                sb.Append("File.WriteAllText(");
+                EmitExpr(sb, args[0], indent);
+                sb.Append(", ");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(')');
+                return true;
+
+            case "list-files" when args.Count == 2:
+                sb.Append("new List<string>(Directory.GetFiles(");
+                EmitExpr(sb, args[0], indent);
+                sb.Append(", ");
+                EmitExpr(sb, args[1], indent);
+                sb.Append("))");
+                return true;
+
+            case "text-split" when args.Count == 2:
+                sb.Append("new List<string>(");
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".Split(");
+                EmitExpr(sb, args[1], indent);
+                sb.Append("))");
+                return true;
+
+            case "text-contains" when args.Count == 2:
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".Contains(");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(')');
+                return true;
+
+            case "text-starts-with" when args.Count == 2:
+                EmitExpr(sb, args[0], indent);
+                sb.Append(".StartsWith(");
+                EmitExpr(sb, args[1], indent);
                 sb.Append(')');
                 return true;
 

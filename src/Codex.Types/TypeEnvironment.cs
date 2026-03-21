@@ -64,6 +64,28 @@ public sealed class TypeEnvironment
             TextType.s_instance);
         env = env.Bind("read-file", new FunctionType(TextType.s_instance, fsText));
 
+        // File I/O builtins
+        env = env.Bind("write-file", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance, fsNothing)));
+        env = env.Bind("file-exists", new FunctionType(TextType.s_instance, BooleanType.s_instance));
+        env = env.Bind("list-files", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance,
+                new ListType(TextType.s_instance))));
+
+        // String operations
+        env = env.Bind("text-split", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance,
+                new ListType(TextType.s_instance))));
+        env = env.Bind("text-contains", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance, BooleanType.s_instance)));
+        env = env.Bind("text-starts-with", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance, BooleanType.s_instance)));
+
+        // System builtins
+        env = env.Bind("get-args", new ListType(TextType.s_instance));
+        env = env.Bind("get-env", new FunctionType(TextType.s_instance, TextType.s_instance));
+        env = env.Bind("current-dir", TextType.s_instance);
+
         env = env.Bind("char-at", new FunctionType(TextType.s_instance,
             new FunctionType(IntegerType.s_instance, TextType.s_instance)));
         env = env.Bind("text-length", new FunctionType(TextType.s_instance, IntegerType.s_instance));
