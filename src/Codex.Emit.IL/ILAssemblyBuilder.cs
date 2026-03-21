@@ -46,6 +46,26 @@ sealed partial class ILAssemblyBuilder
     MemberReferenceHandle m_charIsWhiteSpaceRef;
     MemberReferenceHandle m_doubleToStringRef;
 
+    // ── List<T> support ──────────────────────────────────────────
+    TypeReferenceHandle m_listOpenRef;              // System.Collections.Generic.List`1
+    TypeReferenceHandle m_ienumerableOpenRef;        // System.Collections.Generic.IEnumerable`1
+    TypeSpecificationHandle m_listStringSpec;        // List<string> instantiation
+    MemberReferenceHandle m_listStringCtorRef;       // List<string>(IEnumerable<string>)
+    MemberReferenceHandle m_listStringCountRef;      // List<string>.get_Count() : int
+    MemberReferenceHandle m_listStringGetItemRef;    // List<string>.get_Item(int) : string
+
+    // ── String.Split ─────────────────────────────────────────────
+    MemberReferenceHandle m_stringSplitRef;           // String.Split(string, StringSplitOptions) : string[]
+
+    // ── Environment ──────────────────────────────────────────────
+    TypeReferenceHandle m_environmentRef;
+    MemberReferenceHandle m_getCommandLineArgsRef;    // Environment.GetCommandLineArgs() : string[]
+
+    // ── File I/O ─────────────────────────────────────────────────
+    TypeReferenceHandle m_fileRef;
+    MemberReferenceHandle m_fileReadAllTextRef;       // File.ReadAllText(string) : string
+    MemberReferenceHandle m_fileExistsRef;            // File.Exists(string) : bool
+
     TypeDefinitionHandle m_moduleClassDef;
     ValueMap<string, MethodDefinitionHandle> m_definedMethods = ValueMap<string, MethodDefinitionHandle>.s_empty;
     ValueMap<string, TypeDefinitionHandle> m_emittedTypes = ValueMap<string, TypeDefinitionHandle>.s_empty;
@@ -292,6 +312,165 @@ sealed partial class ILAssemblyBuilder
             EncodeMethodSignature(SignatureCallingConvention.Default, false,
                 returnType: b => b.Type().String(),
                 parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // ── List<T> support ──────────────────────────────────────
+        AssemblyReferenceHandle collectionsAsmRef = m_metadata.AddAssemblyReference(
+            m_metadata.GetOrAddString("System.Collections"),
+            new Version(8, 0, 0, 0),
+            default,
+            m_metadata.GetOrAddBlob(
+                ImmutableArray.Create<byte>(
+                    0xB0, 0x3F, 0x5F, 0x7F, 0x11, 0xD5, 0x0A, 0x3A)),
+            default,
+            default);
+
+        m_listOpenRef = m_metadata.AddTypeReference(
+            collectionsAsmRef,
+            m_metadata.GetOrAddString("System.Collections.Generic"),
+            m_metadata.GetOrAddString("List`1"));
+
+        m_ienumerableOpenRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System.Collections.Generic"),
+            m_metadata.GetOrAddString("IEnumerable`1"));
+
+        // TypeSpec for List<string>
+        {
+            BlobBuilder blob = new();
+            new BlobEncoder(blob)
+                .TypeSpecificationSignature()
+                .GenericInstantiation(m_listOpenRef, 1, isValueType: false)
+                .AddArgument()
+                .String();
+            m_listStringSpec = m_metadata.AddTypeSpecification(
+                m_metadata.GetOrAddBlob(blob));
+        }
+
+        // TypeSpec for IEnumerable<string> (needed for List<string> ctor param)
+        TypeSpecificationHandle ienumStringSpec;
+        {
+            BlobBuilder blob = new();
+            new BlobEncoder(blob)
+                .TypeSpecificationSignature()
+                .GenericInstantiation(m_ienumerableOpenRef, 1, isValueType: false)
+                .AddArgument()
+                .String();
+            ienumStringSpec = m_metadata.AddTypeSpecification(
+                m_metadata.GetOrAddBlob(blob));
+        }
+
+        // List<string>.ctor(IEnumerable<string>)
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
+                .Parameters(1,
+                    returnType => returnType.Void(),
+                    parameters =>
+                    {
+                        parameters.AddParameter().Type()
+                            .GenericInstantiation(m_ienumerableOpenRef, 1, isValueType: false)
+                            .AddArgument()
+                            .String();
+                    });
+            m_listStringCtorRef = m_metadata.AddMemberReference(
+                m_listStringSpec,
+                m_metadata.GetOrAddString(".ctor"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // List<string>.get_Count() : int  (instance)
+        m_listStringCountRef = m_metadata.AddMemberReference(
+            m_listStringSpec,
+            m_metadata.GetOrAddString("get_Count"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().Int32(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // List<string>.get_Item(int) : string  (instance)
+        m_listStringGetItemRef = m_metadata.AddMemberReference(
+            m_listStringSpec,
+            m_metadata.GetOrAddString("get_Item"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().String(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Int32() }));
+
+        // ── String.Split(string, StringSplitOptions) : string[] ──
+        {
+            // StringSplitOptions is an enum (Int32) in System namespace
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
+                .Parameters(2,
+                    returnType =>
+                    {
+                        returnType.Type().SZArray().String();
+                    },
+                    parameters =>
+                    {
+                        parameters.AddParameter().Type().String();
+                        parameters.AddParameter().Type().Int32(); // StringSplitOptions enum
+                    });
+            m_stringSplitRef = m_metadata.AddMemberReference(
+                m_stringRef,
+                m_metadata.GetOrAddString("Split"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // ── Environment ──────────────────────────────────────────
+        m_environmentRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System"),
+            m_metadata.GetOrAddString("Environment"));
+
+        // Environment.GetCommandLineArgs() : string[]  (static)
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: false)
+                .Parameters(0,
+                    returnType =>
+                    {
+                        returnType.Type().SZArray().String();
+                    },
+                    _ => { });
+            m_getCommandLineArgsRef = m_metadata.AddMemberReference(
+                m_environmentRef,
+                m_metadata.GetOrAddString("GetCommandLineArgs"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // ── File I/O ─────────────────────────────────────────────
+        AssemblyReferenceHandle fileSystemAsmRef = m_metadata.AddAssemblyReference(
+            m_metadata.GetOrAddString("System.IO.FileSystem"),
+            new Version(8, 0, 0, 0),
+            default,
+            m_metadata.GetOrAddBlob(
+                ImmutableArray.Create<byte>(
+                    0xB0, 0x3F, 0x5F, 0x7F, 0x11, 0xD5, 0x0A, 0x3A)),
+            default,
+            default);
+
+        m_fileRef = m_metadata.AddTypeReference(
+            fileSystemAsmRef,
+            m_metadata.GetOrAddString("System.IO"),
+            m_metadata.GetOrAddString("File"));
+
+        // File.ReadAllText(string) : string  (static)
+        m_fileReadAllTextRef = m_metadata.AddMemberReference(
+            m_fileRef,
+            m_metadata.GetOrAddString("ReadAllText"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().String(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
+
+        // File.Exists(string) : bool  (static)
+        m_fileExistsRef = m_metadata.AddMemberReference(
+            m_fileRef,
+            m_metadata.GetOrAddString("Exists"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, true,
+                returnType: b => b.Type().Boolean(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().String() }));
     }
 
     public void EmitModule(IRModule module)
@@ -841,6 +1020,54 @@ sealed partial class ILAssemblyBuilder
                 il.Call(m_consoleReadLineRef);
                 return true;
 
+            // ── List<T> builtins ─────────────────────────────────
+            case "get-args" when args.Count == 0:
+                // new List<string>(Environment.GetCommandLineArgs())
+                il.Call(m_getCommandLineArgsRef);
+                il.OpCode(ILOpCode.Newobj);
+                il.Token(m_listStringCtorRef);
+                return true;
+
+            case "text-split" when args.Count == 2:
+                // new List<string>(text.Split(delim, StringSplitOptions.None))
+                emitSub(args[0]);               // push text
+                emitSub(args[1]);               // push delimiter
+                il.LoadConstantI4(0);           // StringSplitOptions.None
+                il.Call(m_stringSplitRef);       // → string[]
+                il.OpCode(ILOpCode.Newobj);
+                il.Token(m_listStringCtorRef);  // → List<string>
+                return true;
+
+            case "list-length" when args.Count == 1:
+                // (long)list.Count
+                emitSub(args[0]);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_listStringCountRef);
+                il.OpCode(ILOpCode.Conv_i8);
+                return true;
+
+            case "list-at" when args.Count == 2:
+                // list[(int)index]
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.OpCode(ILOpCode.Conv_i4);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_listStringGetItemRef);
+                return true;
+
+            // ── File I/O builtins ────────────────────────────────
+            case "read-file" when args.Count == 1:
+                // File.ReadAllText(path)
+                emitSub(args[0]);
+                il.Call(m_fileReadAllTextRef);
+                return true;
+
+            case "file-exists" when args.Count == 1:
+                // File.Exists(path)
+                emitSub(args[0]);
+                il.Call(m_fileExistsRef);
+                return true;
+
             default:
                 return false;
         }
@@ -1007,6 +1234,12 @@ sealed partial class ILAssemblyBuilder
                 break;
             case ForAllType fa:
                 EncodeType(encoder, fa.Body);
+                break;
+            case ListType:
+                // Encode as generic instantiation: List<string>
+                encoder.GenericInstantiation(m_listOpenRef, 1, isValueType: false)
+                    .AddArgument()
+                    .String();
                 break;
             default:
                 encoder.Object();
