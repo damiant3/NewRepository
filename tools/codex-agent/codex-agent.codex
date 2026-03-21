@@ -208,6 +208,18 @@ do-check (args) =
                 in let plan-status = if file-exists plan-file then let planc = read-file plan-file in if text-length planc == 0 then "  Plan: (empty)" else "  Plan: " ++ integer-to-text (list-length (text-split planc "\n") - 1) ++ " tasks" else "  Plan: (none)"
                  in print-line ("=== Cognitive Check ===\n" ++ "  Hot path files: " ++ integer-to-text total-hot ++ " chars / " ++ integer-to-text budget ++ " budget (" ++ integer-to-text pct ++ "%)\n" ++ "  Load: " ++ level ++ "\n" ++ "  Parser.codex:       " ++ pad-left (integer-to-text parser-chars) 6 ++ " chars\n" ++ "  TypeChecker.codex:  " ++ pad-left (integer-to-text tc-chars) 6 ++ " chars\n" ++ "  CSharpEmitter.codex:" ++ pad-left (integer-to-text emitter-chars) 6 ++ " chars\n" ++ "  Lowering.codex:     " ++ pad-left (integer-to-text lowering-chars) 6 ++ " chars\n" ++ "  Unifier.codex:      " ++ pad-left (integer-to-text unifier-chars) 6 ++ " chars\n" ++ "  Lexer.codex:        " ++ pad-left (integer-to-text lexer-chars) 6 ++ " chars\n" ++ plan-status ++ "\n" ++ "=======================")
 
+do-build : List Text -> [Console, FileSystem] Nothing
+do-build (args) =
+ let output = run-process "dotnet" "build Codex.sln --verbosity quiet"
+ in print-line output
+
+do-test : List Text -> [Console, FileSystem] Nothing
+do-test (args) =
+ let argc = list-length args
+ in let extra = if argc > 2 then " --filter " ++ list-at args 2 else ""
+  in let output = run-process "dotnet" ("test Codex.sln --verbosity quiet" ++ extra)
+   in print-line output
+
 print-help : [Console] Nothing
 print-help =
  print-line (
@@ -222,6 +234,8 @@ print-help =
   "  status                             Project status check\n" ++
   "  plan [add <task>|show|clear]       Task list (survives context loss)\n" ++
   "  check                              Cognitive load estimate\n" ++
+  "  build                              Run dotnet build Codex.sln\n" ++
+  "  test [filter]                      Run dotnet test Codex.sln\n" ++
   "  help                               This message\n" ++
   "\n" ++
   "Usage: dotnet codex-agent.exe <command> [args]\n" ++
@@ -240,5 +254,7 @@ main = do
        else if cmd == "status" then do-status args
         else if cmd == "plan" then do-plan args
          else if cmd == "check" then do-check args
-          else if cmd == "help" then print-help
-           else print-line ("Unknown command: " ++ cmd ++ ". Run 'codex-agent help' for usage.")
+          else if cmd == "build" then do-build args
+           else if cmd == "test" then do-test args
+            else if cmd == "help" then print-help
+             else print-line ("Unknown command: " ++ cmd ++ ". Run 'codex-agent help' for usage.")

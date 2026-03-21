@@ -119,6 +119,8 @@ dotnet tools/codex-agent/codex-agent.exe <command> [args]
 | `plan` / `plan show` | Show current task list. |
 | `plan clear` | Clear the task list. |
 | `check` | Cognitive load estimate — hot-path file sizes vs 60K budget, load level, plan status. |
+| `build` | Run `dotnet build Codex.sln` and show output. |
+| `test [filter]` | Run `dotnet test Codex.sln`. Optional filter narrows to matching tests. |
 | `help` | Usage information. |
 
 ### Session Start Checklist

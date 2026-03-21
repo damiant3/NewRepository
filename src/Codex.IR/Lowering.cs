@@ -654,6 +654,8 @@ public sealed class Lowering(
         map = map.Set("get-args", new ListType(TextType.s_instance));
         map = map.Set("get-env", new FunctionType(TextType.s_instance, TextType.s_instance));
         map = map.Set("current-dir", TextType.s_instance);
+        map = map.Set("run-process", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance, TextType.s_instance)));
 
         map = map.Set("char-at", new FunctionType(TextType.s_instance,
             new FunctionType(IntegerType.s_instance, TextType.s_instance)));

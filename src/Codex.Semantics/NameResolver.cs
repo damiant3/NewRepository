@@ -30,6 +30,7 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
         "char-code", "char-code-at", "code-to-char",
         "list-length", "list-at",
         "get-args", "get-env", "current-dir",
+        "run-process",
         "map",
         "get-state", "set-state", "run-state"
     );

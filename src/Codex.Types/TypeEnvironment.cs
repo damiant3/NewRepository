@@ -85,6 +85,8 @@ public sealed class TypeEnvironment
         env = env.Bind("get-args", new ListType(TextType.s_instance));
         env = env.Bind("get-env", new FunctionType(TextType.s_instance, TextType.s_instance));
         env = env.Bind("current-dir", TextType.s_instance);
+        env = env.Bind("run-process", new FunctionType(TextType.s_instance,
+            new FunctionType(TextType.s_instance, TextType.s_instance)));
 
         env = env.Bind("char-at", new FunctionType(TextType.s_instance,
             new FunctionType(IntegerType.s_instance, TextType.s_instance)));

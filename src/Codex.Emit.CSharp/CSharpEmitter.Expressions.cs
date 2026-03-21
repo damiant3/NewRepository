@@ -357,7 +357,7 @@ public sealed partial class CSharpEmitter
 
     static readonly Set<string> s_multiArgBuiltins = Set<string>.Of(
         "char-at", "char-code-at", "substring", "list-at", "text-replace",
-        "write-file", "list-files", "text-split", "text-contains", "text-starts-with");
+        "write-file", "run-process", "list-files", "text-split", "text-contains", "text-starts-with");
 
     static string? FindBuiltinRoot(IRApply app)
     {
@@ -425,6 +425,16 @@ public sealed partial class CSharpEmitter
                 sb.Append(", ");
                 EmitExpr(sb, args[1], indent);
                 sb.Append(')');
+                return true;
+
+            case "run-process" when args.Count == 2:
+                sb.Append("((Func<string>)(() => { var _psi = new System.Diagnostics.ProcessStartInfo(");
+                EmitExpr(sb, args[0], indent);
+                sb.Append(", ");
+                EmitExpr(sb, args[1], indent);
+                sb.Append(") { RedirectStandardOutput = true, UseShellExecute = false }; ");
+                sb.Append("var _p = System.Diagnostics.Process.Start(_psi)!; ");
+                sb.Append("var _o = _p.StandardOutput.ReadToEnd(); _p.WaitForExit(); return _o; }))()");
                 return true;
 
             case "list-files" when args.Count == 2:

@@ -191,6 +191,7 @@ Section: Apply Chain
    else if n == "get-args" then True
    else if n == "get-env" then True
    else if n == "current-dir" then True
+   else if n == "run-process" then True
    else False
 
   emit-builtin : Text -> List IRExpr -> List ArityEntry -> Text
@@ -225,6 +226,7 @@ Section: Apply Chain
    else if n == "text-starts-with" then emit-expr (list-at args 0) arities ++ ".StartsWith(" ++ emit-expr (list-at args 1) arities ++ ")"
    else if n == "get-args" then "new List<string>(Environment.GetCommandLineArgs())"
    else if n == "get-env" then "(Environment.GetEnvironmentVariable(" ++ emit-expr (list-at args 0) arities ++ ") ?? \"\")"
+   else if n == "run-process" then "((Func<string>)(() => { var _psi = new System.Diagnostics.ProcessStartInfo(" ++ emit-expr (list-at args 0) arities ++ ", " ++ emit-expr (list-at args 1) arities ++ ") { RedirectStandardOutput = true, UseShellExecute = false }; var _p = System.Diagnostics.Process.Start(_psi)!; var _o = _p.StandardOutput.ReadToEnd(); _p.WaitForExit(); return _o; }))()"
    else if n == "current-dir" then "Directory.GetCurrentDirectory()"
    else ""
 

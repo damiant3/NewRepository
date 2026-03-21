@@ -206,3 +206,29 @@ All 700 tests pass (659 + 23 + 18). Existing IL compilation (e.g., `hello.codex`
 **Proof**: `peek.codex` compiles through the IL backend and the resulting `peek.exe` correctly
 reads files, displays line ranges, handles missing files, and prints usage — all from pure
 `.codex` source → IL → native execution.
+
+### Override 5: `run-process` builtin (2026-03-20)
+
+**Authorized by**: User (project owner)
+**Agent**: Copilot (Claude Sonnet 4, VS 2022)
+**Justification**: The unified `codex-agent.exe` tool (written in Codex, compiled via IL)
+needed `build` and `test` commands that invoke `dotnet build` and `dotnet test`. Without
+a process-launching builtin, the agent tool could read files and manage snapshots but
+couldn't actually build or test — the two most critical agent operations.
+
+**Changes**:
+
+| File | What |
+|------|------|
+| `src/Codex.Semantics/NameResolver.cs` | Added `"run-process"` to `s_builtins` set |
+| `src/Codex.Types/TypeEnvironment.cs` | Type: `Text → Text → Text` (program, args → stdout) |
+| `src/Codex.IR/Lowering.cs` | Same type in lowering builtin map |
+| `src/Codex.Emit.CSharp/CSharpEmitter.Expressions.cs` | Emits `ProcessStartInfo` + `Process.Start` IIFE |
+| `src/Codex.Emit.IL/ILAssemblyBuilder.cs` | Assembly ref `System.Diagnostics.Process`, type refs, 7 member refs, IL sequence |
+| `Codex.Codex/Emit/CSharpEmitterExpressions.codex` | Self-hosted emitter updated |
+
+**Scope**: New builtin only. No parsing, type checking, or existing behavior changes.
+All 865 tests pass. Existing compilation unaffected.
+
+**Proof**: `codex-agent.exe build` and `codex-agent.exe test` successfully invoke
+`dotnet build Codex.sln` and `dotnet test Codex.sln` from pure `.codex` source.

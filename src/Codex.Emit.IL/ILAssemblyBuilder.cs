@@ -68,6 +68,15 @@ sealed partial class ILAssemblyBuilder
     MemberReferenceHandle m_fileExistsRef;            // File.Exists(string) : bool
     MemberReferenceHandle m_fileWriteAllTextRef;      // File.WriteAllText(string, string) : void
 
+    // ── Process ───────────────────────────────────────────────────
+    MemberReferenceHandle m_processStartRef;          // Process.Start(ProcessStartInfo) : Process
+    MemberReferenceHandle m_processWaitForExitRef;    // Process.WaitForExit() : void
+    MemberReferenceHandle m_processGetStdOutRef;      // Process.get_StandardOutput() : StreamReader
+    MemberReferenceHandle m_streamReaderReadToEndRef; // StreamReader.ReadToEnd() : string
+    MemberReferenceHandle m_psiCtorRef;               // ProcessStartInfo(string, string)
+    MemberReferenceHandle m_psiSetRedirectRef;        // set_RedirectStandardOutput(bool)
+    MemberReferenceHandle m_psiSetShellRef;           // set_UseShellExecute(bool)
+
     TypeDefinitionHandle m_moduleClassDef;
     ValueMap<string, MethodDefinitionHandle> m_definedMethods = ValueMap<string, MethodDefinitionHandle>.s_empty;
     ValueMap<string, TypeDefinitionHandle> m_emittedTypes = ValueMap<string, TypeDefinitionHandle>.s_empty;
@@ -521,6 +530,104 @@ sealed partial class ILAssemblyBuilder
                     p => p.Type().String(),
                     p => p.Type().String()
                 }));
+
+        // ── Process support ───────────────────────────────────────
+        AssemblyReferenceHandle processAsmRef = m_metadata.AddAssemblyReference(
+            m_metadata.GetOrAddString("System.Diagnostics.Process"),
+            new Version(8, 0, 0, 0),
+            default,
+            m_metadata.GetOrAddBlob(
+                ImmutableArray.Create<byte>(
+                    0xB0, 0x3F, 0x5F, 0x7F, 0x11, 0xD5, 0x0A, 0x3A)),
+            default,
+            default);
+
+        TypeReferenceHandle processRef = m_metadata.AddTypeReference(
+            processAsmRef,
+            m_metadata.GetOrAddString("System.Diagnostics"),
+            m_metadata.GetOrAddString("Process"));
+
+        TypeReferenceHandle psiRef = m_metadata.AddTypeReference(
+            processAsmRef,
+            m_metadata.GetOrAddString("System.Diagnostics"),
+            m_metadata.GetOrAddString("ProcessStartInfo"));
+
+        TypeReferenceHandle streamReaderRef = m_metadata.AddTypeReference(
+            m_corlibRef,
+            m_metadata.GetOrAddString("System.IO"),
+            m_metadata.GetOrAddString("StreamReader"));
+
+        // ProcessStartInfo(string, string) ctor (instance)
+        m_psiCtorRef = m_metadata.AddMemberReference(
+            psiRef,
+            m_metadata.GetOrAddString(".ctor"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Void(),
+                parameters: new Action<ParameterTypeEncoder>[]
+                {
+                    p => p.Type().String(),
+                    p => p.Type().String()
+                }));
+
+        // ProcessStartInfo.set_RedirectStandardOutput(bool) (instance)
+        m_psiSetRedirectRef = m_metadata.AddMemberReference(
+            psiRef,
+            m_metadata.GetOrAddString("set_RedirectStandardOutput"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Void(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Boolean() }));
+
+        // ProcessStartInfo.set_UseShellExecute(bool) (instance)
+        m_psiSetShellRef = m_metadata.AddMemberReference(
+            psiRef,
+            m_metadata.GetOrAddString("set_UseShellExecute"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Void(),
+                parameters: new Action<ParameterTypeEncoder>[] { p => p.Type().Boolean() }));
+
+        // Process.Start(ProcessStartInfo) : Process (static)
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: false)
+                .Parameters(1,
+                    returnType => returnType.Type().Type(processRef, isValueType: false),
+                    parameters => parameters.AddParameter().Type().Type(psiRef, isValueType: false));
+            m_processStartRef = m_metadata.AddMemberReference(
+                processRef,
+                m_metadata.GetOrAddString("Start"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // Process.get_StandardOutput() : StreamReader (instance)
+        {
+            BlobBuilder sig = new();
+            new BlobEncoder(sig).MethodSignature(
+                SignatureCallingConvention.Default, 0, isInstanceMethod: true)
+                .Parameters(0,
+                    returnType => returnType.Type().Type(streamReaderRef, isValueType: false),
+                    parameters => { });
+            m_processGetStdOutRef = m_metadata.AddMemberReference(
+                processRef,
+                m_metadata.GetOrAddString("get_StandardOutput"),
+                m_metadata.GetOrAddBlob(sig));
+        }
+
+        // Process.WaitForExit() : void (instance)
+        m_processWaitForExitRef = m_metadata.AddMemberReference(
+            processRef,
+            m_metadata.GetOrAddString("WaitForExit"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Void(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
+
+        // StreamReader.ReadToEnd() : string (instance)
+        m_streamReaderReadToEndRef = m_metadata.AddMemberReference(
+            streamReaderRef,
+            m_metadata.GetOrAddString("ReadToEnd"),
+            EncodeMethodSignature(SignatureCallingConvention.Default, false,
+                returnType: b => b.Type().String(),
+                parameters: Array.Empty<Action<ParameterTypeEncoder>>()));
     }
 
     public void EmitModule(IRModule module)
@@ -1136,6 +1243,46 @@ sealed partial class ILAssemblyBuilder
                 emitSub(args[1]);
                 il.Call(m_fileWriteAllTextRef);
                 il.OpCode(ILOpCode.Ldnull);
+                return true;
+
+            // ── Process builtins ────────────────────────────────
+            case "run-process" when args.Count == 2:
+                // var psi = new ProcessStartInfo(program, arguments);
+                emitSub(args[0]);
+                emitSub(args[1]);
+                il.OpCode(ILOpCode.Newobj);
+                il.Token(m_psiCtorRef);
+
+                // psi.RedirectStandardOutput = true;
+                il.OpCode(ILOpCode.Dup);
+                il.LoadConstantI4(1);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_psiSetRedirectRef);
+
+                // psi.UseShellExecute = false;
+                il.OpCode(ILOpCode.Dup);
+                il.LoadConstantI4(0);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_psiSetShellRef);
+
+                // var proc = Process.Start(psi);
+                il.Call(m_processStartRef);
+
+                // var output = proc.StandardOutput.ReadToEnd();
+                il.OpCode(ILOpCode.Dup);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_processGetStdOutRef);
+                il.OpCode(ILOpCode.Callvirt);
+                il.Token(m_streamReaderReadToEndRef);
+
+                // stash output, call WaitForExit, load output
+                {
+                    int tmpOut = locals.AddLocal("__proc_out", TextType.s_instance);
+                    il.StoreLocal(tmpOut);
+                    il.OpCode(ILOpCode.Callvirt);
+                    il.Token(m_processWaitForExitRef);
+                    il.LoadLocal(tmpOut);
+                }
                 return true;
 
             default:
