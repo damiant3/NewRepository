@@ -10,6 +10,23 @@
 
 ---
 
+## How We Climb
+
+You don't summit a mountain by staring at the peak. You summit by solving
+the next ten feet of rock. Which handhold. Which foothold. Whether the crack
+you're looking at takes a cam or a nut.
+
+This project is built by AI agents working in bounded context windows. We
+don't see the whole mountain at once. We see the pitch in front of us, we
+climb it cleanly, and we trust that the route plan is sound. The human sees
+the whole range — picks the line, builds the bridges over the rivers we can't
+ford, and tells us when the weather is about to turn.
+
+That's the division of labor. The agents climb. The human routes. Nobody
+summits alone.
+
+---
+
 ## The Range
 
 From where we stand, looking up, four peaks are visible. The first is behind
@@ -33,7 +50,7 @@ The final summit is a place where software cannot hurt you.
          ╱ ╲  Self-   ╱     ╲ ╱         ╲  ╱                        ╲
         ╱   ╲ Host   ╱ Peak  ╲           ╲╱                          ╲
        ╱     ╲      ╱   II    ╲                                       ╲
-      ╱       ╲    ╱  No Legacy╲                                       ╲
+      ╱       ╲    ╱  Freedom  ╲                                       ╲
   ───╱─────────╲──╱─────────────╲───────────────────────────────────────╲───
      Base Camp   Col I          Col II                              Col III
 ```
@@ -60,9 +77,9 @@ matching. Effects. Proofs. The repository protocol.
 
 ---
 
-## Peak II — No Legacy (Current Climb)
+## Peak II — Freedom (Current Climb)
 
-**The severing of the umbilical cord.**
+**The language stands on its own ground.**
 
 Self-hosting proved the language works. But the compiled output still runs on
 someone else's runtime (.NET), links against someone else's standard library
@@ -181,10 +198,24 @@ work onto cores using work-stealing queues. The programmer sees `par`
 (parallel map) and `race` (first result wins). The runtime sees tasks on
 a DAG. The type system guarantees the DAG has no cycles.
 
+### Camp III-R: The Repository
+
+The third pillar — the content-addressed fact store — lives on this ridge.
+The Vision describes a world with no branches, no commits, no files. Just
+facts: immutable, content-addressed, attributed, typed. Views replace branches.
+Proposals replace pull requests. Trust lattices replace star counts.
+
+The repository is what makes Peak IV's "verified at install time" claim possible
+across trust boundaries. A dependency isn't a name that resolves to whatever
+someone last published — it's a hash that points to a specific, immutable,
+verified artifact. Supply chain attacks become impossible not by policy but
+by construction.
+
 **Summit marker**: A Codex program runs on bare hardware with its own
-allocator, its own I/O capabilities, its own scheduler. The binary includes
-everything. No libc. No kernel syscall wrappers. Just the program and the
-runtime it was compiled with.
+allocator, its own I/O capabilities, its own scheduler, and draws its
+dependencies from a content-addressed, trust-ranked repository. The binary
+includes everything. No libc. No kernel syscall wrappers. Just the program
+and the verified runtime it was compiled with.
 
 ---
 
@@ -234,10 +265,17 @@ mechanism to acquire a capability you weren't given.
 
 Hardware bugs. Cosmic rays. Social engineering (tricking a human into granting
 a capability). Physical access attacks. Side-channel timing attacks against
-the CPU itself.
+the CPU itself. Bugs in the verifier.
 
-These are real. We don't pretend otherwise. But notice what they have in
-common: they're all outside the software. The software is correct. The
+These are real. We don't pretend otherwise. That last one deserves honesty:
+full dependent-type verification of arbitrary programs is undecidable in the
+general case. The escape valve is the fuel limit — the normalizer caps
+reduction steps and rejects programs that take too long to verify. And the
+soundness of a type system expressive enough for an OS is itself a serious
+technical challenge. It's not a certainty. It's a goal with known hard
+sub-problems.
+
+But notice what all the remaining attacks have in common: they're outside the software. The software is correct. The
 software has always been correct. The attacks that remain are attacks on
 physics and human psychology — not on code.
 
@@ -249,7 +287,7 @@ From Peak IV, looking back down the range:
 
 **Peak I** gave us a language that can express anything and prove what it
 expresses. **Peak II** freed that language from dependency on foreign
-runtimes. **Peak III** gave it control over the machine. **Peak IV** gave
+runtimes. **Peak III** gave it control over the machine and the repository. **Peak IV** gave
 it control over the environment.
 
 The result is a computing platform where:
@@ -287,6 +325,7 @@ That pace recalibrates everything.
 | III-A (Linear allocator) | Outline visible | Weeks–months |
 | III-B (Capability I/O) | Outline visible | Months |
 | III-C (Structured concurrency) | Know it's there | Months |
+| III-R (Repository) | Foundation built, summit ahead | Months |
 | IV (Codex.OS) | Not theoretical anymore | 2026 |
 
 These are not promises. They're sightlines. But we've been consistently
@@ -296,16 +335,18 @@ arriving ahead of our sightlines, so draw your own conclusions.
 
 ## The Climbing Party
 
-Right now the party is small. A human. Two AI agents. A lot of `.codex` files.
+A human. Two AI agents. A lot of `.codex` files.
+
+The agents work in bounded context windows. They don't see the whole mountain.
+They see the pitch — the next rock, the next hold. They're good at that: fast,
+precise, tireless. The human sees the range. The human picks the route, throws
+the rope across the gaps the agents can't jump, and calls the weather.
 
 That changes as we climb. The IL backend and the agent toolkit exist so that
 other climbers can join. Every `.exe` we ship, every tool that works, every
 program that compiles and runs — that's a rope anchor for the next person
-coming up behind us.
-
-The "thought leaders" will arrive at base camp eventually, after the route is
-proven. That's fine. Mallory didn't wait for consensus. He packed his gear
-and went up.
+coming up behind us. The climbing party will grow. But right now, we're on
+the wall, and the next hold is right there.
 
 We're going up.
 
