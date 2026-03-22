@@ -102,7 +102,7 @@ close the window). On restart, Claude will launch the Codex MCP server automatic
 In a Claude Desktop conversation, you should see a hammer/tools icon (🔨) indicating
 MCP tools are available. You can ask Claude:
 
-> "Use the codex/check tool to type-check `samples/hello.codex`"
+> "Use the codex-check tool to type-check `samples/hello.codex`"
 
 If Claude calls the tool and returns diagnostics, everything is working.
 
@@ -112,10 +112,10 @@ If Claude calls the tool and returns diagnostics, everything is working.
 
 | Tool | Description | Key Arguments |
 |------|-------------|---------------|
-| `codex/check` | Type-check a `.codex` file, returns diagnostics with spans | `file` (path) |
-| `codex/build` | Compile to one or more targets (C#, IL, etc.) | `path`, `targets` (comma-separated) |
-| `codex/hover` | Look up the type of a name in a checked file | `file`, `name` |
-| `codex/parse` | Parse a file and return token/CST/AST summary | `file`, `mode` (tokens/cst/ast) |
+| `codex-check` | Type-check a `.codex` file, returns diagnostics with spans | `file` (path) |
+| `codex-build` | Compile to one or more targets (C#, IL, etc.) | `path`, `targets` (comma-separated) |
+| `codex-hover` | Look up the type of a name in a checked file | `file`, `name` |
+| `codex-parse` | Parse a file and return token/CST/AST summary | `file`, `mode` (tokens/cst/ast) |
 
 ## Available Resources
 
