@@ -4,19 +4,13 @@ using Codex.Types;
 
 namespace Codex.Emit.IL;
 
-sealed class LocalsBuilder
+sealed class LocalsBuilder(MetadataBuilder metadata, Action<SignatureTypeEncoder, CodexType> encodeType)
 {
-    readonly MetadataBuilder m_metadata;
-    readonly Action<SignatureTypeEncoder, CodexType> m_encodeType;
+    readonly MetadataBuilder m_metadata = metadata;
+    readonly Action<SignatureTypeEncoder, CodexType> m_encodeType = encodeType;
     readonly List<(string Name, CodexType Type)> m_locals = [];
 
     public int Count => m_locals.Count;
-
-    public LocalsBuilder(MetadataBuilder metadata, Action<SignatureTypeEncoder, CodexType> encodeType)
-    {
-        m_metadata = metadata;
-        m_encodeType = encodeType;
-    }
 
     public int AddLocal(string name, CodexType type)
     {

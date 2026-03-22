@@ -9,16 +9,11 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 
 namespace Codex.Lsp;
 
-internal sealed class TextDocumentSyncHandler : TextDocumentSyncHandlerBase
+internal sealed class TextDocumentSyncHandler(ILanguageServerFacade server, DocumentStore store)
+    : TextDocumentSyncHandlerBase
 {
-    readonly ILanguageServerFacade m_server;
-    readonly DocumentStore m_store;
-
-    public TextDocumentSyncHandler(ILanguageServerFacade server, DocumentStore store)
-    {
-        m_server = server;
-        m_store = store;
-    }
+    readonly ILanguageServerFacade m_server = server;
+    readonly DocumentStore m_store = store;
 
     public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
     {

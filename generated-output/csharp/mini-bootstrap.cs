@@ -30,12 +30,12 @@ public static class Codex_mini_bootstrap
         return new Point((a.x + b.x), (a.y + b.y));
     }
 
-    public static List<T1> map_list<T0, T1>(Func<T0, T1> f, List<T0> xs)
+    public static List<T3> map_list<T2, T3>(Func<T2, T3> f, List<T2> xs)
     {
-        return map_list_loop(f, xs, 0L, ((long)xs.Count), new List<T1>());
+        return map_list_loop(f, xs, 0L, ((long)xs.Count), new List<T3>());
     }
 
-    public static List<T3> map_list_loop<T2, T3>(Func<T2, T3> f, List<T2> xs, long i, long len, List<T3> acc)
+    public static List<T5> map_list_loop<T4, T5>(Func<T4, T5> f, List<T4> xs, long i, long len, List<T5> acc)
     {
         while (true)
         {
@@ -49,7 +49,7 @@ public static class Codex_mini_bootstrap
                 var _tco_1 = xs;
                 var _tco_2 = (i + 1L);
                 var _tco_3 = len;
-                var _tco_4 = Enumerable.Concat(acc, new List<T3>() { f(xs[(int)i]) }).ToList();
+                var _tco_4 = Enumerable.Concat(acc, new List<T5>() { f(xs[(int)i]) }).ToList();
                 f = _tco_0;
                 xs = _tco_1;
                 i = _tco_2;

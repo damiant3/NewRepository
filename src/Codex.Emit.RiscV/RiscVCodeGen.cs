@@ -5,31 +5,26 @@ using Codex.Types;
 
 namespace Codex.Emit.RiscV;
 
-sealed class RiscVCodeGen
+sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 {
-    readonly List<uint> m_instructions = new();
-    readonly List<byte> m_rodata = new();
-    readonly Dictionary<string, int> m_functionOffsets = new();
-    readonly List<(int InsnIndex, string Target)> m_callPatches = new();
-    readonly List<RodataFixup> m_rodataFixups = new();
-    readonly Dictionary<string, int> m_stringOffsets = new();
-    readonly RiscVTarget m_target;
+    readonly List<uint> m_instructions = [];
+    readonly List<byte> m_rodata = [];
+    readonly Dictionary<string, int> m_functionOffsets = [];
+    readonly List<(int InsnIndex, string Target)> m_callPatches = [];
+    readonly List<RodataFixup> m_rodataFixups = [];
+    readonly Dictionary<string, int> m_stringOffsets = [];
+    readonly RiscVTarget m_target = target;
 
     // QEMU virt machine UART0 address (NS16550A compatible)
     const long UartBase = 0x10000000;
 
     uint m_nextTemp = Reg.T0;
-    Dictionary<string, uint> m_locals = new();
+    Dictionary<string, uint> m_locals = [];
 
     static readonly uint[] CalleeSaved = {
         Reg.S1, Reg.S2, Reg.S3, Reg.S4, Reg.S5, Reg.S6,
         Reg.S7, Reg.S8, Reg.S9, Reg.S10, Reg.S11
     };
-
-    public RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
-    {
-        m_target = target;
-    }
 
     public void EmitModule(IRModule module)
     {

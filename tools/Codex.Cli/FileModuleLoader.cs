@@ -5,17 +5,11 @@ using Codex.Syntax;
 
 namespace Codex.Cli;
 
-sealed class FileModuleLoader : IModuleLoader
+sealed class FileModuleLoader(string baseDirectory, DiagnosticBag diagnostics) : IModuleLoader
 {
-    readonly string m_baseDirectory;
-    readonly DiagnosticBag m_diagnostics;
+    readonly string m_baseDirectory = baseDirectory;
+    readonly DiagnosticBag m_diagnostics = diagnostics;
     Map<string, ResolvedModule> m_cache = Map<string, ResolvedModule>.s_empty;
-
-    public FileModuleLoader(string baseDirectory, DiagnosticBag diagnostics)
-    {
-        m_baseDirectory = baseDirectory;
-        m_diagnostics = diagnostics;
-    }
 
     public ResolvedModule? Load(string moduleName)
     {

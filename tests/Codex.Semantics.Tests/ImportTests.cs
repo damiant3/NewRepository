@@ -8,14 +8,9 @@ namespace Codex.Semantics.Tests;
 
 public class ImportTests
 {
-    sealed class MockModuleLoader : IModuleLoader
+    sealed class MockModuleLoader(Map<string, ResolvedModule> modules) : IModuleLoader
     {
-        readonly Map<string, ResolvedModule> m_modules;
-
-        public MockModuleLoader(Map<string, ResolvedModule> modules)
-        {
-            m_modules = modules;
-        }
+        readonly Map<string, ResolvedModule> m_modules = modules;
 
         public ResolvedModule? Load(string moduleName) => m_modules[moduleName];
     }

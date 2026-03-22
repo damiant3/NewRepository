@@ -7,7 +7,7 @@ public sealed partial class ProseParser
     static string? TryMatchRecordTemplate(string line)
     {
         string lower = line.TrimEnd();
-        if (!lower.EndsWith(":", StringComparison.Ordinal))
+        if (!lower.EndsWith(':'))
             return null;
         lower = lower[..^1].Trim();
 
@@ -41,7 +41,7 @@ public sealed partial class ProseParser
     static string? TryMatchVariantTemplate(string line)
     {
         string lower = line.TrimEnd();
-        if (!lower.EndsWith(":", StringComparison.Ordinal))
+        if (!lower.EndsWith(':'))
             return null;
         lower = lower[..^1].Trim();
 
@@ -85,7 +85,7 @@ public sealed partial class ProseParser
             if (indent >= 2 && LooksLikeNotation(trimmed))
                 break;
 
-            if (trimmed.StartsWith("-", StringComparison.Ordinal)
+            if (trimmed.StartsWith('-')
                 && templateLine is not null)
                 break;
 
@@ -151,7 +151,7 @@ public sealed partial class ProseParser
             string trimmed = line.Trim();
             if (trimmed.Length == 0)
                 break;
-            if (!trimmed.StartsWith("-", StringComparison.Ordinal))
+            if (!trimmed.StartsWith('-'))
                 break;
 
             SourceSpan lineSpan = MakeLineSpan(m_lineIndex);
@@ -190,7 +190,7 @@ public sealed partial class ProseParser
             string trimmed = line.Trim();
             if (trimmed.Length == 0)
                 break;
-            if (!trimmed.StartsWith("-", StringComparison.Ordinal))
+            if (!trimmed.StartsWith('-'))
                 break;
 
             SourceSpan lineSpan = MakeLineSpan(m_lineIndex);
@@ -220,24 +220,17 @@ public sealed partial class ProseParser
     {
         int colonIdx = bullet.IndexOf(':');
         if (colonIdx < 0)
-        {
-            m_diagnostics.Warning("CDX1101",
-                $"Record field bullet should be '- name : Type', got '- {bullet}'",
-                span);
-            return null;
-        }
-
-        string fieldName = bullet[..colonIdx].Trim();
-        string typeText = bullet[(colonIdx + 1)..].Trim();
-
-        if (fieldName.Length == 0 || typeText.Length == 0)
             return null;
 
-        string normalizedField = ToFieldName(fieldName);
-        Token fieldToken = MakeSyntheticToken(
-            TokenKind.Identifier, normalizedField, span);
-        TypeNode typeNode = ParseTypeFromText(typeText, span);
-        return new RecordTypeFieldNode(fieldToken, typeNode, span);
+        string fieldName = ToFieldName(bullet[..colonIdx].Trim());
+        string fieldType = bullet[(colonIdx + 1)..].Trim();
+        if (fieldName.Length == 0 || fieldType.Length == 0)
+            return null;
+
+        Token nameToken = MakeSyntheticToken(
+            TokenKind.Identifier, fieldName, span);
+        TypeNode typeNode = ParseTypeFromText(fieldType, span);
+        return new RecordTypeFieldNode(nameToken, typeNode, span);
     }
 
     VariantConstructorNode? ParseVariantBullet(string bullet, SourceSpan span)

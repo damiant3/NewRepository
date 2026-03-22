@@ -2,14 +2,9 @@ using Codex.Semantics;
 
 namespace Codex.Cli;
 
-sealed class CompositeModuleLoader : IModuleLoader
+sealed class CompositeModuleLoader(params IModuleLoader[] loaders) : IModuleLoader
 {
-    readonly IModuleLoader[] m_loaders;
-
-    public CompositeModuleLoader(params IModuleLoader[] loaders)
-    {
-        m_loaders = loaders;
-    }
+    readonly IModuleLoader[] m_loaders = loaders;
 
     public ResolvedModule? Load(string moduleName)
     {

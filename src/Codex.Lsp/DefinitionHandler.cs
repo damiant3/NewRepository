@@ -7,14 +7,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Codex.Lsp;
 
-internal sealed class DefinitionHandler : DefinitionHandlerBase
+internal sealed class DefinitionHandler(DocumentStore store) : DefinitionHandlerBase
 {
-    readonly DocumentStore m_store;
-
-    public DefinitionHandler(DocumentStore store)
-    {
-        m_store = store;
-    }
+    readonly DocumentStore m_store = store;
 
     public override Task<LocationOrLocationLinks?> Handle(
         DefinitionParams request,

@@ -6,9 +6,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Codex.Lsp;
 
-internal sealed class CompletionHandler : CompletionHandlerBase
+internal sealed class CompletionHandler(DocumentStore store) : CompletionHandlerBase
 {
-    readonly DocumentStore m_store;
+    readonly DocumentStore m_store = store;
 
     static readonly string[] s_keywords =
     [
@@ -31,11 +31,6 @@ internal sealed class CompletionHandler : CompletionHandlerBase
         "Integer", "Number", "Text", "Boolean", "Nothing",
         "List", "FileHandle",
     ];
-
-    public CompletionHandler(DocumentStore store)
-    {
-        m_store = store;
-    }
 
     public override Task<CompletionList> Handle(CompletionParams request, CancellationToken ct)
     {

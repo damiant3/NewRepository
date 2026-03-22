@@ -30,18 +30,12 @@ public readonly record struct SourceSpan(SourcePosition Start, SourcePosition En
             : $"{Start}-{End}";
 }
 
-public sealed class SourceText
+public sealed class SourceText(string fileName, string content)
 {
     int[]? m_lineStarts;
 
-    public string FileName { get; }
-    public string Content { get; }
-
-    public SourceText(string fileName, string content)
-    {
-        FileName = fileName;
-        Content = content;
-    }
+    public string FileName { get; } = fileName;
+    public string Content { get; } = content;
 
     public string GetText(SourceSpan span)
     {

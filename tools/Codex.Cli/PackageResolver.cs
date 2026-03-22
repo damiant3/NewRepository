@@ -3,16 +3,10 @@ using Codex.Semantics;
 
 namespace Codex.Cli;
 
-sealed class PackageResolver
+sealed class PackageResolver(string projectDirectory, DiagnosticBag diagnostics)
 {
-    readonly string m_projectDirectory;
-    readonly DiagnosticBag m_diagnostics;
-
-    public PackageResolver(string projectDirectory, DiagnosticBag diagnostics)
-    {
-        m_projectDirectory = projectDirectory;
-        m_diagnostics = diagnostics;
-    }
+    readonly string m_projectDirectory = projectDirectory;
+    readonly DiagnosticBag m_diagnostics = diagnostics;
 
     /// <summary>
     /// Resolves all package references for a project into module loaders.

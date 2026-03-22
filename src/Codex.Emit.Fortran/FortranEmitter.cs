@@ -299,7 +299,7 @@ public sealed class FortranEmitter : ICodeEmitter
             case IRName name:
                 if (name.Name == "True") sb.Append(".true.");
                 else if (name.Name == "False") sb.Append(".false.");
-                else if (name.Name == "Nothing") sb.Append("0");
+                else if (name.Name == "Nothing") sb.Append('0');
                 else if (m_definitionArity.TryGet(name.Name, out int nameArity)
                     && nameArity == 0
                     && name.Type is not FunctionType)
@@ -356,15 +356,15 @@ public sealed class FortranEmitter : ICodeEmitter
                 break;
 
             case IRList list:
-                sb.Append("0");
+                sb.Append('0');
                 break;
 
             case IRError err:
-                sb.Append("0");
+                sb.Append('0');
                 break;
 
             default:
-                sb.Append("0");
+                sb.Append('0');
                 break;
         }
     }
@@ -397,7 +397,7 @@ public sealed class FortranEmitter : ICodeEmitter
         {
             sb.Append(", ");
             if (branches[i].Pattern is IRCtorPattern ctorPat
-                && m_ctorToTag.TryGet(ctorPat.Name, out string? tag))
+                && m_ctorToTag.TryGet(ctorPat.Name, out _))
             {
                 EmitExpr(sb, match.Scrutinee, indent);
                 sb.Append($"%tag == TAG_{SanitizeUpper(ctorPat.Name)}");
@@ -557,7 +557,7 @@ public sealed class FortranEmitter : ICodeEmitter
         foreach (IRMatchBranch branch in match.Branches)
         {
             if (branch.Pattern is IRCtorPattern ctorPat
-                && m_ctorToTag.TryGet(ctorPat.Name, out string? tag))
+                && m_ctorToTag.TryGet(ctorPat.Name, out _))
             {
                 sb.AppendLine($"{pad}  case (TAG_{SanitizeUpper(ctorPat.Name)})");
                 sb.Append($"{pad}    {assignTarget} ");

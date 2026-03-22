@@ -7,7 +7,7 @@ Console.WriteLine(Codex_safe_divide.main());
 
 public abstract record Result;
 
-public sealed record Success(T0 Field0) : Result;
+public sealed record Success(T2 Field0) : Result;
 public sealed record Failure(string Field0) : Result;
 
 public static class Codex_safe_divide

@@ -5,9 +5,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Codex.Lsp;
 
-internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
+internal sealed class SemanticTokensHandler(DocumentStore store) : SemanticTokensHandlerBase
 {
-    readonly DocumentStore m_store;
+    readonly DocumentStore m_store = store;
 
     internal static readonly SemanticTokensLegend s_legend = new()
     {
@@ -26,11 +26,6 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             SemanticTokenModifier.Definition
         ),
     };
-
-    public SemanticTokensHandler(DocumentStore store)
-    {
-        m_store = store;
-    }
 
     protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(
         SemanticTokensCapability capability,

@@ -2,20 +2,12 @@ using Codex.Core;
 
 namespace Codex.Syntax;
 
-public sealed partial class ProseParser
+public sealed partial class ProseParser(SourceText source, DiagnosticBag diagnostics)
 {
-    readonly SourceText m_source;
-    readonly DiagnosticBag m_diagnostics;
-    readonly string[] m_lines;
+    readonly SourceText m_source = source;
+    readonly DiagnosticBag m_diagnostics = diagnostics;
+    readonly string[] m_lines = source.Content.Split('\n');
     int m_lineIndex;
-
-    public ProseParser(SourceText source, DiagnosticBag diagnostics)
-    {
-        m_source = source;
-        m_diagnostics = diagnostics;
-        m_lines = source.Content.Split('\n');
-        m_lineIndex = 0;
-    }
 
     public static bool IsProseDocument(string content)
     {
@@ -256,7 +248,7 @@ public sealed partial class ProseParser
         {
             if (trimmed.Contains(" : ")) return true;
             if (trimmed.Contains(" = ")) return true;
-            if (trimmed.EndsWith(" =") || trimmed.EndsWith("=")) return true;
+            if (trimmed.EndsWith(" =") || trimmed.EndsWith('=')) return true;
             if (trimmed.Contains('(')) return true;
         }
 
