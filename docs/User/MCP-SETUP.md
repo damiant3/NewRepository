@@ -29,6 +29,7 @@ The config lives at `.vscode/mcp.json`:
       "command": "dotnet",
       "args": [
         "run",
+        "-v", "q",
         "--project",
         "${workspaceFolder}/tools/Codex.Mcp/Codex.Mcp.csproj"
       ]
@@ -39,6 +40,8 @@ The config lives at `.vscode/mcp.json`:
 
 **That's it.** Open the workspace, and the tools are available to any MCP client
 running in VS Code. The server auto-builds on first launch (~3–6 seconds).
+The `-v q` flag keeps MSBuild output off stdout so it doesn't pollute the
+JSON-RPC stream.
 
 > **Important:** The MCP server has to embed the proper dependencies for the AI
 > tools to work. That's why you must build the solution first. The `dotnet run`
@@ -75,6 +78,7 @@ entry to the `"mcpServers"` object.
       "command": "dotnet",
       "args": [
         "run",
+        "-v", "q",
         "--project",
         "D:/Projects/NewRepository/tools/Codex.Mcp/Codex.Mcp.csproj"
       ]

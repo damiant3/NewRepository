@@ -5,6 +5,8 @@
       "command": "dotnet",
       "args": [
         "run",
+        "-v",
+        "q",
         "--project",
         "${workspaceFolder}/tools/Codex.Mcp/Codex.Mcp.csproj"
       ]
