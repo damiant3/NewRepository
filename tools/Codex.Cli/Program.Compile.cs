@@ -16,7 +16,8 @@ public static partial class Program
 
     sealed record IRCompilationResult(
         IRModule Module,
-        Map<string, CodexType> Types);
+        Map<string, CodexType> Types,
+        CapabilityReport? Capabilities = null);
 
     static CompilationResult? CompileFile(string filePath)
     {
@@ -28,7 +29,7 @@ public static partial class Program
         return new CompilationResult(csharpSource, irResult.Types);
     }
 
-    static IRCompilationResult? CompileToIR(string filePath)
+    static IRCompilationResult? CompileToIR(string filePath, Set<string>? grantedCapabilities = null)
     {
         if (!File.Exists(filePath))
         {
@@ -79,11 +80,15 @@ public static partial class Program
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        return new IRCompilationResult(irModule, types);
+        CapabilityChecker capChecker = new(diagnostics, types);
+        CapabilityReport capReport = capChecker.CheckModule(resolved.Module, grantedCapabilities);
+
+        return new IRCompilationResult(irModule, types, capReport);
     }
 
     static IRCompilationResult? CompileMultipleToIR(
-        string[] filePaths, string moduleName, IReadOnlyList<IModuleLoader>? extraLoaders = null)
+        string[] filePaths, string moduleName, IReadOnlyList<IModuleLoader>? extraLoaders = null,
+        Set<string>? grantedCapabilities = null)
     {
         DiagnosticBag diagnostics = new();
         Desugarer desugarer = new(diagnostics);
@@ -174,7 +179,10 @@ public static partial class Program
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        return new IRCompilationResult(irModule, types);
+        CapabilityChecker capChecker = new(diagnostics, types);
+        CapabilityReport capReport = capChecker.CheckModule(resolved.Module, grantedCapabilities);
+
+        return new IRCompilationResult(irModule, types, capReport);
     }
 
     static void PrintDiagnostics(DiagnosticBag diagnostics)
@@ -224,7 +232,8 @@ public static partial class Program
     }
 
     static IRCompilationResult? CompileViewToIR(
-        Codex.Repository.FactStore store, string viewName, string moduleName)
+        Codex.Repository.FactStore store, string viewName, string moduleName,
+        Set<string>? grantedCapabilities = null)
     {
         ValueMap<string, ContentHash> view = store.GetNamedView(viewName);
         if (view.Count == 0)
@@ -319,6 +328,9 @@ public static partial class Program
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return null; }
 
-        return new IRCompilationResult(irModule, types);
+        CapabilityChecker capChecker = new(diagnostics, types);
+        CapabilityReport capReport = capChecker.CheckModule(resolved.Module, grantedCapabilities);
+
+        return new IRCompilationResult(irModule, types, capReport);
     }
 }
