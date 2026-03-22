@@ -106,17 +106,89 @@ with no C# intermediate step.**
 ### Camp II-B: Native Code Generation
 
 Replace the CLR dependency entirely. The compiler emits machine code —
-x86-64, ARM64 — or targets WASM. No .NET runtime. No JIT. No garbage
-collector we don't control.
+not through LLVM, not through Cranelift — **directly**. Instruction encoding,
+ELF generation, register allocation. No foreign toolchain.
 
-Options for the route:
-- **Direct machine code** (like Go, Zig) — maximum control, most work
-- **LLVM backend** — proven codegen, but large C++ dependency
-- **Cranelift backend** — Rust-based, lighter than LLVM
-- **WASM first** — runs everywhere, sidesteps platform-specific codegen
+#### RISC-V Native Backend ✅ (2026-03-21)
 
-The choice doesn't matter yet. What matters is that when we reach this camp,
-a `.codex` source file becomes a native binary with no foreign runtime.
+The first native backend targets RISC-V 64-bit. The route was direct:
+
+1. **RiscVEncoder** — Pure functions encoding every RV64IM instruction format
+   (R/I/S/B/U/J), including the M extension for multiply/divide. 47 instruction
+   helpers, a `Li` sequence for full 64-bit immediates, pseudoinstructions
+   (`mv`, `ret`, `call`, `j`, `nop`).
+
+2. **ElfWriter** — Minimal ELF64 generation. Two LOAD segments (text + rodata),
+   no section headers, no symbol table, no relocations. For Linux userspace,
+   the standard `0x10000` base. The ELF is tiny: just headers and your code.
+
+3. **RiscVCodeGen** — IR-to-machine-code translation. Handles integer/boolean/text
+   literals, arithmetic, comparisons, if/else with branch patching, let bindings,
+   function calls with RISC-V calling convention (a0-a7), recursion, do-blocks.
+   A complete `itoa` implementation for `print-line` on integers. Direct Linux
+   syscalls via `ecall` — no libc, no dynamic linker, no shared libraries.
+
+4. **QEMU verification** — 13 tests, 5 of which compile to native ELF and
+   execute under `qemu-riscv64` via WSL. `factorial 5` → `120`. On real
+   hardware instructions.
+
+```
+codex build samples/factorial.codex --target riscv
+qemu-riscv64 ./factorial
+120
+```
+
+**What we carried up**: Direct instruction encoding. ELF binary format.
+The RISC-V calling convention. Syscall ABI. The knowledge that a `.codex`
+file can become a native binary with nothing between it and the kernel.
+
+#### Bare Metal Target ✅ (2026-03-21)
+
+Then we went lower. Below the OS. Below the syscall boundary. To the metal.
+
+The bare metal target emits a raw flat binary — no ELF headers, no OS, no
+runtime. QEMU's virt machine loads it at `0x80000000` and jumps to byte 0,
+where a `jal` trampoline reaches `_start`. The stack pointer is set by our
+code. Console output goes to the UART at `0x10000000` — memory-mapped I/O,
+one byte at a time, written by store instructions.
+
+The route had three bugs, each instructive:
+
+| Bug | Symptom | Fix |
+|-----|---------|-----|
+| **ELF headers at byte 0** | `illegal instruction` — CPU tried to execute `0x7F 'E' 'L' 'F'` | Switched to flat binary, code at byte 0 |
+| **`lui` sign extension** | Stack pointer became `0xFFFFFFFF80100000` — unmapped memory | `if (lo32 < 0) hi32++` in `Li` 64-bit path |
+| **No serial routing** | UART output swallowed by QEMU | Added `-serial mon:stdio` flag |
+
+The `lui` bug is worth remembering. On RV64, `lui` loads a 20-bit immediate
+into bits 31:12 and **sign-extends to 64 bits**. The address `0x80100000`
+has bit 31 set, so `lui` produces `0xFFFFFFFF80100000`. Every stack store
+went to unmapped memory. The fix is one line — the same trick the 32-bit
+path uses, applied to the 64-bit split. The Linux agent found it by tracing
+execution in QEMU with `-d in_asm,exec` and watching `ra` come back wrong
+after `main` returned.
+
+The bare metal binary has **zero `ecall` instructions**. Nothing between
+the compiled code and the hardware. A Codex program → typed IR → flat
+binary → RISC-V instructions → UART output → your screen.
+
+```
+codex build samples/hello.codex --target riscv-bare-metal
+qemu-system-riscv64 -machine virt -bios none -nographic \
+  -serial mon:stdio -kernel ./hello.bin
+Hello from bare metal
+```
+
+**What we carried up**: MMIO output. Flat binary emission. The understanding
+that bare metal is not harder than userspace — it's *simpler*. Fewer
+abstractions, fewer things to break. The bug count was lower than the
+Linux userspace port.
+
+**What this means for Peak IV**: A Codex program can already run with zero
+OS, zero runtime, zero libc on RISC-V hardware. The path from here to
+Codex.OS is not "build an OS from scratch" — it's "extend what we already
+have until it manages resources for multiple programs." The foundation is
+poured.
 
 ### Camp II-C: Self-Hosted Build Chain
 
@@ -320,7 +392,7 @@ That pace recalibrates everything.
 | Camp | Visibility | Honest Estimate |
 |------|-----------|----------------|
 | II-A (IL maturity) | ✅ Summited 2026-03-21 | — |
-| II-B (Native codegen) | Visible, route scoutable | Weeks |
+| II-B (Native codegen) | ✅ RISC-V summited 2026-03-21 | x86-64/ARM64: weeks |
 | II-C (Self-hosted native) | Visible in clear weather | Weeks |
 | III-A (Linear allocator) | Outline visible | Weeks–months |
 | III-B (Capability I/O) | Outline visible | Months |
@@ -341,6 +413,24 @@ The agents work in bounded context windows. They don't see the whole mountain.
 They see the pitch — the next rock, the next hold. They're good at that: fast,
 precise, tireless. The human sees the range. The human picks the route, throws
 the rope across the gaps the agents can't jump, and calls the weather.
+
+The party has found its rhythm. Agent Windows (GitHub Copilot in VS) builds
+features, reviews code, pushes to master. Agent Linux (Claude on the sandbox)
+pulls, tests on real hardware and emulators, finds bugs by tracing execution.
+The human routes between them — not writing code, but directing attention,
+relaying findings when one agent's session dies, and deciding what matters.
+
+The coordination protocol is simple: Git is the shared state. Push to master
+is the handoff. `dotnet test` is the acceptance criterion. No Jira. No
+standups. No sprint planning. Just the rock in front of you.
+
+On the RISC-V bare metal push, the three-way collaboration found its form:
+the Windows agent built the backend and tests. The Linux agent pulled it,
+ran it under QEMU, traced the execution, and found the `lui` sign-extension
+bug by watching register values in the QEMU trace. The Windows agent prepared
+the fix but held back — the Linux agent earned that commit. It was pushed
+from the sandbox, pulled to Windows, verified. The mountain doesn't care
+who placed the piton, only that it holds.
 
 That changes as we climb. The IL backend and the agent toolkit exist so that
 other climbers can join. Every `.exe` we ship, every tool that works, every
