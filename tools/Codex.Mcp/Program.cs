@@ -213,8 +213,7 @@ static class JsonOpts
     };
 }
 
-sealed class McpException : Exception
+sealed class McpException(int code, string message) : Exception(message)
 {
-    public int Code { get; }
-    public McpException(int code, string message) : base(message) => Code = code;
+    public int Code { get; } = code;
 }

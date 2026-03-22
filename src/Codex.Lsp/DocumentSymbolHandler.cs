@@ -7,14 +7,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 namespace Codex.Lsp;
 
-internal sealed class DocumentSymbolHandler : DocumentSymbolHandlerBase
+internal sealed class DocumentSymbolHandler(DocumentStore store) : DocumentSymbolHandlerBase
 {
-    readonly DocumentStore m_store;
-
-    public DocumentSymbolHandler(DocumentStore store)
-    {
-        m_store = store;
-    }
+    readonly DocumentStore m_store = store;
 
     public override Task<SymbolInformationOrDocumentSymbolContainer?> Handle(
         DocumentSymbolParams request,

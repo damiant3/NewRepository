@@ -6,17 +6,11 @@ using Codex.Syntax;
 
 namespace Codex.Cli;
 
-sealed class RepositoryModuleLoader : IModuleLoader
+sealed class RepositoryModuleLoader(FactStore store, DiagnosticBag diagnostics) : IModuleLoader
 {
-    readonly FactStore m_store;
-    readonly DiagnosticBag m_diagnostics;
+    readonly FactStore m_store = store;
+    readonly DiagnosticBag m_diagnostics = diagnostics;
     Map<string, ResolvedModule> m_cache = Map<string, ResolvedModule>.s_empty;
-
-    public RepositoryModuleLoader(FactStore store, DiagnosticBag diagnostics)
-    {
-        m_store = store;
-        m_diagnostics = diagnostics;
-    }
 
     public ResolvedModule? Load(string moduleName)
     {

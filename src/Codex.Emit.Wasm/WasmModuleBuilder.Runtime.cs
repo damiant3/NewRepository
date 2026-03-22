@@ -726,7 +726,7 @@ sealed partial class WasmModuleBuilder
         WriteSection(w, SectionData, section.ToArray());
     }
 
-    void WriteSection(BinaryWriter w, byte sectionId, byte[] content)
+    static void WriteSection(BinaryWriter w, byte sectionId, byte[] content)
     {
         w.Write(sectionId);
         MemoryStream lenStream = new();

@@ -8,14 +8,9 @@ public enum RiscVTarget
     BareMetal
 }
 
-public sealed class RiscVEmitter : IAssemblyEmitter
+public sealed class RiscVEmitter(RiscVTarget target = RiscVTarget.LinuxUser) : IAssemblyEmitter
 {
-    readonly RiscVTarget m_target;
-
-    public RiscVEmitter(RiscVTarget target = RiscVTarget.LinuxUser)
-    {
-        m_target = target;
-    }
+    readonly RiscVTarget m_target = target;
 
     public string TargetName => m_target == RiscVTarget.BareMetal ? "RiscV-BareMetal" : "RiscV";
 
