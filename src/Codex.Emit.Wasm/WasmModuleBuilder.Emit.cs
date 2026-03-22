@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Text;
 using Codex.Core;
 using Codex.IR;
 using Codex.Types;
@@ -10,10 +9,9 @@ sealed partial class WasmModuleBuilder
 {
     void EmitImports()
     {
-        // fd_write(fd: i32, iovs: i32, iovs_len: i32, nwritten: i32) -> i32
         int fdWriteType = AddFuncType(
-            new byte[] { WasmI32, WasmI32, WasmI32, WasmI32 },
-            new byte[] { WasmI32 });
+            [WasmI32, WasmI32, WasmI32, WasmI32],
+            [WasmI32]);
         m_fdWriteIndex = m_nextFuncIndex++;
         m_imports.Add(new WasmImport("wasi_snapshot_preview1", "fd_write", ImportFunc, fdWriteType));
         m_importCount = m_nextFuncIndex;
@@ -21,44 +19,35 @@ sealed partial class WasmModuleBuilder
 
     void EmitRuntimeGlobals()
     {
-        // Heap pointer — starts after data segments (will be patched in Build)
         m_heapPtrGlobalIndex = m_globals.Count;
         m_globals.Add(new WasmGlobal(WasmI32, GlobalMut, m_dataOffset));
 
-        // Region stack pointer — index into region stack, starts at 0
         m_regionSpGlobalIndex = m_globals.Count;
         m_globals.Add(new WasmGlobal(WasmI32, GlobalMut, 0));
     }
 
-    // ── Pre-register functions ───────────────────────────────────
-
     void PreRegisterFunctions(IRModule module)
     {
-        // Reserve indices for runtime helpers first
         m_printI64Index = m_nextFuncIndex++;
-        m_functionTypeIndices.Add(-1); // placeholder, filled by EmitRuntimeHelpers
+        m_functionTypeIndices.Add(-1);
 
         m_printBoolIndex = m_nextFuncIndex++;
-        m_functionTypeIndices.Add(-1); // placeholder
+        m_functionTypeIndices.Add(-1);
 
         m_strEqIndex = m_nextFuncIndex++;
-        m_functionTypeIndices.Add(-1); // placeholder
+        m_functionTypeIndices.Add(-1);
 
-        // Reserve indices for user definitions
         foreach (IRDefinition def in module.Definitions)
         {
             m_functionIndex = m_functionIndex.Set(def.Name, m_nextFuncIndex);
             m_nextFuncIndex++;
-            m_functionTypeIndices.Add(-1); // placeholder
+            m_functionTypeIndices.Add(-1);
         }
 
-        // Reserve index for _start
         m_functionIndex = m_functionIndex.Set("__wasm_start", m_nextFuncIndex);
         m_nextFuncIndex++;
-        m_functionTypeIndices.Add(-1); // placeholder
+        m_functionTypeIndices.Add(-1);
     }
-
-    // ── Emit a definition ────────────────────────────────────────
 
     void EmitDefinition(IRDefinition def)
     {
@@ -67,40 +56,26 @@ sealed partial class WasmModuleBuilder
 
         byte[] paramTypes = new byte[paramCount];
         for (int i = 0; i < paramCount; i++)
-        {
             paramTypes[i] = WasmTypeFor(def.Parameters[i].Type);
-        }
 
-        byte[] resultTypes;
-        if (returnType is VoidType or NothingType)
-            resultTypes = Array.Empty<byte>();
-        else
-            resultTypes = new byte[] { WasmTypeFor(returnType) };
+        byte[] resultTypes = returnType is VoidType or NothingType
+            ? [] : [WasmTypeFor(returnType)];
 
         int typeIndex = AddFuncType(paramTypes, resultTypes);
-
         int funcSlot = m_functionIndex.Get(def.Name, 0) - m_importCount;
         m_functionTypeIndices[funcSlot] = typeIndex;
 
-        // Build locals list: parameters are implicit (local 0..n-1)
-        // Additional locals declared during body emit
-        List<byte> localTypes = new();
+        List<byte> localTypes = [];
         ValueMap<string, int> localMap = ValueMap<string, int>.s_empty;
         for (int i = 0; i < paramCount; i++)
-        {
             localMap = localMap.Set(def.Parameters[i].Name, i);
-        }
 
         MemoryStream body = new();
         int nextLocal = paramCount;
-
         EmitExpr(body, def.Body, localMap, ref nextLocal, localTypes, returnType);
-
         body.WriteByte(OpEnd);
 
-        // Encode function body with locals
-        byte[] bodyBytes = EncodeFunctionBody(body.ToArray(), localTypes);
-        m_functionBodies.Add(bodyBytes);
+        m_functionBodies.Add(EncodeFunctionBody(body.ToArray(), localTypes));
     }
 
     void EmitStartFunction(IRModule module)
@@ -120,36 +95,31 @@ sealed partial class WasmModuleBuilder
 
         if (mainDef is null)
         {
-            // Empty start
-            int voidType = AddFuncType(Array.Empty<byte>(), Array.Empty<byte>());
+            int voidType = AddFuncType([], []);
             m_functionTypeIndices[startSlot] = voidType;
             MemoryStream body = new();
             body.WriteByte(OpEnd);
-            m_functionBodies.Add(EncodeFunctionBody(body.ToArray(), new List<byte>()));
+            m_functionBodies.Add(EncodeFunctionBody(body.ToArray(), []));
         }
         else
         {
-            int voidType = AddFuncType(Array.Empty<byte>(), Array.Empty<byte>());
+            int voidType = AddFuncType([], []);
             m_functionTypeIndices[startSlot] = voidType;
 
             MemoryStream body = new();
-            List<byte> localTypes = new();
+            List<byte> localTypes = [];
             CodexType returnType = ComputeReturnType(mainDef.Type, mainDef.Parameters.Length);
 
-            // Call main
             int mainIdx = m_functionIndex.Get("main", 0);
-
             body.WriteByte(OpCall);
             WriteUnsignedLeb128(body, mainIdx);
 
-            // Print result based on type
             EmitPrintResult(body, returnType, localTypes);
 
             body.WriteByte(OpEnd);
             m_functionBodies.Add(EncodeFunctionBody(body.ToArray(), localTypes));
         }
 
-        // Export _start
         int startFuncIndex = m_functionIndex.Get("__wasm_start", 0);
         m_exports.Add(new WasmExport("_start", ExportFunc, startFuncIndex));
         m_exports.Add(new WasmExport("memory", ExportMemory, 0));
@@ -170,14 +140,10 @@ sealed partial class WasmModuleBuilder
                 break;
 
             case TextType:
-                // Stack has i32 (ptr to length-prefixed string)
-                // Store ptr in a temp local
                 int ptrLocal = localTypes.Count;
                 localTypes.Add(WasmI32);
-
                 body.WriteByte(OpLocalSet);
                 WriteUnsignedLeb128(body, ptrLocal);
-
                 EmitFdWriteFromLengthPrefixed(body, ptrLocal);
                 EmitWriteNewline(body, localTypes);
                 break;
@@ -186,7 +152,6 @@ sealed partial class WasmModuleBuilder
                 break;
 
             default:
-                // For unknown types, drop the value
                 body.WriteByte(OpDrop);
                 break;
         }
@@ -398,8 +363,7 @@ sealed partial class WasmModuleBuilder
     void EmitApply(MemoryStream body, IRApply apply,
         ValueMap<string, int> localMap, ref int nextLocal, List<byte> localTypes)
     {
-        // Flatten curried application
-        List<IRExpr> args = new();
+        List<IRExpr> args = [];
         IRExpr func = apply;
         while (func is IRApply inner)
         {
@@ -639,5 +603,4 @@ sealed partial class WasmModuleBuilder
     }
 
     // ── Builtins ─────────────────────────────────────────────────
-
 }

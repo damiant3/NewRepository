@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-using System.Text;
 using Codex.Core;
 using Codex.IR;
 using Codex.Types;
@@ -109,15 +107,15 @@ sealed partial class WasmModuleBuilder
     const byte GlobalMut = 0x01;
 
     // ── Data ─────────────────────────────────────────────────────
-    readonly List<byte[]> m_dataSegments = new();
+    readonly List<byte[]> m_dataSegments = [];
     int m_dataOffset = 1024; // data starts at offset 1024, leaving room for iov structs
 
-    readonly List<WasmFuncType> m_types = new();
-    readonly List<WasmImport> m_imports = new();
-    readonly List<int> m_functionTypeIndices = new();
-    readonly List<byte[]> m_functionBodies = new();
-    readonly List<WasmExport> m_exports = new();
-    readonly List<WasmGlobal> m_globals = new();
+    readonly List<WasmFuncType> m_types = [];
+    readonly List<WasmImport> m_imports = [];
+    readonly List<int> m_functionTypeIndices = [];
+    readonly List<byte[]> m_functionBodies = [];
+    readonly List<WasmExport> m_exports = [];
+    readonly List<WasmGlobal> m_globals = [];
 
     ValueMap<string, int> m_functionIndex = ValueMap<string, int>.s_empty;
     ValueMap<string, int> m_stringOffsets = ValueMap<string, int>.s_empty;
@@ -133,8 +131,7 @@ sealed partial class WasmModuleBuilder
     int m_heapPtrGlobalIndex;
 
     // ── Region stack ──────────────────────────────────────────────
-    const int RegionStackBase = 64;   // addresses 64–1023 (before data at 1024)
-    const int RegionStackMaxDepth = 240;
+    const int RegionStackBase = 64;
     int m_regionSpGlobalIndex;
 
     // ── Runtime helper function indices ──────────────────────────
@@ -144,7 +141,7 @@ sealed partial class WasmModuleBuilder
 
     public void EmitModule(IRModule module)
     {
-
+        EmitImports();
         EmitRuntimeGlobals();
         PreRegisterFunctions(module);
         EmitRuntimeHelpers();
