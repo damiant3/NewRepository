@@ -38,9 +38,11 @@ sealed partial class WasmModuleBuilder
     const byte OpI32Load = 0x28;
     const byte OpI64Load = 0x29;
     const byte OpF64Load = 0x2B;
+    const byte OpI32Load8U = 0x2D;
     const byte OpI32Store = 0x36;
     const byte OpI64Store = 0x37;
     const byte OpF64Store = 0x39;
+    const byte OpI32Store8 = 0x3A;
     const byte OpI32Const = 0x41;
     const byte OpI64Const = 0x42;
     const byte OpF64Const = 0x44;
@@ -928,10 +930,10 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpI32Add);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
         body.WriteByte(OpI32Add);
-        body.WriteByte((byte)0x2D); // i32.load8_u
+        body.WriteByte(OpI32Load8U); // i32.load8_u
         body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
 
-        body.WriteByte((byte)0x3A); // i32.store8
+        body.WriteByte(OpI32Store8); // i32.store8
         body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
 
         // idx++
@@ -975,10 +977,10 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpI32Add);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
         body.WriteByte(OpI32Add);
-        body.WriteByte((byte)0x2D); // i32.load8_u
+        body.WriteByte(OpI32Load8U); // i32.load8_u
         body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
 
-        body.WriteByte((byte)0x3A); // i32.store8
+        body.WriteByte(OpI32Store8); // i32.store8
         body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
 
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
@@ -1111,7 +1113,7 @@ sealed partial class WasmModuleBuilder
         // Store '0' at bufPos
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos + 1);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 48); // '0'
-        body.WriteByte((byte)0x3A); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
+        body.WriteByte(OpI32Store8); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos + 1);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
         body.WriteByte(OpI32Sub);
@@ -1138,7 +1140,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, digit + 1);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 48);
         body.WriteByte(OpI32Add);
-        body.WriteByte((byte)0x3A); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
+        body.WriteByte(OpI32Store8); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
 
         // bufPos--
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos + 1);
@@ -1163,7 +1165,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpIf); body.WriteByte(BlockTypeVoid);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos + 1);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 45); // '-'
-        body.WriteByte((byte)0x3A); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Store8); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos + 1);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
         body.WriteByte(OpI32Sub);
@@ -1296,7 +1298,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpIf); body.WriteByte(BlockTypeVoid);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 48); // '0'
-        body.WriteByte((byte)0x3A); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
+        body.WriteByte(OpI32Store8); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
         body.WriteByte(OpI32Sub);
@@ -1322,7 +1324,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, digitLocal);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 48);
         body.WriteByte(OpI32Add);
-        body.WriteByte((byte)0x3A); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
+        body.WriteByte(OpI32Store8); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
 
         // bufPos--
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos);
@@ -1347,7 +1349,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpIf); body.WriteByte(BlockTypeVoid);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 45); // '-'
-        body.WriteByte((byte)0x3A); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Store8); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, bufPos);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
         body.WriteByte(OpI32Sub);
