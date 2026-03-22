@@ -18,12 +18,14 @@ public static partial class Program
             Console.WriteLine("                    --target <t>        Target backend (cs|js|rust|py|cpp|go|java|ada|fortran|cobol|babbage)");
             Console.WriteLine("                    --targets <t1,t2>   Emit to multiple backends in parallel");
             Console.WriteLine("                    --incremental, -i   Skip unchanged files (uses .codex-build/manifest.json)");
+            Console.WriteLine("                    --view <name>       Compile from a repository view");
             return 1;
         }
 
         string filePath = args[0];
         string? targetOverride = null;
         string[]? multiTargets = null;
+        string? viewName = null;
         bool incremental = false;
         for (int i = 1; i < args.Length; i++)
         {
@@ -31,9 +33,26 @@ public static partial class Program
                 targetOverride = args[++i].ToLowerInvariant();
             else if (args[i] == "--targets" && i + 1 < args.Length)
                 multiTargets = args[++i].ToLowerInvariant().Split(',', StringSplitOptions.RemoveEmptyEntries);
+            else if (args[i] == "--view" && i + 1 < args.Length)
+                viewName = args[++i];
             else if (args[i] == "--incremental" || args[i] == "-i")
                 incremental = true;
         }
+
+        // Also support: codex build --view <name> (without a file arg)
+        if (filePath == "--view" && args.Length >= 2)
+        {
+            viewName = args[1];
+            // Re-parse remaining args for --target
+            for (int i = 2; i < args.Length; i++)
+            {
+                if (args[i] == "--target" && i + 1 < args.Length)
+                    targetOverride = args[++i].ToLowerInvariant();
+            }
+        }
+
+        if (viewName is not null)
+            return RunBuildView(viewName, targetOverride ?? "cs");
 
         if (filePath == "." || filePath == "./" || filePath == ".\\" 
             || (Directory.Exists(filePath) && File.Exists(Path.Combine(filePath, "codex.project.json"))))
@@ -169,6 +188,42 @@ public static partial class Program
         Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
         string output = emitter.Emit(irResult.Module);
         string outputPath = Path.ChangeExtension(filePath, emitter.FileExtension);
+        File.WriteAllText(outputPath, output);
+
+        Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
+        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
+            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        return 0;
+    }
+
+    static int RunBuildView(string viewName, string target)
+    {
+        Repository.FactStore? store = Repository.FactStore.Open(Directory.GetCurrentDirectory());
+        if (store is null)
+        {
+            Console.Error.WriteLine("No .codex repository found in current directory.");
+            return 1;
+        }
+
+        if (!store.ViewExists(viewName))
+        {
+            Console.Error.WriteLine($"View '{viewName}' does not exist.");
+            return 1;
+        }
+
+        Console.WriteLine($"Building from view: {viewName}");
+
+        IRCompilationResult? irResult = CompileViewToIR(store, viewName, viewName);
+        if (irResult is null) return 1;
+
+        string outputDir = Directory.GetCurrentDirectory();
+
+        if (IsAssemblyTarget(target))
+            return EmitAssembly(irResult, outputDir, viewName, target);
+
+        Codex.Emit.ICodeEmitter emitter = CreateEmitter(target);
+        string output = emitter.Emit(irResult.Module);
+        string outputPath = Path.Combine(outputDir, viewName + emitter.FileExtension);
         File.WriteAllText(outputPath, output);
 
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");

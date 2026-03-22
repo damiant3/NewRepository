@@ -49,6 +49,29 @@ exists, the ecosystem comes first.
 - `ViewConsistencyChecker` (in Codex.Cli): full pipeline — parse → desugar → resolve → type-check → linearity
 - 5 tests in `ViewConsistencyTests`
 
+### V1 Phase 3 — View Composition ✅ (2026-03-22)
+
+- `OverrideView(base, target, overrides)`: copy-with-replacements
+- `MergeViews(a, b, target)`: union with conflict detection (`ViewMergeResult`)
+- `FilterView(source, target, keepNames)`: restrict to subset
+- Internal helpers: `RequireViewExists`, `RequireViewNotExists`, `LoadViewRaw`
+- 14 tests for composition ops (69 total in ViewTests)
+
+### V1 Phase 4 — View-Aware Compilation ✅ (2026-03-22)
+
+- `codex build --view <name>` compiles from a repository view
+- `CompileViewToIR()`: loads view → fetches definition facts → full pipeline
+- The view IS the build manifest — no separate project files needed
+- Supports all targets (`--target cs|il|exe|wasm|riscv|...`)
+
+### WASM Backend Phase 1 ✅ (2026-03-22)
+
+- `Codex.Emit.Wasm`: WasmEmitter (IAssemblyEmitter), WasmModuleBuilder (1671 lines)
+- WASI integration: `fd_write` for console output, `_start` + `memory` exports
+- Bump allocator, length-prefixed strings, byte-loop memcpy
+- Runtime helpers: i64→decimal print, bool→"True"/"False"
+- 10 tests (5 emission + 5 wasmtime execution when available)
+
 ### Camp II-B — RISC-V Native Backend ✅ (2026-03-21)
 
 - `Codex.Emit.RiscV`: RiscVEncoder (RV64IM instruction encoding), ElfWriter (ELF64 +
@@ -95,7 +118,7 @@ the type system enforces it.
 ### Near Term (this week)
 | Task | What | Depends on |
 |------|------|------------|
-| V1 | Repository Views (named, consistent, composable) | Nothing — ready now |
+| V1 | Repository Views ✅ Complete | — |
 | R2b-1 | Formalize effects in `.codex` | Nothing — ready now |
 
 ### Medium Term
