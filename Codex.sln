@@ -223,6 +223,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Mcp", "tools\Codex.Mc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.AgentToolkit.Tests", "tests\Codex.AgentToolkit.Tests\Codex.AgentToolkit.Tests.csproj", "{A0153615-F4B1-45F5-94FB-088D7210A3B7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.Wasm", "src\Codex.Emit.Wasm\Codex.Emit.Wasm.csproj", "{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -665,6 +667,18 @@ Global
 		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|x64.Build.0 = Release|Any CPU
 		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|x86.ActiveCfg = Release|Any CPU
 		{A0153615-F4B1-45F5-94FB-088D7210A3B7}.Release|x86.Build.0 = Release|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Debug|x64.Build.0 = Debug|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Debug|x86.Build.0 = Debug|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|x64.ActiveCfg = Release|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|x64.Build.0 = Release|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|x86.ActiveCfg = Release|Any CPU
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -720,6 +734,7 @@ Global
 		{0AA77BFE-C701-40FA-BF8C-5D9934C77802} = {A0000000-0000-0000-0000-000000000006}
 		{EF92DF72-42E8-49B2-95C9-F75AF9833E27} = {A0000000-0000-0000-0000-000000000003}
 		{A0153615-F4B1-45F5-94FB-088D7210A3B7} = {A0000000-0000-0000-0000-000000000002}
+		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C} = {A0000000-0000-0000-0000-000000000001}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}
