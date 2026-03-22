@@ -182,9 +182,12 @@ static class RiscVEncoder
         }
 
         // Full 64-bit: build in stages
-        // Split into 32-bit high and 32-bit low
+        // Split into 32-bit high and 32-bit low.
+        // When lo32 is negative (bit 31 set), lui will sign-extend to set
+        // upper 32 bits.  Bump hi32 by 1 so the add cancels those bits out.
         int lo32 = (int)(value & 0xFFFFFFFF);
         int hi32 = (int)(value >> 32);
+        if (lo32 < 0) hi32++;
 
         List<uint> insns = new();
 
