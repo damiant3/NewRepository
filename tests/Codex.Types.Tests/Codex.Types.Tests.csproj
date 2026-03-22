@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Codex.Emit.CSharp\Codex.Emit.CSharp.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.IL\Codex.Emit.IL.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.RiscV\Codex.Emit.RiscV.csproj" />
+    <ProjectReference Include="..\..\src\Codex.Emit.Wasm\Codex.Emit.Wasm.csproj" />
     <ProjectReference Include="..\..\src\Codex.Proofs\Codex.Proofs.csproj" />
   </ItemGroup>
 </Project>

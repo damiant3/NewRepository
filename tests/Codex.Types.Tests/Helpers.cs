@@ -2,6 +2,7 @@ using Codex.Ast;
 using Codex.Core;
 using Codex.Emit.CSharp;
 using Codex.Emit.IL;
+using Codex.Emit.Wasm;
 using Codex.IR;
 using Codex.Semantics;
 using Codex.Syntax;
@@ -246,6 +247,49 @@ namespace Codex.Types.Tests
 
             Codex.Emit.RiscV.RiscVEmitter riscvEmitter = new(target);
             return riscvEmitter.EmitAssembly(irModule, moduleName);
+        }
+
+        public static byte[]? CompileToWasm(string source, string moduleName = "test")
+        {
+            SourceText src = new("test.codex", source);
+            DiagnosticBag diagnostics = new();
+
+            DocumentNode document;
+            if (ProseParser.IsProseDocument(source))
+            {
+                ProseParser proseParser = new(src, diagnostics);
+                document = proseParser.ParseDocument();
+            }
+            else
+            {
+                Lexer lexer = new(src, diagnostics);
+                IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+                Parser parser = new(tokens, diagnostics);
+                document = parser.ParseDocument();
+            }
+
+            Desugarer desugarer = new(diagnostics);
+            Module module = desugarer.Desugar(document, moduleName);
+            if (diagnostics.HasErrors) return null;
+
+            NameResolver resolver = new(diagnostics);
+            ResolvedModule resolved = resolver.Resolve(module);
+            if (diagnostics.HasErrors) return null;
+
+            TypeChecker checker = new(diagnostics);
+            Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            LinearityChecker linearityChecker = new(diagnostics, types);
+            linearityChecker.CheckModule(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            Lowering lowering = new(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
+            IRModule irModule = lowering.Lower(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            WasmEmitter emitter = new();
+            return emitter.EmitAssembly(irModule, moduleName);
         }
 
         public static string? CompileToTarget(string source, string moduleName, Codex.Emit.ICodeEmitter emitter)
