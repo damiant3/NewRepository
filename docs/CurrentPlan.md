@@ -11,7 +11,7 @@
 **Camp II-B (Native Codegen) summited.** RISC-V native + WASM backends. Three binary targets.
 **V1 (Repository Views) complete.** Named views, consistency, composition, view-aware build.
 **R2b (Effects Formalized) complete.** Five effects as `.codex` source, loaded by parser.
-**Camp III-B (Capability System) begun.** CapabilityChecker extracts + enforces effect grants.
+**Camp III-B (Capability System) complete.** CapabilityChecker + CLI `--capabilities` enforcement merged.
 
 The C# bootstrap compiler is locked. All forward development happens in `.codex` source.
 
@@ -55,6 +55,13 @@ and optionally enforces capability grants. `CDX4001` diagnostic when a
 required capability is missing. Wired into all compile pipelines.
 `CapabilityReport` carried on `IRCompilationResult`. 9 tests.
 
+### Camp III-B — Capability System (Phase 2) ✅
+
+CLI `--capabilities Console,FileSystem` flag wired into `codex build` and
+`codex check`. Enforcement at compile time: `CDX4001` fires when a required
+capability isn't granted. `PrintCapabilityReport` shows required capabilities
+in build/check output. Merged from `linux/camp3b-capability-checker`.
+
 ### WASM Backend ✅
 
 **Phase 1**: Direct bytecode emission (no Cranelift), WASI fd_write, bump allocator,
@@ -78,11 +85,10 @@ RiscVEncoder, ElfWriter, RiscVCodeGen, bare metal UART. 13 + 5 QEMU tests.
 
 ## Active Work
 
-### Camp III-B — Capability System (Phase 2) ← **IN REVIEW**
+### Camp III-A — Linear Allocator ← **IN PROGRESS (linux/camp3a-region-allocator)**
 
-CapabilityChecker is on `linux/camp3b-capability-checker`, awaiting merge.
-Next: wire `--capabilities Console,FileSystem` flag into CLI, enforcement on
-`codex build` and `codex run`.
+Design doc landed: `docs/Designs/Camp-IIIA-Linear-Allocator.md`.
+Implementation branch: `linux/camp3a-region-allocator`, awaiting review.
 
 ---
 
@@ -91,16 +97,16 @@ Next: wire `--capabilities Console,FileSystem` flag into CLI, enforcement on
 ### Ready Now
 | Task | What | Why |
 |------|------|-----|
-| III-B Phase 2 | CLI `--capabilities` flag + enforcement | Completes the capability grant flow end-to-end |
+| III-A review | Linear allocator — region-based, type-driven deallocation | Review `linux/camp3a-region-allocator` |
 | WASM Phase 3 | Records, sum types as tagged unions in linear memory | Unlocks real data structures in WASM |
 | V2 | Narration layer — prose-aware compilation | `.codex` files that read as documents |
 | V4 | Proof-carrying facts | Views verify proofs at composition time |
 
 ### Medium Term
-- **Camp III-A**: Linear allocator — region-based, type-driven deallocation
 - **Camp III-C**: Structured concurrency — `par`, `race`, work-stealing
 - **Camp II-C**: Self-hosted native build chain on RISC-V (deferred, proof exists)
 - **V3**: Repository federation — multi-repo sync, cross-repo trust
+- **Network + Process effects**: Extend capability system beyond Console/FileSystem
 
 ### Long Term
 - **V5 — Intelligence layer**: AI agents as first-class participants
