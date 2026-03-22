@@ -33,6 +33,22 @@ exists, the ecosystem comes first.
 
 ## Completed Work (this cycle)
 
+### V1 Phase 1 — Named Views ✅ (2026-03-22)
+
+- `FactStore.Views.cs`: CreateView, ListViews, SwitchView, DeleteView, GetNamedView,
+  UpdateNamedView, RemoveFromView, ViewExists
+- Legacy `view.json` ↔ canonical view bridge
+- View name validation (path traversal, dot names, whitespace)
+- Existence guards on all read/write ops (silent corruption prevention)
+- 27 tests in `ViewTests`
+
+### V1 Phase 2 — View Consistency ✅ (2026-03-22)
+
+- `FactStore.CheckViewConsistency()`: loads facts from view, validates kinds, delegates
+  to `IViewConsistencyChecker` for semantic checking
+- `ViewConsistencyChecker` (in Codex.Cli): full pipeline — parse → desugar → resolve → type-check → linearity
+- 5 tests in `ViewConsistencyTests`
+
 ### Camp II-B — RISC-V Native Backend ✅ (2026-03-21)
 
 - `Codex.Emit.RiscV`: RiscVEncoder (RV64IM instruction encoding), ElfWriter (ELF64 +
@@ -52,25 +68,11 @@ exists, the ecosystem comes first.
 
 ## Active Work
 
-### V1 — Repository Views (Starting Now)
+### V1 — Repository Views (Phase 3 next)
 
-**The keystone feature.** Views are consistent selections of facts from the repository.
-They replace branches, enable proof-carrying packages, and become the build system.
+Phases 1–2 are on master and reviewed. Next:
 
-The FactStore already has: content-addressed facts, Definition/Supersession/Proposal/
-Verdict/Trust kinds, consensus checking, single implicit view. What's missing:
-
-#### Phase 1: Named Views
-- Multiple named views (not just one `view.json`)
-- View CRUD: create, list, switch, delete
-- CLI integration: `codex view create <name>`, `codex view list`, `codex view use <name>`
-
-#### Phase 2: View Consistency
-- Type-check all definitions in a view together
-- A view that doesn't type-check cannot be published
-- This is the killer feature: the compiler is the gatekeeper
-
-#### Phase 3: View Composition
+#### Phase 3: View Composition ← **NEXT**
 - `base + override`: a view with one definition replaced
 - `view-a ∪ view-b`: merge (fails on conflict)
 - `view | filter`: restrict to certain modules
