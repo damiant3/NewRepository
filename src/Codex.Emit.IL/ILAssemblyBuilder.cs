@@ -939,6 +939,10 @@ sealed partial class ILAssemblyBuilder
                 EmitFieldAccess(il, fa, locals, parameters);
                 break;
 
+            case IRRegion region:
+                EmitExpr(il, region.Body, locals, parameters);
+                break;
+
             case IRMatch match:
                 EmitMatch(il, match, locals, parameters);
                 break;
@@ -1877,6 +1881,7 @@ sealed partial class ILAssemblyBuilder
             IRLet let => ExprHasTailCall(let.Body, funcName),
             IRMatch match => match.Branches.Any(b => ExprHasTailCall(b.Body, funcName)),
             IRApply app => IsSelfCall(app, funcName),
+            IRRegion region => ExprHasTailCall(region.Body, funcName),
             _ => false
         };
     }
@@ -1937,6 +1942,10 @@ sealed partial class ILAssemblyBuilder
                 EmitTailCallExpr(il, let.Body, funcName, parameters, paramLocals, locals, loopStart);
                 break;
             }
+
+            case IRRegion region:
+                EmitTailCallExpr(il, region.Body, funcName, parameters, paramLocals, locals, loopStart);
+                break;
 
             case IRMatch match:
             {
@@ -2265,6 +2274,10 @@ sealed partial class ILAssemblyBuilder
                 }
                 break;
             }
+
+            case IRRegion region:
+                EmitExprWithParamLocals(il, region.Body, locals, parameters, paramLocals);
+                break;
 
             case IRMatch match:
                 EmitTcoMatchExpr(il, match, locals, parameters, paramLocals);

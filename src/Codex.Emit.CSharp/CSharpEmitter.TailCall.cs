@@ -22,6 +22,7 @@ public sealed partial class CSharpEmitter
             IRLet let => ExprHasTailCall(let.Body, funcName),
             IRMatch match => match.Branches.Any(b => ExprHasTailCall(b.Body, funcName)),
             IRApply app => IsSelfCall(app, funcName),
+            IRRegion region => ExprHasTailCall(region.Body, funcName),
             _ => false
         };
     }
@@ -84,6 +85,10 @@ public sealed partial class CSharpEmitter
                 EmitExpr(sb, let.Value, indent);
                 sb.AppendLine(";");
                 EmitTailCallBody(sb, let.Body, funcName, parameters, indent);
+                break;
+
+            case IRRegion region:
+                EmitTailCallBody(sb, region.Body, funcName, parameters, indent);
                 break;
 
             case IRMatch match:

@@ -84,6 +84,8 @@ public sealed record IRRecord(string TypeName, ImmutableArray<(string FieldName,
 
 public sealed record IRFieldAccess(IRExpr Record, string FieldName, CodexType Type) : IRExpr(Type);
 
+public sealed record IRRegion(IRExpr Body, CodexType Type) : IRExpr(Type);
+
 public sealed record IRRunState(
     IRExpr InitialState,
     IRExpr Computation,

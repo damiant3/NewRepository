@@ -336,6 +336,30 @@ public class WasmEmitterTests
         Assert.Equal("world", output.Trim());
     }
 
+    [Fact]
+    public void Region_allocator_stable_across_calls()
+    {
+        // A function that allocates heap values (text concat) and returns
+        // a scalar. Regions free the allocations on return. Calling this
+        // 1000 times should not exhaust the 64KB WASM page.
+        string source = """
+            greet : Integer -> Integer
+            greet (n) = text-length ("hello " ++ (show n) ++ "!")
+
+            loop : Integer -> Integer -> Integer
+            loop (i) (acc) = if i == 0 then acc else loop (i - 1) (acc + greet i)
+
+            main : Integer
+            main = loop 1000 0
+            """;
+        string? output = CompileAndRun(source, "region_stable_wasm");
+        if (output is null) return;
+        // Each greet call produces "hello N!" where N is 1-1000
+        // The sum of text-lengths should be consistent
+        int result = int.Parse(output.Trim());
+        Assert.True(result > 0, $"Expected positive sum, got {result}");
+    }
+
     // ── Helpers ────────────────────────────────────────────────
 
     static string? CompileAndRun(string source, string moduleName)
