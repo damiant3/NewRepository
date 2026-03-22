@@ -10,10 +10,6 @@ type information, and compilation results through the Model Context Protocol.
 ## Prerequisites
 
 1. **.NET 8 SDK** — `dotnet --version` should show `8.x.x` or higher.
-2. **Build the solution first** — the MCP server uses `--no-build` for fast startup:
-   ```
-   dotnet build Codex.sln
-   ```
 
 ---
 
@@ -34,8 +30,7 @@ The config lives at `.vscode/mcp.json`:
       "args": [
         "run",
         "--project",
-        "${workspaceFolder}/tools/Codex.Mcp/Codex.Mcp.csproj",
-        "--no-build"
+        "${workspaceFolder}/tools/Codex.Mcp/Codex.Mcp.csproj"
       ]
     }
   }
@@ -43,11 +38,11 @@ The config lives at `.vscode/mcp.json`:
 ```
 
 **That's it.** Open the workspace, and the tools are available to any MCP client
-running in VS Code.
+running in VS Code. The server auto-builds on first launch (~3–6 seconds).
 
-> **If the server fails to start**, make sure you've built the solution first with
-> `dotnet build Codex.sln`. The `--no-build` flag means the MCP server won't compile
-> itself on startup.
+> **Important:** The MCP server has to embed the proper dependencies for the AI
+> tools to work. That's why you must build the solution first. The `dotnet run`
+> in the config above will automatically build if needed.
 
 ---
 
@@ -81,8 +76,7 @@ entry to the `"mcpServers"` object.
       "args": [
         "run",
         "--project",
-        "D:/Projects/NewRepository/tools/Codex.Mcp/Codex.Mcp.csproj",
-        "--no-build"
+        "D:/Projects/NewRepository/tools/Codex.Mcp/Codex.Mcp.csproj"
       ]
     }
   }

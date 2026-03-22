@@ -6,8 +6,7 @@
       "args": [
         "run",
         "--project",
-        "${workspaceFolder}/tools/Codex.Mcp/Codex.Mcp.csproj",
-        "--no-build"
+        "${workspaceFolder}/tools/Codex.Mcp/Codex.Mcp.csproj"
       ]
     }
   }
