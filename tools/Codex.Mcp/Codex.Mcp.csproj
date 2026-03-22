@@ -2,6 +2,7 @@
   <PropertyGroup>
     <RootNamespace>Codex.Mcp</RootNamespace>
     <OutputType>Exe</OutputType>
+    <PublishDir>published</PublishDir>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
@@ -17,4 +18,18 @@
     <ProjectReference Include="..\..\src\Codex.Emit.CSharp\Codex.Emit.CSharp.csproj" />
     <ProjectReference Include="..\..\src\Codex.Emit.IL\Codex.Emit.IL.csproj" />
   </ItemGroup>
+  <Target Name="DeployMcp" AfterTargets="Build" Condition="!$(TargetPath.Contains('published'))">
+    <PropertyGroup>
+      <McpPublishDir>$(MSBuildProjectDirectory)\published\</McpPublishDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(McpPublishDir)" />
+    <ItemGroup>
+      <McpOutputFiles Include="$(OutputPath)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(McpOutputFiles)"
+          DestinationFolder="$(McpPublishDir)%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Retries="0"
+          ContinueOnError="true" />
+  </Target>
 </Project>
