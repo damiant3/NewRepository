@@ -32,41 +32,7 @@ public sealed class TypeEnvironment
             new FunctionType(new TypeVariable(0), TextType.s_instance)));
         env = env.Bind("negate", new FunctionType(IntegerType.s_instance, IntegerType.s_instance));
 
-        EffectfulType consoleText = new(
-            [new EffectType(new Name("Console"))],
-            TextType.s_instance);
-        env = env.Bind("read-line", consoleText);
-
-        EffectfulType consoleNothing = new(
-            [new EffectType(new Name("Console"))],
-            NothingType.s_instance);
-        env = env.Bind("print-line", new FunctionType(TextType.s_instance, consoleNothing));
-
-        LinearType fileHandle = new(new ConstructedType(new Name("FileHandle"),[]));
-
-        EffectfulType fsFileHandle = new(
-            [new EffectType(new Name("FileSystem"))],
-            fileHandle);
-        env = env.Bind("open-file", new FunctionType(TextType.s_instance, fsFileHandle));
-
-        EffectfulType fsTextAndHandle = new(
-            [new EffectType(new Name("FileSystem"))],
-            new ConstructedType(new Name("Pair"), [TextType.s_instance, fileHandle]));
-        env = env.Bind("read-all", new FunctionType(fileHandle, fsTextAndHandle));
-
-        EffectfulType fsNothing = new(
-            [new EffectType(new Name("FileSystem"))],
-            NothingType.s_instance);
-        env = env.Bind("close-file", new FunctionType(fileHandle, fsNothing));
-
-        EffectfulType fsText = new(
-            [new EffectType(new Name("FileSystem"))],
-            TextType.s_instance);
-        env = env.Bind("read-file", new FunctionType(TextType.s_instance, fsText));
-
-        // File I/O builtins
-        env = env.Bind("write-file", new FunctionType(TextType.s_instance,
-            new FunctionType(TextType.s_instance, fsNothing)));
+        // File I/O builtins (pure signatures — effect-annotated ops are loaded from prelude)
         env = env.Bind("file-exists", new FunctionType(TextType.s_instance, BooleanType.s_instance));
         env = env.Bind("list-files", new FunctionType(TextType.s_instance,
             new FunctionType(TextType.s_instance,
@@ -129,25 +95,10 @@ public sealed class TypeEnvironment
                         new FunctionType(new ListType(mapA), mapReturn)))));
         env = env.Bind("map", mapType);
 
-        // State effect operations:
-        // get-state : [State s] s  (polymorphic over s)
-        // set-state : s -> [State s] Nothing  (polymorphic over s)
-        // run-state : s -> [State s, e] a -> [e] a  (polymorphic over s, e, a)
+        // run-state : s -> [State s, e] a -> [e] a  (effect handler, not an operation)
         TypeVariable stateS = new(200);
         TypeVariable stateA = new(201);
         EffectRowVariable stateE = new(202);
-
-        EffectfulType getStateType = new(
-            [new EffectType(new Name("State"))], stateS);
-        env = env.Bind("get-state", new ForAllType(200, getStateType));
-
-        EffectfulType setStateReturn = new(
-            [new EffectType(new Name("State"))], NothingType.s_instance);
-        env = env.Bind("set-state", new ForAllType(200,
-            new FunctionType(stateS, setStateReturn)));
-
-        // run-state : s -> [State s, e] a -> [e] a
-        // The second argument is the effectful computation itself (typically a do block)
         EffectfulType runCompType = new(
             [new EffectType(new Name("State"))], stateA, stateE);
         EffectfulType runStateReturn = new([], stateA, stateE);

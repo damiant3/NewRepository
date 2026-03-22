@@ -100,6 +100,41 @@ public class PreludeTests
     }
 
     [Fact]
+    public void Console_effect_compiles()
+    {
+        DiagnosticBag diag = CompilePreludeFile("Console.codex");
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void FileSystem_effect_compiles()
+    {
+        DiagnosticBag diag = CompilePreludeFile("FileSystem.codex");
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void Time_effect_compiles()
+    {
+        DiagnosticBag diag = CompilePreludeFile("Time.codex");
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void Random_effect_compiles()
+    {
+        DiagnosticBag diag = CompilePreludeFile("Random.codex");
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void State_effect_compiles()
+    {
+        DiagnosticBag diag = CompilePreludeFile("State.codex");
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
     public void Maybe_used_in_program()
     {
         string source = """
@@ -203,6 +238,45 @@ public class PreludeTests
             main = list-length (cons 1 (cons 2 (cons 3 nil)))
             """;
         DiagnosticBag diag = CompileWithPrelude(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void Console_effect_used_in_program()
+    {
+        string source = """
+            main : [Console] Nothing
+            main = do
+              print-line "hello"
+              name <- read-line
+              print-line name
+            """;
+        DiagnosticBag diag = Helpers.TypeCheckWithDiagnostics(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void FileSystem_effect_used_in_program()
+    {
+        string source = """
+            main : [FileSystem] Text
+            main = read-file "test.txt"
+            """;
+        DiagnosticBag diag = Helpers.TypeCheckWithDiagnostics(source);
+        Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
+    }
+
+    [Fact]
+    public void Builtin_effects_available_without_import()
+    {
+        string source = """
+            greet : Text -> [Console] Nothing
+            greet (name) = print-line ("Hello, " ++ name ++ "!")
+
+            main : [Console] Nothing
+            main = greet "world"
+            """;
+        DiagnosticBag diag = Helpers.TypeCheckWithDiagnostics(source);
         Assert.False(diag.HasErrors, string.Join("; ", diag.ToImmutable()));
     }
 

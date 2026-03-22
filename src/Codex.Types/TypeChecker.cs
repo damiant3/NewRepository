@@ -16,9 +16,19 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
     Map<string, EffectRowVariable> m_effectRowVars = Map<string, EffectRowVariable>.s_empty;
     Set<string> m_currentEffects = Set<string>.s_empty;
     Map<string, string> m_operationToEffect = Map<string, string>.s_empty;
+    bool m_builtinEffectsRegistered;
+
+    void EnsureBuiltinEffects()
+    {
+        if (m_builtinEffectsRegistered)
+            return;
+        m_builtinEffectsRegistered = true;
+        RegisterEffectDefinitions(BuiltinEffects.Load());
+    }
 
     public Map<string, CodexType> CheckModule(Module module)
     {
+        EnsureBuiltinEffects();
         RegisterTypeDefinitions(module.TypeDefinitions);
         RegisterEffectDefinitions(module.EffectDefs);
 
@@ -184,6 +194,7 @@ public sealed partial class TypeChecker(DiagnosticBag diagnostics)
 
     public void ImportModule(Module module, Set<string> exportedNames)
     {
+        EnsureBuiltinEffects();
         RegisterTypeDefinitions(module.TypeDefinitions);
         RegisterEffectDefinitions(module.EffectDefs);
 
