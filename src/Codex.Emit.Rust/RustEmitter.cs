@@ -834,7 +834,7 @@ public sealed class RustEmitter : ICodeEmitter
 
             case "list-at" when args.Count == 2:
                 EmitExpr(sb, args[0], indent);
-                sb.Append("[");
+                sb.Append('[');
                 EmitExpr(sb, args[1], indent);
                 sb.Append(" as usize].clone()");
                 return true;

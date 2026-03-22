@@ -732,7 +732,7 @@ public sealed class GoEmitter : ICodeEmitter
                 EmitExpr(sb, args[1], indent);
                 sb.Append(':');
                 EmitExpr(sb, args[1], indent);
-                sb.Append("+");
+                sb.Append('+');
                 EmitExpr(sb, args[2], indent);
                 sb.Append(']');
                 return true;

@@ -204,7 +204,7 @@ public sealed partial class CSharpEmitter
         }
         else if (app.Function is IRName fn8 && fn8.Name == "is-letter")
         {
-            sb.Append("(");
+            sb.Append('(');
             EmitExpr(sb, app.Argument, indent);
             sb.Append(".Length > 0 && char.IsLetter(");
             EmitExpr(sb, app.Argument, indent);
@@ -212,7 +212,7 @@ public sealed partial class CSharpEmitter
         }
         else if (app.Function is IRName fn9 && fn9.Name == "is-digit")
         {
-            sb.Append("(");
+            sb.Append('(');
             EmitExpr(sb, app.Argument, indent);
             sb.Append(".Length > 0 && char.IsDigit(");
             EmitExpr(sb, app.Argument, indent);
@@ -220,7 +220,7 @@ public sealed partial class CSharpEmitter
         }
         else if (app.Function is IRName fn10 && fn10.Name == "is-whitespace")
         {
-            sb.Append("(");
+            sb.Append('(');
             EmitExpr(sb, app.Argument, indent);
             sb.Append(".Length > 0 && char.IsWhiteSpace(");
             EmitExpr(sb, app.Argument, indent);
@@ -557,8 +557,7 @@ public sealed partial class CSharpEmitter
     {
         int remaining = arity - appliedArgs.Count;
         int firstRemaining = appliedArgs.Count;
-        ImmutableArray<string> paramNames = ImmutableArray<string>.Empty;
-        m_definitionParamNames.TryGet(defName, out paramNames);
+        m_definitionParamNames.TryGet(defName, out ImmutableArray<string> paramNames);
 
         for (int i = 0; i < remaining; i++)
         {

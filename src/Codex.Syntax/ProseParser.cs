@@ -248,7 +248,7 @@ public sealed partial class ProseParser(SourceText source, DiagnosticBag diagnos
         {
             if (trimmed.Contains(" : ")) return true;
             if (trimmed.Contains(" = ")) return true;
-            if (trimmed.EndsWith(" =") || trimmed.EndsWith("=")) return true;
+            if (trimmed.EndsWith(" =") || trimmed.EndsWith('=')) return true;
             if (trimmed.Contains('(')) return true;
         }
 
