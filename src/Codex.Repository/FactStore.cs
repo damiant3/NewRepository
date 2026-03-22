@@ -104,7 +104,7 @@ public sealed record Fact(
     }
 }
 
-public sealed class FactStore(string rootPath)
+public sealed partial class FactStore(string rootPath)
 {
     readonly string m_rootPath = rootPath;
     readonly string m_factsPath = Path.Combine(rootPath, ".codex", "facts");
