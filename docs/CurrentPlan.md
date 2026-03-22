@@ -12,6 +12,7 @@
 **V1 (Repository Views) complete.** Named views, consistency, composition, view-aware build.
 **R2b (Effects Formalized) complete.** Five effects as `.codex` source, loaded by parser.
 **Camp III-B (Capability System) complete.** CapabilityChecker + CLI `--capabilities` enforcement merged.
+**Camp III-A (Linear Allocator) Phase 1 complete.** IRRegion node + WASM region-based allocator merged.
 
 The C# bootstrap compiler is locked. All forward development happens in `.codex` source.
 
@@ -62,6 +63,13 @@ CLI `--capabilities Console,FileSystem` flag wired into `codex build` and
 capability isn't granted. `PrintCapabilityReport` shows required capabilities
 in build/check output. Merged from `linux/camp3b-capability-checker`.
 
+### Camp III-A — Linear Allocator (Phase 1) ✅
+
+`IRRegion` IR node wraps every definition body. WASM backend implements real
+region-based allocation: push heap pointer on enter, restore on exit (bulk free).
+Escape promotion skips heap-returning types (Phase 2). All 5 backends updated.
+1 new WASM test (1000-iteration stability). Merged from `linux/camp3a-region-allocator`.
+
 ### WASM Backend ✅
 
 **Phase 1**: Direct bytecode emission (no Cranelift), WASI fd_write, bump allocator,
@@ -85,10 +93,7 @@ RiscVEncoder, ElfWriter, RiscVCodeGen, bare metal UART. 13 + 5 QEMU tests.
 
 ## Active Work
 
-### Camp III-A — Linear Allocator ← **IN PROGRESS (linux/camp3a-region-allocator)**
-
-Design doc landed: `docs/Designs/Camp-IIIA-Linear-Allocator.md`.
-Implementation branch: `linux/camp3a-region-allocator`, awaiting review.
+No active feature branches. All reviews complete.
 
 ---
 
@@ -97,7 +102,7 @@ Implementation branch: `linux/camp3a-region-allocator`, awaiting review.
 ### Ready Now
 | Task | What | Why |
 |------|------|-----|
-| III-A review | Linear allocator — region-based, type-driven deallocation | Review `linux/camp3a-region-allocator` |
+| III-A Phase 2 | Escape analysis — promote region-escaping values to parent | Completes linear allocator for compound returns |
 | WASM Phase 3 | Records, sum types as tagged unions in linear memory | Unlocks real data structures in WASM |
 | V2 | Narration layer — prose-aware compilation | `.codex` files that read as documents |
 | V4 | Proof-carrying facts | Views verify proofs at composition time |
