@@ -627,15 +627,69 @@ sealed partial class WasmModuleBuilder
     void EmitRegion(MemoryStream body, IRRegion region,
         ValueMap<string, int> localMap, ref int nextLocal, List<byte> localTypes)
     {
-        // Skip region for heap-returning functions (escape promotion is Phase 2)
-        bool isHeapReturn = region.Type is TextType or RecordType or SumType or ListType;
-        if (isHeapReturn)
+        // Records, sum types, lists: skip region (deep copy needed — Phase 3)
+        if (region.Type is RecordType or SumType or ListType)
         {
             EmitExpr(body, region.Body, localMap, ref nextLocal, localTypes, region.Type);
             return;
         }
 
-        // Enter region: region_stack[region_sp] = heap_ptr; region_sp++
+        // Enter region
+        EmitRegionEnter(body);
+
+        // Emit body
+        EmitExpr(body, region.Body, localMap, ref nextLocal, localTypes, region.Type);
+
+        if (region.Type is TextType)
+        {
+            // Text escape promotion: copy the returned string to the parent region
+            // The old data is still physically in memory after region exit
+            int oldPtr = nextLocal++; localTypes.Add(WasmI32);
+            int len = nextLocal++; localTypes.Add(WasmI32);
+            int totalSize = nextLocal++; localTypes.Add(WasmI32);
+            int newPtr = nextLocal++; localTypes.Add(WasmI32);
+
+            // Save result pointer
+            body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, oldPtr);
+
+            // Load string length (4-byte prefix)
+            body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, oldPtr);
+            body.WriteByte(OpI32Load); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+            body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, len);
+
+            // totalSize = 4 + len
+            body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+            body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, len);
+            body.WriteByte(OpI32Add);
+            body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, totalSize);
+
+            // Exit region (heap_ptr restored — old data still physically present)
+            EmitRegionExit(body);
+
+            // Bump-allocate in parent region: newPtr = heap_ptr; heap_ptr += totalSize
+            body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+            body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, newPtr);
+            body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+            body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, totalSize);
+            body.WriteByte(OpI32Add);
+            body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+
+            // Copy bytes from oldPtr to newPtr (length prefix + data)
+            EmitMemCopyDirect(body, newPtr, oldPtr, 0, totalSize, ref nextLocal, localTypes);
+
+            // Push new pointer as the result
+            body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, newPtr);
+        }
+        else
+        {
+            // Scalar return — value is on the WASM stack, survives region exit
+            EmitRegionExit(body);
+        }
+    }
+
+    void EmitRegionEnter(MemoryStream body)
+    {
+        // region_stack[region_sp] = heap_ptr; region_sp++
         body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
         body.WriteByte(OpI32Mul);
@@ -648,11 +702,11 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
         body.WriteByte(OpI32Add);
         body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
+    }
 
-        // Emit body
-        EmitExpr(body, region.Body, localMap, ref nextLocal, localTypes, region.Type);
-
-        // Exit region: region_sp--; heap_ptr = region_stack[region_sp]
+    void EmitRegionExit(MemoryStream body)
+    {
+        // region_sp--; heap_ptr = region_stack[region_sp]
         body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
         body.WriteByte(OpI32Sub);
