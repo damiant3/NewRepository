@@ -13,6 +13,10 @@ sealed class RiscVCodeGen
     readonly List<(int InsnIndex, string Target)> m_callPatches = new();
     readonly List<RodataFixup> m_rodataFixups = new();
     readonly Dictionary<string, int> m_stringOffsets = new();
+    readonly RiscVTarget m_target;
+
+    // QEMU virt machine UART0 address (NS16550A compatible)
+    const long UartBase = 0x10000000;
 
     uint m_nextTemp = Reg.T0;
     Dictionary<string, uint> m_locals = new();
@@ -21,6 +25,11 @@ sealed class RiscVCodeGen
         Reg.S1, Reg.S2, Reg.S3, Reg.S4, Reg.S5, Reg.S6,
         Reg.S7, Reg.S8, Reg.S9, Reg.S10, Reg.S11
     };
+
+    public RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
+    {
+        m_target = target;
+    }
 
     public void EmitModule(IRModule module)
     {
@@ -44,7 +53,7 @@ sealed class RiscVCodeGen
         }
 
         int startOffset = m_functionOffsets["__start"] * 4;
-        return ElfWriter.WriteExecutable(textSection, m_rodata.ToArray(), (ulong)startOffset);
+        return ElfWriter.WriteExecutable(textSection, m_rodata.ToArray(), (ulong)startOffset, m_target);
     }
 
     // ── Function emission ────────────────────────────────────────
@@ -444,10 +453,15 @@ sealed class RiscVCodeGen
         return offset;
     }
 
-    // ── Syscalls ─────────────────────────────────────────────────
+    // ── Syscalls / IO ────────────────────────────────────────────
 
     void EmitSyscallWrite()
     {
+        if (m_target == RiscVTarget.BareMetal)
+        {
+            EmitUartWriteBuffer();
+            return;
+        }
         foreach (uint insn in RiscVEncoder.Li(Reg.A7, 64)) Emit(insn);  // SYS_write
         foreach (uint insn in RiscVEncoder.Li(Reg.A0, 1)) Emit(insn);   // stdout
         Emit(RiscVEncoder.Ecall());
@@ -455,9 +469,40 @@ sealed class RiscVCodeGen
 
     void EmitSyscallExit(uint codeReg)
     {
+        if (m_target == RiscVTarget.BareMetal)
+        {
+            // Bare metal: infinite loop (halt)
+            Emit(RiscVEncoder.J(0)); // j .  (spin forever)
+            return;
+        }
         Emit(RiscVEncoder.Mv(Reg.A0, codeReg));
         foreach (uint insn in RiscVEncoder.Li(Reg.A7, 93)) Emit(insn);  // SYS_exit
         Emit(RiscVEncoder.Ecall());
+    }
+
+    // ── UART output (bare metal) ─────────────────────────────────
+
+    void EmitUartWriteBuffer()
+    {
+        // On entry: a1 = buffer pointer, a2 = length
+        // Uses t0 = UART base, t1 = end pointer, t2 = current byte
+        foreach (uint insn in RiscVEncoder.Li(Reg.T0, UartBase)) Emit(insn);
+        Emit(RiscVEncoder.Add(Reg.T1, Reg.A1, Reg.A2)); // t1 = buf + len
+
+        int loopStart = m_instructions.Count;
+        // if (a1 >= t1) break
+        int exitIndex = m_instructions.Count;
+        Emit(RiscVEncoder.Nop()); // patched: bge a1, t1 → exit
+
+        // load byte, store to UART
+        Emit(RiscVEncoder.Lbu(Reg.T2, Reg.A1, 0));
+        Emit(RiscVEncoder.Sb(Reg.T0, Reg.T2, 0)); // UART THR at offset 0
+        Emit(RiscVEncoder.Addi(Reg.A1, Reg.A1, 1));
+        Emit(RiscVEncoder.J((loopStart - m_instructions.Count) * 4));
+
+        int exitTarget = m_instructions.Count;
+        m_instructions[exitIndex] = RiscVEncoder.Bge(Reg.A1, Reg.T1,
+            (exitTarget - exitIndex) * 4);
     }
 
     // ── _start ───────────────────────────────────────────────────
@@ -465,6 +510,11 @@ sealed class RiscVCodeGen
     void EmitStart(IRModule module)
     {
         m_functionOffsets["__start"] = m_instructions.Count;
+
+        if (m_target == RiscVTarget.BareMetal)
+        {
+            foreach (uint insn in RiscVEncoder.Li(Reg.Sp, 0x80100000L)) Emit(insn);
+        }
 
         IRDefinition? mainDef = null;
         foreach (IRDefinition def in module.Definitions)
@@ -508,7 +558,7 @@ sealed class RiscVCodeGen
         }
 
         int textSizeBytes = m_instructions.Count * 4;
-        ulong rodataVaddr = ElfWriter.ComputeRodataVaddr(textSizeBytes);
+        ulong rodataVaddr = ElfWriter.ComputeRodataVaddr(textSizeBytes, m_target);
 
         foreach (RodataFixup fixup in m_rodataFixups)
         {

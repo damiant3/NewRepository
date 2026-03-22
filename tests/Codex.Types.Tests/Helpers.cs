@@ -197,6 +197,16 @@ namespace Codex.Types.Tests
 
         public static byte[]? CompileToRiscV(string source, string moduleName = "test")
         {
+            return CompileToRiscVTarget(source, moduleName, Codex.Emit.RiscV.RiscVTarget.LinuxUser);
+        }
+
+        public static byte[]? CompileToRiscVBareMetal(string source, string moduleName = "test")
+        {
+            return CompileToRiscVTarget(source, moduleName, Codex.Emit.RiscV.RiscVTarget.BareMetal);
+        }
+
+        static byte[]? CompileToRiscVTarget(string source, string moduleName, Codex.Emit.RiscV.RiscVTarget target)
+        {
             SourceText src = new("test.codex", source);
             DiagnosticBag diagnostics = new();
 
@@ -234,7 +244,7 @@ namespace Codex.Types.Tests
             IRModule irModule = lowering.Lower(resolved.Module);
             if (diagnostics.HasErrors) return null;
 
-            Codex.Emit.RiscV.RiscVEmitter riscvEmitter = new();
+            Codex.Emit.RiscV.RiscVEmitter riscvEmitter = new(target);
             return riscvEmitter.EmitAssembly(irModule, moduleName);
         }
 

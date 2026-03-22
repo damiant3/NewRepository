@@ -16,30 +16,27 @@ sealed class ElfWriter
     const uint PF_R = 4;
 
     // Layout constants
-    const ulong BaseAddress = 0x10000;    // standard Linux user-space base
+    const ulong LinuxBaseAddress = 0x10000;    // standard Linux user-space base
+    const ulong BareMetalBaseAddress = 0x80000000; // QEMU virt machine -kernel load address
+
     const int ElfHeaderSize = 64;
     const int ProgramHeaderSize = 56;
 
-    public static byte[] WriteExecutable(byte[] textSection, byte[] rodataSection, ulong entryOffset)
+    public static byte[] WriteExecutable(byte[] textSection, byte[] rodataSection, ulong entryOffset,
+        RiscVTarget target = RiscVTarget.LinuxUser)
     {
-        // Layout:
-        // [ELF header: 64 bytes]
-        // [Phdr 0 (text): 56 bytes]   — code, r-x
-        // [Phdr 1 (rodata): 56 bytes] — data, r--
-        // [.text bytes]
-        // [.rodata bytes]
-        //
-        // We pack text right after headers. Rodata follows text.
+        ulong baseAddr = target == RiscVTarget.BareMetal ? BareMetalBaseAddress : LinuxBaseAddress;
 
-        int headersTotalSize = ElfHeaderSize + ProgramHeaderSize * 2;
+        int phdrCount = 2;
+        int headersTotalSize = ElfHeaderSize + ProgramHeaderSize * phdrCount;
 
         // Align text to 16 bytes after headers
         int textFileOffset = Align(headersTotalSize, 16);
-        ulong textVaddr = BaseAddress + (ulong)textFileOffset;
+        ulong textVaddr = baseAddr + (ulong)textFileOffset;
         ulong entryPoint = textVaddr + entryOffset;
 
         int rodataFileOffset = Align(textFileOffset + textSection.Length, 16);
-        ulong rodataVaddr = BaseAddress + (ulong)rodataFileOffset;
+        ulong rodataVaddr = baseAddr + (ulong)rodataFileOffset;
 
         int totalSize = rodataFileOffset + rodataSection.Length;
 
@@ -56,7 +53,7 @@ sealed class ElfWriter
         // e_ident[6]: version
         w.Write((byte)1);
         // e_ident[7]: OS/ABI (Linux)
-        w.Write((byte)0);
+        w.Write((byte)0); // OS/ABI: NONE (works for both Linux and bare metal)
         // e_ident[8..15]: padding
         w.Write(new byte[8]);
 
@@ -79,7 +76,7 @@ sealed class ElfWriter
         // e_phentsize
         w.Write((ushort)ProgramHeaderSize);
         // e_phnum
-        w.Write((ushort)2);
+        w.Write((ushort)phdrCount);
         // e_shentsize
         w.Write((ushort)0);
         // e_shnum
@@ -126,12 +123,13 @@ sealed class ElfWriter
 
     /// Returns the virtual address where .rodata starts.
     /// Used by the code generator to compute string literal addresses.
-    public static ulong ComputeRodataVaddr(int textSize)
+    public static ulong ComputeRodataVaddr(int textSize, RiscVTarget target = RiscVTarget.LinuxUser)
     {
+        ulong baseAddr = target == RiscVTarget.BareMetal ? BareMetalBaseAddress : LinuxBaseAddress;
         int headersTotalSize = ElfHeaderSize + ProgramHeaderSize * 2;
         int textFileOffset = Align(headersTotalSize, 16);
         int rodataFileOffset = Align(textFileOffset + textSize, 16);
-        return BaseAddress + (ulong)rodataFileOffset;
+        return baseAddr + (ulong)rodataFileOffset;
     }
 
     static int Align(int value, int alignment)

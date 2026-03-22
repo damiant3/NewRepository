@@ -284,7 +284,6 @@ public class RiscVEmitterTests
     static string ToWslPath(string windowsPath)
     {
         string full = Path.GetFullPath(windowsPath);
-        // D:\foo\bar → /mnt/d/foo/bar
         if (full.Length >= 2 && full[1] == ':')
         {
             char drive = char.ToLowerInvariant(full[0]);
@@ -292,5 +291,168 @@ public class RiscVEmitterTests
             return $"/mnt/{drive}{rest}";
         }
         return full.Replace('\\', '/');
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // Bare Metal tests
+    // ═════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void BareMetal_integer_emits_elf_with_correct_base()
+    {
+        string source = """
+            main : Integer
+            main = 42
+            """;
+        byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, "bm_int");
+        Assert.NotNull(bytes);
+        AssertValidElf(bytes);
+
+        // e_entry at offset 24 — should be at or above 0x80000000
+        ulong entry = BitConverter.ToUInt64(bytes, 24);
+        Assert.True(entry >= 0x80000000UL,
+            $"Bare metal entry point should be >= 0x80000000, got 0x{entry:X}");
+    }
+
+    [Fact]
+    public void BareMetal_factorial_emits_elf()
+    {
+        string source = """
+            factorial : Integer -> Integer
+            factorial (n) = if n == 0 then 1 else n * factorial (n - 1)
+
+            main : Integer
+            main = factorial 5
+            """;
+        byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, "bm_fact");
+        Assert.NotNull(bytes);
+        AssertValidElf(bytes);
+    }
+
+    [Fact]
+    public void BareMetal_string_emits_elf()
+    {
+        string source = """
+            main : Text
+            main = "Hello from bare metal"
+            """;
+        byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, "bm_text");
+        Assert.NotNull(bytes);
+        AssertValidElf(bytes);
+
+        ulong entry = BitConverter.ToUInt64(bytes, 24);
+        Assert.True(entry >= 0x80000000UL);
+    }
+
+    [Fact]
+    public void BareMetal_no_ecall_in_binary()
+    {
+        // Bare metal should use UART, not Linux syscalls.
+        // ecall encodes as 0x00000073.
+        string source = """
+            main : Integer
+            main = 42
+            """;
+        byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, "bm_no_ecall");
+        Assert.NotNull(bytes);
+
+        bool foundEcall = false;
+        for (int i = 0; i + 3 < bytes.Length; i += 4)
+        {
+            uint insn = (uint)(bytes[i] | (bytes[i + 1] << 8) |
+                (bytes[i + 2] << 16) | (bytes[i + 3] << 24));
+            if (insn == 0x00000073) { foundEcall = true; break; }
+        }
+        Assert.False(foundEcall, "Bare metal binary should not contain ecall instructions");
+    }
+
+    [Fact]
+    public void BareMetal_integer_42_runs_under_qemu_system()
+    {
+        string source = """
+            main : Integer
+            main = 42
+            """;
+        string? output = CompileAndRunBareMetal(source, "bm_int42_run");
+        if (output is null) return; // skip if qemu-system-riscv64 not available
+        Assert.Contains("42", output);
+    }
+
+    [Fact]
+    public void BareMetal_factorial_runs_under_qemu_system()
+    {
+        string source = """
+            factorial : Integer -> Integer
+            factorial (n) = if n == 0 then 1 else n * factorial (n - 1)
+
+            main : Integer
+            main = factorial 5
+            """;
+        string? output = CompileAndRunBareMetal(source, "bm_fact_run");
+        if (output is null) return;
+        Assert.Contains("120", output);
+    }
+
+    static string? CompileAndRunBareMetal(string source, string moduleName)
+    {
+        byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, moduleName);
+        if (bytes is null) return null;
+        if (!IsQemuSystemAvailable()) return null;
+
+        string tempDir = Path.Combine(Path.GetTempPath(),
+            "codex_bm_test_" + moduleName + "_" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string elfPath = Path.Combine(tempDir, moduleName + ".elf");
+            File.WriteAllBytes(elfPath, bytes);
+
+            string wslPath = ToWslPath(elfPath);
+
+            // qemu-system-riscv64 -machine virt -bios none -nographic -kernel <elf>
+            // Timeout after 5 seconds (bare metal has no exit — spins forever)
+            ProcessStartInfo psi = new("bash",
+                $"-c \"timeout 5 qemu-system-riscv64 -machine virt -bios none -nographic -kernel '{wslPath}' 2>/dev/null || true\"")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = tempDir
+            };
+
+            using Process? proc = Process.Start(psi);
+            if (proc is null) return null;
+
+            string stdout = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(10_000);
+            return stdout;
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
+    static bool IsQemuSystemAvailable()
+    {
+        try
+        {
+            ProcessStartInfo psi = new("bash", "-c \"qemu-system-riscv64 --version\"")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using Process? proc = Process.Start(psi);
+            if (proc is null) return false;
+            proc.WaitForExit(5_000);
+            return proc.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
