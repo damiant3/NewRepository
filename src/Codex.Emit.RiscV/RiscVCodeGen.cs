@@ -19,7 +19,12 @@ sealed class RiscVCodeGen
 
     // Register allocator state (trivial: next available temp)
     uint m_nextTemp = Reg.T0;
-    const uint MaxTemp = Reg.T2; // t0-t2 for now; expand later
+
+    // Callee-saved registers we use for locals/temps: s1-s11
+    static readonly uint[] CalleeSaved = {
+        Reg.S1, Reg.S2, Reg.S3, Reg.S4, Reg.S5, Reg.S6,
+        Reg.S7, Reg.S8, Reg.S9, Reg.S10, Reg.S11
+    };
 
     // Local variable name → register
     Dictionary<string, uint> m_locals = new();
@@ -75,11 +80,17 @@ sealed class RiscVCodeGen
         m_locals = new Dictionary<string, uint>();
         m_nextTemp = Reg.S2; // use callee-saved for locals
 
-        // Prologue: save ra and s0
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -16));
-        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.Ra, 8));
-        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.S0, 0));
-        Emit(RiscVEncoder.Addi(Reg.S0, Reg.Sp, 16));
+        // Prologue: save ra, and s0
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -112));
+        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.Ra, 104));
+        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.S0, 96));
+
+        // s1-s11: save all callee-saved registers (s1-s11)
+        for (int i = 0; i < CalleeSaved.Length; i++)
+        {
+            Emit(RiscVEncoder.Sd(Reg.Sp, CalleeSaved[i], 88 - i * 8));
+        }
+        Emit(RiscVEncoder.Addi(Reg.S0, Reg.Sp, 112));
 
         // Map parameters to argument registers
         for (int i = 0; i < def.Parameters.Length && i < 8; i++)
@@ -95,10 +106,14 @@ sealed class RiscVCodeGen
         if (resultReg != Reg.A0)
             Emit(RiscVEncoder.Mv(Reg.A0, resultReg));
 
-        // Epilogue: restore ra, s0, return
-        Emit(RiscVEncoder.Ld(Reg.Ra, Reg.Sp, 8));
-        Emit(RiscVEncoder.Ld(Reg.S0, Reg.Sp, 0));
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 16));
+        // Epilogue: restore all callee-saved registers, ra, s0, return
+        for (int i = 0; i < CalleeSaved.Length; i++)
+        {
+            Emit(RiscVEncoder.Ld(CalleeSaved[i], Reg.Sp, 88 - i * 8));
+        }
+        Emit(RiscVEncoder.Ld(Reg.Ra, Reg.Sp, 104));
+        Emit(RiscVEncoder.Ld(Reg.S0, Reg.Sp, 96));
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 112));
         Emit(RiscVEncoder.Ret());
     }
 
