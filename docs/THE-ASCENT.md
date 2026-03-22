@@ -172,6 +172,18 @@ The bare metal binary has **zero `ecall` instructions**. Nothing between
 the compiled code and the hardware. A Codex program → typed IR → flat
 binary → RISC-V instructions → UART output → your screen.
 
+#### WASM Backend ✅ (2026-03-22)
+
+The second binary backend targets WebAssembly. Direct bytecode emission —
+no Cranelift, no foreign toolchain. WASI preview 1 for I/O. Two phases
+delivered: basic emission with WASI fd_write, then string equality,
+text builtins (char-at, substring, text-to-integer, integer-to-text),
+and runtime helpers. 23 tests, all verified under wasmtime.
+
+WASM gives Codex portable sandboxed execution. A `.wasm` file runs in
+browsers, on servers, on embedded devices. The effect system and WASI
+align naturally — effects are declared, WASI grants them.
+
 ```
 codex build samples/hello.codex --target riscv-bare-metal
 qemu-system-riscv64 -machine virt -bios none -nographic \
@@ -257,6 +269,18 @@ This is not a sandbox bolted on after the fact. It's the type system.
 The compiler won't emit code that accesses a capability the function
 doesn't declare.
 
+#### Progress (2026-03-22)
+
+The foundation is built:
+- Effects formalized as `.codex` source (Console, FileSystem, State, Time, Random)
+- `CapabilityChecker` extracts effect annotations from every definition
+- `CapabilityReport` summarizes what a program requires
+- `CDX4001` diagnostic fires when a required capability wasn't granted
+- Wired into all three compilation pipelines
+
+What remains: CLI `--capabilities` flag, runtime enforcement at program launch,
+and the `Network` and `Process` effects.
+
 ### Camp III-C: Concurrency — Structured, Deterministic
 
 No threads. No locks. No data races.
@@ -282,6 +306,15 @@ across trust boundaries. A dependency isn't a name that resolves to whatever
 someone last published — it's a hash that points to a specific, immutable,
 verified artifact. Supply chain attacks become impossible not by policy but
 by construction.
+
+#### Progress (2026-03-22)
+
+V1 is complete. The repository has:
+- Named views with CRUD, composition (override/merge/filter), and consistency checking
+- View-aware compilation: `codex build --view canonical` — the view IS the build manifest
+- No files, no project manifests — just the view and the fact store
+
+What remains: proposal workflow, trust lattice, cross-repo federation.
 
 **Summit marker**: A Codex program runs on bare hardware with its own
 allocator, its own I/O capabilities, its own scheduler, and draws its
@@ -392,12 +425,12 @@ That pace recalibrates everything.
 | Camp | Visibility | Honest Estimate |
 |------|-----------|----------------|
 | II-A (IL maturity) | ✅ Summited 2026-03-21 | — |
-| II-B (Native codegen) | ✅ RISC-V summited 2026-03-21 | x86-64/ARM64: weeks |
+| II-B (Native codegen) | ✅ RISC-V + WASM 2026-03-22 | x86-64/ARM64: weeks |
 | II-C (Self-hosted native) | Visible in clear weather | Weeks |
 | III-A (Linear allocator) | Outline visible | Weeks–months |
-| III-B (Capability I/O) | Outline visible | Months |
+| III-B (Capability I/O) | Foundation built (checker + effects) | Weeks–months |
 | III-C (Structured concurrency) | Know it's there | Months |
-| III-R (Repository) | Foundation built, summit ahead | Months |
+| III-R (Repository) | ✅ V1 complete (views, consistency, build) | Federation: months |
 | IV (Codex.OS) | Not theoretical anymore | 2026 |
 
 These are not promises. They're sightlines. But we've been consistently

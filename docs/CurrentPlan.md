@@ -8,78 +8,65 @@
 
 **Peak I (Self-Hosting) achieved.** The Codex compiler compiles itself. Fixed point proven.
 **Camp II-A (IL Backend) summited.** Standalone `.exe` emission via IL, no C# compiler needed.
-**Camp II-B (Native Codegen) summited.** RISC-V native backend: encoder, ELF writer, codegen,
-bare metal target with UART MMIO. 13 RISC-V tests + 5 QEMU execution tests.
+**Camp II-B (Native Codegen) summited.** RISC-V native + WASM backends. Three binary targets.
+**V1 (Repository Views) complete.** Named views, consistency, composition, view-aware build.
+**R2b (Effects Formalized) complete.** Five effects as `.codex` source, loaded by parser.
+**Camp III-B (Capability System) begun.** CapabilityChecker extracts + enforces effect grants.
 
 The C# bootstrap compiler is locked. All forward development happens in `.codex` source.
-The RISC-V bare metal proof-of-concept demonstrated Codex → native binary → hardware
-with zero runtime. Camp II-C (self-hosted native build chain) is deferred — the proof
-exists, the ecosystem comes first.
 
 ### Snapshot
 
 | Metric | Value |
 |--------|-------|
 | Self-hosted compiler | 26 files, ~4,900 lines |
-| Prelude | 11 modules, ~1,200 lines |
-| Backends | 12 transpilation + IL + RISC-V native + RISC-V bare metal |
-| Tests | 854+ passing |
+| Prelude | 16 modules, ~1,250 lines (11 type + 5 effect) |
+| Backends | 12 transpilation + IL + RISC-V native + RISC-V bare metal + WASM |
+| Tests | 900+ passing |
 | Type debt | 0 |
 | Fixed point | Proven (Stage 1 = Stage 3 at 255,344 chars) |
 | Reference compiler | 🔒 Locked |
-| Native targets | RISC-V 64 (Linux user + bare metal) |
+| Binary targets | RISC-V 64 (Linux user + bare metal), WASM/WASI |
 
 ---
 
-## Completed Work (this cycle)
+## Completed Work (this cycle — 2026-03-22)
 
-### V1 Phase 1 — Named Views ✅ (2026-03-22)
+### V1 — Repository Views ✅ COMPLETE
 
-- `FactStore.Views.cs`: CreateView, ListViews, SwitchView, DeleteView, GetNamedView,
-  UpdateNamedView, RemoveFromView, ViewExists
-- Legacy `view.json` ↔ canonical view bridge
-- View name validation (path traversal, dot names, whitespace)
-- Existence guards on all read/write ops (silent corruption prevention)
-- 27 tests in `ViewTests`
+Four phases delivered in one day:
+- **Phase 1**: Named views — CRUD, legacy bridge, name validation, existence guards (27 tests)
+- **Phase 2**: View consistency — type-check all definitions in a view together (5 tests)
+- **Phase 3**: View composition — Override, Merge (with conflict detection), Filter (14 tests)
+- **Phase 4**: View-aware compilation — `codex build --view <n>` (the view IS the build manifest)
 
-### V1 Phase 2 — View Consistency ✅ (2026-03-22)
+69 total ViewTests. The repository model is now a working build system.
 
-- `FactStore.CheckViewConsistency()`: loads facts from view, validates kinds, delegates
-  to `IViewConsistencyChecker` for semantic checking
-- `ViewConsistencyChecker` (in Codex.Cli): full pipeline — parse → desugar → resolve → type-check → linearity
-- 5 tests in `ViewConsistencyTests`
+### R2b — Formalize Effects ✅
 
-### V1 Phase 3 — View Composition ✅ (2026-03-22)
+Effect definitions moved from hard-coded TypeEnvironment to parsed `.codex` source:
+`Console`, `FileSystem`, `State`, `Time`, `Random` (5 prelude files).
+`BuiltinEffects.Load()` parses once, caches forever. 8 new prelude tests.
 
-- `OverrideView(base, target, overrides)`: copy-with-replacements
-- `MergeViews(a, b, target)`: union with conflict detection (`ViewMergeResult`)
-- `FilterView(source, target, keepNames)`: restrict to subset
-- Internal helpers: `RequireViewExists`, `RequireViewNotExists`, `LoadViewRaw`
-- 14 tests for composition ops (69 total in ViewTests)
+### Camp III-B — Capability System (Phase 1) ✅
 
-### V1 Phase 4 — View-Aware Compilation ✅ (2026-03-22)
+`CapabilityChecker`: post-type-check pass that extracts effect annotations
+and optionally enforces capability grants. `CDX4001` diagnostic when a
+required capability is missing. Wired into all compile pipelines.
+`CapabilityReport` carried on `IRCompilationResult`. 9 tests.
 
-- `codex build --view <name>` compiles from a repository view
-- `CompileViewToIR()`: loads view → fetches definition facts → full pipeline
-- The view IS the build manifest — no separate project files needed
-- Supports all targets (`--target cs|il|exe|wasm|riscv|...`)
+### WASM Backend ✅
 
-### WASM Backend Phase 1 ✅ (2026-03-22)
+**Phase 1**: Direct bytecode emission (no Cranelift), WASI fd_write, bump allocator,
+length-prefixed strings, runtime helpers (print i64/bool). 10 tests.
 
-- `Codex.Emit.Wasm`: WasmEmitter (IAssemblyEmitter), WasmModuleBuilder (1671 lines)
-- WASI integration: `fd_write` for console output, `_start` + `memory` exports
-- Bump allocator, length-prefixed strings, byte-loop memcpy
-- Runtime helpers: i64→decimal print, bool→"True"/"False"
-- 10 tests (5 emission + 5 wasmtime execution when available)
+**Phase 2**: String equality (byte-by-byte with pointer fast path), text builtins
+(text-to-integer, integer-to-text, char-at, substring, negate), f64.neg opcode.
+13 new tests (23 total WASM, all wasmtime-verified).
 
 ### Camp II-B — RISC-V Native Backend ✅ (2026-03-21)
 
-- `Codex.Emit.RiscV`: RiscVEncoder (RV64IM instruction encoding), ElfWriter (ELF64 +
-  flat binary), RiscVCodeGen (IR→machine code), RiscVEmitter (IAssemblyEmitter)
-- Linux userspace: direct syscalls, no libc
-- Bare metal: UART MMIO at 0x10000000, flat binary, J trampoline at byte 0
-- Bugs found and fixed: ELF-at-byte-0, `lui` sign-extension on RV64, QEMU serial routing
-- MCP tool name validation tests added (prevents spec violations at build time)
+RiscVEncoder, ElfWriter, RiscVCodeGen, bare metal UART. 13 + 5 QEMU tests.
 
 ### Previously Completed
 
@@ -91,46 +78,34 @@ exists, the ecosystem comes first.
 
 ## Active Work
 
-### V1 — Repository Views (Phase 3 next)
+### Camp III-B — Capability System (Phase 2) ← **IN REVIEW**
 
-Phases 1–2 are on master and reviewed. Next:
-
-#### Phase 3: View Composition ← **NEXT**
-- `base + override`: a view with one definition replaced
-- `view-a ∪ view-b`: merge (fails on conflict)
-- `view | filter`: restrict to certain modules
-
-#### Phase 4: View-Aware Compilation
-- `codex build --view <name>` compiles from a view, not from files
-- The view IS the build manifest — no separate project files
-
-### R2b — Stdlib Layer 4 (Effects)
-
-Formalize effect definitions in `.codex` source: `Console`, `FileSystem`, `State`,
-`Time`, `Random`. Currently hard-coded in the type environment. ~50 lines.
-This enables capability enforcement — a function declares what effects it needs,
-the type system enforces it.
+CapabilityChecker is on `linux/camp3b-capability-checker`, awaiting merge.
+Next: wire `--capabilities Console,FileSystem` flag into CLI, enforcement on
+`codex build` and `codex run`.
 
 ---
 
-## Forward Direction
+## Forward Direction — Next Rocks to Climb
 
-### Near Term (this week)
-| Task | What | Depends on |
-|------|------|------------|
-| V1 | Repository Views ✅ Complete | — |
-| R2b-1 | Formalize effects in `.codex` | Nothing — ready now |
+### Ready Now
+| Task | What | Why |
+|------|------|-----|
+| III-B Phase 2 | CLI `--capabilities` flag + enforcement | Completes the capability grant flow end-to-end |
+| WASM Phase 3 | Records, sum types as tagged unions in linear memory | Unlocks real data structures in WASM |
+| V2 | Narration layer — prose-aware compilation | `.codex` files that read as documents |
+| V4 | Proof-carrying facts | Views verify proofs at composition time |
 
 ### Medium Term
-- **V4 — Proof-carrying facts**: every published fact carries its proofs, views verify them
-- **Linear resource protocol**: hardware handles as linear values, type-enforced lifecycle
-- **Camp II-C**: self-hosted native build chain on RISC-V (deferred, proof exists)
+- **Camp III-A**: Linear allocator — region-based, type-driven deallocation
+- **Camp III-C**: Structured concurrency — `par`, `race`, work-stealing
+- **Camp II-C**: Self-hosted native build chain on RISC-V (deferred, proof exists)
+- **V3**: Repository federation — multi-repo sync, cross-repo trust
 
 ### Long Term
-- **V2 — Narration layer**: prose-aware compilation
-- **V3 — Repository federation**: multi-repo sync, cross-repo trust
 - **V5 — Intelligence layer**: AI agents as first-class participants
 - **V6 — Trust lattice**: vouching with degrees, trust-ranked search
+- **Peak IV — Codex.OS**: The summit
 
 ---
 
