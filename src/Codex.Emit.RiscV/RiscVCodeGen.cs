@@ -33,10 +33,24 @@ sealed class RiscVCodeGen
 
     public void EmitModule(IRModule module)
     {
+        // Bare metal: reserve first instruction slot for jump-to-start trampoline.
+        // CPU begins execution at byte 0, but _start is emitted after all functions.
+        int trampolineIndex = -1;
+        if (m_target == RiscVTarget.BareMetal)
+        {
+            trampolineIndex = m_instructions.Count;
+            Emit(RiscVEncoder.Nop()); // patched after _start is emitted
+        }
+
         foreach (IRDefinition def in module.Definitions)
             EmitFunction(def);
 
         EmitStart(module);
+
+        // Patch the trampoline to jump to _start
+        if (trampolineIndex >= 0 && m_functionOffsets.TryGetValue("__start", out int startIndex))
+            m_instructions[trampolineIndex] = RiscVEncoder.J((startIndex - trampolineIndex) * 4);
+
         PatchCalls();
     }
 
@@ -51,6 +65,9 @@ sealed class RiscVCodeGen
             textSection[i * 4 + 2] = (byte)((insn >> 16) & 0xFF);
             textSection[i * 4 + 3] = (byte)((insn >> 24) & 0xFF);
         }
+
+        if (m_target == RiscVTarget.BareMetal)
+            return ElfWriter.WriteFlatBinary(textSection, m_rodata.ToArray());
 
         int startOffset = m_functionOffsets["__start"] * 4;
         return ElfWriter.WriteExecutable(textSection, m_rodata.ToArray(), (ulong)startOffset, m_target);

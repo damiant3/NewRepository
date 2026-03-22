@@ -121,11 +121,29 @@ sealed class ElfWriter
         return ms.ToArray();
     }
 
+    /// Writes a flat binary for bare metal: just code + rodata, no headers.
+    /// QEMU -kernel loads this at the base address and jumps to byte 0.
+    public static byte[] WriteFlatBinary(byte[] textSection, byte[] rodataSection)
+    {
+        int rodataOffset = Align(textSection.Length, 16);
+        int totalSize = rodataOffset + rodataSection.Length;
+
+        byte[] result = new byte[totalSize];
+        Array.Copy(textSection, 0, result, 0, textSection.Length);
+        Array.Copy(rodataSection, 0, result, rodataOffset, rodataSection.Length);
+        return result;
+    }
+
     /// Returns the virtual address where .rodata starts.
     /// Used by the code generator to compute string literal addresses.
     public static ulong ComputeRodataVaddr(int textSize, RiscVTarget target = RiscVTarget.LinuxUser)
     {
-        ulong baseAddr = target == RiscVTarget.BareMetal ? BareMetalBaseAddress : LinuxBaseAddress;
+        if (target == RiscVTarget.BareMetal)
+        {
+            int rodataOffset = Align(textSize, 16);
+            return BareMetalBaseAddress + (ulong)rodataOffset;
+        }
+        ulong baseAddr = LinuxBaseAddress;
         int headersTotalSize = ElfHeaderSize + ProgramHeaderSize * 2;
         int textFileOffset = Align(headersTotalSize, 16);
         int rodataFileOffset = Align(textFileOffset + textSize, 16);

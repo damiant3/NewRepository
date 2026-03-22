@@ -298,7 +298,7 @@ public class RiscVEmitterTests
     // ═════════════════════════════════════════════════════════════
 
     [Fact]
-    public void BareMetal_integer_emits_elf_with_correct_base()
+    public void BareMetal_integer_emits_flat_binary()
     {
         string source = """
             main : Integer
@@ -306,16 +306,18 @@ public class RiscVEmitterTests
             """;
         byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, "bm_int");
         Assert.NotNull(bytes);
-        AssertValidElf(bytes);
+        Assert.True(bytes.Length > 0);
 
-        // e_entry at offset 24 — should be at or above 0x80000000
-        ulong entry = BitConverter.ToUInt64(bytes, 24);
-        Assert.True(entry >= 0x80000000UL,
-            $"Bare metal entry point should be >= 0x80000000, got 0x{entry:X}");
+        // Flat binary: first 4 bytes should be a valid RISC-V instruction, not ELF magic
+        Assert.NotEqual(0x7F, bytes[0]); // not ELF
+        // First instruction should be a J-type (jal x0, offset) trampoline to _start
+        uint firstInsn = (uint)(bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24));
+        uint opcode = firstInsn & 0x7F;
+        Assert.Equal(0x6Fu, opcode); // JAL opcode — jump to _start
     }
 
     [Fact]
-    public void BareMetal_factorial_emits_elf()
+    public void BareMetal_factorial_emits_flat_binary()
     {
         string source = """
             factorial : Integer -> Integer
@@ -326,11 +328,12 @@ public class RiscVEmitterTests
             """;
         byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, "bm_fact");
         Assert.NotNull(bytes);
-        AssertValidElf(bytes);
+        Assert.True(bytes.Length > 0);
+        Assert.NotEqual(0x7F, bytes[0]); // flat binary, not ELF
     }
 
     [Fact]
-    public void BareMetal_string_emits_elf()
+    public void BareMetal_string_emits_flat_binary()
     {
         string source = """
             main : Text
@@ -338,10 +341,8 @@ public class RiscVEmitterTests
             """;
         byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, "bm_text");
         Assert.NotNull(bytes);
-        AssertValidElf(bytes);
-
-        ulong entry = BitConverter.ToUInt64(bytes, 24);
-        Assert.True(entry >= 0x80000000UL);
+        Assert.True(bytes.Length > 0);
+        Assert.NotEqual(0x7F, bytes[0]); // flat binary, not ELF
     }
 
     [Fact]
