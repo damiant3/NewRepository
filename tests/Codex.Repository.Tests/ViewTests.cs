@@ -415,8 +415,23 @@ public class ViewConsistencyTests : IDisposable
         Assert.False(result.IsConsistent);
         Assert.Contains(result.Errors, e => e.Contains("Trust") && e.Contains("expected Definition"));
     }
+}
 
-    // --- Phase 3: View Composition ---
+public class ViewCompositionTests : IDisposable
+{
+    readonly string m_tempDir;
+    readonly FactStore m_store;
+
+    public ViewCompositionTests()
+    {
+        m_tempDir = Path.Combine(Path.GetTempPath(), "codex_vc_test_" + Guid.NewGuid().ToString("N")[..8]);
+        m_store = FactStore.Init(m_tempDir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(m_tempDir, true); } catch { }
+    }
 
     Fact StoreDef(string source)
     {
@@ -543,7 +558,6 @@ public class ViewConsistencyTests : IDisposable
         Assert.Equal(defA1.Hash, result.Conflicts[0].HashA);
         Assert.Equal(defA2.Hash, result.Conflicts[0].HashB);
 
-        // Target should not have been created
         Assert.False(m_store.ViewExists("conflict-target"));
     }
 

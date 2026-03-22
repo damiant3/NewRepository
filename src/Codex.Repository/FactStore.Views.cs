@@ -65,14 +65,10 @@ partial class FactStore
     public void CreateView(string name, bool copyFromCurrent = false)
     {
         ValidateViewName(name);
-
-        if (name == "canonical" && File.Exists(m_viewPath))
-            throw new InvalidOperationException("View 'canonical' already exists.");
+        RequireViewNotExists(name);
 
         Directory.CreateDirectory(m_viewsPath);
         string viewFile = Path.Combine(m_viewsPath, name + ".json");
-        if (File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{name}' already exists.");
 
         if (copyFromCurrent)
         {
@@ -122,10 +118,7 @@ partial class FactStore
 
     public void SwitchView(string name)
     {
-        string viewFile = ResolveViewFile(name);
-        if (!File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{name}' does not exist.");
-
+        RequireViewExists(name);
         Directory.CreateDirectory(Path.GetDirectoryName(m_currentViewMarker)!);
         File.WriteAllText(m_currentViewMarker, name);
     }
@@ -147,10 +140,8 @@ partial class FactStore
 
     public ValueMap<string, ContentHash> GetNamedView(string viewName)
     {
-        string viewFile = ResolveViewFile(viewName);
-        if (!File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{viewName}' does not exist.");
-        Map<string, string> raw = LoadViewMapFrom(viewFile);
+        RequireViewExists(viewName);
+        Map<string, string> raw = LoadViewRaw(viewName);
         ValueMap<string, ContentHash> result = ValueMap<string, ContentHash>.s_empty;
         foreach (KeyValuePair<string, string> kv in raw)
             result = result.Set(kv.Key, ContentHash.FromHex(kv.Value));
@@ -159,9 +150,8 @@ partial class FactStore
 
     public void UpdateNamedView(string viewName, string definitionName, ContentHash hash)
     {
+        RequireViewExists(viewName);
         string viewFile = ResolveViewFile(viewName);
-        if (!File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{viewName}' does not exist.");
         Map<string, string> map = LoadViewMapFrom(viewFile);
         map = map.Set(definitionName, hash.ToHex());
         SaveViewMapTo(viewFile, map);
@@ -169,9 +159,8 @@ partial class FactStore
 
     public void RemoveFromView(string viewName, string definitionName)
     {
+        RequireViewExists(viewName);
         string viewFile = ResolveViewFile(viewName);
-        if (!File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{viewName}' does not exist.");
         Map<string, string> map = LoadViewMapFrom(viewFile);
         map = map.Remove(definitionName);
         SaveViewMapTo(viewFile, map);
