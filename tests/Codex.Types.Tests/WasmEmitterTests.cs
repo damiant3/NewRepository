@@ -360,6 +360,44 @@ public class WasmEmitterTests
         Assert.True(result > 0, $"Expected positive sum, got {result}");
     }
 
+    [Fact]
+    public void Text_escape_promotion_works()
+    {
+        // A function that returns a heap-allocated Text (concat).
+        // The region should promote the return value to the caller's region.
+        string source = """
+            make-greeting : Text -> Text
+            make-greeting (name) = "Hello, " ++ name ++ "!"
+
+            main : Text
+            main = make-greeting "World"
+            """;
+        string? output = CompileAndRun(source, "text_escape_wasm");
+        if (output is null) return;
+        Assert.Equal("Hello, World!", output.Trim());
+    }
+
+    [Fact]
+    public void Text_escape_stable_in_loop()
+    {
+        // Call a text-returning function many times — regions must promote
+        // the result each time without exhausting memory
+        string source = """
+            tag : Integer -> Text
+            tag (n) = "item-" ++ (show n)
+
+            count-chars : Integer -> Integer -> Integer
+            count-chars (i) (acc) = if i == 0 then acc else count-chars (i - 1) (acc + text-length (tag i))
+
+            main : Integer
+            main = count-chars 500 0
+            """;
+        string? output = CompileAndRun(source, "text_escape_loop_wasm");
+        if (output is null) return;
+        int result = int.Parse(output.Trim());
+        Assert.True(result > 0, $"Expected positive sum, got {result}");
+    }
+
     // ── Helpers ────────────────────────────────────────────────
 
     static string? CompileAndRun(string source, string moduleName)
