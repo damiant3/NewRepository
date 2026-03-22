@@ -405,16 +405,25 @@ public class RiscVEmitterTests
         Directory.CreateDirectory(tempDir);
         try
         {
-            string elfPath = Path.Combine(tempDir, moduleName + ".elf");
-            File.WriteAllBytes(elfPath, bytes);
+            string binPath = Path.Combine(tempDir, moduleName + ".bin");
+            File.WriteAllBytes(binPath, bytes);
 
-            string wslPath = ToWslPath(elfPath);
+            string qemuPath;
+            if (OperatingSystem.IsWindows())
+            {
+                // Run via WSL on Windows
+                qemuPath = ToWslPath(binPath);
+            }
+            else
+            {
+                // Native Linux — use path directly, chmod +x for good measure
+                File.SetUnixFileMode(binPath,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                qemuPath = binPath;
+            }
 
-            // qemu-system-riscv64 -machine virt -bios none -nographic -serial mon:stdio -kernel <elf>
-            // -serial mon:stdio routes UART0 to stdout (required for bare metal output)
-            // Timeout after 5 seconds (bare metal has no exit — spins forever)
             ProcessStartInfo psi = new("bash",
-                $"-c \"timeout 5 qemu-system-riscv64 -machine virt -bios none -nographic -serial mon:stdio -kernel '{wslPath}' 2>/dev/null || true\"")
+                $"-c \"timeout 5 qemu-system-riscv64 -machine virt -bios none -nographic -serial mon:stdio -kernel '{qemuPath}' 2>/dev/null || true\"")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
