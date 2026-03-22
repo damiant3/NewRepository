@@ -1,4 +1,3 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -33,7 +32,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{A0000000-0
 		docs\00-OVERVIEW.md = docs\00-OVERVIEW.md
 		docs\10-PRINCIPLES.md = docs\10-PRINCIPLES.md
 		docs\CurrentPlan.md = docs\CurrentPlan.md
+		docs\KNOWN-CONDITIONS.md = docs\KNOWN-CONDITIONS.md
 		docs\REFERENCE-COMPILER-LOCK.md = docs\REFERENCE-COMPILER-LOCK.md
+		docs\REFERENCE-COMPILER-NOTES.md = docs\REFERENCE-COMPILER-NOTES.md
+		docs\THE-ASCENT.md = docs\THE-ASCENT.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vision", "Vision", "{A0000000-0000-0000-0000-000000000009}"
@@ -83,8 +85,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MM1", "MM1", "{A0000000-000
 		docs\MM1\09-RISKS.md = docs\MM1\09-RISKS.md
 		docs\MM1\10-PRINCIPLES.md = docs\MM1\10-PRINCIPLES.md
 		docs\MM1\GLOSSARY.md = docs\MM1\GLOSSARY.md
-		docs\MM1\README.md = docs\MM1\README.md
 		docs\MM1\PreviouslyCurrentPlan.md = docs\MM1\PreviouslyCurrentPlan.md
+		docs\MM1\README.md = docs\MM1\README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Stories", "Stories", "{A0000000-0000-0000-0000-00000000000C}"
@@ -96,6 +98,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Stories", "Stories", "{A000
 		docs\Stories\Opus.md = docs\Stories\Opus.md
 		docs\Stories\parser.txt = docs\Stories\parser.txt
 		docs\Stories\PostFixedPointCleanUp-AUDIT.md = docs\Stories\PostFixedPointCleanUp-AUDIT.md
+		docs\Stories\prompt.txt = docs\Stories\prompt.txt
 		docs\Stories\REVIEW-NITS.md = docs\Stories\REVIEW-NITS.md
 		docs\Stories\SelfHost.md = docs\Stories\SelfHost.md
 	EndProjectSection
@@ -693,7 +696,6 @@ Global
 		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|x64.Build.0 = Release|Any CPU
 		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|x86.ActiveCfg = Release|Any CPU
 		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}.Release|x86.Build.0 = Release|Any CPU
-
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -751,7 +753,6 @@ Global
 		{A0153615-F4B1-45F5-94FB-088D7210A3B7} = {A0000000-0000-0000-0000-000000000002}
 		{E4AEE581-E3A4-44AD-9637-403CF6C1C8C7} = {A0000000-0000-0000-0000-000000000001}
 		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C} = {A0000000-0000-0000-0000-000000000001}
-
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}
