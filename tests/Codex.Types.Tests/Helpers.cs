@@ -195,6 +195,59 @@ namespace Codex.Types.Tests
             return emitter.EmitAssembly(irModule, moduleName);
         }
 
+        public static byte[]? CompileToRiscV(string source, string moduleName = "test")
+        {
+            return CompileToRiscVTarget(source, moduleName, Codex.Emit.RiscV.RiscVTarget.LinuxUser);
+        }
+
+        public static byte[]? CompileToRiscVBareMetal(string source, string moduleName = "test")
+        {
+            return CompileToRiscVTarget(source, moduleName, Codex.Emit.RiscV.RiscVTarget.BareMetal);
+        }
+
+        static byte[]? CompileToRiscVTarget(string source, string moduleName, Codex.Emit.RiscV.RiscVTarget target)
+        {
+            SourceText src = new("test.codex", source);
+            DiagnosticBag diagnostics = new();
+
+            DocumentNode document;
+            if (ProseParser.IsProseDocument(source))
+            {
+                ProseParser proseParser = new(src, diagnostics);
+                document = proseParser.ParseDocument();
+            }
+            else
+            {
+                Lexer lexer = new(src, diagnostics);
+                IReadOnlyList<Token> tokens = lexer.TokenizeAll();
+                Parser parser = new(tokens, diagnostics);
+                document = parser.ParseDocument();
+            }
+
+            Desugarer desugarer = new(diagnostics);
+            Module module = desugarer.Desugar(document, moduleName);
+            if (diagnostics.HasErrors) return null;
+
+            NameResolver resolver = new(diagnostics);
+            ResolvedModule resolved = resolver.Resolve(module);
+            if (diagnostics.HasErrors) return null;
+
+            TypeChecker checker = new(diagnostics);
+            Map<string, CodexType> types = checker.CheckModule(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            LinearityChecker linearityChecker = new(diagnostics, types);
+            linearityChecker.CheckModule(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            Lowering lowering = new(types, checker.ConstructorMap, checker.TypeDefMap, diagnostics);
+            IRModule irModule = lowering.Lower(resolved.Module);
+            if (diagnostics.HasErrors) return null;
+
+            Codex.Emit.RiscV.RiscVEmitter riscvEmitter = new(target);
+            return riscvEmitter.EmitAssembly(irModule, moduleName);
+        }
+
         public static string? CompileToTarget(string source, string moduleName, Codex.Emit.ICodeEmitter emitter)
         {
             SourceText src = new("test.codex", source);
