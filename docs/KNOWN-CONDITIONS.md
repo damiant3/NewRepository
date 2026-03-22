@@ -15,6 +15,29 @@ but CS5001 is an error, not a warning, so it isn't suppressed.
 **Action**: When verifying builds, exclude `Codex.Codex` or accept 1 CS5001 error from it.
 Use `dotnet build Codex.sln` and check that the ONLY error is this one.
 
+### Codex.Bootstrap sed failure on fresh clone — PRE-EXISTING, WORKAROUND
+
+On a fresh clone, `dotnet build Codex.sln` fails with `MSB3073` from
+`Codex.Bootstrap.csproj` because the sed/PowerShell target tries to read
+`Codex.Codex/out/Codex.Codex.cs`, which does not exist until the self-hosted
+compiler has been run at least once.
+
+```
+error MSB3073: The command "sed 's/^Codex_Codex_Codex\.main();$//' '…/out/Codex.Codex.cs' > '…/CodexLib.g.cs'" exited with code 2.
+```
+
+**Action**: On a fresh clone, create the missing directory and placeholder:
+
+```bash
+mkdir -p Codex.Codex/out
+echo "// placeholder for bootstrap" > Codex.Codex/out/Codex.Codex.cs
+```
+
+Then build individual projects (`dotnet build tools/Codex.Cli/`) or the full
+solution (Bootstrap will still error on missing symbols but all other projects
+compile). This is expected on any environment that hasn't run the self-hosting
+pipeline.
+
 ## Tests
 
 ### Peek_non_numeric_start_does_not_crash — KNOWN BUG, DOCUMENTED
