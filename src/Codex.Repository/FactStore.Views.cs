@@ -4,10 +4,48 @@ namespace Codex.Repository;
 
 public sealed record ViewInfo(string Name, int DefinitionCount, bool IsCurrent);
 
+public sealed record ViewConsistencyResult(
+    bool IsConsistent,
+    IReadOnlyList<string> Errors);
+
+public interface IViewConsistencyChecker
+{
+    ViewConsistencyResult Check(IReadOnlyList<ViewDefinition> definitions);
+}
+
+public sealed record ViewDefinition(string Name, string Source);
+
 partial class FactStore
 {
     readonly string m_viewsPath = Path.Combine(rootPath, ".codex", "views");
     readonly string m_currentViewMarker = Path.Combine(rootPath, ".codex", "current-view");
+
+    public ViewConsistencyResult CheckViewConsistency(string viewName, IViewConsistencyChecker checker)
+    {
+        ValueMap<string, ContentHash> view = GetNamedView(viewName);
+        List<ViewDefinition> definitions = [];
+
+        foreach (KeyValuePair<string, ContentHash> kv in view)
+        {
+            Fact? fact = Load(kv.Value);
+            if (fact is null)
+            {
+                return new ViewConsistencyResult(false,
+                    [$"Definition '{kv.Key}' references missing fact {kv.Value.ToHex()}"]);
+            }
+            if (fact.Kind != FactKind.Definition)
+            {
+                return new ViewConsistencyResult(false,
+                    [$"View entry '{kv.Key}' references a {fact.Kind} fact, expected Definition"]);
+            }
+            definitions.Add(new ViewDefinition(kv.Key, fact.Content));
+        }
+
+        if (definitions.Count == 0)
+            return new ViewConsistencyResult(true, []);
+
+        return checker.Check(definitions);
+    }
 
     public string GetCurrentViewName()
     {

@@ -204,3 +204,124 @@ public class ViewTests : IDisposable
         Assert.Equal(def.Hash, hash.Value);
     }
 }
+
+public class ViewConsistencyTests : IDisposable
+{
+    readonly string m_tempDir;
+    readonly FactStore m_store;
+
+    public ViewConsistencyTests()
+    {
+        m_tempDir = Path.Combine(Path.GetTempPath(), "codex_vc_test_" + Guid.NewGuid().ToString("N")[..8]);
+        m_store = FactStore.Init(m_tempDir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(m_tempDir, true); } catch { }
+    }
+
+    sealed class AlwaysConsistentChecker : IViewConsistencyChecker
+    {
+        public List<ViewDefinition> ReceivedDefinitions { get; } = [];
+
+        public ViewConsistencyResult Check(IReadOnlyList<ViewDefinition> definitions)
+        {
+            ReceivedDefinitions.AddRange(definitions);
+            return new ViewConsistencyResult(true, []);
+        }
+    }
+
+    sealed class AlwaysFailsChecker : IViewConsistencyChecker
+    {
+        public ViewConsistencyResult Check(IReadOnlyList<ViewDefinition> definitions)
+        {
+            return new ViewConsistencyResult(false, ["type error: cannot unify Integer with Text"]);
+        }
+    }
+
+    [Fact]
+    public void Empty_view_is_consistent()
+    {
+        m_store.CreateView("empty");
+        AlwaysConsistentChecker checker = new();
+
+        ViewConsistencyResult result = m_store.CheckViewConsistency("empty", checker);
+
+        Assert.True(result.IsConsistent);
+        Assert.Empty(result.Errors);
+        Assert.Empty(checker.ReceivedDefinitions);
+    }
+
+    [Fact]
+    public void Checker_receives_all_definitions_from_view()
+    {
+        m_store.CreateView("test-view");
+        Fact defA = Fact.CreateDefinition("square x = x * x", "alice", "init");
+        Fact defB = Fact.CreateDefinition("double x = x + x", "alice", "init");
+        m_store.Store(defA);
+        m_store.Store(defB);
+        m_store.UpdateNamedView("test-view", "square", defA.Hash);
+        m_store.UpdateNamedView("test-view", "double", defB.Hash);
+
+        AlwaysConsistentChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistency("test-view", checker);
+
+        Assert.True(result.IsConsistent);
+        Assert.Equal(2, checker.ReceivedDefinitions.Count);
+
+        List<string> names = checker.ReceivedDefinitions.Select(d => d.Name).OrderBy(n => n).ToList();
+        Assert.Equal("double", names[0]);
+        Assert.Equal("square", names[1]);
+
+        List<string> sources = checker.ReceivedDefinitions.Select(d => d.Source).OrderBy(s => s).ToList();
+        Assert.Contains("double x = x + x", sources);
+        Assert.Contains("square x = x * x", sources);
+    }
+
+    [Fact]
+    public void Inconsistent_view_returns_errors()
+    {
+        m_store.CreateView("bad-view");
+        Fact def = Fact.CreateDefinition("broken = ???", "alice", "init");
+        m_store.Store(def);
+        m_store.UpdateNamedView("bad-view", "broken", def.Hash);
+
+        AlwaysFailsChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistency("bad-view", checker);
+
+        Assert.False(result.IsConsistent);
+        Assert.Single(result.Errors);
+        Assert.Contains("cannot unify", result.Errors[0]);
+    }
+
+    [Fact]
+    public void Missing_fact_returns_error()
+    {
+        m_store.CreateView("missing-view");
+        ContentHash fakeHash = ContentHash.Of("nonexistent");
+        m_store.UpdateNamedView("missing-view", "ghost", fakeHash);
+
+        AlwaysConsistentChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistency("missing-view", checker);
+
+        Assert.False(result.IsConsistent);
+        Assert.Contains(result.Errors, e => e.Contains("missing fact"));
+    }
+
+    [Fact]
+    public void Non_definition_fact_returns_error()
+    {
+        m_store.CreateView("wrong-kind");
+        ContentHash defHash = ContentHash.Of("some-def");
+        Fact trust = Fact.CreateTrust(defHash, TrustDegree.Reviewed, "bob", "ok");
+        m_store.Store(trust);
+        m_store.UpdateNamedView("wrong-kind", "bad-entry", trust.Hash);
+
+        AlwaysConsistentChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistency("wrong-kind", checker);
+
+        Assert.False(result.IsConsistent);
+        Assert.Contains(result.Errors, e => e.Contains("Trust") && e.Contains("expected Definition"));
+    }
+}
