@@ -26,6 +26,7 @@ public static partial class Program
         string? targetOverride = null;
         string[]? multiTargets = null;
         string? viewName = null;
+        string[]? capNames = null;
         bool incremental = false;
         for (int i = 1; i < args.Length; i++)
         {
@@ -35,8 +36,18 @@ public static partial class Program
                 multiTargets = args[++i].ToLowerInvariant().Split(',', StringSplitOptions.RemoveEmptyEntries);
             else if (args[i] == "--view" && i + 1 < args.Length)
                 viewName = args[++i];
+            else if (args[i] == "--capabilities" && i + 1 < args.Length)
+                capNames = args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             else if (args[i] == "--incremental" || args[i] == "-i")
                 incremental = true;
+        }
+
+        Set<string>? grantedCapabilities = null;
+        if (capNames is not null)
+        {
+            grantedCapabilities = Set<string>.s_empty;
+            foreach (string cap in capNames)
+                grantedCapabilities = grantedCapabilities.Add(cap);
         }
 
         // Also support: codex build --view <name> (without a file arg)
@@ -52,7 +63,7 @@ public static partial class Program
         }
 
         if (viewName is not null)
-            return RunBuildView(viewName, targetOverride ?? "cs");
+            return RunBuildView(viewName, targetOverride ?? "cs", grantedCapabilities);
 
         if (filePath == "." || filePath == "./" || filePath == ".\\" 
             || (Directory.Exists(filePath) && File.Exists(Path.Combine(filePath, "codex.project.json"))))
@@ -65,7 +76,7 @@ public static partial class Program
             return RunBuildDirectory(filePath, targetOverride ?? "cs");
         }
 
-        return RunBuildFile(filePath, targetOverride ?? "cs");
+        return RunBuildFile(filePath, targetOverride ?? "cs", grantedCapabilities);
     }
 
     static int RunBuildProject(string directory, string? targetOverride, bool incremental, string[]? multiTargets)
@@ -173,9 +184,9 @@ public static partial class Program
         return 0;
     }
 
-    static int RunBuildFile(string filePath, string target)
+    static int RunBuildFile(string filePath, string target, Set<string>? grantedCapabilities = null)
     {
-        IRCompilationResult? irResult = CompileToIR(filePath);
+        IRCompilationResult? irResult = CompileToIR(filePath, grantedCapabilities);
         if (irResult is null) return 1;
 
         if (IsAssemblyTarget(target))
@@ -193,10 +204,11 @@ public static partial class Program
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
         foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
             Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        PrintCapabilityReport(irResult.Capabilities);
         return 0;
     }
 
-    static int RunBuildView(string viewName, string target)
+    static int RunBuildView(string viewName, string target, Set<string>? grantedCapabilities = null)
     {
         Repository.FactStore? store = Repository.FactStore.Open(Directory.GetCurrentDirectory());
         if (store is null)
@@ -213,7 +225,7 @@ public static partial class Program
 
         Console.WriteLine($"Building from view: {viewName}");
 
-        IRCompilationResult? irResult = CompileViewToIR(store, viewName, viewName);
+        IRCompilationResult? irResult = CompileViewToIR(store, viewName, viewName, grantedCapabilities);
         if (irResult is null) return 1;
 
         string outputDir = Directory.GetCurrentDirectory();
@@ -229,7 +241,19 @@ public static partial class Program
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
         foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
             Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        PrintCapabilityReport(irResult.Capabilities);
         return 0;
+    }
+
+    static void PrintCapabilityReport(CapabilityReport? report)
+    {
+        if (report is null || !report.MainRequiresEffects)
+            return;
+        Set<string> caps = report.RequiredCapabilities;
+        List<string> names = [];
+        foreach (string c in report.MainEffects)
+            names.Add(c);
+        Console.WriteLine($"  Capabilities: [{string.Join(", ", names)}]");
     }
 
     static bool IsAssemblyTarget(string target) => target is "il" or "exe";

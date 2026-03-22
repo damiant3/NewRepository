@@ -12,11 +12,22 @@ public static partial class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("Usage: codex check <file.codex>");
+            Console.Error.WriteLine("Usage: codex check <file.codex> [--capabilities c1,c2]");
             return 1;
         }
 
         string filePath = args[0];
+        Set<string>? grantedCapabilities = null;
+        for (int i = 1; i < args.Length; i++)
+        {
+            if (args[i] == "--capabilities" && i + 1 < args.Length)
+            {
+                string[] capNames = args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                grantedCapabilities = Set<string>.s_empty;
+                foreach (string cap in capNames)
+                    grantedCapabilities = grantedCapabilities.Add(cap);
+            }
+        }
         if (!File.Exists(filePath))
         {
             Console.Error.WriteLine($"File not found: {filePath}");
@@ -58,6 +69,11 @@ public static partial class Program
 
         if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return 1; }
 
+        CapabilityChecker capChecker = new(diagnostics, types);
+        CapabilityReport capReport = capChecker.CheckModule(resolved.Module, grantedCapabilities);
+
+        if (diagnostics.HasErrors) { PrintDiagnostics(diagnostics); return 1; }
+
         Codex.Proofs.ProofChecker proofChecker = new(diagnostics);
         proofChecker.CheckModule(resolved.Module, types);
 
@@ -72,6 +88,13 @@ public static partial class Program
             foreach (KeyValuePair<string, CodexType> kv in types)
             {
                 Console.WriteLine($"  {kv.Key} : {kv.Value}");
+            }
+            if (capReport.MainRequiresEffects)
+            {
+                List<string> names = [];
+                foreach (string c in capReport.MainEffects)
+                    names.Add(c);
+                Console.WriteLine($"  Capabilities: [{string.Join(", ", names)}]");
             }
         }
 
