@@ -77,6 +77,7 @@ sealed partial class WasmModuleBuilder
     const byte OpF64Sub = 0xA1;
     const byte OpF64Mul = 0xA2;
     const byte OpF64Div = 0xA3;
+    const byte OpF64Neg = 0x9A;
     const byte OpI64ExtendI32S = 0xAC;
     const byte OpI32WrapI64 = 0xA7;
     const byte OpF64ConvertI64S = 0xB9;
@@ -134,6 +135,7 @@ sealed partial class WasmModuleBuilder
     // ── Runtime helper function indices ──────────────────────────
     int m_printI64Index;
     int m_printBoolIndex;
+    int m_strEqIndex;
 
     public void EmitModule(IRModule module)
     {
@@ -200,6 +202,9 @@ sealed partial class WasmModuleBuilder
         m_functionTypeIndices.Add(-1); // placeholder, filled by EmitRuntimeHelpers
 
         m_printBoolIndex = m_nextFuncIndex++;
+        m_functionTypeIndices.Add(-1); // placeholder
+
+        m_strEqIndex = m_nextFuncIndex++;
         m_functionTypeIndices.Add(-1); // placeholder
 
         // Reserve indices for user definitions
@@ -502,8 +507,8 @@ sealed partial class WasmModuleBuilder
                 break;
             case TextType:
                 // String equality: compare length-prefixed byte sequences
-                // For now, compare pointers (identity). Full string eq is Phase 2.
-                body.WriteByte(OpI32Eq);
+                body.WriteByte(OpCall);
+                WriteUnsignedLeb128(body, m_strEqIndex);
                 break;
             default:
                 body.WriteByte(OpI64Eq);
@@ -721,6 +726,40 @@ sealed partial class WasmModuleBuilder
                 body.WriteByte(OpI64ExtendI32S);
                 return true;
 
+            case "integer-to-text" when args.Count == 1:
+                EmitExpr(body, args[0], localMap, ref nextLocal, localTypes, args[0].Type);
+                EmitI64ToString(body, ref nextLocal, localTypes);
+                return true;
+
+            case "text-to-integer" when args.Count == 1:
+                EmitExpr(body, args[0], localMap, ref nextLocal, localTypes, args[0].Type);
+                EmitTextToInteger(body, ref nextLocal, localTypes);
+                return true;
+
+            case "char-at" when args.Count == 2:
+                EmitCharAt(body, args[0], args[1], localMap, ref nextLocal, localTypes);
+                return true;
+
+            case "substring" when args.Count == 3:
+                EmitSubstring(body, args[0], args[1], args[2], localMap, ref nextLocal, localTypes);
+                return true;
+
+            case "negate" when args.Count == 1:
+                EmitExpr(body, args[0], localMap, ref nextLocal, localTypes, args[0].Type);
+                if (args[0].Type is NumberType)
+                    body.WriteByte(OpF64Neg);
+                else
+                {
+                    // 0 - value: save value, push 0, restore value, subtract
+                    int tmpLocal = nextLocal++;
+                    localTypes.Add(WasmI64);
+                    body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, tmpLocal);
+                    body.WriteByte(OpI64Const); WriteSignedLeb128(body, 0);
+                    body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, tmpLocal);
+                    body.WriteByte(OpI64Sub);
+                }
+                return true;
+
             default:
                 return false;
         }
@@ -789,6 +828,188 @@ sealed partial class WasmModuleBuilder
     }
 
     // ── Text operations ──────────────────────────────────────────
+
+    void EmitTextToInteger(MemoryStream body, ref int nextLocal, List<byte> localTypes)
+    {
+        // Stack has i32 (pointer to length-prefixed string)
+        // Parse decimal digits → i64
+        int ptrLocal = nextLocal++; localTypes.Add(WasmI32);
+        int lenLocal = nextLocal++; localTypes.Add(WasmI32);
+        int idxLocal = nextLocal++; localTypes.Add(WasmI32);
+        int resultLocal = nextLocal++; localTypes.Add(WasmI64);
+        int negLocal = nextLocal++; localTypes.Add(WasmI32);
+
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, ptrLocal);
+
+        // Load length
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+        body.WriteByte(OpI32Load); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, lenLocal);
+
+        // result = 0, idx = 0, neg = 0
+        body.WriteByte(OpI64Const); WriteSignedLeb128(body, 0);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 0);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, idxLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 0);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, negLocal);
+
+        // Check for '-' at position 0
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, lenLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 0);
+        body.WriteByte(OpI32GtS);
+        body.WriteByte(OpIf); body.WriteByte(BlockTypeVoid);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpI32Load8U); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 45); // '-'
+        body.WriteByte(OpI32Eq);
+        body.WriteByte(OpIf); body.WriteByte(BlockTypeVoid);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, negLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, idxLocal);
+        body.WriteByte(OpEnd);
+        body.WriteByte(OpEnd);
+
+        // Parse loop: block { loop {
+        body.WriteByte(OpBlock); body.WriteByte(BlockTypeVoid);
+        body.WriteByte(OpLoop); body.WriteByte(BlockTypeVoid);
+
+        // if idx >= len: break
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idxLocal);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, lenLocal);
+        body.WriteByte(OpI32GeS);
+        body.WriteByte(OpBrIf); WriteUnsignedLeb128(body, 1);
+
+        // result = result * 10 + (byte - 48)
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpI64Const); WriteSignedLeb128(body, 10);
+        body.WriteByte(OpI64Mul);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idxLocal);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpI32Load8U); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 48);
+        body.WriteByte(OpI32Sub);
+        body.WriteByte(OpI64ExtendI32S);
+        body.WriteByte(OpI64Add);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, resultLocal);
+
+        // idx++
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idxLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, idxLocal);
+        body.WriteByte(OpBr); WriteUnsignedLeb128(body, 0);
+
+        body.WriteByte(OpEnd); // end loop
+        body.WriteByte(OpEnd); // end block
+
+        // If negative, negate result
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, negLocal);
+        body.WriteByte(OpIf); body.WriteByte(BlockTypeI64);
+        body.WriteByte(OpI64Const); WriteSignedLeb128(body, 0);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpI64Sub);
+        body.WriteByte(OpElse);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpEnd);
+    }
+
+    void EmitCharAt(MemoryStream body, IRExpr textExpr, IRExpr indexExpr,
+        ValueMap<string, int> localMap, ref int nextLocal, List<byte> localTypes)
+    {
+        // char-at text index → Text (single-character length-prefixed string)
+        EmitExpr(body, textExpr, localMap, ref nextLocal, localTypes, textExpr.Type);
+        int ptrLocal = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, ptrLocal);
+
+        EmitExpr(body, indexExpr, localMap, ref nextLocal, localTypes, indexExpr.Type);
+        body.WriteByte(OpI32WrapI64); // index is i64, need i32
+        int idxLocal = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, idxLocal);
+
+        // Allocate 5 bytes: 4 (length=1) + 1 (the byte)
+        int resultLocal = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 5);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+
+        // Store length = 1
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+        body.WriteByte(OpI32Store); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+
+        // Copy byte: result[4] = src[4 + idx]
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idxLocal);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpI32Load8U); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Store8); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
+
+        // Return result pointer
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+    }
+
+    void EmitSubstring(MemoryStream body, IRExpr textExpr, IRExpr startExpr, IRExpr lenExpr,
+        ValueMap<string, int> localMap, ref int nextLocal, List<byte> localTypes)
+    {
+        // substring text start len → Text
+        EmitExpr(body, textExpr, localMap, ref nextLocal, localTypes, textExpr.Type);
+        int ptrLocal = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, ptrLocal);
+
+        EmitExpr(body, startExpr, localMap, ref nextLocal, localTypes, startExpr.Type);
+        body.WriteByte(OpI32WrapI64);
+        int startLocal = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, startLocal);
+
+        EmitExpr(body, lenExpr, localMap, ref nextLocal, localTypes, lenExpr.Type);
+        body.WriteByte(OpI32WrapI64);
+        int subLenLocal = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, subLenLocal);
+
+        // Allocate 4 + subLen bytes
+        int resultLocal = nextLocal++; localTypes.Add(WasmI32);
+        EmitBumpAlloc(body, subLenLocal, 4, resultLocal);
+
+        // Store length
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, subLenLocal);
+        body.WriteByte(OpI32Store); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+
+        // Copy bytes: memcpy(result+4, ptr+4+start, subLen)
+        int srcStart = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, startLocal);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, srcStart);
+
+        int destStart = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, destStart);
+
+        EmitMemCopyDirect(body, destStart, srcStart, 0, subLenLocal, ref nextLocal, localTypes);
+
+        // Return result pointer
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultLocal);
+    }
 
     void EmitTextLiteral(MemoryStream body, string value)
     {
@@ -1053,6 +1274,7 @@ sealed partial class WasmModuleBuilder
     {
         EmitPrintI64Helper();
         EmitPrintBoolHelper();
+        EmitStrEqHelper();
     }
 
     void EmitPrintI64Helper()
@@ -1233,6 +1455,107 @@ sealed partial class WasmModuleBuilder
         EmitWriteNewline(body, localTypes);
 
         body.WriteByte(OpEnd);
+        m_functionBodies.Add(EncodeFunctionBody(body.ToArray(), localTypes));
+    }
+
+    void EmitStrEqHelper()
+    {
+        // __str_eq(ptrA: i32, ptrB: i32) -> i32
+        // Returns 1 if length-prefixed strings are equal, 0 otherwise
+        int typeIndex = AddFuncType(new byte[] { WasmI32, WasmI32 }, new byte[] { WasmI32 });
+        int funcSlot = m_strEqIndex - m_importCount;
+        m_functionTypeIndices[funcSlot] = typeIndex;
+
+        MemoryStream body = new();
+        List<byte> localTypes = new();
+
+        // param 0 = ptrA, param 1 = ptrB
+        // local 2 = lenA, local 3 = idx
+        int lenA = 2; localTypes.Add(WasmI32);
+        int idx = 3; localTypes.Add(WasmI32);
+
+        // Fast path: same pointer → equal
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, 1);
+        body.WriteByte(OpI32Eq);
+        body.WriteByte(OpIf); body.WriteByte(BlockTypeI32);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+        body.WriteByte(OpReturn);
+        body.WriteByte(OpElse);
+
+        // Load lenA
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Load); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, lenA);
+
+        // Compare lengths: if lenA != lenB → return 0
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, lenA);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, 1);
+        body.WriteByte(OpI32Load); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Ne);
+        body.WriteByte(OpIf); body.WriteByte(BlockTypeI32);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 0);
+        body.WriteByte(OpReturn);
+        body.WriteByte(OpElse);
+
+        // idx = 0
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 0);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, idx);
+
+        // block { loop {
+        body.WriteByte(OpBlock); body.WriteByte(BlockTypeVoid);
+        body.WriteByte(OpLoop); body.WriteByte(BlockTypeVoid);
+
+        // if idx >= lenA: break (strings are equal)
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, lenA);
+        body.WriteByte(OpI32GeS);
+        body.WriteByte(OpBrIf); WriteUnsignedLeb128(body, 1);
+
+        // Load ptrA[4+idx]
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpI32Load8U);
+        body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
+
+        // Load ptrB[4+idx]
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, 1);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpI32Load8U);
+        body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
+
+        // If bytes differ → return 0
+        body.WriteByte(OpI32Ne);
+        body.WriteByte(OpIf); body.WriteByte(BlockTypeVoid);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 0);
+        body.WriteByte(OpReturn);
+        body.WriteByte(OpEnd);
+
+        // idx++
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, idx);
+
+        // continue loop
+        body.WriteByte(OpBr); WriteUnsignedLeb128(body, 0);
+
+        body.WriteByte(OpEnd); // end loop
+        body.WriteByte(OpEnd); // end block
+
+        // Fell through loop → all bytes match → return 1
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+
+        body.WriteByte(OpEnd); // end length-compare else
+        body.WriteByte(OpEnd); // end pointer-compare else
+
+        body.WriteByte(OpEnd); // end function
         m_functionBodies.Add(EncodeFunctionBody(body.ToArray(), localTypes));
     }
 
