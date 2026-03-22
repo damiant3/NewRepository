@@ -15,6 +15,10 @@ public interface IViewConsistencyChecker
 
 public sealed record ViewDefinition(string Name, string Source);
 
+public sealed record ViewMergeConflict(string DefinitionName, ContentHash HashA, ContentHash HashB);
+
+public sealed record ViewMergeResult(bool Success, IReadOnlyList<ViewMergeConflict> Conflicts);
+
 partial class FactStore
 {
     readonly string m_viewsPath = Path.Combine(rootPath, ".codex", "views");
@@ -61,14 +65,10 @@ partial class FactStore
     public void CreateView(string name, bool copyFromCurrent = false)
     {
         ValidateViewName(name);
-
-        if (name == "canonical" && File.Exists(m_viewPath))
-            throw new InvalidOperationException("View 'canonical' already exists.");
+        RequireViewNotExists(name);
 
         Directory.CreateDirectory(m_viewsPath);
         string viewFile = Path.Combine(m_viewsPath, name + ".json");
-        if (File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{name}' already exists.");
 
         if (copyFromCurrent)
         {
@@ -118,10 +118,7 @@ partial class FactStore
 
     public void SwitchView(string name)
     {
-        string viewFile = ResolveViewFile(name);
-        if (!File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{name}' does not exist.");
-
+        RequireViewExists(name);
         Directory.CreateDirectory(Path.GetDirectoryName(m_currentViewMarker)!);
         File.WriteAllText(m_currentViewMarker, name);
     }
@@ -143,10 +140,8 @@ partial class FactStore
 
     public ValueMap<string, ContentHash> GetNamedView(string viewName)
     {
-        string viewFile = ResolveViewFile(viewName);
-        if (!File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{viewName}' does not exist.");
-        Map<string, string> raw = LoadViewMapFrom(viewFile);
+        RequireViewExists(viewName);
+        Map<string, string> raw = LoadViewRaw(viewName);
         ValueMap<string, ContentHash> result = ValueMap<string, ContentHash>.s_empty;
         foreach (KeyValuePair<string, string> kv in raw)
             result = result.Set(kv.Key, ContentHash.FromHex(kv.Value));
@@ -155,9 +150,8 @@ partial class FactStore
 
     public void UpdateNamedView(string viewName, string definitionName, ContentHash hash)
     {
+        RequireViewExists(viewName);
         string viewFile = ResolveViewFile(viewName);
-        if (!File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{viewName}' does not exist.");
         Map<string, string> map = LoadViewMapFrom(viewFile);
         map = map.Set(definitionName, hash.ToHex());
         SaveViewMapTo(viewFile, map);
@@ -165,12 +159,92 @@ partial class FactStore
 
     public void RemoveFromView(string viewName, string definitionName)
     {
+        RequireViewExists(viewName);
         string viewFile = ResolveViewFile(viewName);
-        if (!File.Exists(viewFile))
-            throw new InvalidOperationException($"View '{viewName}' does not exist.");
         Map<string, string> map = LoadViewMapFrom(viewFile);
         map = map.Remove(definitionName);
         SaveViewMapTo(viewFile, map);
+    }
+
+    public void OverrideView(
+        string baseViewName,
+        string targetViewName,
+        ValueMap<string, ContentHash> overrides)
+    {
+        ValidateViewName(targetViewName);
+        RequireViewExists(baseViewName);
+        RequireViewNotExists(targetViewName);
+
+        Map<string, string> baseMap = LoadViewRaw(baseViewName);
+        foreach (KeyValuePair<string, ContentHash> kv in overrides)
+            baseMap = baseMap.Set(kv.Key, kv.Value.ToHex());
+
+        Directory.CreateDirectory(m_viewsPath);
+        string targetFile = Path.Combine(m_viewsPath, targetViewName + ".json");
+        SaveViewMapTo(targetFile, baseMap);
+    }
+
+    public ViewMergeResult MergeViews(
+        string viewNameA,
+        string viewNameB,
+        string targetViewName)
+    {
+        ValidateViewName(targetViewName);
+        RequireViewExists(viewNameA);
+        RequireViewExists(viewNameB);
+        RequireViewNotExists(targetViewName);
+
+        Map<string, string> mapA = LoadViewRaw(viewNameA);
+        Map<string, string> mapB = LoadViewRaw(viewNameB);
+
+        Map<string, string> merged = mapA;
+        List<ViewMergeConflict> conflicts = [];
+
+        foreach (KeyValuePair<string, string> kv in mapB)
+        {
+            string? existing = merged[kv.Key];
+            if (existing is not null && existing != kv.Value)
+            {
+                conflicts.Add(new ViewMergeConflict(
+                    kv.Key,
+                    ContentHash.FromHex(existing),
+                    ContentHash.FromHex(kv.Value)));
+            }
+            else
+            {
+                merged = merged.Set(kv.Key, kv.Value);
+            }
+        }
+
+        if (conflicts.Count > 0)
+            return new ViewMergeResult(false, conflicts);
+
+        Directory.CreateDirectory(m_viewsPath);
+        string targetFile = Path.Combine(m_viewsPath, targetViewName + ".json");
+        SaveViewMapTo(targetFile, merged);
+        return new ViewMergeResult(true, []);
+    }
+
+    public void FilterView(
+        string sourceViewName,
+        string targetViewName,
+        IReadOnlySet<string> keepNames)
+    {
+        ValidateViewName(targetViewName);
+        RequireViewExists(sourceViewName);
+        RequireViewNotExists(targetViewName);
+
+        Map<string, string> sourceMap = LoadViewRaw(sourceViewName);
+        Map<string, string> filtered = Map<string, string>.s_empty;
+        foreach (KeyValuePair<string, string> kv in sourceMap)
+        {
+            if (keepNames.Contains(kv.Key))
+                filtered = filtered.Set(kv.Key, kv.Value);
+        }
+
+        Directory.CreateDirectory(m_viewsPath);
+        string targetFile = Path.Combine(m_viewsPath, targetViewName + ".json");
+        SaveViewMapTo(targetFile, filtered);
     }
 
     string ResolveViewFile(string name)
@@ -190,6 +264,28 @@ partial class FactStore
     Map<string, string> LoadCurrentViewMap()
     {
         string viewFile = ResolveViewFile(GetCurrentViewName());
+        return LoadViewMapFrom(viewFile);
+    }
+
+    void RequireViewExists(string name)
+    {
+        string viewFile = ResolveViewFile(name);
+        if (!File.Exists(viewFile))
+            throw new InvalidOperationException($"View '{name}' does not exist.");
+    }
+
+    void RequireViewNotExists(string name)
+    {
+        if (name == "canonical" && File.Exists(m_viewPath))
+            throw new InvalidOperationException($"View '{name}' already exists.");
+        string viewFile = Path.Combine(m_viewsPath, name + ".json");
+        if (File.Exists(viewFile))
+            throw new InvalidOperationException($"View '{name}' already exists.");
+    }
+
+    Map<string, string> LoadViewRaw(string name)
+    {
+        string viewFile = ResolveViewFile(name);
         return LoadViewMapFrom(viewFile);
     }
 
