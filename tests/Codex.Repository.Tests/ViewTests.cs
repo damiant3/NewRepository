@@ -415,4 +415,222 @@ public class ViewConsistencyTests : IDisposable
         Assert.False(result.IsConsistent);
         Assert.Contains(result.Errors, e => e.Contains("Trust") && e.Contains("expected Definition"));
     }
+
+    // --- Phase 3: View Composition ---
+
+    Fact StoreDef(string source)
+    {
+        Fact def = Fact.CreateDefinition(source, "alice", "init");
+        m_store.Store(def);
+        return def;
+    }
+
+    [Fact]
+    public void OverrideView_basic()
+    {
+        Fact defA = StoreDef("a = 1");
+        Fact defB = StoreDef("b = 2");
+        Fact defA2 = StoreDef("a = 10");
+
+        m_store.CreateView("base");
+        m_store.UpdateNamedView("base", "a", defA.Hash);
+        m_store.UpdateNamedView("base", "b", defB.Hash);
+
+        ValueMap<string, ContentHash> overrides = ValueMap<string, ContentHash>.s_empty
+            .Set("a", defA2.Hash);
+
+        m_store.OverrideView("base", "derived", overrides);
+
+        ValueMap<string, ContentHash> derived = m_store.GetNamedView("derived");
+        Assert.Equal(defA2.Hash, derived["a"]);
+        Assert.Equal(defB.Hash, derived["b"]);
+    }
+
+    [Fact]
+    public void OverrideView_adds_new_entry()
+    {
+        Fact defA = StoreDef("a = 1");
+        Fact defC = StoreDef("c = 3");
+
+        m_store.CreateView("base");
+        m_store.UpdateNamedView("base", "a", defA.Hash);
+
+        ValueMap<string, ContentHash> overrides = ValueMap<string, ContentHash>.s_empty
+            .Set("c", defC.Hash);
+
+        m_store.OverrideView("base", "extended", overrides);
+
+        ValueMap<string, ContentHash> extended = m_store.GetNamedView("extended");
+        Assert.Equal(2, extended.Count);
+        Assert.Equal(defA.Hash, extended["a"]);
+        Assert.Equal(defC.Hash, extended["c"]);
+    }
+
+    [Fact]
+    public void OverrideView_nonexistent_base_throws()
+    {
+        ValueMap<string, ContentHash> overrides = ValueMap<string, ContentHash>.s_empty;
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.OverrideView("nonexistent", "target", overrides));
+    }
+
+    [Fact]
+    public void OverrideView_target_exists_throws()
+    {
+        m_store.CreateView("base");
+        m_store.CreateView("target");
+        ValueMap<string, ContentHash> overrides = ValueMap<string, ContentHash>.s_empty;
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.OverrideView("base", "target", overrides));
+    }
+
+    [Fact]
+    public void MergeViews_disjoint()
+    {
+        Fact defA = StoreDef("a = 1");
+        Fact defB = StoreDef("b = 2");
+
+        m_store.CreateView("view-a");
+        m_store.UpdateNamedView("view-a", "a", defA.Hash);
+        m_store.CreateView("view-b");
+        m_store.UpdateNamedView("view-b", "b", defB.Hash);
+
+        ViewMergeResult result = m_store.MergeViews("view-a", "view-b", "merged");
+
+        Assert.True(result.Success);
+        Assert.Empty(result.Conflicts);
+
+        ValueMap<string, ContentHash> merged = m_store.GetNamedView("merged");
+        Assert.Equal(2, merged.Count);
+        Assert.Equal(defA.Hash, merged["a"]);
+        Assert.Equal(defB.Hash, merged["b"]);
+    }
+
+    [Fact]
+    public void MergeViews_overlapping_same_hash()
+    {
+        Fact defA = StoreDef("a = 1");
+
+        m_store.CreateView("view-a");
+        m_store.UpdateNamedView("view-a", "a", defA.Hash);
+        m_store.CreateView("view-b");
+        m_store.UpdateNamedView("view-b", "a", defA.Hash);
+
+        ViewMergeResult result = m_store.MergeViews("view-a", "view-b", "merged");
+
+        Assert.True(result.Success);
+        ValueMap<string, ContentHash> merged = m_store.GetNamedView("merged");
+        Assert.Equal(1, merged.Count);
+        Assert.Equal(defA.Hash, merged["a"]);
+    }
+
+    [Fact]
+    public void MergeViews_conflict_different_hash()
+    {
+        Fact defA1 = StoreDef("a = 1");
+        Fact defA2 = StoreDef("a = 2");
+
+        m_store.CreateView("view-a");
+        m_store.UpdateNamedView("view-a", "a", defA1.Hash);
+        m_store.CreateView("view-b");
+        m_store.UpdateNamedView("view-b", "a", defA2.Hash);
+
+        ViewMergeResult result = m_store.MergeViews("view-a", "view-b", "conflict-target");
+
+        Assert.False(result.Success);
+        Assert.Single(result.Conflicts);
+        Assert.Equal("a", result.Conflicts[0].DefinitionName);
+        Assert.Equal(defA1.Hash, result.Conflicts[0].HashA);
+        Assert.Equal(defA2.Hash, result.Conflicts[0].HashB);
+
+        // Target should not have been created
+        Assert.False(m_store.ViewExists("conflict-target"));
+    }
+
+    [Fact]
+    public void MergeViews_nonexistent_source_throws()
+    {
+        m_store.CreateView("view-a");
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.MergeViews("view-a", "nonexistent", "target"));
+    }
+
+    [Fact]
+    public void MergeViews_target_exists_throws()
+    {
+        m_store.CreateView("view-a");
+        m_store.CreateView("view-b");
+        m_store.CreateView("target");
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.MergeViews("view-a", "view-b", "target"));
+    }
+
+    [Fact]
+    public void FilterView_subset()
+    {
+        Fact defA = StoreDef("a = 1");
+        Fact defB = StoreDef("b = 2");
+        Fact defC = StoreDef("c = 3");
+
+        m_store.CreateView("full");
+        m_store.UpdateNamedView("full", "a", defA.Hash);
+        m_store.UpdateNamedView("full", "b", defB.Hash);
+        m_store.UpdateNamedView("full", "c", defC.Hash);
+
+        HashSet<string> keep = ["a", "c"];
+        m_store.FilterView("full", "filtered", keep);
+
+        ValueMap<string, ContentHash> filtered = m_store.GetNamedView("filtered");
+        Assert.Equal(2, filtered.Count);
+        Assert.Equal(defA.Hash, filtered["a"]);
+        Assert.Equal(defC.Hash, filtered["c"]);
+        Assert.Null(filtered["b"]);
+    }
+
+    [Fact]
+    public void FilterView_empty_filter_creates_empty_view()
+    {
+        Fact defA = StoreDef("a = 1");
+        m_store.CreateView("full");
+        m_store.UpdateNamedView("full", "a", defA.Hash);
+
+        HashSet<string> keep = [];
+        m_store.FilterView("full", "empty", keep);
+
+        ValueMap<string, ContentHash> filtered = m_store.GetNamedView("empty");
+        Assert.Equal(0, filtered.Count);
+    }
+
+    [Fact]
+    public void FilterView_names_not_in_source_are_ignored()
+    {
+        Fact defA = StoreDef("a = 1");
+        m_store.CreateView("source");
+        m_store.UpdateNamedView("source", "a", defA.Hash);
+
+        HashSet<string> keep = ["a", "nonexistent", "also-missing"];
+        m_store.FilterView("source", "filtered", keep);
+
+        ValueMap<string, ContentHash> filtered = m_store.GetNamedView("filtered");
+        Assert.Equal(1, filtered.Count);
+        Assert.Equal(defA.Hash, filtered["a"]);
+    }
+
+    [Fact]
+    public void FilterView_nonexistent_source_throws()
+    {
+        HashSet<string> keep = ["a"];
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.FilterView("nonexistent", "target", keep));
+    }
+
+    [Fact]
+    public void FilterView_target_exists_throws()
+    {
+        m_store.CreateView("source");
+        m_store.CreateView("target");
+        HashSet<string> keep = ["a"];
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.FilterView("source", "target", keep));
+    }
 }
