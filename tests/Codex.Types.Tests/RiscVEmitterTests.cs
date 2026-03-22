@@ -409,10 +409,11 @@ public class RiscVEmitterTests
 
             string wslPath = ToWslPath(elfPath);
 
-            // qemu-system-riscv64 -machine virt -bios none -nographic -kernel <elf>
+            // qemu-system-riscv64 -machine virt -bios none -nographic -serial mon:stdio -kernel <elf>
+            // -serial mon:stdio routes UART0 to stdout (required for bare metal output)
             // Timeout after 5 seconds (bare metal has no exit — spins forever)
             ProcessStartInfo psi = new("bash",
-                $"-c \"timeout 5 qemu-system-riscv64 -machine virt -bios none -nographic -kernel '{wslPath}' 2>/dev/null || true\"")
+                $"-c \"timeout 5 qemu-system-riscv64 -machine virt -bios none -nographic -serial mon:stdio -kernel '{wslPath}' 2>/dev/null || true\"")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
