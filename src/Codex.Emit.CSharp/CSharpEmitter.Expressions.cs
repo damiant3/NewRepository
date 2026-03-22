@@ -86,6 +86,10 @@ public sealed partial class CSharpEmitter
                 EmitList(sb, list, indent);
                 break;
 
+            case IRRegion region:
+                EmitExpr(sb, region.Body, indent);
+                break;
+
             case IRMatch match:
                 EmitMatch(sb, match, indent);
                 break;

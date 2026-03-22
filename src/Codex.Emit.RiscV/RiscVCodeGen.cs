@@ -123,6 +123,7 @@ sealed class RiscVCodeGen
         IRApply apply => EmitApply(apply),
         IRNegate neg => EmitNegate(neg),
         IRDo doExpr => EmitDo(doExpr),
+        IRRegion region => EmitExpr(region.Body),
         _ => Reg.Zero
     };
 

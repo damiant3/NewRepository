@@ -132,6 +132,11 @@ sealed partial class WasmModuleBuilder
     // ── Heap pointer global index ────────────────────────────────
     int m_heapPtrGlobalIndex;
 
+    // ── Region stack ──────────────────────────────────────────────
+    const int RegionStackBase = 64;   // addresses 64–1023 (before data at 1024)
+    const int RegionStackMaxDepth = 240;
+    int m_regionSpGlobalIndex;
+
     // ── Runtime helper function indices ──────────────────────────
     int m_printI64Index;
     int m_printBoolIndex;
@@ -191,6 +196,10 @@ sealed partial class WasmModuleBuilder
         // Heap pointer — starts after data segments (will be patched in Build)
         m_heapPtrGlobalIndex = m_globals.Count;
         m_globals.Add(new WasmGlobal(WasmI32, GlobalMut, m_dataOffset));
+
+        // Region stack pointer — index into region stack, starts at 0
+        m_regionSpGlobalIndex = m_globals.Count;
+        m_globals.Add(new WasmGlobal(WasmI32, GlobalMut, 0));
     }
 
     // ── Pre-register functions ───────────────────────────────────
@@ -418,6 +427,10 @@ sealed partial class WasmModuleBuilder
             case IRMatch match:
                 EmitMatch(body, match, localMap, ref nextLocal, localTypes);
                 break;
+
+            case IRRegion region:
+                EmitRegion(body, region, localMap, ref nextLocal, localTypes);
+                break;
         }
     }
 
@@ -609,6 +622,49 @@ sealed partial class WasmModuleBuilder
                     break;
             }
         }
+    }
+
+    void EmitRegion(MemoryStream body, IRRegion region,
+        ValueMap<string, int> localMap, ref int nextLocal, List<byte> localTypes)
+    {
+        // Skip region for heap-returning functions (escape promotion is Phase 2)
+        bool isHeapReturn = region.Type is TextType or RecordType or SumType or ListType;
+        if (isHeapReturn)
+        {
+            EmitExpr(body, region.Body, localMap, ref nextLocal, localTypes, region.Type);
+            return;
+        }
+
+        // Enter region: region_stack[region_sp] = heap_ptr; region_sp++
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Mul);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, RegionStackBase);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+        body.WriteByte(OpI32Store); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
+
+        // Emit body
+        EmitExpr(body, region.Body, localMap, ref nextLocal, localTypes, region.Type);
+
+        // Exit region: region_sp--; heap_ptr = region_stack[region_sp]
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
+        body.WriteByte(OpI32Sub);
+        body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
+
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_regionSpGlobalIndex);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, 4);
+        body.WriteByte(OpI32Mul);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, RegionStackBase);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpI32Load); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
     }
 
     void EmitMatch(MemoryStream body, IRMatch match,
