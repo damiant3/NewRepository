@@ -928,11 +928,11 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpI32Add);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
         body.WriteByte(OpI32Add);
-        body.WriteByte(OpI32Load); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.load8_u
-        // Actually need i32.load8_u = 0x2D
-        // Patch: replace the i32.load with i32.load8_u
+        body.WriteByte((byte)0x2D); // i32.load8_u
+        body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
 
-        body.WriteByte(OpI32Store); body.WriteByte(0x00); WriteUnsignedLeb128(body, 0); // i32.store8
+        body.WriteByte((byte)0x3A); // i32.store8
+        body.WriteByte(0x00); WriteUnsignedLeb128(body, 0);
 
         // idx++
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, idx);
@@ -1116,6 +1116,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
         body.WriteByte(OpI32Sub);
         body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, bufPos + 1);
+        body.WriteByte(OpEnd);
         body.WriteByte(OpElse);
 
         // Loop: while absVal > 0
@@ -1300,6 +1301,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpI32Const); WriteSignedLeb128(body, 1);
         body.WriteByte(OpI32Sub);
         body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, bufPos);
+        body.WriteByte(OpEnd);
         body.WriteByte(OpElse);
 
         // Digit loop
@@ -1375,12 +1377,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, numLen);
         body.WriteByte(OpI32Store); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
 
-        // Copy digits from buf to result+4
-        EmitMemCopyDirect(body, resultPtr, bufPos, 1, numLen, ref nextLocal, localTypes);
-
-        // Actually the dest needs an offset of +4
-        // Let me fix: compute dest = resultPtr + 4
-        // We need a temp local for that
+        // Copy digits from buf to result+4 (skip length prefix)
         int destLocal = nextLocal++;
         localTypes.Add(WasmI32);
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultPtr);
@@ -1388,9 +1385,7 @@ sealed partial class WasmModuleBuilder
         body.WriteByte(OpI32Add);
         body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, destLocal);
 
-        // Hmm, the copy above was wrong — it used resultPtr not resultPtr+4.
-        // Since this is complex, let's simplify: for Phase 1 just return the pointer.
-        // The copy was already emitted. We'll fix in Phase 2 with proper memory.copy.
+        EmitMemCopyDirect(body, destLocal, bufPos, 1, numLen, ref nextLocal, localTypes);
 
         // Return resultPtr
         body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, resultPtr);
