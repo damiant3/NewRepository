@@ -17,6 +17,14 @@ public sealed class Map<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>
 
     public static readonly Map<TKey, TValue> s_empty = new(ImmutableDictionary<TKey, TValue>.Empty);
 
+    public static Map<TKey, TValue> Of(params (TKey Key, TValue Value)[] items)
+    {
+        ImmutableDictionary<TKey, TValue>.Builder builder = ImmutableDictionary.CreateBuilder<TKey, TValue>();
+        foreach ((TKey key, TValue value) in items)
+            builder[key] = value;
+        return new(builder.ToImmutable());
+    }
+
     public static Map<TKey, TValue> From(ImmutableDictionary<TKey, TValue> dict) => new(dict);
 
     public TValue? this[TKey key] =>
@@ -55,6 +63,14 @@ public sealed class ValueMap<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TVal
     }
 
     public static readonly ValueMap<TKey, TValue> s_empty = new(ImmutableDictionary<TKey, TValue>.Empty);
+
+    public static ValueMap<TKey, TValue> Of(params (TKey Key, TValue Value)[] items)
+    {
+        ImmutableDictionary<TKey, TValue>.Builder builder = ImmutableDictionary.CreateBuilder<TKey, TValue>();
+        foreach ((TKey key, TValue value) in items)
+            builder[key] = value;
+        return new(builder.ToImmutable());
+    }
 
     public TValue? this[TKey key] =>
         m_inner.TryGetValue(key, out TValue value) ? value : null;
