@@ -1,0 +1,2 @@
+effect Time where
+  now : [Time] Integer

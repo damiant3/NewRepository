@@ -1,0 +1,3 @@
+effect Console where
+  print-line : Text -> [Console] Nothing
+  read-line  : [Console] Text

@@ -32,7 +32,9 @@ public sealed class NameResolver(DiagnosticBag diagnostics)
         "get-args", "get-env", "current-dir",
         "run-process",
         "map",
-        "get-state", "set-state", "run-state"
+        "get-state", "set-state", "run-state",
+        "now",
+        "random-integer"
     );
 
     public NameResolver(DiagnosticBag diagnostics, IModuleLoader? loader)

@@ -1,0 +1,2 @@
+effect Random where
+  random-integer : Integer -> Integer -> [Random] Integer
