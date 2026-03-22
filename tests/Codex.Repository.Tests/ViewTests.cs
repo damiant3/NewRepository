@@ -188,12 +188,10 @@ public class ViewTests : IDisposable
     [Fact]
     public void Legacy_view_json_accessible_as_canonical()
     {
-        // The existing UpdateView/LookupView writes to view.json (legacy)
         Fact def = Fact.CreateDefinition("legacy = 42", "alice", "init");
         m_store.Store(def);
         m_store.UpdateView("my-fn", def.Hash);
 
-        // Should be accessible via GetNamedView("canonical")
         ValueMap<string, ContentHash> canonical = m_store.GetNamedView("canonical");
         ContentHash? hash = null;
         foreach (KeyValuePair<string, ContentHash> kv in canonical)
@@ -202,6 +200,99 @@ public class ViewTests : IDisposable
         }
         Assert.NotNull(hash);
         Assert.Equal(def.Hash, hash.Value);
+    }
+
+    [Fact]
+    public void CreateView_empty_name_throws()
+    {
+        Assert.Throws<ArgumentException>(() => m_store.CreateView(""));
+    }
+
+    [Fact]
+    public void CreateView_whitespace_name_throws()
+    {
+        Assert.Throws<ArgumentException>(() => m_store.CreateView("  "));
+    }
+
+    [Fact]
+    public void CreateView_path_separator_throws()
+    {
+        Assert.Throws<ArgumentException>(() => m_store.CreateView("../evil"));
+    }
+
+    [Fact]
+    public void CreateView_dot_name_throws()
+    {
+        Assert.Throws<ArgumentException>(() => m_store.CreateView(".."));
+    }
+
+    [Fact]
+    public void GetNamedView_nonexistent_throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => m_store.GetNamedView("nonexistent"));
+    }
+
+    [Fact]
+    public void UpdateNamedView_nonexistent_throws()
+    {
+        Fact def = Fact.CreateDefinition("f x = x", "alice", "init");
+        m_store.Store(def);
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.UpdateNamedView("nonexistent", "f", def.Hash));
+    }
+
+    [Fact]
+    public void RemoveFromView_nonexistent_view_throws()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.RemoveFromView("nonexistent", "f"));
+    }
+
+    [Fact]
+    public void RemoveFromView_missing_key_is_silent_noop()
+    {
+        m_store.CreateView("experiment");
+        Fact def = Fact.CreateDefinition("f x = x", "alice", "init");
+        m_store.Store(def);
+        m_store.UpdateNamedView("experiment", "f", def.Hash);
+
+        m_store.RemoveFromView("experiment", "nonexistent-key");
+
+        ValueMap<string, ContentHash> view = m_store.GetNamedView("experiment");
+        Assert.Equal(1, view.Count);
+    }
+
+    [Fact]
+    public void ViewExists_returns_true_for_created_view()
+    {
+        m_store.CreateView("feature-x");
+        Assert.True(m_store.ViewExists("feature-x"));
+    }
+
+    [Fact]
+    public void ViewExists_returns_false_for_missing_view()
+    {
+        Assert.False(m_store.ViewExists("nonexistent"));
+    }
+
+    [Fact]
+    public void ViewExists_returns_true_for_legacy_canonical()
+    {
+        // FactStore.Init creates view.json, so canonical exists via legacy
+        Assert.True(m_store.ViewExists("canonical"));
+    }
+
+    [Fact]
+    public void CreateView_canonical_with_legacy_throws()
+    {
+        // FactStore.Init creates view.json — trying to create canonical should fail
+        Assert.Throws<InvalidOperationException>(() => m_store.CreateView("canonical"));
+    }
+
+    [Fact]
+    public void DeleteView_nonexistent_throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => m_store.DeleteView("nonexistent"));
     }
 }
 

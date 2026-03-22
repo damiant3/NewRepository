@@ -60,6 +60,11 @@ partial class FactStore
 
     public void CreateView(string name, bool copyFromCurrent = false)
     {
+        ValidateViewName(name);
+
+        if (name == "canonical" && File.Exists(m_viewPath))
+            throw new InvalidOperationException("View 'canonical' already exists.");
+
         Directory.CreateDirectory(m_viewsPath);
         string viewFile = Path.Combine(m_viewsPath, name + ".json");
         if (File.Exists(viewFile))
@@ -76,6 +81,16 @@ partial class FactStore
         }
     }
 
+    public bool ViewExists(string name)
+    {
+        string viewFile = Path.Combine(m_viewsPath, name + ".json");
+        if (File.Exists(viewFile))
+            return true;
+        if (name == "canonical" && File.Exists(m_viewPath))
+            return true;
+        return false;
+    }
+
     public IReadOnlyList<ViewInfo> ListViews()
     {
         List<ViewInfo> views = [];
@@ -85,10 +100,7 @@ partial class FactStore
         if (File.Exists(m_viewPath) && !File.Exists(Path.Combine(m_viewsPath, "canonical.json")))
         {
             Map<string, string> legacy = LoadViewMapFrom(m_viewPath);
-            int count = 0;
-            foreach (KeyValuePair<string, string> _ in legacy)
-                count++;
-            views.Add(new ViewInfo("canonical", count, currentName == "canonical"));
+            views.Add(new ViewInfo("canonical", legacy.Count, currentName == "canonical"));
         }
 
         if (!Directory.Exists(m_viewsPath))
@@ -96,12 +108,9 @@ partial class FactStore
 
         foreach (string file in Directory.GetFiles(m_viewsPath, "*.json"))
         {
-            string name = Path.GetFileNameWithoutExtension(file);
+            string viewName = Path.GetFileNameWithoutExtension(file);
             Map<string, string> map = LoadViewMapFrom(file);
-            int count = 0;
-            foreach (KeyValuePair<string, string> _ in map)
-                count++;
-            views.Add(new ViewInfo(name, count, name == currentName));
+            views.Add(new ViewInfo(viewName, map.Count, viewName == currentName));
         }
 
         return views;
@@ -135,6 +144,8 @@ partial class FactStore
     public ValueMap<string, ContentHash> GetNamedView(string viewName)
     {
         string viewFile = ResolveViewFile(viewName);
+        if (!File.Exists(viewFile))
+            throw new InvalidOperationException($"View '{viewName}' does not exist.");
         Map<string, string> raw = LoadViewMapFrom(viewFile);
         ValueMap<string, ContentHash> result = ValueMap<string, ContentHash>.s_empty;
         foreach (KeyValuePair<string, string> kv in raw)
@@ -145,6 +156,8 @@ partial class FactStore
     public void UpdateNamedView(string viewName, string definitionName, ContentHash hash)
     {
         string viewFile = ResolveViewFile(viewName);
+        if (!File.Exists(viewFile))
+            throw new InvalidOperationException($"View '{viewName}' does not exist.");
         Map<string, string> map = LoadViewMapFrom(viewFile);
         map = map.Set(definitionName, hash.ToHex());
         SaveViewMapTo(viewFile, map);
@@ -153,6 +166,8 @@ partial class FactStore
     public void RemoveFromView(string viewName, string definitionName)
     {
         string viewFile = ResolveViewFile(viewName);
+        if (!File.Exists(viewFile))
+            throw new InvalidOperationException($"View '{viewName}' does not exist.");
         Map<string, string> map = LoadViewMapFrom(viewFile);
         map = map.Remove(definitionName);
         SaveViewMapTo(viewFile, map);
@@ -169,13 +184,26 @@ partial class FactStore
         if (name == "canonical" && File.Exists(m_viewPath))
             return m_viewPath;
 
-        return viewFile; // will fail on read if doesn't exist
+        return viewFile; // caller checks existence
     }
 
     Map<string, string> LoadCurrentViewMap()
     {
         string viewFile = ResolveViewFile(GetCurrentViewName());
         return LoadViewMapFrom(viewFile);
+    }
+
+    static void ValidateViewName(string name)
+    {
+        string trimmed = name.Trim();
+        if (trimmed.Length == 0)
+            throw new ArgumentException("View name cannot be empty or whitespace.", nameof(name));
+        if (trimmed.Length != name.Length)
+            throw new ArgumentException("View name cannot have leading or trailing whitespace.", nameof(name));
+        if (name.Contains('/') || name.Contains('\\') || name.Contains(Path.DirectorySeparatorChar))
+            throw new ArgumentException("View name cannot contain path separators.", nameof(name));
+        if (name is "." or "..")
+            throw new ArgumentException("View name cannot be '.' or '..'.", nameof(name));
     }
 
     static Map<string, string> LoadViewMapFrom(string path)
