@@ -89,7 +89,7 @@ alphabet.
 
 Peak II is the removal of all legacy dependencies. The route:
 
-### Camp II-A: IL Backend Maturity (In Progress)
+### Camp II-A: IL Backend Maturity ✅ (Summited 2026-03-21)
 
 The IL emitter produces standalone `.exe` files from `.codex` source. It works
 for the agent toolkit. It handles lists, records, sum types, pattern matching,
@@ -97,7 +97,7 @@ tail calls, file I/O, process launching. The gaps are known and finite:
 
 - ~~Effect handlers (closure-based, no CLR exceptions needed)~~ ✅ (2026-03-21 — run-state IL + inline user-defined `with` handlers)
 - ~~Generic type instantiation beyond `List<string>`~~ ✅ (2026-03-21 — generic `List<T>` instantiation cache)
-- User-defined type constructors in pattern match dispatch
+- ~~User-defined type constructors in pattern match dispatch~~ ✅ (2026-03-21 — isinst + field binding, recursive sum types verified)
 - ~~Remaining builtins (`write-file` in IL, `list-files`, etc.)~~ ✅ (2026-03-21 — text-contains, text-starts-with, get-env, current-dir, list-files)
 
 This camp gets us to: **any `.codex` program compiles to a working `.exe`
@@ -319,7 +319,7 @@ That pace recalibrates everything.
 
 | Camp | Visibility | Honest Estimate |
 |------|-----------|----------------|
-| II-A (IL maturity) | Clear, route marked | Days |
+| II-A (IL maturity) | ✅ Summited 2026-03-21 | — |
 | II-B (Native codegen) | Visible, route scoutable | Weeks |
 | II-C (Self-hosted native) | Visible in clear weather | Weeks |
 | III-A (Linear allocator) | Outline visible | Weeks–months |

@@ -225,6 +225,50 @@ public class ILEmitterRecordTests
     }
 
     [Fact]
+    public void Recursive_sum_type_eval_runs_correctly()
+    {
+        string source = """
+            Expr =
+              | Lit (Integer)
+              | Add (Expr) (Expr)
+
+            eval : Expr -> Integer
+            eval (e) = when e
+              if Lit (n) -> n
+              if Add (a) (b) -> eval a + eval b
+
+            main : Integer
+            main = eval (Add (Lit 3) (Lit 4))
+            """;
+        string? output = CompileAndRun(source, "recursive_sum_run");
+        Assert.NotNull(output);
+        Assert.Equal("7", output.Trim());
+    }
+
+    [Fact]
+    public void Multi_branch_ctor_dispatch_runs_correctly()
+    {
+        string source = """
+            Op =
+              | Lit (Integer)
+              | Add (Op) (Op)
+              | Mul (Op) (Op)
+
+            eval : Op -> Integer
+            eval (e) = when e
+              if Lit (n) -> n
+              if Add (a) (b) -> eval a + eval b
+              if Mul (a) (b) -> eval a * eval b
+
+            main : Integer
+            main = eval (Mul (Add (Lit 2) (Lit 3)) (Lit 4))
+            """;
+        string? output = CompileAndRun(source, "multi_ctor_dispatch_run");
+        Assert.NotNull(output);
+        Assert.Equal("20", output.Trim());
+    }
+
+    [Fact]
     public void Wildcard_pattern_runs_correctly()
     {
         string source = """
