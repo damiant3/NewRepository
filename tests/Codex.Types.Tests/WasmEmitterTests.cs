@@ -398,6 +398,104 @@ public class WasmEmitterTests
         Assert.True(result > 0, $"Expected positive sum, got {result}");
     }
 
+    [Fact]
+    public void Record_creation_and_field_access_emits()
+    {
+        string source = """
+            Point = record {
+              x : Integer,
+              y : Integer
+            }
+
+            main : Integer
+            main = let p = Point { x = 3, y = 4 } in p.x + p.y
+            """;
+        byte[]? bytes = Helpers.CompileToWasm(source, "record_wasm");
+        Assert.NotNull(bytes);
+        Assert.True(bytes.Length > 0);
+    }
+
+    [Fact]
+    public void Record_field_access_runs_under_wasmtime()
+    {
+        string source = """
+            Point = record {
+              x : Integer,
+              y : Integer
+            }
+
+            main : Integer
+            main = let p = Point { x = 10, y = 20 } in p.x + p.y
+            """;
+        string? output = CompileAndRun(source, "record_run_wasm");
+        if (output is null) return;
+        Assert.Equal("30", output.Trim());
+    }
+
+    [Fact]
+    public void Sum_type_constructor_and_match_emits()
+    {
+        string source = """
+            Shape =
+              | Circle (r : Integer)
+              | Rect (w : Integer) (h : Integer)
+
+            area : Shape -> Integer
+            area (s) =
+              when s
+                if Circle (r) -> r * r
+                if Rect (w) (h) -> w * h
+
+            main : Integer
+            main = area (Circle 5)
+            """;
+        byte[]? bytes = Helpers.CompileToWasm(source, "sum_wasm");
+        Assert.NotNull(bytes);
+        Assert.True(bytes.Length > 0);
+    }
+
+    [Fact]
+    public void Sum_type_match_runs_under_wasmtime()
+    {
+        string source = """
+            Shape =
+              | Circle (r : Integer)
+              | Rect (w : Integer) (h : Integer)
+
+            area : Shape -> Integer
+            area (s) =
+              when s
+                if Circle (r) -> r * r
+                if Rect (w) (h) -> w * h
+
+            main : Integer
+            main = area (Rect 3 4)
+            """;
+        string? output = CompileAndRun(source, "sum_run_wasm");
+        if (output is null) return;
+        Assert.Equal("12", output.Trim());
+    }
+
+    [Fact]
+    public void Record_passed_to_function_runs_under_wasmtime()
+    {
+        string source = """
+            Point = record {
+              x : Integer,
+              y : Integer
+            }
+
+            sum-point : Point -> Integer
+            sum-point (p) = p.x + p.y
+
+            main : Integer
+            main = sum-point (Point { x = 7, y = 8 })
+            """;
+        string? output = CompileAndRun(source, "record_fn_wasm");
+        if (output is null) return;
+        Assert.Equal("15", output.Trim());
+    }
+
     // ── Helpers ────────────────────────────────────────────────
 
     static string? CompileAndRun(string source, string moduleName)

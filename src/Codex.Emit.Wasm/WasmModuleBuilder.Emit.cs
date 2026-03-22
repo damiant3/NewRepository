@@ -224,6 +224,14 @@ sealed partial class WasmModuleBuilder
             case IRRegion region:
                 EmitRegion(body, region, localMap, ref nextLocal, localTypes);
                 break;
+
+            case IRRecord rec:
+                EmitRecord(body, rec, localMap, ref nextLocal, localTypes);
+                break;
+
+            case IRFieldAccess fa:
+                EmitFieldAccess(body, fa, localMap, ref nextLocal, localTypes);
+                break;
         }
     }
 
@@ -241,6 +249,40 @@ sealed partial class WasmModuleBuilder
             {
                 body.WriteByte(OpCall);
                 WriteUnsignedLeb128(body, funcIdx);
+            }
+        }
+        else if (name.Type is SumType sumType)
+        {
+            // Zero-arg constructor: allocate just a tag word
+            int tag = -1;
+            for (int i = 0; i < sumType.Constructors.Length; i++)
+            {
+                if (sumType.Constructors[i].Name.Value == name.Name)
+                {
+                    tag = i;
+                    break;
+                }
+            }
+            if (tag >= 0)
+            {
+                int ptrLocal = localMap.Count; // borrow a scratch approach
+                // inline bump-alloc 8 bytes for tag
+                body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+                // dup via local
+                int tmpPtr = localMap.Count + 100; // avoid collision — use nextLocal from caller
+                // Actually, we can't use nextLocal here since we don't have ref.
+                // Just emit the tag at current heap_ptr, advance, return old ptr.
+                // Use a simpler pattern: push heap_ptr, store tag, advance heap_ptr
+                body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+                body.WriteByte(OpI32Const); WriteSignedLeb128(body, tag);
+                body.WriteByte(OpI32Store); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+                // Push old heap_ptr as result
+                body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+                // Advance heap_ptr by 8
+                body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+                body.WriteByte(OpI32Const); WriteSignedLeb128(body, 8);
+                body.WriteByte(OpI32Add);
+                body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
             }
         }
     }
@@ -385,8 +427,76 @@ sealed partial class WasmModuleBuilder
                 }
                 body.WriteByte(OpCall);
                 WriteUnsignedLeb128(body, funcIdx);
+                return;
+            }
+
+            // Sum type constructor: allocate [tag i32][field0 8B][field1 8B]...
+            if (TryEmitConstructor(body, funcName.Name, args, apply.Type, localMap, ref nextLocal, localTypes))
+                return;
+        }
+    }
+
+    bool TryEmitConstructor(MemoryStream body, string ctorName, List<IRExpr> args,
+        CodexType resultType, ValueMap<string, int> localMap,
+        ref int nextLocal, List<byte> localTypes)
+    {
+        // Walk through the result type to find a SumType
+        SumType? sumType = resultType as SumType;
+        if (sumType is null)
+            return false;
+
+        // Find the tag index
+        int tag = -1;
+        for (int i = 0; i < sumType.Constructors.Length; i++)
+        {
+            if (sumType.Constructors[i].Name.Value == ctorName)
+            {
+                tag = i;
+                break;
             }
         }
+        if (tag < 0)
+            return false;
+
+        int totalSize = 8 + args.Count * 8; // tag + fields
+
+        // Bump-allocate
+        int ptrLocal = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, ptrLocal);
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, totalSize);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+
+        // Store tag at offset 0
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, tag);
+        body.WriteByte(OpI32Store); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+
+        // Store fields at offset 8, 16, 24...
+        for (int i = 0; i < args.Count; i++)
+        {
+            body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+            EmitExpr(body, args[i], localMap, ref nextLocal, localTypes, args[i].Type);
+            int offset = 8 + i * 8;
+            if (args[i].Type is IntegerType)
+            {
+                body.WriteByte(OpI64Store); body.WriteByte(0x03); WriteUnsignedLeb128(body, offset);
+            }
+            else if (args[i].Type is NumberType)
+            {
+                body.WriteByte(OpF64Store); body.WriteByte(0x03); WriteUnsignedLeb128(body, offset);
+            }
+            else
+            {
+                body.WriteByte(OpI32Store); body.WriteByte(0x02); WriteUnsignedLeb128(body, offset);
+            }
+        }
+
+        // Return pointer
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+        return true;
     }
 
     void EmitDo(MemoryStream body, IRDo doExpr,
@@ -575,13 +685,157 @@ sealed partial class WasmModuleBuilder
                 body.WriteByte(OpEnd);
                 break;
 
-            case IRCtorPattern:
-                // Constructor pattern matching — Phase 3 (types)
-                // For now, fall through to next branch
-                EmitMatchBranches(body, branches, index + 1, scrutLocal, localMap,
-                    ref nextLocal, localTypes, blockType);
+            case IRCtorPattern ctorPat:
+                EmitCtorPatternMatch(body, ctorPat, branch, branches, index,
+                    scrutLocal, localMap, ref nextLocal, localTypes, blockType);
                 break;
         }
+    }
+
+    void EmitRecord(MemoryStream body, IRRecord rec,
+        ValueMap<string, int> localMap, ref int nextLocal, List<byte> localTypes)
+    {
+        int fieldCount = rec.Fields.Length;
+        int totalSize = fieldCount * 8;
+
+        // Bump-allocate
+        int ptrLocal = nextLocal++; localTypes.Add(WasmI32);
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+        body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, ptrLocal);
+        body.WriteByte(OpGlobalGet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, totalSize);
+        body.WriteByte(OpI32Add);
+        body.WriteByte(OpGlobalSet); WriteUnsignedLeb128(body, m_heapPtrGlobalIndex);
+
+        // Store each field at ptr + index * 8
+        for (int i = 0; i < fieldCount; i++)
+        {
+            (string _, IRExpr value) = rec.Fields[i];
+            body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+            EmitExpr(body, value, localMap, ref nextLocal, localTypes, value.Type);
+            int offset = i * 8;
+            if (value.Type is IntegerType)
+            {
+                body.WriteByte(OpI64Store); body.WriteByte(0x03); WriteUnsignedLeb128(body, offset);
+            }
+            else if (value.Type is NumberType)
+            {
+                body.WriteByte(OpF64Store); body.WriteByte(0x03); WriteUnsignedLeb128(body, offset);
+            }
+            else
+            {
+                // Bool, Text ptr, Record ptr — all i32
+                body.WriteByte(OpI32Store); body.WriteByte(0x02); WriteUnsignedLeb128(body, offset);
+            }
+        }
+
+        // Push pointer as result
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, ptrLocal);
+    }
+
+    void EmitFieldAccess(MemoryStream body, IRFieldAccess fa,
+        ValueMap<string, int> localMap, ref int nextLocal, List<byte> localTypes)
+    {
+        // Emit the record pointer
+        EmitExpr(body, fa.Record, localMap, ref nextLocal, localTypes, fa.Record.Type);
+
+        // Find field index
+        int fieldIndex = 0;
+        if (fa.Record.Type is RecordType rt)
+        {
+            for (int i = 0; i < rt.Fields.Length; i++)
+            {
+                if (rt.Fields[i].FieldName.Value == fa.FieldName)
+                {
+                    fieldIndex = i;
+                    break;
+                }
+            }
+        }
+
+        int offset = fieldIndex * 8;
+        if (fa.Type is IntegerType)
+        {
+            body.WriteByte(OpI64Load); body.WriteByte(0x03); WriteUnsignedLeb128(body, offset);
+        }
+        else if (fa.Type is NumberType)
+        {
+            body.WriteByte(OpF64Load); body.WriteByte(0x03); WriteUnsignedLeb128(body, offset);
+        }
+        else
+        {
+            body.WriteByte(OpI32Load); body.WriteByte(0x02); WriteUnsignedLeb128(body, offset);
+        }
+    }
+
+    void EmitCtorPatternMatch(MemoryStream body, IRCtorPattern ctorPat,
+        IRMatchBranch branch, ImmutableArray<IRMatchBranch> branches, int index,
+        int scrutLocal, ValueMap<string, int> localMap,
+        ref int nextLocal, List<byte> localTypes, byte blockType)
+    {
+        // Sum type layout: [tag: i32 at offset 0][field0 at offset 8][field1 at offset 16]...
+        // Find constructor tag index
+        int tag = 0;
+        CodexType scrutType = ctorPat.Type;
+        if (scrutType is SumType sumType)
+        {
+            for (int i = 0; i < sumType.Constructors.Length; i++)
+            {
+                if (sumType.Constructors[i].Name.Value == ctorPat.Name)
+                {
+                    tag = i;
+                    break;
+                }
+            }
+        }
+
+        // Load tag from scrutinee and compare
+        body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, scrutLocal);
+        body.WriteByte(OpI32Load); body.WriteByte(0x02); WriteUnsignedLeb128(body, 0);
+        body.WriteByte(OpI32Const); WriteSignedLeb128(body, tag);
+        body.WriteByte(OpI32Eq);
+
+        body.WriteByte(OpIf);
+        body.WriteByte(blockType);
+
+        // Bind sub-pattern fields
+        ValueMap<string, int> innerMap = localMap;
+        for (int i = 0; i < ctorPat.SubPatterns.Length; i++)
+        {
+            if (ctorPat.SubPatterns[i] is IRVarPattern varPat)
+            {
+                int fieldLocal = nextLocal++;
+                localTypes.Add(WasmTypeFor(varPat.Type));
+
+                body.WriteByte(OpLocalGet); WriteUnsignedLeb128(body, scrutLocal);
+                int fieldOffset = 8 + i * 8;
+                if (varPat.Type is IntegerType)
+                {
+                    body.WriteByte(OpI64Load); body.WriteByte(0x03);
+                    WriteUnsignedLeb128(body, fieldOffset);
+                }
+                else if (varPat.Type is NumberType)
+                {
+                    body.WriteByte(OpF64Load); body.WriteByte(0x03);
+                    WriteUnsignedLeb128(body, fieldOffset);
+                }
+                else
+                {
+                    body.WriteByte(OpI32Load); body.WriteByte(0x02);
+                    WriteUnsignedLeb128(body, fieldOffset);
+                }
+
+                body.WriteByte(OpLocalSet); WriteUnsignedLeb128(body, fieldLocal);
+                innerMap = innerMap.Set(varPat.Name, fieldLocal);
+            }
+        }
+
+        EmitExpr(body, branch.Body, innerMap, ref nextLocal, localTypes, branch.Body.Type);
+
+        body.WriteByte(OpElse);
+        EmitMatchBranches(body, branches, index + 1, scrutLocal, localMap,
+            ref nextLocal, localTypes, blockType);
+        body.WriteByte(OpEnd);
     }
 
     void EmitLiteralValue(MemoryStream body, object value)
