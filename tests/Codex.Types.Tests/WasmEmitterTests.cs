@@ -159,6 +159,183 @@ public class WasmEmitterTests
         Assert.Equal("42", output.Trim());
     }
 
+    [Fact]
+    public void String_equality_emits_wasm_bytes()
+    {
+        string source = """
+            same : Text -> Text -> Integer
+            same (a) (b) = if a == b then 1 else 0
+
+            main : Integer
+            main = same "hello" "hello"
+            """;
+        byte[]? bytes = Helpers.CompileToWasm(source, "streq_wasm");
+        Assert.NotNull(bytes);
+        Assert.True(bytes.Length > 0);
+    }
+
+    [Fact]
+    public void String_equality_true_runs_under_wasmtime()
+    {
+        string source = """
+            same : Text -> Text -> Integer
+            same (a) (b) = if a == b then 1 else 0
+
+            main : Integer
+            main = same "hello" "hello"
+            """;
+        string? output = CompileAndRun(source, "streq_true_wasm");
+        if (output is null) return;
+        Assert.Equal("1", output.Trim());
+    }
+
+    [Fact]
+    public void String_equality_false_runs_under_wasmtime()
+    {
+        string source = """
+            same : Text -> Text -> Integer
+            same (a) (b) = if a == b then 1 else 0
+
+            main : Integer
+            main = same "hello" "world"
+            """;
+        string? output = CompileAndRun(source, "streq_false_wasm");
+        if (output is null) return;
+        Assert.Equal("0", output.Trim());
+    }
+
+    [Fact]
+    public void String_not_equal_runs_under_wasmtime()
+    {
+        string source = """
+            different : Text -> Text -> Integer
+            different (a) (b) = if a != b then 1 else 0
+
+            main : Integer
+            main = different "foo" "bar"
+            """;
+        string? output = CompileAndRun(source, "strneq_wasm");
+        if (output is null) return;
+        Assert.Equal("1", output.Trim());
+    }
+
+    [Fact]
+    public void Text_length_runs_under_wasmtime()
+    {
+        string source = """
+            main : Integer
+            main = text-length "hello"
+            """;
+        string? output = CompileAndRun(source, "textlen_wasm");
+        if (output is null) return;
+        Assert.Equal("5", output.Trim());
+    }
+
+    [Fact]
+    public void Concat_and_compare_runs_under_wasmtime()
+    {
+        string source = """
+            main : Integer
+            main = if ("ab" ++ "cd") == "abcd" then 1 else 0
+            """;
+        string? output = CompileAndRun(source, "concat_eq_wasm");
+        if (output is null) return;
+        Assert.Equal("1", output.Trim());
+    }
+
+    [Fact]
+    public void Nested_calls_run_under_wasmtime()
+    {
+        string source = """
+            double : Integer -> Integer
+            double (x) = x * 2
+
+            quad : Integer -> Integer
+            quad (x) = double (double x)
+
+            main : Integer
+            main = quad 3
+            """;
+        string? output = CompileAndRun(source, "nested_wasm");
+        if (output is null) return;
+        Assert.Equal("12", output.Trim());
+    }
+
+    [Fact]
+    public void Pattern_match_literal_runs_under_wasmtime()
+    {
+        string source = """
+            describe : Integer -> Text
+            describe (n) = if n == 0 then "zero" else if n == 1 then "one" else "other"
+
+            main : Text
+            main = describe 1
+            """;
+        string? output = CompileAndRun(source, "matchlit_wasm");
+        if (output is null) return;
+        Assert.Equal("one", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_runs_under_wasmtime()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "42"
+            """;
+        string? output = CompileAndRun(source, "t2i_wasm");
+        if (output is null) return;
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_negative_runs_under_wasmtime()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "-7"
+            """;
+        string? output = CompileAndRun(source, "t2i_neg_wasm");
+        if (output is null) return;
+        Assert.Equal("-7", output.Trim());
+    }
+
+    [Fact]
+    public void Integer_to_text_runs_under_wasmtime()
+    {
+        string source = """
+            main : Text
+            main = integer-to-text 99
+            """;
+        string? output = CompileAndRun(source, "i2t_wasm");
+        if (output is null) return;
+        Assert.Equal("99", output.Trim());
+    }
+
+    [Fact]
+    public void Char_at_runs_under_wasmtime()
+    {
+        string source = """
+            main : Text
+            main = char-at "hello" 1
+            """;
+        string? output = CompileAndRun(source, "charat_wasm");
+        if (output is null) return;
+        Assert.Equal("e", output.Trim());
+    }
+
+    [Fact]
+    public void Substring_runs_under_wasmtime()
+    {
+        string source = """
+            main : Text
+            main = substring "hello world" 6 5
+            """;
+        string? output = CompileAndRun(source, "substr_wasm");
+        if (output is null) return;
+        Assert.Equal("world", output.Trim());
+    }
+
     // ── Helpers ────────────────────────────────────────────────
 
     static string? CompileAndRun(string source, string moduleName)
