@@ -506,7 +506,7 @@ sealed partial class WasmModuleBuilder
 
     // ── Encoding helpers ─────────────────────────────────────────
 
-    byte[] EncodeLengthPrefixedString(string value)
+    static byte[] EncodeLengthPrefixedString(string value)
     {
         byte[] utf8 = Encoding.UTF8.GetBytes(value);
         byte[] result = new byte[4 + utf8.Length];
@@ -541,20 +541,20 @@ sealed partial class WasmModuleBuilder
         return m_types.Count - 1;
     }
 
-    byte WasmTypeFor(CodexType type)
+    static byte WasmTypeFor(CodexType type)
     {
         return type switch
         {
             IntegerType => WasmI64,
             NumberType => WasmF64,
             BooleanType => WasmI32,
-            TextType => WasmI32,  // pointer to length-prefixed string
-            VoidType or NothingType => WasmI32, // shouldn't appear, but safe default
-            _ => WasmI32 // heap pointer for records, sum types, lists
+            TextType => WasmI32,
+            VoidType or NothingType => WasmI32,
+            _ => WasmI32
         };
     }
 
-    byte WasmBlockTypeFor(CodexType type)
+    static byte WasmBlockTypeFor(CodexType type)
     {
         return type switch
         {
@@ -567,7 +567,7 @@ sealed partial class WasmModuleBuilder
         };
     }
 
-    CodexType ComputeReturnType(CodexType type, int paramCount)
+    static CodexType ComputeReturnType(CodexType type, int paramCount)
     {
         CodexType current = type;
         for (int i = 0; i < paramCount; i++)
@@ -580,7 +580,7 @@ sealed partial class WasmModuleBuilder
         return current;
     }
 
-    byte[] EncodeFunctionBody(byte[] code, List<byte> localTypes)
+    static byte[] EncodeFunctionBody(byte[] code, List<byte> localTypes)
     {
         // Group consecutive identical local types
         List<(int Count, byte Type)> localGroups = [];
