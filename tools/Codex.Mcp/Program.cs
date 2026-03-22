@@ -105,7 +105,7 @@ sealed class McpServer
         return new JsonObject
         {
             ["tools"] = new JsonArray(
-                MakeTool("codex/check", "Type-check a Codex source file. Returns diagnostics with line/column spans.",
+                MakeTool("codex-check", "Type-check a Codex source file. Returns diagnostics with line/column spans.",
                     new JsonObject
                     {
                         ["type"] = "object",
@@ -115,7 +115,7 @@ sealed class McpServer
                         },
                         ["required"] = new JsonArray("file"),
                     }),
-                MakeTool("codex/build", "Compile a Codex source file or directory to one or more targets.",
+                MakeTool("codex-build", "Compile a Codex source file or directory to one or more targets.",
                     new JsonObject
                     {
                         ["type"] = "object",
@@ -126,7 +126,7 @@ sealed class McpServer
                         },
                         ["required"] = new JsonArray("path"),
                     }),
-                MakeTool("codex/hover", "Get the type of a name in a Codex source file.",
+                MakeTool("codex-hover", "Get the type of a name in a Codex source file.",
                     new JsonObject
                     {
                         ["type"] = "object",
@@ -137,7 +137,7 @@ sealed class McpServer
                         },
                         ["required"] = new JsonArray("file", "name"),
                     }),
-                MakeTool("codex/parse", "Parse a Codex source file and return the token stream or syntax tree.",
+                MakeTool("codex-parse", "Parse a Codex source file and return the token stream or syntax tree.",
                     new JsonObject
                     {
                         ["type"] = "object",

@@ -20,10 +20,10 @@ sealed class ToolDispatcher
 
         return toolName switch
         {
-            "codex/check" => HandleCheck(arguments),
-            "codex/build" => HandleBuild(arguments),
-            "codex/hover" => HandleHover(arguments),
-            "codex/parse" => HandleParse(arguments),
+            "codex-check" => HandleCheck(arguments),
+            "codex-build" => HandleBuild(arguments),
+            "codex-hover" => HandleHover(arguments),
+            "codex-parse" => HandleParse(arguments),
             _ => throw new McpException(-32602, $"Unknown tool: {toolName}"),
         };
     }
