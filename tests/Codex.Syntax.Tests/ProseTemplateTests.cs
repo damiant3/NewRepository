@@ -431,6 +431,75 @@ public class ProseTemplateTests
         Assert.Empty(prose.CodeRefs);
     }
 
+    // --- Constraint templates ---
+
+    [Fact]
+    public void Record_such_that_constraint()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "An Account is a record containing:\n" +
+            "- owner : Text\n" +
+            "- balance : Integer\n" +
+            "such that the balance is at least zero.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        Assert.Single(doc.TypeDefinitions);
+        RecordTypeBody body = Assert.IsType<RecordTypeBody>(doc.TypeDefinitions[0].Body);
+        Assert.Single(body.Constraints);
+        Assert.Equal("such that", body.Constraints[0].Keyword);
+        Assert.Equal("the balance is at least zero", body.Constraints[0].Text);
+    }
+
+    [Fact]
+    public void Record_where_constraint()
+    {
+        string source =
+            "Chapter: Math\n" +
+            "\n" +
+            "A Positive is a record containing:\n" +
+            "- value : Integer\n" +
+            "where value is greater than zero.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        RecordTypeBody body = Assert.IsType<RecordTypeBody>(doc.TypeDefinitions[0].Body);
+        Assert.Single(body.Constraints);
+        Assert.Equal("where", body.Constraints[0].Keyword);
+    }
+
+    [Fact]
+    public void Variant_provided_that_constraint()
+    {
+        string source =
+            "Chapter: Data\n" +
+            "\n" +
+            "Status is either:\n" +
+            "- Active\n" +
+            "- Suspended\n" +
+            "provided that no Status is both Active and Suspended.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        VariantTypeBody body = Assert.IsType<VariantTypeBody>(doc.TypeDefinitions[0].Body);
+        Assert.Single(body.Constraints);
+        Assert.Equal("provided that", body.Constraints[0].Keyword);
+    }
+
+    [Fact]
+    public void No_constraint_when_absent()
+    {
+        string source =
+            "Chapter: Data\n" +
+            "\n" +
+            "A Point is a record containing:\n" +
+            "- x : Integer\n" +
+            "- y : Integer\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        RecordTypeBody body = Assert.IsType<RecordTypeBody>(doc.TypeDefinitions[0].Body);
+        Assert.Empty(body.Constraints);
+    }
+
     // --- Fail clauses on function templates ---
 
     [Fact]
