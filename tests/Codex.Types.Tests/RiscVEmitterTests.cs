@@ -294,6 +294,265 @@ public class RiscVEmitterTests
     }
 
     // ═════════════════════════════════════════════════════════════
+    // Records
+    // ═════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Record_creation_and_field_access_emits_elf()
+    {
+        string source = """
+            Point = record {
+              x : Integer,
+              y : Integer
+            }
+
+            main : Integer
+            main = let p = Point { x = 3, y = 4 } in p.x + p.y
+            """;
+        byte[]? bytes = Helpers.CompileToRiscV(source, "record_rv");
+        Assert.NotNull(bytes);
+        AssertValidElf(bytes);
+    }
+
+    [Fact]
+    public void Record_field_access_runs_under_qemu()
+    {
+        string source = """
+            Point = record {
+              x : Integer,
+              y : Integer
+            }
+
+            main : Integer
+            main = let p = Point { x = 3, y = 4 } in p.x + p.y
+            """;
+        string? output = CompileAndRun(source, "record_run_rv");
+        if (output is null) return;
+        Assert.Equal("7", output.Trim());
+    }
+
+    [Fact]
+    public void Record_passed_to_function_runs_under_qemu()
+    {
+        string source = """
+            Pair = record {
+              fst : Integer,
+              snd : Integer
+            }
+
+            sum-pair : Pair -> Integer
+            sum-pair (p) = p.fst + p.snd
+
+            main : Integer
+            main = sum-pair (Pair { fst = 10, snd = 20 })
+            """;
+        string? output = CompileAndRun(source, "recfn_run_rv");
+        if (output is null) return;
+        Assert.Equal("30", output.Trim());
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // Sum types + Pattern matching
+    // ═════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Sum_type_construction_emits_elf()
+    {
+        string source = """
+            Shape =
+              | Circle (r : Integer)
+              | Rect (w : Integer) (h : Integer)
+
+            area : Shape -> Integer
+            area (s) =
+              when s
+                if Circle (r) -> r * r
+                if Rect (w) (h) -> w * h
+
+            main : Integer
+            main = area (Circle 5)
+            """;
+        byte[]? bytes = Helpers.CompileToRiscV(source, "sum_rv");
+        Assert.NotNull(bytes);
+        AssertValidElf(bytes);
+    }
+
+    [Fact]
+    public void Pattern_match_circle_runs_under_qemu()
+    {
+        string source = """
+            Shape =
+              | Circle (r : Integer)
+              | Rect (w : Integer) (h : Integer)
+
+            area : Shape -> Integer
+            area (s) =
+              when s
+                if Circle (r) -> r * r
+                if Rect (w) (h) -> w * h
+
+            main : Integer
+            main = area (Circle 5)
+            """;
+        string? output = CompileAndRun(source, "match_circle_rv");
+        if (output is null) return;
+        Assert.Equal("25", output.Trim());
+    }
+
+    [Fact]
+    public void Pattern_match_rect_runs_under_qemu()
+    {
+        string source = """
+            Shape =
+              | Circle (r : Integer)
+              | Rect (w : Integer) (h : Integer)
+
+            area : Shape -> Integer
+            area (s) =
+              when s
+                if Circle (r) -> r * r
+                if Rect (w) (h) -> w * h
+
+            main : Integer
+            main = area (Rect 5 7)
+            """;
+        string? output = CompileAndRun(source, "match_rect_rv");
+        if (output is null) return;
+        Assert.Equal("35", output.Trim());
+    }
+
+    [Fact]
+    public void Record_and_match_combined_runs_under_qemu()
+    {
+        string source = """
+            Point = record {
+              x : Integer,
+              y : Integer
+            }
+
+            Shape =
+              | Circle (r : Integer)
+              | Rect (w : Integer) (h : Integer)
+
+            area : Shape -> Integer
+            area (s) =
+              when s
+                if Circle (r) -> r * r
+                if Rect (w) (h) -> w * h
+
+            main : Integer
+            main = let p = Point { x = 3, y = 4 } in area (Rect p.x p.y)
+            """;
+        string? output = CompileAndRun(source, "rec_match_rv");
+        if (output is null) return;
+        Assert.Equal("12", output.Trim());
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // Bare Metal tests
+    // ═════════════════════════════════════════════════════════════
+
+    // ═════════════════════════════════════════════════════════════
+    // Text builtins
+    // ═════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Text_length_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = text-length "hello"
+            """;
+        string? output = CompileAndRun(source, "textlen_rv");
+        if (output is null) return;
+        Assert.Equal("5", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "42"
+            """;
+        string? output = CompileAndRun(source, "txt2int_rv");
+        if (output is null) return;
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_negative_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "-7"
+            """;
+        string? output = CompileAndRun(source, "txt2int_neg_rv");
+        if (output is null) return;
+        Assert.Equal("-7", output.Trim());
+    }
+
+    [Fact]
+    public void Text_concat_emits_elf()
+    {
+        string source = """
+            main : Text
+            main = "hello " ++ "world"
+            """;
+        byte[]? bytes = Helpers.CompileToRiscV(source, "concat_rv");
+        Assert.NotNull(bytes);
+        AssertValidElf(bytes);
+    }
+
+    [Fact]
+    public void Text_concat_runs_under_qemu()
+    {
+        string source = """
+            main : Text
+            main = "hello " ++ "world"
+            """;
+        string? output = CompileAndRun(source, "concat_run_rv");
+        if (output is null) return;
+        Assert.Equal("hello world", output.Trim());
+    }
+
+    [Fact]
+    public void Show_integer_runs_under_qemu()
+    {
+        string source = """
+            main : Text
+            main = show 42
+            """;
+        string? output = CompileAndRun(source, "show_int_rv");
+        if (output is null) return;
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void String_equality_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = if "abc" == "abc" then 1 else 0
+            """;
+        string? output = CompileAndRun(source, "streq_rv");
+        if (output is null) return;
+        Assert.Equal("1", output.Trim());
+    }
+
+    [Fact]
+    public void String_inequality_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = if "abc" == "xyz" then 1 else 0
+            """;
+        string? output = CompileAndRun(source, "strneq_rv");
+        if (output is null) return;
+        Assert.Equal("0", output.Trim());
+    }
+
+    // ═════════════════════════════════════════════════════════════
     // Bare Metal tests
     // ═════════════════════════════════════════════════════════════
 
