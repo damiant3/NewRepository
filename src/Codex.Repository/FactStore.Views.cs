@@ -6,7 +6,9 @@ public sealed record ViewInfo(string Name, int DefinitionCount, bool IsCurrent);
 
 public sealed record ViewConsistencyResult(
     bool IsConsistent,
-    IReadOnlyList<string> Errors);
+    IReadOnlyList<string> Errors,
+    int ClaimCount = 0,
+    int ProvenClaimCount = 0);
 
 public interface IViewConsistencyChecker
 {

@@ -3,6 +3,7 @@ using Codex.Syntax;
 using Codex.Ast;
 using Codex.Semantics;
 using Codex.Types;
+using Codex.Proofs;
 using Codex.Repository;
 
 namespace Codex.Cli;
@@ -78,7 +79,16 @@ sealed class ViewConsistencyChecker : IViewConsistencyChecker
         if (diagnostics.HasErrors)
             return ToResult(diagnostics);
 
-        return new ViewConsistencyResult(true, []);
+        ProofChecker proofChecker = new(diagnostics);
+        proofChecker.CheckModule(resolved.Module, types);
+
+        int claimCount = allClaims.Count;
+        int provenCount = allProofs.Count;
+
+        if (diagnostics.HasErrors)
+            return ToResult(diagnostics, claimCount, provenCount);
+
+        return new ViewConsistencyResult(true, [], claimCount, provenCount);
     }
 
     static DocumentNode ParseSource(SourceText source, string content, DiagnosticBag diagnostics)
@@ -94,7 +104,7 @@ sealed class ViewConsistencyChecker : IViewConsistencyChecker
         return parser.ParseDocument();
     }
 
-    static ViewConsistencyResult ToResult(DiagnosticBag diagnostics)
+    static ViewConsistencyResult ToResult(DiagnosticBag diagnostics, int claimCount = 0, int provenCount = 0)
     {
         List<string> errors = [];
         foreach (Diagnostic diag in diagnostics.ToImmutable())
@@ -102,6 +112,6 @@ sealed class ViewConsistencyChecker : IViewConsistencyChecker
             if (diag.Severity == DiagnosticSeverity.Error)
                 errors.Add($"{diag.Code}: {diag.Message} {diag.Span}");
         }
-        return new ViewConsistencyResult(false, errors);
+        return new ViewConsistencyResult(false, errors, claimCount, provenCount);
     }
 }

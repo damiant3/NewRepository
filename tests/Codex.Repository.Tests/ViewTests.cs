@@ -648,3 +648,86 @@ public class ViewCompositionTests : IDisposable
             () => m_store.FilterView("source", "target", keep));
     }
 }
+
+public class ProofFactTests : IDisposable
+{
+    readonly string m_tempDir;
+    readonly FactStore m_store;
+
+    public ProofFactTests()
+    {
+        m_tempDir = Path.Combine(Path.GetTempPath(), "codex_proof_test_" + Guid.NewGuid().ToString("N")[..8]);
+        m_store = FactStore.Init(m_tempDir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(m_tempDir, true); } catch { }
+    }
+
+    [Fact]
+    public void CreateProof_has_correct_kind()
+    {
+        Fact proof = Fact.CreateProof("reverse-reverse", "Proof: by induction", "alice", "lemma proven");
+        Assert.Equal(FactKind.Proof, proof.Kind);
+    }
+
+    [Fact]
+    public void CreateProof_content_includes_claim_name()
+    {
+        Fact proof = Fact.CreateProof("reverse-reverse", "Proof: by induction", "alice", "lemma proven");
+        Assert.Contains("claim:reverse-reverse", proof.Content);
+        Assert.Contains("Proof: by induction", proof.Content);
+    }
+
+    [Fact]
+    public void CreateProof_is_content_addressed()
+    {
+        Fact proof1 = Fact.CreateProof("claim-a", "Proof: refl", "alice", "init");
+        Fact proof2 = Fact.CreateProof("claim-a", "Proof: refl", "bob", "copy");
+        Assert.Equal(proof1.Hash, proof2.Hash);
+    }
+
+    [Fact]
+    public void CreateProof_with_definition_reference()
+    {
+        Fact def = Fact.CreateDefinition("reverse xs = fold (flip cons) [] xs", "alice", "init");
+        Fact proof = Fact.CreateProof("reverse-reverse", "Proof: by induction", "alice", "lemma",
+            definitionHash: def.Hash);
+        Assert.Single(proof.References);
+        Assert.Equal(def.Hash, proof.References[0]);
+    }
+
+    [Fact]
+    public void Proof_fact_round_trips_through_store()
+    {
+        Fact proof = Fact.CreateProof("assoc", "Proof: by induction on xs", "alice", "verified");
+        m_store.Store(proof);
+        Fact? loaded = m_store.Load(proof.Hash);
+        Assert.NotNull(loaded);
+        Assert.Equal(FactKind.Proof, loaded.Kind);
+        Assert.Equal(proof.Content, loaded.Content);
+        Assert.Equal(proof.Author, loaded.Author);
+    }
+
+    [Fact]
+    public void GetFactsByKind_returns_proof_facts()
+    {
+        Fact def = Fact.CreateDefinition("id x = x", "alice", "init");
+        Fact proof = Fact.CreateProof("id-id", "Proof: refl", "alice", "trivial");
+        m_store.Store(def);
+        m_store.Store(proof);
+
+        IReadOnlyList<Fact> proofs = m_store.GetFactsByKind(FactKind.Proof);
+        Assert.Single(proofs);
+        Assert.Equal(proof.Hash, proofs[0].Hash);
+    }
+
+    [Fact]
+    public void ViewConsistencyResult_carries_proof_coverage()
+    {
+        ViewConsistencyResult result = new(true, [], ClaimCount: 3, ProvenClaimCount: 2);
+        Assert.Equal(3, result.ClaimCount);
+        Assert.Equal(2, result.ProvenClaimCount);
+    }
+}

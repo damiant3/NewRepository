@@ -12,7 +12,8 @@ public enum FactKind
     Deprecation,
     Proposal,
     Verdict,
-    Trust
+    Trust,
+    Proof
 }
 
 public enum VerdictDecision
@@ -101,6 +102,22 @@ public sealed record Fact(
         ContentHash hash = ContentHash.Of(content + $"\nauthor:{author}\ntime:{DateTime.UtcNow:O}");
         return new Fact(hash, FactKind.Trust, content, author, DateTime.UtcNow,
             reasoning, [target]);
+    }
+
+    public static Fact CreateProof(
+        string claimName,
+        string proofSource,
+        string author,
+        string justification,
+        ContentHash? definitionHash = null)
+    {
+        string content = $"claim:{claimName}\n{proofSource}";
+        ContentHash hash = ContentHash.Of(content);
+        ImmutableArray<ContentHash> refs = definitionHash is not null
+            ? [definitionHash.Value]
+            : [];
+        return new Fact(hash, FactKind.Proof, content, author, DateTime.UtcNow,
+            justification, refs);
     }
 }
 
