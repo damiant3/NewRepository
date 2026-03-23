@@ -604,13 +604,14 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
     uint EmitRecord(IRRecord rec)
     {
-        List<uint> fieldRegs = new();
-        foreach ((string _, IRExpr value) in rec.Fields)
+        // Evaluate all field values and save to locals
+        Dictionary<string, uint> fieldMap = new();
+        foreach ((string name, IRExpr value) in rec.Fields)
         {
             uint r = EmitExpr(value);
             uint saved = AllocLocal();
             StoreLocal(saved, r);
-            fieldRegs.Add(saved);
+            fieldMap[name] = saved;
         }
 
         int totalSize = rec.Fields.Length * 8;
@@ -619,8 +620,27 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         Emit(RiscVEncoder.Mv(ptrReg, Reg.S1));
         Emit(RiscVEncoder.Addi(Reg.S1, Reg.S1, totalSize));
 
-        for (int i = 0; i < fieldRegs.Count; i++)
-            Emit(RiscVEncoder.Sd(ptrReg, LoadLocal(fieldRegs[i]), i * 8));
+        // Store fields in RecordType field order (matches EmitFieldAccess lookup).
+        // If source order differs from type definition order, this reorders.
+        if (rec.Type is RecordType rt)
+        {
+            for (int i = 0; i < rt.Fields.Length; i++)
+            {
+                string fieldName = rt.Fields[i].FieldName.Value;
+                if (fieldMap.TryGetValue(fieldName, out uint saved))
+                    Emit(RiscVEncoder.Sd(ptrReg, LoadLocal(saved), i * 8));
+            }
+        }
+        else
+        {
+            // Fallback: store in IR order
+            int i = 0;
+            foreach ((string _, IRExpr _) in rec.Fields)
+            {
+                Emit(RiscVEncoder.Sd(ptrReg, LoadLocal(fieldMap.Values.ElementAt(i)), i * 8));
+                i++;
+            }
+        }
 
         return ptrReg;
     }
