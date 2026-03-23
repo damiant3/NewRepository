@@ -57,25 +57,108 @@ public sealed partial class ProseParser
         return nameSegment.Length > 0 ? nameSegment : null;
     }
 
-    static FunctionTemplateInfo? TryMatchFunctionTemplate(string line, SourceSpan span)
+    static FunctionTemplateInfo? TryMatchFunctionTemplate(string text, SourceSpan span)
     {
-        string trimmed = line.TrimEnd();
-        if (!trimmed.EndsWith(':'))
+        // Find the "To ..." line — may be followed by "gives" and "failing if" lines
+        string[] lines = text.Split('\n');
+        int toLineIdx = -1;
+        for (int li = lines.Length - 1; li >= 0; li--)
+        {
+            string t = lines[li].TrimStart();
+            if (t.StartsWith("To ", StringComparison.OrdinalIgnoreCase) && t.Contains('('))
+            {
+                toLineIdx = li;
+                break;
+            }
+        }
+        if (toLineIdx < 0)
             return null;
-        trimmed = trimmed[..^1].Trim();
 
-        if (!trimmed.StartsWith("To ", StringComparison.OrdinalIgnoreCase))
+        // Join the To line and any continuation lines (gives, failing if) into one block
+        string combined = string.Join(" ", lines[toLineIdx..].Select(l => l.Trim()));
+        // Strip trailing colon or period
+        if (combined.EndsWith(':') || combined.EndsWith('.'))
+            combined = combined[..^1].Trim();
+
+        if (!combined.StartsWith("To ", StringComparison.OrdinalIgnoreCase))
             return null;
-        string body = trimmed[3..].Trim();
+        string body = combined[3..].Trim();
         if (body.Length == 0)
             return null;
 
-        // Extract return type from "gives Type" suffix
+        // Extract fail clauses: "failing if ..." or "or fails with "..." if ..."
+        List<FailClause> failClauses = [];
+        while (true)
+        {
+            int failIdx = body.IndexOf("failing if ", StringComparison.OrdinalIgnoreCase);
+            int orFailIdx = body.IndexOf("or fails with ", StringComparison.OrdinalIgnoreCase);
+
+            if (failIdx >= 0 && (orFailIdx < 0 || failIdx < orFailIdx))
+            {
+                string condition = body[(failIdx + "failing if ".Length)..].Trim();
+                // Strip trailing comma for chained clauses
+                if (condition.EndsWith(','))
+                    condition = condition[..^1].Trim();
+                failClauses.Add(new FailClause(null, condition));
+                body = body[..failIdx].Trim();
+                if (body.EndsWith(','))
+                    body = body[..^1].Trim();
+            }
+            else if (orFailIdx >= 0)
+            {
+                string afterOrFails = body[(orFailIdx + "or fails with ".Length)..].Trim();
+                string? reason = null;
+                string condition;
+                // Extract quoted reason: "reason" if condition
+                if (afterOrFails.StartsWith('"'))
+                {
+                    int closeQuote = afterOrFails.IndexOf('"', 1);
+                    if (closeQuote > 0)
+                    {
+                        reason = afterOrFails[1..closeQuote];
+                        string rest = afterOrFails[(closeQuote + 1)..].Trim();
+                        if (rest.StartsWith("if ", StringComparison.OrdinalIgnoreCase))
+                            rest = rest[3..].Trim();
+                        condition = rest;
+                    }
+                    else
+                    {
+                        condition = afterOrFails;
+                    }
+                }
+                else
+                {
+                    condition = afterOrFails;
+                }
+                if (condition.EndsWith(','))
+                    condition = condition[..^1].Trim();
+                failClauses.Add(new FailClause(reason, condition));
+                body = body[..orFailIdx].Trim();
+                if (body.EndsWith(','))
+                    body = body[..^1].Trim();
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // Extract return type from "gives [a|the|the updated] Type" suffix
         string? returnType = null;
         int givesIdx = body.LastIndexOf(" gives ", StringComparison.OrdinalIgnoreCase);
         if (givesIdx >= 0)
         {
-            returnType = body[(givesIdx + " gives ".Length)..].Trim();
+            string givesText = body[(givesIdx + " gives ".Length)..].Trim();
+            // Strip leading articles: "a", "an", "the", "the updated"
+            if (givesText.StartsWith("the updated ", StringComparison.OrdinalIgnoreCase))
+                givesText = givesText["the updated ".Length..].Trim();
+            else if (givesText.StartsWith("an ", StringComparison.OrdinalIgnoreCase))
+                givesText = givesText[3..].Trim();
+            else if (givesText.StartsWith("a ", StringComparison.OrdinalIgnoreCase))
+                givesText = givesText[2..].Trim();
+            else if (givesText.StartsWith("the ", StringComparison.OrdinalIgnoreCase))
+                givesText = givesText[4..].Trim();
+            returnType = givesText;
             body = body[..givesIdx].Trim();
         }
 
@@ -112,7 +195,6 @@ public sealed partial class ProseParser
                 int wordEnd = i;
                 while (wordEnd < body.Length && body[wordEnd] != '(' && !char.IsWhiteSpace(body[wordEnd]))
                     wordEnd++;
-                // Only words before the first parameter are the function name
                 if (!seenParam)
                     nameWords.Add(body[i..wordEnd].ToLowerInvariant());
                 i = wordEnd;
@@ -123,7 +205,10 @@ public sealed partial class ProseParser
             return null;
 
         string funcName = string.Join("-", nameWords);
-        return new FunctionTemplateInfo(funcName, parameters, returnType, span);
+        return new FunctionTemplateInfo(funcName, parameters, returnType, span)
+        {
+            FailClauses = failClauses
+        };
     }
 
     static bool IsFunctionTemplateMatch(string line)
@@ -190,12 +275,11 @@ public sealed partial class ProseParser
         else if (text.TrimEnd().EndsWith("This is written:", StringComparison.OrdinalIgnoreCase))
             transition = ProseTransitionKind.ThisIsWritten;
 
-        // Check for function template on the last non-empty line
+        // Check for function template — may span multiple lines (To..., gives..., failing if...)
         FunctionTemplateInfo? funcTemplate = null;
-        string lastLine = proseLines.Count > 0 ? proseLines[^1] : "";
-        if (lastLine.TrimEnd().EndsWith(':') && lastLine.TrimStart().StartsWith("To ", StringComparison.OrdinalIgnoreCase))
+        if (proseLines.Any(l => l.TrimStart().StartsWith("To ", StringComparison.OrdinalIgnoreCase) && l.Contains('(')))
         {
-            funcTemplate = TryMatchFunctionTemplate(lastLine, proseSpan);
+            funcTemplate = TryMatchFunctionTemplate(text, proseSpan);
         }
 
         // Extract inline references from prose text
