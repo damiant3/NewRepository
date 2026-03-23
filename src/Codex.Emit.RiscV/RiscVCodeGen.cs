@@ -658,36 +658,34 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
     uint EmitRegion(IRRegion region)
     {
-        // Records, sum types, lists: skip region (deep copy needed).
-        // Scalars (integer, boolean): no heap allocation, region is a no-op.
-        // Skipping avoids SP shift that would corrupt spill slot offsets.
-        if (region.Type is RecordType or SumType or ListType
-            or IntegerType or BooleanType or FunctionType
-            or NothingType or VoidType or EffectfulType)
+        // Records, sum types, lists: skip region (deep copy needed for escape).
+        if (region.Type is RecordType or SumType or ListType)
             return EmitExpr(region.Body);
 
-        // Enter region: save heap ptr on stack
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -8));
-        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.S1, 0));
+        // Save heap pointer in a local (S-register or spill slot).
+        // Previous approach pushed S1 onto the stack, shifting SP mid-function
+        // and corrupting spill slot offsets. Using AllocLocal avoids the shift.
+        uint savedHeap = AllocLocal();
+        StoreLocal(savedHeap, Reg.S1);
 
         uint bodyReg = EmitExpr(region.Body);
 
         if (region.Type is TextType)
         {
-            // Text escape: copy string to parent region before restoring heap ptr
+            // Text escape: copy string to parent region before restoring heap ptr.
             Emit(RiscVEncoder.Mv(Reg.T4, bodyReg));
 
-            // Exit region (restore heap ptr)
-            Emit(RiscVEncoder.Ld(Reg.S1, Reg.Sp, 0));
-            Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 8));
+            // Restore heap pointer to parent region
+            uint heapVal = LoadLocal(savedHeap);
+            Emit(RiscVEncoder.Mv(Reg.S1, heapVal));
 
-            // Load length and alloc in parent region
-            Emit(RiscVEncoder.Ld(Reg.T5, Reg.T4, 0));
-            Emit(RiscVEncoder.Mv(Reg.A0, Reg.S1));
+            // Alloc space in parent region and copy string
+            Emit(RiscVEncoder.Ld(Reg.T5, Reg.T4, 0));        // t5 = length
+            Emit(RiscVEncoder.Mv(Reg.A0, Reg.S1));            // result = new heap pos
             Emit(RiscVEncoder.Addi(Reg.T0, Reg.T5, 15));
-            Emit(RiscVEncoder.Andi(Reg.T0, Reg.T0, -8));
-            Emit(RiscVEncoder.Add(Reg.S1, Reg.S1, Reg.T0));
-            Emit(RiscVEncoder.Sd(Reg.A0, Reg.T5, 0));
+            Emit(RiscVEncoder.Andi(Reg.T0, Reg.T0, -8));      // align to 8
+            Emit(RiscVEncoder.Add(Reg.S1, Reg.S1, Reg.T0));   // bump heap
+            Emit(RiscVEncoder.Sd(Reg.A0, Reg.T5, 0));         // store length
 
             // Copy bytes: src=t4+8, dst=a0+8
             Emit(RiscVEncoder.Addi(Reg.T0, Reg.T4, 8));
@@ -710,9 +708,9 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         }
         else
         {
-            // Scalar return: value in register survives region exit
-            Emit(RiscVEncoder.Ld(Reg.S1, Reg.Sp, 0));
-            Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 8));
+            // Scalar/other return: restore heap ptr, value survives in register
+            uint heapVal = LoadLocal(savedHeap);
+            Emit(RiscVEncoder.Mv(Reg.S1, heapVal));
             return bodyReg;
         }
     }
