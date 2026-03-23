@@ -14,6 +14,7 @@
 **Camp III-B (Capability System) complete.** CapabilityChecker + CLI `--capabilities` enforcement merged.
 **Camp III-A (Linear Allocator) Phase 1 complete.** IRRegion node + WASM region-based allocator merged.
 **Register spill verified (2026-03-23).** AllocLocal saturation bug found by Linux review, spill-to-stack + IRRegion SP fix verified under QEMU — 40/40 RISC-V tests green.
+**Camp II-C (Self-Hosted Native) SUMMITED (2026-03-23).** The Codex compiler, compiled to a 227KB RISC-V ELF, compiles Codex source to valid C# under QEMU. No .NET, no CLR, no JIT. Native machine code, start to finish.
 
 The C# bootstrap compiler is locked. All forward development happens in `.codex` source.
 
@@ -138,59 +139,40 @@ recursive IR walker. Found by dogfooding codex-agent.
 
 ## Active Work
 
-### Camp II-C — Self-Hosted on RISC-V (in progress)
+### Camp II-C — Self-Hosted on RISC-V ✅ SUMMITED (2026-03-23)
 
-The self-hosted compiler (493 defs, 26 .codex files) compiles to a 223KB
-RISC-V ELF. Previous binary segfaulted with `si_addr=NULL`.
+The Codex compiler, compiled to a 227,600-byte RISC-V ELF, successfully
+compiles Codex source to valid C# under QEMU. No .NET, no CLR, no JIT.
+493 definitions, 26 `.codex` files → native machine code → compiler output.
 
-**Root cause found (Cam, 2026-03-22)**: 18 unresolved call targets —
-5 missing text-processing builtins (`text-replace`, `char-code-at`,
-`char-code`, `code-to-char`, `is-letter`). Unresolved calls became NOPs
-in the instruction stream, leaving A0 as garbage/NULL, causing the deref.
+**Summit verification:**
+```
+echo "/tmp/summit-test.codex" | qemu-riscv64 ./Codex.Codex/out/Codex.Codex
+```
+Output: clean C# (`public static long main() => 42;`). Exit code 0.
 
-**Fixes applied (branch: cam/fix-riscv-null-deref)**:
-1. Implemented 5 missing builtins in `RiscVCodeGen.TryEmitBuiltin`
-2. Added `__str_replace` runtime helper (~100 instructions)
-3. Register spill to stack when S-registers exhausted (`AllocLocal` → virtual
-   regs ≥32, `StoreLocal`/`LoadLocal` with T0/T1 alternating scratch)
-4. Frame size patched after body emission to accommodate spill slots
-5. Page-aligned rodata segment to prevent text permission clobber in ELF
-6. IRRegion SP fix: skip heap-ptr save/restore for scalar types (Integer,
-   Boolean, Function) — the mid-function SP shift was corrupting spill offsets
-7. Added diagnostic warnings for unhandled IR nodes + unresolved calls
-8. QEMU tests skip explicitly instead of silently passing
+**Bugs found and fixed during the summit push (2026-03-22/23):**
 
-**Review cycle (2026-03-22/23)**:
-- Agent Linux reviewed `riscv-parity-phases1-4` merge, found `AllocLocal`
-  saturation bug (silent corruption when >10 locals). Review pushed to
-  `docs/reviews/riscv-parity-phases1-4-review.md`.
-- Agent Cam implemented spill-to-stack fix (`3e4b948`), but spill test
-  segfaulted under QEMU. Agent Linux ran Cam's isolation test matrix
-  (no-spill baseline / minimal spill / heavy spill no arithmetic).
-- Root cause: `EmitRegion` pushed S1 onto stack even for scalar regions,
-  shifting SP mid-function and breaking all spill slot offsets.
-- Fix (`a5dd336`): skip region SP shift for scalar types. Agent Linux
-  verified: **40/40 RISC-V tests pass** including spill stress tests.
+| Bug | Symptom | Fix |
+|-----|---------|-----|
+| AllocLocal saturation | Silent register aliasing at >10 locals | Spill to stack (virtual regs ≥32) |
+| EmitRegion SP shift | Spill offsets corrupted by mid-function SP push | AllocLocal for heap save instead of SP shift |
+| 12-bit addi overflow | 2128-byte frame truncated to 1968 (silent) | `li t0, N; sub sp, sp, t0` for large frames |
+| Forward references | Calls to later-defined functions became NOPs | Removed guard; calls patched after all functions emitted |
+| Zero-arg builtins in do-blocks | `read-line` as IRName never hit TryEmitBuiltin | EmitName tries zero-arg builtins first |
+| T0 clobbering in list-at | LoadLocal for spilled values overwrote index in T0 | Use T2 (safe scratch) for index computation |
+| Closures / partial application | CPS patterns returned Reg.Zero → NULL deref | Heap-allocated closures with trampolines |
+| Record field ordering | EmitRecord used source order; field access used type order | Reorder fields in EmitRecord to match RecordType |
+| ConstructedType in field access | Lowering didn't resolve ConstructedType → RecordType | Resolve in LowerFieldAccess |
+| Region text escape | Heap reclaimed while pointers still live | Disable region reclamation (escape analysis needed) |
+| 5 missing builtins | text-replace, char-code-at, char-code, code-to-char, is-letter | Implemented in TryEmitBuiltin + __str_replace helper |
 
-**Status**: Binary compiles with 0 warnings. 390 tests pass, 0 fail.
-All 40 RISC-V QEMU tests pass (including register spill, closures,
-lists, text builtins, and higher-order functions). Region heap
-reclamation disabled (1MB heap sufficient for compilation). Binary is
-ready for QEMU verification on Linux.
-
-**Next step**: Run `qemu-riscv64 ./Codex.Codex` on Linux with a test
-`.codex` file piped to stdin. If output matches bootstrap C# output →
-**Camp II-C summited**.
+**Three-agent collaboration:** Windows agent built features. Cam (1M Opus)
+debugged at full speed — 10 fix commits in one session, closures included.
+Linux agent reviewed, ran QEMU traces, verified each fix, found the initial
+AllocLocal saturation bug. Human routed between agents across session boundaries.
 
 **Design doc**: `docs/Designs/CAMP-IIC-SELF-HOSTED-RISCV.md`
-
-**Agent Windows full review (2026-03-23)**: Reviewed all 25 commits
-from this session. Build green (0 code warnings). 390 Types.Tests pass
-including all 7 previously-failing text QEMU tests (now fixed). Register
-allocator architecture is sound: temps T3-T6, locals S2-S11 monotonic,
-spill to stack with virtual regs ≥32, LoadLocal alternates T0/T1 scratch.
-Closure implementation uses T2 convention + inline trampolines. All
-branches merged to master, `cam/fix-riscv-null-deref` included.
 
 ---
 
@@ -201,9 +183,10 @@ branches merged to master, `cam/fix-riscv-null-deref` included.
 |------|------|-----|
 | ~~RISC-V parity~~ | ~~Records, sum types, pattern matching, text builtins on RISC-V~~ | ✅ Done (2026-03-22) |
 | ~~Register spill~~ | ~~Spill locals to stack when S-regs exhausted~~ | ✅ Done (2026-03-23, verified by Linux) |
-| Camp II-C verify | Run self-hosted RISC-V binary under QEMU | The summit push — if output matches, Camp II-C is done |
+| ~~Camp II-C~~ | ~~Self-hosted compiler on RISC-V~~ | ✅ **SUMMITED** (2026-03-23) |
 | V4 | Proof-carrying facts | Views verify proofs at composition time |
-| WASM Phase 3 fix | Fix `WasmModuleBuilder.Emit.cs` C#12 syntax error (collection exprs) | Blocks WASM tests on .NET 8.0.x SDK |
+| Camp III-A Phase 2 | Escape analysis for regions | Regions disabled pending proper escape tracking |
+| x86-64 backend | Extend native codegen beyond RISC-V | Broader platform coverage |
 
 ### Medium Term
 - **Camp III-C**: Structured concurrency — `par`, `race`, work-stealing
