@@ -198,10 +198,16 @@ public sealed partial class ProseParser
             funcTemplate = TryMatchFunctionTemplate(lastLine, proseSpan);
         }
 
+        // Extract inline references from prose text
+        List<InlineCodeRef> codeRefs = ExtractCodeRefs(text);
+        List<InlineTypeRef> typeRefs = ExtractTypeRefs(text);
+
         members.Add(new ProseBlockNode(text, proseSpan)
         {
             Transition = transition,
-            FunctionTemplate = funcTemplate
+            FunctionTemplate = funcTemplate,
+            CodeRefs = codeRefs,
+            TypeRefs = typeRefs
         });
 
         if (templateLine is null)
@@ -414,5 +420,78 @@ public sealed partial class ProseParser
         string rest = string.Concat(words.Skip(1).Select(w =>
             char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
         return first + rest;
+    }
+
+    static List<InlineCodeRef> ExtractCodeRefs(string text)
+    {
+        List<InlineCodeRef> refs = [];
+        int i = 0;
+        while (i < text.Length)
+        {
+            if (text[i] == '`')
+            {
+                int end = text.IndexOf('`', i + 1);
+                if (end > i + 1)
+                {
+                    string code = text[(i + 1)..end];
+                    if (code.Length > 0 && !code.Contains('`'))
+                        refs.Add(new InlineCodeRef(code, i, end + 1));
+                    i = end + 1;
+                }
+                else
+                {
+                    i++;
+                }
+            }
+            else
+            {
+                i++;
+            }
+        }
+        return refs;
+    }
+
+    static List<InlineTypeRef> ExtractTypeRefs(string text)
+    {
+        List<InlineTypeRef> refs = [];
+        int i = 0;
+        while (i < text.Length)
+        {
+            // Look for standalone PascalCase words (not inside backticks)
+            if (char.IsUpper(text[i]) && (i == 0 || !char.IsLetterOrDigit(text[i - 1])))
+            {
+                int end = i + 1;
+                while (end < text.Length && (char.IsLetterOrDigit(text[end]) || text[end] == '-'))
+                    end++;
+                string word = text[i..end];
+                // Must be PascalCase (starts upper, has at least one lower)
+                if (word.Length >= 2 && word.Any(char.IsLower)
+                    && !IsCommonEnglishWord(word))
+                {
+                    refs.Add(new InlineTypeRef(word, i, end));
+                }
+                i = end;
+            }
+            else
+            {
+                i++;
+            }
+        }
+        return refs;
+    }
+
+    static bool IsCommonEnglishWord(string word)
+    {
+        return word is "The" or "This" or "That" or "These" or "Those"
+            or "An" or "And" or "Are" or "But" or "Can" or "Did"
+            or "For" or "From" or "Has" or "Have" or "How" or "Its"
+            or "Let" or "May" or "Not" or "Our" or "She" or "Was"
+            or "We" or "When" or "Who" or "Will" or "With" or "You"
+            or "Also" or "Each" or "Every" or "Given" or "Here"
+            or "Into" or "Just" or "More" or "Must" or "Note"
+            or "Only" or "Over" or "Some" or "Such" or "Than"
+            or "Then" or "They" or "Very" or "What" or "Your"
+            or "After" or "Before" or "Below" or "First" or "Never"
+            or "Section" or "Chapter" or "Claim" or "Proof" or "True" or "False";
     }
 }

@@ -369,4 +369,65 @@ public class ProseTemplateTests
         (DocumentNode doc, DiagnosticBag diags) = ParseProse(source);
         Assert.Empty(diags.ToImmutable().Where(d => d.Code == "CDX1101" || d.Code == "CDX1102"));
     }
+
+    // --- Phase 4: Inline code references ---
+
+    [Fact]
+    public void Backtick_code_ref_extracted()
+    {
+        string source =
+            "Chapter: Greeting\n" +
+            "\n" +
+            "The `greet` function says hello.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Single(prose.CodeRefs);
+        Assert.Equal("greet", prose.CodeRefs[0].Code);
+    }
+
+    [Fact]
+    public void Multiple_code_refs_extracted()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "The `deposit` and `withdraw` functions modify the account.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Equal(2, prose.CodeRefs.Count);
+        Assert.Equal("deposit", prose.CodeRefs[0].Code);
+        Assert.Equal("withdraw", prose.CodeRefs[1].Code);
+    }
+
+    [Fact]
+    public void Type_ref_extracted_from_prose()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "An Account holds a balance.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Contains(prose.TypeRefs, r => r.TypeName == "Account");
+    }
+
+    [Fact]
+    public void No_refs_in_plain_prose()
+    {
+        string source =
+            "Chapter: Intro\n" +
+            "\n" +
+            "This is just regular prose with no references.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Empty(prose.CodeRefs);
+    }
 }
