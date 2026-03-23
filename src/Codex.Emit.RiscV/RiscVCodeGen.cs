@@ -19,6 +19,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     const long UartBase = 0x10000000;
 
     uint m_nextTemp = Reg.T0;
+    uint m_nextLocal = Reg.S2;
     Dictionary<string, uint> m_locals = [];
 
     // S1 is reserved as the global heap pointer — NOT saved/restored by functions.
@@ -77,7 +78,8 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     {
         m_functionOffsets[def.Name] = m_instructions.Count;
         m_locals = new Dictionary<string, uint>();
-        m_nextTemp = Reg.S2;
+        m_nextTemp = Reg.T3;
+        m_nextLocal = Reg.S2;
 
         // Prologue: 96-byte frame = ra + s0 + s2-s11 (12 × 8)
         Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -96));
@@ -205,7 +207,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     uint EmitBinary(IRBinary bin)
     {
         uint left = EmitExpr(bin.Left);
-        uint savedLeft = AllocTemp();
+        uint savedLeft = AllocLocal();
         Emit(RiscVEncoder.Mv(savedLeft, left));
 
         uint right = EmitExpr(bin.Right);
@@ -279,7 +281,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         Emit(RiscVEncoder.Nop()); // patched: beqz → else
 
         uint thenReg = EmitExpr(ifExpr.Then);
-        uint resultReg = AllocTemp();
+        uint resultReg = AllocLocal();
         Emit(RiscVEncoder.Mv(resultReg, thenReg));
 
         int jEndIndex = m_instructions.Count;
@@ -332,7 +334,12 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
             List<uint> argRegs = new();
             foreach (IRExpr arg in args)
-                argRegs.Add(EmitExpr(arg));
+            {
+                uint r = EmitExpr(arg);
+                uint saved = AllocLocal();
+                Emit(RiscVEncoder.Mv(saved, r));
+                argRegs.Add(saved);
+            }
 
             for (int i = 0; i < argRegs.Count && i < 8; i++)
             {
@@ -384,7 +391,12 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     {
         List<uint> fieldRegs = new();
         foreach ((string _, IRExpr value) in rec.Fields)
-            fieldRegs.Add(EmitExpr(value));
+        {
+            uint r = EmitExpr(value);
+            uint saved = AllocLocal();
+            Emit(RiscVEncoder.Mv(saved, r));
+            fieldRegs.Add(saved);
+        }
 
         int totalSize = rec.Fields.Length * 8;
 
@@ -435,7 +447,12 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
         List<uint> argRegs = new();
         foreach (IRExpr arg in args)
-            argRegs.Add(EmitExpr(arg));
+        {
+            uint r = EmitExpr(arg);
+            uint saved = AllocLocal();
+            Emit(RiscVEncoder.Mv(saved, r));
+            argRegs.Add(saved);
+        }
 
         int totalSize = (1 + args.Count) * 8;
 
@@ -834,7 +851,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     void EmitCharAt(List<IRExpr> args)
     {
         uint textReg = EmitExpr(args[0]);
-        uint savedText = AllocTemp();
+        uint savedText = AllocLocal();
         Emit(RiscVEncoder.Mv(savedText, textReg));
         uint indexReg = EmitExpr(args[1]);
 
@@ -853,11 +870,11 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     void EmitSubstring(List<IRExpr> args)
     {
         uint textReg = EmitExpr(args[0]);
-        uint savedText = AllocTemp();
+        uint savedText = AllocLocal();
         Emit(RiscVEncoder.Mv(savedText, textReg));
 
         uint startReg = EmitExpr(args[1]);
-        uint savedStart = AllocTemp();
+        uint savedStart = AllocLocal();
         Emit(RiscVEncoder.Mv(savedStart, startReg));
 
         uint lenReg = EmitExpr(args[2]);
@@ -1303,12 +1320,17 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     {
         uint reg = m_nextTemp;
         m_nextTemp++;
-        if (m_nextTemp > Reg.S11) m_nextTemp = Reg.T3;
-        if (m_nextTemp > Reg.T6) m_nextTemp = Reg.S2;
+        if (m_nextTemp > Reg.T6) m_nextTemp = Reg.T3;
         return reg;
     }
 
-    uint AllocLocal() => AllocTemp();
+    uint AllocLocal()
+    {
+        uint reg = m_nextLocal;
+        m_nextLocal++;
+        if (m_nextLocal > Reg.S11) m_nextLocal = Reg.S11; // saturate — no wrap
+        return reg;
+    }
 
     void Emit(uint instruction) => m_instructions.Add(instruction);
 
