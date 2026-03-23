@@ -2,6 +2,13 @@ using Codex.Core;
 
 namespace Codex.Syntax;
 
+// Use ASCII digit checks instead of char.IsDigit to avoid matching
+// Unicode digits (NKo, Devanagari, etc.) that long.Parse can't handle.
+static file class CharHelpers
+{
+    public static bool IsAsciiDigit(char c) => c >= '0' && c <= '9';
+}
+
 public enum LexerMode
 {
     Prose,
@@ -113,7 +120,7 @@ public sealed class Lexer
             return ScanTextLiteral();
         }
 
-        if (char.IsDigit(c))
+        if (CharHelpers.IsAsciiDigit(c))
         {
             return ScanNumber();
         }
@@ -329,7 +336,7 @@ public sealed class Lexer
         char c = Current;
 
         if (c == '"') return ScanPlainTextLiteral();
-        if (char.IsDigit(c)) return ScanNumber();
+        if (CharHelpers.IsAsciiDigit(c)) return ScanNumber();
         if (char.IsLetter(c) || c == '_') return ScanIdentifierOrKeyword();
         return ScanOperator();
     }
@@ -339,7 +346,7 @@ public sealed class Lexer
         SourcePosition start = MakePosition();
         bool isFloat = false;
 
-        while (!IsAtEnd && (char.IsDigit(Current) || Current == '_'))
+        while (!IsAtEnd && (CharHelpers.IsAsciiDigit(Current) || Current == '_'))
         {
             Advance();
         }
@@ -348,7 +355,7 @@ public sealed class Lexer
         {
             isFloat = true;
             Advance();
-            while (!IsAtEnd && (char.IsDigit(Current) || Current == '_'))
+            while (!IsAtEnd && (CharHelpers.IsAsciiDigit(Current) || Current == '_'))
             {
                 Advance();
             }
