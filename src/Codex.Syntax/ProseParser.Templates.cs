@@ -57,6 +57,82 @@ public sealed partial class ProseParser
         return nameSegment.Length > 0 ? nameSegment : null;
     }
 
+    static FunctionTemplateInfo? TryMatchFunctionTemplate(string line, SourceSpan span)
+    {
+        string trimmed = line.TrimEnd();
+        if (!trimmed.EndsWith(':'))
+            return null;
+        trimmed = trimmed[..^1].Trim();
+
+        if (!trimmed.StartsWith("To ", StringComparison.OrdinalIgnoreCase))
+            return null;
+        string body = trimmed[3..].Trim();
+        if (body.Length == 0)
+            return null;
+
+        // Extract return type from "gives Type" suffix
+        string? returnType = null;
+        int givesIdx = body.LastIndexOf(" gives ", StringComparison.OrdinalIgnoreCase);
+        if (givesIdx >= 0)
+        {
+            returnType = body[(givesIdx + " gives ".Length)..].Trim();
+            body = body[..givesIdx].Trim();
+        }
+
+        // Extract function name (words before first paren) and parameters
+        List<(string Name, string Type)> parameters = [];
+        List<string> nameWords = [];
+        bool seenParam = false;
+        int i = 0;
+        while (i < body.Length)
+        {
+            if (body[i] == '(')
+            {
+                seenParam = true;
+                int close = body.IndexOf(')', i);
+                if (close < 0)
+                    break;
+                string paramText = body[(i + 1)..close].Trim();
+                int colonIdx = paramText.IndexOf(':');
+                if (colonIdx >= 0)
+                {
+                    string pName = paramText[..colonIdx].Trim();
+                    string pType = paramText[(colonIdx + 1)..].Trim();
+                    if (pName.Length > 0 && pType.Length > 0)
+                        parameters.Add((ToFieldName(pName), pType));
+                }
+                i = close + 1;
+            }
+            else if (char.IsWhiteSpace(body[i]))
+            {
+                i++;
+            }
+            else
+            {
+                int wordEnd = i;
+                while (wordEnd < body.Length && body[wordEnd] != '(' && !char.IsWhiteSpace(body[wordEnd]))
+                    wordEnd++;
+                // Only words before the first parameter are the function name
+                if (!seenParam)
+                    nameWords.Add(body[i..wordEnd].ToLowerInvariant());
+                i = wordEnd;
+            }
+        }
+
+        if (nameWords.Count == 0)
+            return null;
+
+        string funcName = string.Join("-", nameWords);
+        return new FunctionTemplateInfo(funcName, parameters, returnType, span);
+    }
+
+    static bool IsFunctionTemplateMatch(string line)
+    {
+        string trimmed = line.TrimEnd();
+        return trimmed.EndsWith(':')
+            && trimmed.TrimStart().StartsWith("To ", StringComparison.OrdinalIgnoreCase);
+    }
+
     static bool IsTemplateMatch(string line)
     {
         return TryMatchRecordTemplate(line) is not null
@@ -106,7 +182,27 @@ public sealed partial class ProseParser
             ? LineOffset(m_lineIndex) : m_source.Content.Length;
         string text = string.Join("\n", proseLines);
         SourceSpan proseSpan = MakeSpan(startOffset, endOffset);
-        members.Add(new ProseBlockNode(text, proseSpan));
+
+        // Detect transition markers
+        ProseTransitionKind transition = ProseTransitionKind.None;
+        if (text.TrimEnd().EndsWith("We say:", StringComparison.OrdinalIgnoreCase))
+            transition = ProseTransitionKind.WeSay;
+        else if (text.TrimEnd().EndsWith("This is written:", StringComparison.OrdinalIgnoreCase))
+            transition = ProseTransitionKind.ThisIsWritten;
+
+        // Check for function template on the last non-empty line
+        FunctionTemplateInfo? funcTemplate = null;
+        string lastLine = proseLines.Count > 0 ? proseLines[^1] : "";
+        if (lastLine.TrimEnd().EndsWith(':') && lastLine.TrimStart().StartsWith("To ", StringComparison.OrdinalIgnoreCase))
+        {
+            funcTemplate = TryMatchFunctionTemplate(lastLine, proseSpan);
+        }
+
+        members.Add(new ProseBlockNode(text, proseSpan)
+        {
+            Transition = transition,
+            FunctionTemplate = funcTemplate
+        });
 
         if (templateLine is null)
             return;

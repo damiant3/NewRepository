@@ -50,13 +50,15 @@ public sealed partial class ProseParser(SourceText source, DiagnosticBag diagnos
 
         List<DefinitionNode> allDefs = [];
         List<TypeDefinitionNode> allTypeDefs = [];
+        List<ClaimNode> allClaims = [];
+        List<ProofNode> allProofs = [];
         foreach (ChapterNode chapter in chapters)
         {
-            CollectDefinitions(chapter.Members, allDefs, allTypeDefs);
+            CollectDefinitions(chapter.Members, allDefs, allTypeDefs, allClaims, allProofs);
         }
 
-        return new DocumentNode(allDefs, allTypeDefs, Array.Empty<ClaimNode>(),
-            Array.Empty<ProofNode>(), chapters, docSpan);
+        return new DocumentNode(allDefs, allTypeDefs, allClaims,
+            allProofs, chapters, docSpan);
     }
 
     ChapterNode ParseChapter()
@@ -237,13 +239,20 @@ public sealed partial class ProseParser(SourceText source, DiagnosticBag diagnos
             ? LineOffset(m_lineIndex)
             : m_source.Content.Length;
         SourceSpan span = MakeSpan(startOffset, endOffset);
-        return new NotationBlockNode(notationDoc.Definitions, notationDoc.TypeDefinitions, span);
+        return new NotationBlockNode(notationDoc.Definitions, notationDoc.TypeDefinitions, span)
+        {
+            Claims = notationDoc.Claims,
+            Proofs = notationDoc.Proofs
+        };
     }
 
     static bool LooksLikeNotation(string trimmed)
     {
         if (trimmed.Length == 0) return false;
         if (trimmed[0] == '|') return true;
+        // Function template lines are prose, not notation
+        if (trimmed.StartsWith("To ", StringComparison.OrdinalIgnoreCase) && trimmed.EndsWith(':'))
+            return false;
         if (char.IsLetter(trimmed[0]))
         {
             if (trimmed.Contains(" : ")) return true;
@@ -255,7 +264,9 @@ public sealed partial class ProseParser(SourceText source, DiagnosticBag diagnos
         return false;
     }
 
-    static void CollectDefinitions(IReadOnlyList<DocumentMember> members, List<DefinitionNode> defs, List<TypeDefinitionNode> typeDefs)
+    static void CollectDefinitions(IReadOnlyList<DocumentMember> members,
+        List<DefinitionNode> defs, List<TypeDefinitionNode> typeDefs,
+        List<ClaimNode> claims, List<ProofNode> proofs)
     {
         foreach (DocumentMember member in members)
         {
@@ -263,10 +274,12 @@ public sealed partial class ProseParser(SourceText source, DiagnosticBag diagnos
             {
                 defs.AddRange(notation.Definitions);
                 typeDefs.AddRange(notation.TypeDefinitions);
+                claims.AddRange(notation.Claims);
+                proofs.AddRange(notation.Proofs);
             }
             else if (member is SectionNode section)
             {
-                CollectDefinitions(section.Members, defs, typeDefs);
+                CollectDefinitions(section.Members, defs, typeDefs, claims, proofs);
             }
         }
     }

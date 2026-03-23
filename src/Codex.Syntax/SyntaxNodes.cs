@@ -147,9 +147,19 @@ public sealed record ChapterNode(
 
 public abstract record DocumentMember(SyntaxKind Kind, SourceSpan Span) : SyntaxNode(Kind, Span);
 
+public enum ProseTransitionKind { None, WeSay, ThisIsWritten, ToDefine }
+
+public sealed record FunctionTemplateInfo(
+    string FunctionName,
+    IReadOnlyList<(string Name, string Type)> Parameters,
+    string? ReturnType,
+    SourceSpan Span);
+
 public sealed record ProseBlockNode(string Text, SourceSpan Span)
     : DocumentMember(SyntaxKind.ProseBlock, Span)
 {
+    public FunctionTemplateInfo? FunctionTemplate { get; init; }
+    public ProseTransitionKind Transition { get; init; } = ProseTransitionKind.None;
     public override IEnumerable<SyntaxNode> Children => [];
 }
 
@@ -168,6 +178,9 @@ public sealed record NotationBlockNode(
     SourceSpan Span)
     : DocumentMember(SyntaxKind.Definition, Span)
 {
+    public IReadOnlyList<ClaimNode> Claims { get; init; } = [];
+    public IReadOnlyList<ProofNode> Proofs { get; init; } = [];
+
     public NotationBlockNode(IReadOnlyList<DefinitionNode> Definitions, SourceSpan Span)
         : this(Definitions, Array.Empty<TypeDefinitionNode>(), Span) { }
 
