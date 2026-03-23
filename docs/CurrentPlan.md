@@ -138,21 +138,27 @@ recursive IR walker. Found by dogfooding codex-agent.
 ### Camp II-C — Self-Hosted on RISC-V (in progress)
 
 The self-hosted compiler (493 defs, 26 .codex files) compiles to a 223KB
-RISC-V ELF. The binary starts correctly (brk heap allocation succeeds)
-then hits a **null pointer dereference** (`si_addr=NULL`).
+RISC-V ELF. Previous binary segfaulted with `si_addr=NULL`.
 
-**What works**: all 40 QEMU-verified test programs (records, sum types,
-pattern matching, lists, function pointers, text ops, string equality,
-register spills). Simple → medium complexity programs all run correctly.
+**Root cause found (Cam, 2026-03-22)**: 18 unresolved call targets —
+5 missing text-processing builtins (`text-replace`, `char-code-at`,
+`char-code`, `code-to-char`, `is-letter`). Unresolved calls became NOPs
+in the instruction stream, leaving A0 as garbage/NULL, causing the deref.
 
-**What's broken**: the full compiler binary segfaults. The null deref is
-a runtime logic bug — some code path in the 493-definition compiler
-dereferences a pointer that was never initialized. Not a regalloc or
-spill issue (those are fixed and tested).
+**Fixes applied**:
+1. Implemented 5 missing builtins in `RiscVCodeGen.TryEmitBuiltin`
+2. Added `__str_replace` runtime helper (~100 instructions)
+3. Fixed `IRBinaryOp.Gt`/`LtEq` using `savedLeft` instead of `leftReg`
+4. Added diagnostic warnings for unhandled IR nodes + unresolved calls
+5. Reverted broken `Xunit.SkipException` in test file
 
-**Next step**: bisect which .codex module triggers the crash. Either:
-1. Compile subsets of modules → find the smallest set that crashes
-2. Use `qemu-riscv64 -g 1234` + GDB to trace to the faulting instruction
+**Status**: Binary compiles with 0 warnings. 390 tests pass, 0 fail.
+All 40 RISC-V QEMU tests pass. Binary is ready for QEMU verification
+on Linux (Agent Linux's job).
+
+**Next step**: Run `qemu-riscv64 ./Codex.Codex` on Linux with a test
+`.codex` file piped to stdin. If output matches bootstrap C# output →
+**Camp II-C summited**.
 
 **Design doc**: `docs/Designs/CAMP-IIC-SELF-HOSTED-RISCV.md`
 

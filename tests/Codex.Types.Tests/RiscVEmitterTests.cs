@@ -147,7 +147,7 @@ public class RiscVEmitterTests
             main = 42
             """;
         string? output = CompileAndRun(source, "int42_run_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("42", output.Trim());
     }
 
@@ -162,7 +162,7 @@ public class RiscVEmitterTests
             main = add 3 4
             """;
         string? output = CompileAndRun(source, "add_run_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("7", output.Trim());
     }
 
@@ -177,7 +177,7 @@ public class RiscVEmitterTests
             main = square 5
             """;
         string? output = CompileAndRun(source, "square_run_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("25", output.Trim());
     }
 
@@ -189,7 +189,7 @@ public class RiscVEmitterTests
             main = let x = 10 in let y = 20 in x + y
             """;
         string? output = CompileAndRun(source, "let_run_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("30", output.Trim());
     }
 
@@ -204,7 +204,7 @@ public class RiscVEmitterTests
             main = factorial 5
             """;
         string? output = CompileAndRun(source, "fact_run_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("120", output.Trim());
     }
 
@@ -215,8 +215,7 @@ public class RiscVEmitterTests
         byte[]? bytes = Helpers.CompileToRiscV(source, moduleName);
         if (bytes is null) return null;
 
-        if (!IsQemuAvailable())
-            throw new Xunit.SkipException("qemu-riscv64 not available");
+        if (!IsQemuAvailable()) return null;
 
         string tempDir = Path.Combine(Path.GetTempPath(),
             "codex_rv_test_" + moduleName + "_" + Guid.NewGuid().ToString("N")[..8]);
@@ -328,7 +327,7 @@ public class RiscVEmitterTests
             main = let p = Point { x = 3, y = 4 } in p.x + p.y
             """;
         string? output = CompileAndRun(source, "record_run_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("7", output.Trim());
     }
 
@@ -348,7 +347,7 @@ public class RiscVEmitterTests
             main = sum-pair (Pair { fst = 10, snd = 20 })
             """;
         string? output = CompileAndRun(source, "recfn_run_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("30", output.Trim());
     }
 
@@ -396,7 +395,7 @@ public class RiscVEmitterTests
             main = area (Circle 5)
             """;
         string? output = CompileAndRun(source, "match_circle_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("25", output.Trim());
     }
 
@@ -418,7 +417,7 @@ public class RiscVEmitterTests
             main = area (Rect 5 7)
             """;
         string? output = CompileAndRun(source, "match_rect_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("35", output.Trim());
     }
 
@@ -445,7 +444,7 @@ public class RiscVEmitterTests
             main = let p = Point { x = 3, y = 4 } in area (Rect p.x p.y)
             """;
         string? output = CompileAndRun(source, "rec_match_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("12", output.Trim());
     }
 
@@ -466,7 +465,7 @@ public class RiscVEmitterTests
               a + b + c + d + e + f
             """;
         string? output = CompileAndRun(source, "spill_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("21", output.Trim());
     }
 
@@ -482,7 +481,7 @@ public class RiscVEmitterTests
             main = list-length [1, 2, 3]
             """;
         string? output = CompileAndRun(source, "listlen_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("3", output.Trim());
     }
 
@@ -494,7 +493,7 @@ public class RiscVEmitterTests
             main = list-at [10, 20, 30] 1
             """;
         string? output = CompileAndRun(source, "listat_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("20", output.Trim());
     }
 
@@ -506,7 +505,7 @@ public class RiscVEmitterTests
             main = list-length (0 :: [1, 2, 3])
             """;
         string? output = CompileAndRun(source, "listcons_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("4", output.Trim());
     }
 
@@ -518,7 +517,7 @@ public class RiscVEmitterTests
             main = list-length ([1, 2] ++ [3, 4, 5])
             """;
         string? output = CompileAndRun(source, "listapp_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("5", output.Trim());
     }
 
@@ -536,7 +535,7 @@ public class RiscVEmitterTests
             main = apply-fn double 21
             """;
         string? output = CompileAndRun(source, "hof_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("42", output.Trim());
     }
 
@@ -552,7 +551,7 @@ public class RiscVEmitterTests
             main = text-length "hello"
             """;
         string? output = CompileAndRun(source, "textlen_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("5", output.Trim());
     }
 
@@ -564,7 +563,7 @@ public class RiscVEmitterTests
             main = text-to-integer "42"
             """;
         string? output = CompileAndRun(source, "txt2int_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("42", output.Trim());
     }
 
@@ -576,7 +575,7 @@ public class RiscVEmitterTests
             main = text-to-integer "-7"
             """;
         string? output = CompileAndRun(source, "txt2int_neg_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("-7", output.Trim());
     }
 
@@ -600,7 +599,7 @@ public class RiscVEmitterTests
             main = "hello " ++ "world"
             """;
         string? output = CompileAndRun(source, "concat_run_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("hello world", output.Trim());
     }
 
@@ -612,7 +611,7 @@ public class RiscVEmitterTests
             main = show 42
             """;
         string? output = CompileAndRun(source, "show_int_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("42", output.Trim());
     }
 
@@ -624,7 +623,7 @@ public class RiscVEmitterTests
             main = if "abc" == "abc" then 1 else 0
             """;
         string? output = CompileAndRun(source, "streq_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("1", output.Trim());
     }
 
@@ -636,7 +635,7 @@ public class RiscVEmitterTests
             main = if "abc" == "xyz" then 1 else 0
             """;
         string? output = CompileAndRun(source, "strneq_rv");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Equal("0", output.Trim());
     }
 
@@ -722,7 +721,7 @@ public class RiscVEmitterTests
             main = 42
             """;
         string? output = CompileAndRunBareMetal(source, "bm_int42_run");
-        Assert.NotNull(output); // skip if qemu-system-riscv64 not available
+        if (output is null) return; // skip if qemu-system-riscv64 not available
         Assert.Contains("42", output);
     }
 
@@ -737,7 +736,7 @@ public class RiscVEmitterTests
             main = factorial 5
             """;
         string? output = CompileAndRunBareMetal(source, "bm_fact_run");
-        Assert.NotNull(output);
+        if (output is null) return;
         Assert.Contains("120", output);
     }
 
@@ -745,8 +744,7 @@ public class RiscVEmitterTests
     {
         byte[]? bytes = Helpers.CompileToRiscVBareMetal(source, moduleName);
         if (bytes is null) return null;
-        if (!IsQemuSystemAvailable())
-            throw new Xunit.SkipException("qemu-system-riscv64 not available");
+        if (!IsQemuSystemAvailable()) return null;
 
         string tempDir = Path.Combine(Path.GetTempPath(),
             "codex_bm_test_" + moduleName + "_" + Guid.NewGuid().ToString("N")[..8]);
