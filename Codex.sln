@@ -239,6 +239,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.RiscV", "src\Cod
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex.Emit.Wasm", "src\Codex.Emit.Wasm\Codex.Emit.Wasm.csproj", "{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Reviews", "Reviews", "{678D648F-87F3-4C97-83D9-C0508B710C5A}"
+	ProjectSection(SolutionItems) = preProject
+		docs\Reviews\RISCV-PARITY-PHASES1-4-REVIEW.md = docs\Reviews\RISCV-PARITY-PHASES1-4-REVIEW.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -762,6 +767,7 @@ Global
 		{A0153615-F4B1-45F5-94FB-088D7210A3B7} = {A0000000-0000-0000-0000-000000000002}
 		{E4AEE581-E3A4-44AD-9637-403CF6C1C8C7} = {A0000000-0000-0000-0000-000000000001}
 		{E36D6E0B-0CAC-4F25-8C1A-49BC4903163C} = {A0000000-0000-0000-0000-000000000001}
+		{678D648F-87F3-4C97-83D9-C0508B710C5A} = {A0000000-0000-0000-0000-000000000006}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AF02C109-BF5B-4C3E-87D8-31B2097DC5C8}
