@@ -624,6 +624,14 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         // If source order differs from type definition order, this reorders.
         if (rec.Type is RecordType rt)
         {
+            if (rt.Fields.Length != rec.Fields.Length)
+                Console.Error.WriteLine($"RISCV WARNING: record field count mismatch — IR has {rec.Fields.Length} fields, RecordType has {rt.Fields.Length} for {rec.TypeName}");
+            // Check for field name mismatches
+            foreach ((string name, _) in rec.Fields)
+            {
+                if (!rt.Fields.Any(f => f.FieldName.Value == name))
+                    Console.Error.WriteLine($"RISCV WARNING: IR field '{name}' not found in RecordType for {rec.TypeName}");
+            }
             for (int i = 0; i < rt.Fields.Length; i++)
             {
                 string fieldName = rt.Fields[i].FieldName.Value;
@@ -633,6 +641,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         }
         else
         {
+            Console.Error.WriteLine($"RISCV WARNING: EmitRecord without RecordType — type={rec.Type?.GetType().Name} typeName={rec.TypeName} fields={string.Join(",", rec.Fields.Select(f => f.FieldName))}");
             // Fallback: store in IR order
             int i = 0;
             foreach ((string _, IRExpr _) in rec.Fields)
@@ -825,61 +834,13 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
     uint EmitRegion(IRRegion region)
     {
-        // Records, sum types, lists: skip region (deep copy needed for escape).
-        if (region.Type is RecordType or SumType or ListType)
-            return EmitExpr(region.Body);
-
-        // Save heap pointer in a local (S-register or spill slot).
-        // Previous approach pushed S1 onto the stack, shifting SP mid-function
-        // and corrupting spill slot offsets. Using AllocLocal avoids the shift.
-        uint savedHeap = AllocLocal();
-        StoreLocal(savedHeap, Reg.S1);
-
-        uint bodyReg = EmitExpr(region.Body);
-
-        if (region.Type is TextType)
-        {
-            // Text escape: copy string to parent region before restoring heap ptr.
-            Emit(RiscVEncoder.Mv(Reg.T4, bodyReg));
-
-            // Restore heap pointer to parent region
-            uint heapVal = LoadLocal(savedHeap);
-            Emit(RiscVEncoder.Mv(Reg.S1, heapVal));
-
-            // Alloc space in parent region and copy string
-            Emit(RiscVEncoder.Ld(Reg.T5, Reg.T4, 0));        // t5 = length
-            Emit(RiscVEncoder.Mv(Reg.A0, Reg.S1));            // result = new heap pos
-            Emit(RiscVEncoder.Addi(Reg.T0, Reg.T5, 15));
-            Emit(RiscVEncoder.Andi(Reg.T0, Reg.T0, -8));      // align to 8
-            Emit(RiscVEncoder.Add(Reg.S1, Reg.S1, Reg.T0));   // bump heap
-            Emit(RiscVEncoder.Sd(Reg.A0, Reg.T5, 0));         // store length
-
-            // Copy bytes: src=t4+8, dst=a0+8
-            Emit(RiscVEncoder.Addi(Reg.T0, Reg.T4, 8));
-            Emit(RiscVEncoder.Addi(Reg.T1, Reg.A0, 8));
-            foreach (uint insn in RiscVEncoder.Li(Reg.T2, 0)) Emit(insn);
-            int loopStart = m_instructions.Count;
-            int exitIdx = m_instructions.Count;
-            Emit(RiscVEncoder.Nop());
-            Emit(RiscVEncoder.Add(Reg.T3, Reg.T0, Reg.T2));
-            Emit(RiscVEncoder.Lbu(Reg.T3, Reg.T3, 0));
-            Emit(RiscVEncoder.Add(Reg.T6, Reg.T1, Reg.T2));
-            Emit(RiscVEncoder.Sb(Reg.T6, Reg.T3, 0));
-            Emit(RiscVEncoder.Addi(Reg.T2, Reg.T2, 1));
-            Emit(RiscVEncoder.J((loopStart - m_instructions.Count) * 4));
-            int exitTarget = m_instructions.Count;
-            m_instructions[exitIdx] = RiscVEncoder.Bge(Reg.T2, Reg.T5,
-                (exitTarget - exitIdx) * 4);
-
-            return Reg.A0;
-        }
-        else
-        {
-            // Scalar/other return: restore heap ptr, value survives in register
-            uint heapVal = LoadLocal(savedHeap);
-            Emit(RiscVEncoder.Mv(Reg.S1, heapVal));
-            return bodyReg;
-        }
+        // Skip all regions — no heap reclamation. The text escape mechanism
+        // restores S1 and copies the return string, but this reclaims heap
+        // space that may still be referenced by records, lists, and strings
+        // allocated during the function body. With 1MB heap, reclamation is
+        // unnecessary for compilation. Region support (with proper escape
+        // analysis or GC) can be added in a future phase.
+        return EmitExpr(region.Body);
     }
 
     uint EmitList(IRList list)
