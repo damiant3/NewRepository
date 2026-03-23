@@ -103,7 +103,9 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         }
 
         uint resultReg = EmitExpr(def.Body);
-        if (resultReg != Reg.A0)
+        if (resultReg >= SpillBase)
+            Emit(RiscVEncoder.Ld(Reg.A0, Reg.Sp, SpillOffset(resultReg)));
+        else if (resultReg != Reg.A0)
             Emit(RiscVEncoder.Mv(Reg.A0, resultReg));
 
         // Patch frame size if spills were needed
@@ -457,7 +459,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         Emit(RiscVEncoder.Addi(Reg.S1, Reg.S1, totalSize));
 
         for (int i = 0; i < fieldRegs.Count; i++)
-            Emit(RiscVEncoder.Sd(ptrReg, fieldRegs[i], i * 8));
+            Emit(RiscVEncoder.Sd(ptrReg, LoadLocal(fieldRegs[i]), i * 8));
 
         return ptrReg;
     }
@@ -517,7 +519,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         Emit(RiscVEncoder.Sd(ptrReg, tagReg, 0));
 
         for (int i = 0; i < argRegs.Count; i++)
-            Emit(RiscVEncoder.Sd(ptrReg, argRegs[i], 8 + i * 8));
+            Emit(RiscVEncoder.Sd(ptrReg, LoadLocal(argRegs[i]), 8 + i * 8));
 
         return ptrReg;
     }
@@ -552,7 +554,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             case IRVarPattern varPat:
             {
                 uint localReg = AllocLocal();
-                StoreLocal(localReg, scrutReg);
+                StoreLocal(localReg, LoadLocal(scrutReg));
                 m_locals[varPat.Name] = localReg;
                 uint bodyReg = EmitExpr(branch.Body);
                 StoreLocal(resultReg, bodyReg);
@@ -563,7 +565,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             {
                 uint litReg = EmitLiteralValue(litPat.Value);
                 uint cmpReg = AllocTemp();
-                Emit(RiscVEncoder.Sub(cmpReg, scrutReg, litReg));
+                Emit(RiscVEncoder.Sub(cmpReg, LoadLocal(scrutReg), litReg));
                 Emit(RiscVEncoder.Sltu(cmpReg, Reg.Zero, cmpReg));
 
                 int branchIdx = m_instructions.Count;
@@ -588,7 +590,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             case IRCtorPattern ctorPat:
             {
                 uint tagReg = AllocTemp();
-                Emit(RiscVEncoder.Ld(tagReg, scrutReg, 0));
+                Emit(RiscVEncoder.Ld(tagReg, LoadLocal(scrutReg), 0));
 
                 int expectedTag = 0;
                 if (ctorPat.Type is SumType sumType)
@@ -721,7 +723,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
         // Store elements
         for (int i = 0; i < elemRegs.Count; i++)
-            Emit(RiscVEncoder.Sd(ptrReg, elemRegs[i], 8 + i * 8));
+            Emit(RiscVEncoder.Sd(ptrReg, LoadLocal(elemRegs[i]), 8 + i * 8));
 
         return ptrReg;
     }
@@ -820,7 +822,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                 // Load element at offset 8 + idx * 8
                 foreach (uint insn in RiscVEncoder.Li(Reg.T0, 8)) Emit(insn);
                 Emit(RiscVEncoder.Mul(Reg.T0, idxReg, Reg.T0));
-                Emit(RiscVEncoder.Add(Reg.T0, savedList, Reg.T0));
+                Emit(RiscVEncoder.Add(Reg.T0, LoadLocal(savedList), Reg.T0));
                 Emit(RiscVEncoder.Ld(Reg.A0, Reg.T0, 8));
                 return true;
             }
@@ -1046,7 +1048,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         foreach (uint insn in RiscVEncoder.Li(Reg.T0, 1)) Emit(insn);
         Emit(RiscVEncoder.Sd(Reg.A0, Reg.T0, 0));
 
-        Emit(RiscVEncoder.Add(Reg.T0, savedText, indexReg));
+        Emit(RiscVEncoder.Add(Reg.T0, LoadLocal(savedText), indexReg));
         Emit(RiscVEncoder.Lbu(Reg.T0, Reg.T0, 8));
         Emit(RiscVEncoder.Sb(Reg.A0, Reg.T0, 8));
     }
@@ -1073,7 +1075,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         Emit(RiscVEncoder.Sd(Reg.A0, Reg.T5, 0));
 
         // Copy: src = text + 8 + start, dst = result + 8
-        Emit(RiscVEncoder.Add(Reg.T0, savedText, savedStart));
+        Emit(RiscVEncoder.Add(Reg.T0, LoadLocal(savedText), LoadLocal(savedStart)));
         Emit(RiscVEncoder.Addi(Reg.T0, Reg.T0, 8));
         Emit(RiscVEncoder.Addi(Reg.T1, Reg.A0, 8));
 
@@ -1812,14 +1814,18 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             Emit(RiscVEncoder.Sd(Reg.Sp, valueReg, SpillOffset(local)));
     }
 
-    // Load a local into a temp register for use
+    uint m_loadLocalToggle;
+
+    // Load a local into a scratch register for use.
+    // Alternates T0/T1 (not in AllocTemp rotation) to allow two
+    // simultaneous spill loads (e.g., both operands of a binary op).
     uint LoadLocal(uint local)
     {
         if (local < SpillBase)
             return local;
-        uint tmp = AllocTemp();
-        Emit(RiscVEncoder.Ld(tmp, Reg.Sp, SpillOffset(local)));
-        return tmp;
+        uint scratch = (m_loadLocalToggle++ % 2 == 0) ? Reg.T0 : Reg.T1;
+        Emit(RiscVEncoder.Ld(scratch, Reg.Sp, SpillOffset(local)));
+        return scratch;
     }
 
     void Emit(uint instruction) => m_instructions.Add(instruction);

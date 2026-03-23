@@ -451,6 +451,25 @@ public class RiscVEmitterTests
     // ═════════════════════════════════════════════════════════════
     // Bare Metal tests
     // ═════════════════════════════════════════════════════════════
+    // Register spill (>10 locals)
+    // ═════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Many_locals_spill_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main =
+              let a = 1 in let b = 2 in let c = 3 in
+              let d = 4 in let e = 5 in let f = 6 in
+              a + b + c + d + e + f
+            """;
+        string? output = CompileAndRun(source, "spill_rv");
+        if (output is null) return;
+        Assert.Equal("21", output.Trim());
+    }
+
+    // ═════════════════════════════════════════════════════════════
     // Lists + higher-order functions
     // ═════════════════════════════════════════════════════════════
 
