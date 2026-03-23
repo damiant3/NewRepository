@@ -196,14 +196,6 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         if (m_locals.TryGetValue(name.Name, out uint reg))
             return LoadLocal(reg);
 
-        if (m_functionOffsets.ContainsKey(name.Name) && name.Type is not FunctionType)
-        {
-            uint rd = AllocTemp();
-            EmitCallTo(name.Name);
-            Emit(RiscVEncoder.Mv(rd, Reg.A0));
-            return rd;
-        }
-
         // Function used as a value (e.g., passed to map-list) — load address
         if (name.Type is FunctionType)
         {
@@ -236,7 +228,20 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             }
         }
 
-        return Reg.Zero;
+        // Zero-arg builtin (e.g., read-line in do-blocks) or zero-arg function
+        // (forward reference — call is patched after all functions are emitted)
+        if (TryEmitBuiltin(name.Name, new List<IRExpr>()))
+        {
+            uint rd = AllocTemp();
+            Emit(RiscVEncoder.Mv(rd, Reg.A0));
+            return rd;
+        }
+        {
+            uint rd = AllocTemp();
+            EmitCallTo(name.Name);
+            Emit(RiscVEncoder.Mv(rd, Reg.A0));
+            return rd;
+        }
     }
 
     uint EmitBinary(IRBinary bin)
@@ -657,7 +662,8 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         // Scalars (integer, boolean): no heap allocation, region is a no-op.
         // Skipping avoids SP shift that would corrupt spill slot offsets.
         if (region.Type is RecordType or SumType or ListType
-            or IntegerType or BooleanType or FunctionType)
+            or IntegerType or BooleanType or FunctionType
+            or NothingType or VoidType or EffectfulType)
             return EmitExpr(region.Body);
 
         // Enter region: save heap ptr on stack
