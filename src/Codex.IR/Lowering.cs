@@ -596,12 +596,25 @@ public sealed class Lowering(
     IRExpr LowerFieldAccess(FieldAccessExpr fa, CodexType expectedType)
     {
         IRExpr record = LowerExpr(fa.Record, ErrorType.s_instance);
+
+        // Resolve ConstructedType (e.g., Token, Name) to its underlying RecordType
+        RecordType? rt = record.Type as RecordType;
+        if (rt is null && record.Type is ConstructedType ct)
+        {
+            CodexType? resolved = m_typeDefMap[ct.Constructor.Value];
+            rt = resolved as RecordType;
+        }
+
         CodexType fieldType = expectedType;
-        if (record.Type is RecordType rt)
+        if (rt is not null)
         {
             RecordFieldType? rft = rt.Fields
                 .FirstOrDefault(f => f.FieldName.Value == fa.FieldName.Value);
             if (rft is not null) fieldType = rft.Type;
+
+            // Ensure emitters see RecordType (not ConstructedType) so they can compute field indices
+            if (record.Type is not RecordType)
+                record = record with { Type = rt };
         }
         return new IRFieldAccess(record, fa.FieldName.Value, fieldType);
     }
