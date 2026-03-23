@@ -150,6 +150,13 @@ sealed class ElfWriter
         return baseAddr + (ulong)rodataFileOffset;
     }
 
+    public static int ComputeTextFileOffset(RiscVTarget target = RiscVTarget.LinuxUser)
+    {
+        if (target == RiscVTarget.BareMetal) return 0;
+        int headersTotalSize = ElfHeaderSize + ProgramHeaderSize * 2;
+        return Align(headersTotalSize, 16);
+    }
+
     static int Align(int value, int alignment)
     {
         int remainder = value % alignment;

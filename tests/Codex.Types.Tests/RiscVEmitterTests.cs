@@ -451,6 +451,74 @@ public class RiscVEmitterTests
     // ═════════════════════════════════════════════════════════════
     // Bare Metal tests
     // ═════════════════════════════════════════════════════════════
+    // Lists + higher-order functions
+    // ═════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void List_literal_length_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = list-length [1, 2, 3]
+            """;
+        string? output = CompileAndRun(source, "listlen_rv");
+        if (output is null) return;
+        Assert.Equal("3", output.Trim());
+    }
+
+    [Fact]
+    public void List_at_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = list-at [10, 20, 30] 1
+            """;
+        string? output = CompileAndRun(source, "listat_rv");
+        if (output is null) return;
+        Assert.Equal("20", output.Trim());
+    }
+
+    [Fact]
+    public void List_cons_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = list-length (0 :: [1, 2, 3])
+            """;
+        string? output = CompileAndRun(source, "listcons_rv");
+        if (output is null) return;
+        Assert.Equal("4", output.Trim());
+    }
+
+    [Fact]
+    public void List_append_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = list-length ([1, 2] ++ [3, 4, 5])
+            """;
+        string? output = CompileAndRun(source, "listapp_rv");
+        if (output is null) return;
+        Assert.Equal("5", output.Trim());
+    }
+
+    [Fact]
+    public void Higher_order_function_runs_under_qemu()
+    {
+        string source = """
+            apply-fn : (Integer -> Integer) -> Integer -> Integer
+            apply-fn (f) (x) = f x
+
+            double : Integer -> Integer
+            double (n) = n * 2
+
+            main : Integer
+            main = apply-fn double 21
+            """;
+        string? output = CompileAndRun(source, "hof_rv");
+        if (output is null) return;
+        Assert.Equal("42", output.Trim());
+    }
 
     // ═════════════════════════════════════════════════════════════
     // Text builtins
