@@ -241,13 +241,9 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         if (m_locals.TryGetValue(name.Name, out uint reg))
             return LoadLocal(reg);
 
-        // Function used as a value (e.g., passed to map-list) — load address
+        // Function used as a value (e.g., passed to map-list) — wrap as 0-capture closure
         if (name.Type is FunctionType)
-        {
-            uint rd = AllocTemp();
-            EmitLoadFunctionAddress(rd, name.Name);
-            return rd;
-        }
+            return EmitPartialApplication(name.Name, new List<IRExpr>());
 
         // Zero-arg sum type constructor
         if (name.Type is SumType sumType)
@@ -433,6 +429,12 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                     return ctorResult;
             }
 
+            // Partial application: result is a function → create closure
+            // Closure: [trampoline_addr:8][cap_0:8][cap_1:8]...
+            // Trampoline: loads captures from T2 (closure ptr), shifts visible args, tail-calls real fn
+            if (apply.Type is FunctionType && !m_locals.ContainsKey(funcName.Name))
+                return EmitPartialApplication(funcName.Name, args);
+
             List<uint> argRegs = new();
             foreach (IRExpr arg in args)
             {
@@ -449,12 +451,14 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                     Emit(RiscVEncoder.Mv(Reg.A0 + (uint)i, argVal));
             }
 
-            // Check if it's a local (function pointer) or a top-level function
+            // Check if it's a local (closure) or a top-level function
             if (m_locals.ContainsKey(funcName.Name))
             {
-                // Indirect call via function pointer in local register
-                uint fpReg = LoadLocal(m_locals[funcName.Name]);
-                Emit(RiscVEncoder.Jalr(Reg.Ra, fpReg, 0));
+                // Indirect call via closure: T2=closure, load code_ptr, jump
+                uint closureReg = LoadLocal(m_locals[funcName.Name]);
+                Emit(RiscVEncoder.Mv(Reg.T2, closureReg));
+                Emit(RiscVEncoder.Ld(Reg.T0, Reg.T2, 0)); // code_ptr
+                Emit(RiscVEncoder.Jalr(Reg.Ra, Reg.T0, 0));
             }
             else
             {
@@ -467,6 +471,93 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
         Console.Error.WriteLine($"RISCV WARNING: EmitApply fallthrough — function expr is {func.GetType().Name}, not IRName");
         return Reg.Zero;
+    }
+
+    /// Emit a partial application as a closure.
+    /// Creates a trampoline that unpacks captures and tail-calls the real function.
+    /// Closure layout: [trampoline_addr:8][cap_0:8][cap_1:8]...
+    /// Convention: caller sets T2=closure_ptr before jumping to trampoline.
+    uint EmitPartialApplication(string funcName, List<IRExpr> capturedArgs)
+    {
+        // Evaluate and save captured args
+        List<uint> capRegs = new();
+        foreach (IRExpr arg in capturedArgs)
+        {
+            uint r = EmitExpr(arg);
+            uint saved = AllocLocal();
+            StoreLocal(saved, r);
+            capRegs.Add(saved);
+        }
+
+        // Generate trampoline: a small function that shuffles args and tail-calls funcName.
+        // Trampoline convention: T2=closure, A0..A(K-1)=visible args
+        // Goal: A0..A(N-1)=captured, A(N)..A(N+K-1)=visible, then jump to funcName
+        int numCaptures = capRegs.Count;
+        string trampolineName = $"__tramp_{funcName}_{numCaptures}_{m_instructions.Count}";
+
+        // Emit trampoline code (deferred — emitted inline, jumped over)
+        int jumpOverIdx = m_instructions.Count;
+        Emit(RiscVEncoder.Nop()); // patched: jump over trampoline
+
+        m_functionOffsets[trampolineName] = m_instructions.Count;
+
+        // Shift visible args right by numCaptures positions (backward to avoid clobbering)
+        // We don't know exactly how many visible args, but we know max is 8 - numCaptures.
+        // Shift ALL possible arg slots to be safe.
+        for (int i = 7; i >= 0; i--)
+        {
+            if (i + numCaptures <= 7)
+                Emit(RiscVEncoder.Mv(Reg.A0 + (uint)(i + numCaptures), Reg.A0 + (uint)i));
+        }
+
+        // Load captured args from closure (T2) into A0..A(numCaptures-1)
+        for (int i = 0; i < numCaptures; i++)
+            Emit(RiscVEncoder.Ld(Reg.A0 + (uint)i, Reg.T2, 8 + i * 8));
+
+        // Tail-call the real function (no prologue/epilogue needed)
+        EmitCallTo(funcName);
+        // Actually, this is a tail-call — we want to jump, not call.
+        // But EmitCallTo uses jal (saves RA). The trampoline has no frame,
+        // so RA is the original caller's RA. Use j instead.
+        // Replace the last instruction (jal) with a simple j (rd=zero).
+        // Actually, EmitCallTo emits a NOP that gets patched to jal ra, offset.
+        // For a tail-call, we want jal zero, offset (= j offset).
+        // Let me just use the last emitted call and patch it differently.
+        // Hmm, PatchCalls always uses Call (= Jal ra). Let me add a tail-call mechanism.
+
+        // Simpler: the trampoline is NOT a function — it has no frame.
+        // RA already points to the real caller. When the real function returns,
+        // it returns to the real caller. Using jal ra sets RA to after the trampoline
+        // (which is in the middle of the calling function). That's wrong.
+
+        // Fix: use jalr zero, t0, 0 (= jr t0) for a tail-jump.
+        // Remove the EmitCallTo and do it manually.
+        m_instructions.RemoveAt(m_instructions.Count - 1); // remove the NOP from EmitCallTo
+        m_callPatches.RemoveAt(m_callPatches.Count - 1);   // remove the patch entry
+
+        // Instead: load function address and tail-jump
+        EmitLoadFunctionAddress(Reg.T0, funcName);
+        Emit(RiscVEncoder.Jalr(Reg.Zero, Reg.T0, 0)); // jr t0 (tail-jump, doesn't modify RA)
+
+        // Patch jump-over
+        int afterTrampoline = m_instructions.Count;
+        m_instructions[jumpOverIdx] = RiscVEncoder.J((afterTrampoline - jumpOverIdx) * 4);
+
+        // Allocate closure on heap: [trampoline_addr][cap_0][cap_1]...
+        int closureSize = (1 + numCaptures) * 8;
+        uint ptrReg = AllocTemp();
+        Emit(RiscVEncoder.Mv(ptrReg, Reg.S1));
+        Emit(RiscVEncoder.Addi(Reg.S1, Reg.S1, closureSize));
+
+        // Store trampoline address
+        EmitLoadFunctionAddress(Reg.T0, trampolineName);
+        Emit(RiscVEncoder.Sd(ptrReg, Reg.T0, 0));
+
+        // Store captured args
+        for (int i = 0; i < capRegs.Count; i++)
+            Emit(RiscVEncoder.Sd(ptrReg, LoadLocal(capRegs[i]), 8 + i * 8));
+
+        return ptrReg;
     }
 
     uint EmitNegate(IRNegate neg)
