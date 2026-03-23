@@ -48,6 +48,8 @@ public sealed partial class ProseParser(SourceText source, DiagnosticBag diagnos
             }
         }
 
+        ValidateProseNotationConsistency(chapters);
+
         List<DefinitionNode> allDefs = [];
         List<TypeDefinitionNode> allTypeDefs = [];
         List<ClaimNode> allClaims = [];
