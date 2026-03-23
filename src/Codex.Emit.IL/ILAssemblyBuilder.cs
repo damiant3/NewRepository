@@ -760,12 +760,11 @@ sealed partial class ILAssemblyBuilder
             il.OpCode(ILOpCode.Ret);
         }
 
-        // Scale maxStack with function complexity.  Deeply nested let…in
-        // chains that feed long binary-op expressions (e.g. 20 let bindings
-        // followed by a 30-segment string concat) can exceed a fixed budget.
-        // locals.Count is a good proxy for expression depth; the +16 covers
-        // call arguments and intermediate binary-op values.
-        int maxStack = Math.Max(16, locals.Count + 16);
+        // Scale maxStack with function complexity.  The evaluation stack depth
+        // depends on both local count (let bindings) and expression nesting
+        // (e.g. a 30-segment string concat chain requires ~30 stack slots).
+        int exprDepth = EstimateStackDepth(def.Body);
+        int maxStack = Math.Max(16, Math.Max(locals.Count, exprDepth) + 16);
 
         int bodyOffset;
         if (locals.Count > 0)
@@ -2514,4 +2513,65 @@ sealed partial class ILAssemblyBuilder
         il.MarkLabel(endLabel);
         il.LoadLocal(resultLocal);
     }
+
+    static int EstimateStackDepth(IRExpr expr)
+    {
+        switch (expr)
+        {
+            case IRBinary bin:
+                int leftDepth = EstimateStackDepth(bin.Left);
+                int rightDepth = EstimateStackDepth(bin.Right);
+                return Math.Max(leftDepth, 1 + rightDepth);
+
+            case IRApply apply:
+                int fnDepth = EstimateStackDepth(apply.Function);
+                int argDepth = EstimateStackDepth(apply.Argument);
+                return Math.Max(fnDepth, 1 + argDepth);
+
+            case IRLet letExpr:
+                int valDepth = EstimateStackDepth(letExpr.Value);
+                int bodyDepth = EstimateStackDepth(letExpr.Body);
+                return Math.Max(valDepth, bodyDepth);
+
+            case IRIf ifExpr:
+                int condDepth = EstimateStackDepth(ifExpr.Condition);
+                int thenDepth = EstimateStackDepth(ifExpr.Then);
+                int elseDepth = EstimateStackDepth(ifExpr.Else);
+                return Math.Max(condDepth, Math.Max(thenDepth, elseDepth));
+
+            case IRDo doExpr:
+                int maxDo = 0;
+                foreach (IRDoStatement stmt in doExpr.Statements)
+                {
+                    int d = stmt switch
+                    {
+                        IRDoBind bind => EstimateStackDepth(bind.Value),
+                        IRDoExec exec => EstimateStackDepth(exec.Expression),
+                        _ => 1
+                    };
+                    maxDo = Math.Max(maxDo, d);
+                }
+                return maxDo;
+
+            case IRMatch match:
+                int scrutDepth = EstimateStackDepth(match.Scrutinee);
+                int branchMax = 0;
+                foreach (IRMatchBranch branch in match.Branches)
+                    branchMax = Math.Max(branchMax, EstimateStackDepth(branch.Body));
+                return Math.Max(scrutDepth, branchMax);
+
+            case IRRegion region:
+                return EstimateStackDepth(region.Body);
+
+            case IRLambda lambda:
+                return EstimateStackDepth(lambda.Body);
+
+            case IRNegate neg:
+                return EstimateStackDepth(neg.Operand);
+
+            default:
+                return 1;
+        }
+    }
 }
+
