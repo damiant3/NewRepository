@@ -149,11 +149,16 @@ public abstract record DocumentMember(SyntaxKind Kind, SourceSpan Span) : Syntax
 
 public enum ProseTransitionKind { None, WeSay, ThisIsWritten, ToDefine }
 
+public readonly record struct FailClause(string? Reason, string Condition);
+
 public sealed record FunctionTemplateInfo(
     string FunctionName,
     IReadOnlyList<(string Name, string Type)> Parameters,
     string? ReturnType,
-    SourceSpan Span);
+    SourceSpan Span)
+{
+    public IReadOnlyList<FailClause> FailClauses { get; init; } = [];
+}
 
 public readonly record struct InlineCodeRef(string Code, int StartOffset, int EndOffset);
 public readonly record struct InlineTypeRef(string TypeName, int StartOffset, int EndOffset);

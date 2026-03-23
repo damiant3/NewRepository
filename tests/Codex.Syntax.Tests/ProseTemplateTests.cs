@@ -430,4 +430,78 @@ public class ProseTemplateTests
         ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
         Assert.Empty(prose.CodeRefs);
     }
+
+    // --- Fail clauses on function templates ---
+
+    [Fact]
+    public void Function_template_failing_if()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "To deposit (amount : Integer) into (account : Account),\n" +
+            "failing if amount is less than zero:\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.FunctionTemplate);
+        Assert.Equal("deposit", prose.FunctionTemplate.FunctionName);
+        Assert.Single(prose.FunctionTemplate.FailClauses);
+        Assert.Null(prose.FunctionTemplate.FailClauses[0].Reason);
+        Assert.Equal("amount is less than zero", prose.FunctionTemplate.FailClauses[0].Condition);
+    }
+
+    [Fact]
+    public void Function_template_or_fails_with()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "To withdraw (amount : Integer) from (account : Account),\n" +
+            "or fails with \"insufficient funds\" if the balance is less than amount:\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.FunctionTemplate);
+        Assert.Equal("withdraw", prose.FunctionTemplate.FunctionName);
+        Assert.Single(prose.FunctionTemplate.FailClauses);
+        Assert.Equal("insufficient funds", prose.FunctionTemplate.FailClauses[0].Reason);
+        Assert.Contains("balance is less than amount", prose.FunctionTemplate.FailClauses[0].Condition);
+    }
+
+    [Fact]
+    public void Function_template_gives_and_fails()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "To transfer (amount : Integer) gives TransferResult,\n" +
+            "failing if amount is zero:\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.FunctionTemplate);
+        Assert.Equal("transfer", prose.FunctionTemplate.FunctionName);
+        Assert.Equal("TransferResult", prose.FunctionTemplate.ReturnType);
+        Assert.Single(prose.FunctionTemplate.FailClauses);
+        Assert.Equal("amount is zero", prose.FunctionTemplate.FailClauses[0].Condition);
+    }
+
+    [Fact]
+    public void Function_template_gives_the_updated()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "To deposit (amount : Integer) gives the updated Account:\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.FunctionTemplate);
+        Assert.Equal("Account", prose.FunctionTemplate.ReturnType);
+    }
 }
