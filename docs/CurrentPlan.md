@@ -91,9 +91,41 @@ RiscVEncoder, ElfWriter, RiscVCodeGen, bare metal UART. 13 + 5 QEMU tests.
 
 ---
 
+### V2 — Narration Layer (CPL Implementation) ✅
+
+All 6 CPL sentence forms implemented in one session (2026-03-22):
+- **Form 1**: Type declarations (record/variant) — V1, extended with constraints
+- **Form 2**: Constraint templates (`such that`, `where`, `provided that`)
+- **Form 3**: Function templates (`To V (x : T) gives Y, failing if P`)
+- **Form 4**: Proof assertions (`Claim:` / `Proof:` with CDX1105 validation)
+- **Form 5**: Procedure steps (`first,`/`then,`/`finally,` with let/return/if)
+- **Form 6**: Quantified statements (`for every`, `there exists`, `no`)
+
+Also: prose-notation consistency checking (CDX1101/CDX1102), inline code
+refs (backtick), inline type refs (PascalCase), transition markers (`We say:`).
+44 prose template tests. Design: `docs/Designs/V2-NARRATION-LAYER.md`.
+
+### IL Emitter — maxstack fix ✅
+
+Fixed `InvalidProgramException` caused by hardcoded `maxStack=32`. Now scales
+with `max(16, max(locals.Count, exprDepth) + 16)` using `EstimateStackDepth`
+recursive IR walker. Found by dogfooding codex-agent.
+
+### codex-agent — per-agent cognitive check ✅
+
+`check cam` uses 800K budget (1M context), `check windows`/`check linux` use
+60K. Agent name, label, and budget-appropriate load assessment in output.
+
+---
+
 ## Active Work
 
-No active feature branches. All reviews complete.
+Branches pending review:
+- `windows/v2-fail-clause` — fail clauses + gives articles on function templates
+- `windows/v2-constraint-templates` — CPL Form 2 constraints
+- `windows/v2-claim-proof-templates` — CPL Form 4 claim/proof templates
+- `windows/v2-procedure-steps` — CPL Form 5 procedure steps
+- `windows/v2-quantified-statements` — CPL Form 6 quantified statements
 
 ---
 
@@ -102,9 +134,7 @@ No active feature branches. All reviews complete.
 ### Ready Now
 | Task | What | Why |
 |------|------|-----|
-| III-A Phase 2 | Escape analysis — promote region-escaping values to parent | Completes linear allocator for compound returns |
-| WASM Phase 3 | Records, sum types as tagged unions in linear memory | Unlocks real data structures in WASM |
-| V2 | Narration layer — prose-aware compilation | `.codex` files that read as documents |
+| RISC-V parity | Records, sum types, pattern matching, text builtins on RISC-V | Makes bare metal path real, not just a demo |
 | V4 | Proof-carrying facts | Views verify proofs at composition time |
 
 ### Medium Term
@@ -112,6 +142,7 @@ No active feature branches. All reviews complete.
 - **Camp II-C**: Self-hosted native build chain on RISC-V (deferred, proof exists)
 - **V3**: Repository federation — multi-repo sync, cross-repo trust
 - **Network + Process effects**: Extend capability system beyond Console/FileSystem
+- **x86-64 / ARM64 backends**: Extend native codegen beyond RISC-V
 
 ### Long Term
 - **V5 — Intelligence layer**: AI agents as first-class participants
@@ -124,7 +155,9 @@ No active feature branches. All reviews complete.
 
 - **Reference compiler is LOCKED.** See `docs/REFERENCE-COMPILER-LOCK.md`.
 - **Stdlib design**: `docs/Designs/STDLIB-AND-CONCURRENCY.md`
+- **RISC-V parity plan**: `docs/Designs/RISCV-PARITY.md`
+- **V2 narration design**: `docs/Designs/V2-NARRATION-LAYER.md`
 - **Agent toolkit**: `tools/codex-agent/` — peek, snap, build, test, handoff, doctor
 - **MCP server**: `tools/Codex.Mcp/` — compiler-as-a-tool for agents
 - **Principles**: `docs/10-PRINCIPLES.md` — unchanged, still governing.
-- **Two-agent workflow**: Windows (Copilot/VS) builds + pushes, Linux (Claude/sandbox) tests + reviews. Git is the coordination protocol.
+- **Three-agent workflow**: Windows (Copilot/VS) builds + pushes, Linux (Claude/sandbox) tests + reviews, Cam (Claude Code CLI) fast iteration + parallel work. Git is the coordination protocol. Cam works from `D:\Projects\NewRepository-cam` worktree.
