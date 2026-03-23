@@ -452,6 +452,110 @@ public class RiscVEmitterTests
     // Bare Metal tests
     // ═════════════════════════════════════════════════════════════
 
+    // ═════════════════════════════════════════════════════════════
+    // Text builtins
+    // ═════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void Text_length_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = text-length "hello"
+            """;
+        string? output = CompileAndRun(source, "textlen_rv");
+        if (output is null) return;
+        Assert.Equal("5", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "42"
+            """;
+        string? output = CompileAndRun(source, "txt2int_rv");
+        if (output is null) return;
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void Text_to_integer_negative_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = text-to-integer "-7"
+            """;
+        string? output = CompileAndRun(source, "txt2int_neg_rv");
+        if (output is null) return;
+        Assert.Equal("-7", output.Trim());
+    }
+
+    [Fact]
+    public void Text_concat_emits_elf()
+    {
+        string source = """
+            main : Text
+            main = "hello " ++ "world"
+            """;
+        byte[]? bytes = Helpers.CompileToRiscV(source, "concat_rv");
+        Assert.NotNull(bytes);
+        AssertValidElf(bytes);
+    }
+
+    [Fact]
+    public void Text_concat_runs_under_qemu()
+    {
+        string source = """
+            main : Text
+            main = "hello " ++ "world"
+            """;
+        string? output = CompileAndRun(source, "concat_run_rv");
+        if (output is null) return;
+        Assert.Equal("hello world", output.Trim());
+    }
+
+    [Fact]
+    public void Show_integer_runs_under_qemu()
+    {
+        string source = """
+            main : Text
+            main = show 42
+            """;
+        string? output = CompileAndRun(source, "show_int_rv");
+        if (output is null) return;
+        Assert.Equal("42", output.Trim());
+    }
+
+    [Fact]
+    public void String_equality_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = if "abc" == "abc" then 1 else 0
+            """;
+        string? output = CompileAndRun(source, "streq_rv");
+        if (output is null) return;
+        Assert.Equal("1", output.Trim());
+    }
+
+    [Fact]
+    public void String_inequality_runs_under_qemu()
+    {
+        string source = """
+            main : Integer
+            main = if "abc" == "xyz" then 1 else 0
+            """;
+        string? output = CompileAndRun(source, "strneq_rv");
+        if (output is null) return;
+        Assert.Equal("0", output.Trim());
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // Bare Metal tests
+    // ═════════════════════════════════════════════════════════════
+
     [Fact]
     public void BareMetal_integer_emits_flat_binary()
     {
