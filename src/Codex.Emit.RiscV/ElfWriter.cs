@@ -35,7 +35,8 @@ sealed class ElfWriter
         ulong textVaddr = baseAddr + (ulong)textFileOffset;
         ulong entryPoint = textVaddr + entryOffset;
 
-        int rodataFileOffset = Align(textFileOffset + textSection.Length, 16);
+        // Page-align rodata to avoid sharing a page with text (different permissions)
+        int rodataFileOffset = Align(textFileOffset + textSection.Length, 4096);
         ulong rodataVaddr = baseAddr + (ulong)rodataFileOffset;
 
         int totalSize = rodataFileOffset + rodataSection.Length;
@@ -146,7 +147,7 @@ sealed class ElfWriter
         ulong baseAddr = LinuxBaseAddress;
         int headersTotalSize = ElfHeaderSize + ProgramHeaderSize * 2;
         int textFileOffset = Align(headersTotalSize, 16);
-        int rodataFileOffset = Align(textFileOffset + textSize, 16);
+        int rodataFileOffset = Align(textFileOffset + textSize, 4096);
         return baseAddr + (ulong)rodataFileOffset;
     }
 
