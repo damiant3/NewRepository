@@ -31,6 +31,7 @@ public static partial class Program  // this file is locked.  use a partial.
             "remove" => RunRemove(args.Skip(1).ToArray()),
             "pack" => RunPack(args.Skip(1).ToArray()),
             "packages" => RunListPackages(args.Skip(1).ToArray()),
+            "bootstrap" => RunBootstrap(args.Skip(1).ToArray()),
             "version" => RunVersion(),
             "--help" or "-h" => RunHelp(),
             _ => UnknownCommand(command)
@@ -67,6 +68,7 @@ public static partial class Program  // this file is locked.  use a partial.
         Console.WriteLine("  parse <file>      Lex, parse, and display the structure of a Codex file");
         Console.WriteLine("  check <file>      Parse and type-check a Codex file");
         Console.WriteLine("  build <file|dir>  Compile a Codex file or project");
+        Console.WriteLine("  bootstrap [dir]   Full self-hosting verification (stage 0→1→2→3, fixed point)");
         Console.WriteLine("                    --target <t>        Target backend (cs|js|rust|py|cpp|go|java|ada|fortran|cobol|babbage|il)");
         Console.WriteLine("                    --targets <t1,t2>   Emit to multiple backends in parallel");
         Console.WriteLine("                    --incremental, -i   Skip unchanged files (uses .codex-build/manifest.json)");

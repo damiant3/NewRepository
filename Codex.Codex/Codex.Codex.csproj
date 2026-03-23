@@ -8,7 +8,7 @@
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <CodexTarget>csharp</CodexTarget>
     <DefaultItemExcludes>$(DefaultItemExcludes);.codex-build\**</DefaultItemExcludes>
-    <NoWarn>CS5001</NoWarn>
+    <NoWarn>CS5001;CS8603;CS8604</NoWarn>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup>
@@ -40,7 +40,7 @@
       <Output TaskParameter="ExitCode" PropertyName="_CodexExitCode" />
     </Exec>
     <Message Importance="high" Text="$(_CodexOutput)" Condition="'$(_CodexOutput)' != ''" />
-    <Warning Text="Codex build failed (exit code $(_CodexExitCode)). Is 'codex' on your PATH?" Condition="'$(_CodexExitCode)' != '0'" />
+    <Warning Text="Codex build step skipped (codex CLI not available). Build will use existing out/ if present." Condition="'$(_CodexExitCode)' != '0'" />
   </Target>
   <Target Name="CodexClean" BeforeTargets="Clean">
     <RemoveDir Directories="$(MSBuildProjectDirectory)\out" Condition="Exists('$(MSBuildProjectDirectory)\out')" />

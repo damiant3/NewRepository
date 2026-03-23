@@ -30,7 +30,7 @@ public sealed partial class CSharpEmitter
 
             case IRName name:
                 if (name.Name == "read-line")
-                    sb.Append("Console.ReadLine()");
+                    sb.Append("(Console.ReadLine() ?? \"\")");
                 else if (name.Name == "get-args")
                     sb.Append("new List<string>(Environment.GetCommandLineArgs())");
                 else if (name.Name == "current-dir")

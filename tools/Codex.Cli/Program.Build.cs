@@ -19,6 +19,7 @@ public static partial class Program
             Console.WriteLine("                    --targets <t1,t2>   Emit to multiple backends in parallel");
             Console.WriteLine("                    --incremental, -i   Skip unchanged files (uses .codex-build/manifest.json)");
             Console.WriteLine("                    --view <name>       Compile from a repository view");
+            Console.WriteLine("                    --verbose, -v       Show resolved type signatures");
             return 1;
         }
 
@@ -28,6 +29,7 @@ public static partial class Program
         string? viewName = null;
         string[]? capNames = null;
         bool incremental = false;
+        bool verbose = false;
         for (int i = 1; i < args.Length; i++)
         {
             if (args[i] == "--target" && i + 1 < args.Length)
@@ -40,7 +42,10 @@ public static partial class Program
                 capNames = args[++i].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             else if (args[i] == "--incremental" || args[i] == "-i")
                 incremental = true;
+            else if (args[i] == "--verbose" || args[i] == "-v")
+                verbose = true;
         }
+        s_verbose = verbose;
 
         Set<string>? grantedCapabilities = null;
         if (capNames is not null)
@@ -151,8 +156,7 @@ public static partial class Program
         File.WriteAllText(fullOutputPath, output);
 
         Console.WriteLine($"✓ Compiled to {fullOutputPath} ({target})");
-        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
-            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        PrintTypes(irResult);
         return 0;
     }
     static int RunBuildDirectory(string directory, string target)
@@ -179,8 +183,7 @@ public static partial class Program
         File.WriteAllText(outputPath, output);
 
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
-        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
-            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        PrintTypes(irResult);
         return 0;
     }
 
@@ -202,8 +205,7 @@ public static partial class Program
         File.WriteAllText(outputPath, output);
 
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
-        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
-            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        PrintTypes(irResult);
         PrintCapabilityReport(irResult.Capabilities);
         return 0;
     }
@@ -239,8 +241,7 @@ public static partial class Program
         File.WriteAllText(outputPath, output);
 
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
-        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
-            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        PrintTypes(irResult);
         PrintCapabilityReport(irResult.Capabilities);
         return 0;
     }
@@ -254,6 +255,14 @@ public static partial class Program
         foreach (string c in report.MainEffects)
             names.Add(c);
         Console.WriteLine($"  Capabilities: [{string.Join(", ", names)}]");
+    }
+
+    static bool s_verbose;
+
+    static void PrintTypes(IRCompilationResult irResult)
+    {
+        if (!s_verbose) return;
+        PrintTypes(irResult);
     }
 
     static bool IsAssemblyTarget(string target) => target is "il" or "exe";
@@ -279,8 +288,7 @@ public static partial class Program
             """);
 
         Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
-        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
-            Console.WriteLine($"  {kv.Key} : {kv.Value}");
+        PrintTypes(irResult);
         return 0;
     }
 
