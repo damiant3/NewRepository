@@ -262,7 +262,8 @@ public static partial class Program
     static void PrintTypes(IRCompilationResult irResult)
     {
         if (!s_verbose) return;
-        PrintTypes(irResult);
+        foreach (KeyValuePair<string, CodexType> kv in irResult.Types)
+            Console.WriteLine($"  {kv.Key} : {kv.Value}");
     }
 
     static bool IsAssemblyTarget(string target) => target is "il" or "exe";
