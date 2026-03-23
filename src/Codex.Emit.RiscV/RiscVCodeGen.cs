@@ -14,6 +14,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     readonly List<RodataFixup> m_rodataFixups = [];
     readonly List<FuncAddrFixup> m_funcAddrFixups = [];
     readonly Dictionary<string, int> m_stringOffsets = [];
+    readonly Dictionary<string, int> m_spillCounts = [];
     readonly RiscVTarget m_target = target;
 
     // QEMU virt machine UART0 address (NS16550A compatible)
@@ -46,6 +47,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
         foreach (IRDefinition def in module.Definitions)
             EmitFunction(def);
+
 
         EmitStart(module);
 
@@ -87,13 +89,21 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
         // Prologue: base frame = 96 bytes (ra + s0 + s2-s11).
         // If spills are needed, frame grows — patched after body emission.
+        // For large frames (>2047 bytes), addi immediate overflows.
+        // Reserve space for a multi-instruction prologue using T0 as scratch.
         m_prologueIndex = m_instructions.Count;
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -96)); // patched if spills
+        // Reserve 3 slots: up to 2 for Li(T0, frameSize) + 1 for sub(sp, sp, t0)
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -96)); // slot 0: patched
+        Emit(RiscVEncoder.Nop());                       // slot 1: patched or nop
+        Emit(RiscVEncoder.Nop());                       // slot 2: patched or nop
         Emit(RiscVEncoder.Sd(Reg.Sp, Reg.Ra, 88));
         Emit(RiscVEncoder.Sd(Reg.Sp, Reg.S0, 80));
         for (int i = 0; i < CalleeSaved.Length; i++)
             Emit(RiscVEncoder.Sd(Reg.Sp, CalleeSaved[i], 72 - i * 8));
-        Emit(RiscVEncoder.Addi(Reg.S0, Reg.Sp, 96)); // also patched
+        // S0 = frame pointer: reserve 3 slots for large frame
+        Emit(RiscVEncoder.Addi(Reg.S0, Reg.Sp, 96));   // slot A: patched
+        Emit(RiscVEncoder.Nop());                        // slot B: patched or nop
+        Emit(RiscVEncoder.Nop());                        // slot C: patched or nop
 
         for (int i = 0; i < def.Parameters.Length && i < 8; i++)
         {
@@ -104,28 +114,63 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
         uint resultReg = EmitExpr(def.Body);
         if (resultReg >= SpillBase)
-            Emit(RiscVEncoder.Ld(Reg.A0, Reg.Sp, SpillOffset(resultReg)));
+            EmitSpillLoad(Reg.A0, resultReg);
         else if (resultReg != Reg.A0)
             Emit(RiscVEncoder.Mv(Reg.A0, resultReg));
+
+        m_spillCounts[def.Name] = m_spillCount;
 
         // Patch frame size if spills were needed
         int frameSize = 96 + m_spillCount * 8;
         // Align to 16 bytes
         if (frameSize % 16 != 0) frameSize += 8;
-        if (frameSize != 96)
-        {
-            m_instructions[m_prologueIndex] = RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -frameSize);
-            m_instructions[m_prologueIndex + CalleeSaved.Length + 3] =
-                RiscVEncoder.Addi(Reg.S0, Reg.Sp, frameSize);
-        }
+
+        // Patch prologue: SP adjustment (3 instruction slots)
+        PatchFrameAdjust(m_prologueIndex, Reg.Sp, Reg.Sp, -frameSize);
+        // Patch S0 setup (3 instruction slots after callee-saved stores)
+        int s0Index = m_prologueIndex + 3 + 2 + CalleeSaved.Length; // 3 prologue + sd ra + sd s0 + callee saves
+        PatchFrameAdjust(s0Index, Reg.S0, Reg.Sp, frameSize);
 
         // Epilogue
         for (int i = 0; i < CalleeSaved.Length; i++)
             Emit(RiscVEncoder.Ld(CalleeSaved[i], Reg.Sp, 72 - i * 8));
         Emit(RiscVEncoder.Ld(Reg.Ra, Reg.Sp, 88));
         Emit(RiscVEncoder.Ld(Reg.S0, Reg.Sp, 80));
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, frameSize));
+        EmitAddSp(frameSize);
         Emit(RiscVEncoder.Ret());
+    }
+
+    /// Patch 3 instruction slots with rd = rs1 + imm (handles large immediates).
+    void PatchFrameAdjust(int index, uint rd, uint rs1, int imm)
+    {
+        if (imm >= -2048 && imm <= 2047)
+        {
+            m_instructions[index] = RiscVEncoder.Addi(rd, rs1, imm);
+            m_instructions[index + 1] = RiscVEncoder.Nop();
+            m_instructions[index + 2] = RiscVEncoder.Nop();
+        }
+        else
+        {
+            // li t0, imm; add rd, rs1, t0
+            uint[] li = RiscVEncoder.Li(Reg.T0, imm);
+            m_instructions[index] = li[0];
+            m_instructions[index + 1] = li.Length > 1 ? li[1] : RiscVEncoder.Nop();
+            m_instructions[index + 2] = RiscVEncoder.Add(rd, rs1, Reg.T0);
+        }
+    }
+
+    /// Emit SP += imm (handles large immediates).
+    void EmitAddSp(int imm)
+    {
+        if (imm >= -2048 && imm <= 2047)
+        {
+            Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, imm));
+        }
+        else
+        {
+            foreach (uint insn in RiscVEncoder.Li(Reg.T0, imm)) Emit(insn);
+            Emit(RiscVEncoder.Add(Reg.Sp, Reg.Sp, Reg.T0));
+        }
     }
 
     // ── Expression emission ──────────────────────────────────────
@@ -2040,7 +2085,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         if (local < SpillBase)
             Emit(RiscVEncoder.Mv(local, valueReg));
         else
-            Emit(RiscVEncoder.Sd(Reg.Sp, valueReg, SpillOffset(local)));
+            EmitSpillStore(valueReg, local);
     }
 
     uint m_loadLocalToggle;
@@ -2053,8 +2098,42 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         if (local < SpillBase)
             return local;
         uint scratch = (m_loadLocalToggle++ % 2 == 0) ? Reg.T0 : Reg.T1;
-        Emit(RiscVEncoder.Ld(scratch, Reg.Sp, SpillOffset(local)));
+        EmitSpillLoad(scratch, local);
         return scratch;
+    }
+
+    // Emit sd valueReg, SpillOffset(slot)(sp) — handles offsets > 2047
+    void EmitSpillStore(uint valueReg, uint slot)
+    {
+        int offset = SpillOffset(slot);
+        if (offset >= -2048 && offset <= 2047)
+        {
+            Emit(RiscVEncoder.Sd(Reg.Sp, valueReg, offset));
+        }
+        else
+        {
+            // Use T2 as scratch (not in T0/T1 LoadLocal rotation or T3-T6 AllocTemp rotation)
+            foreach (uint insn in RiscVEncoder.Li(Reg.T2, offset)) Emit(insn);
+            Emit(RiscVEncoder.Add(Reg.T2, Reg.Sp, Reg.T2));
+            Emit(RiscVEncoder.Sd(Reg.T2, valueReg, 0));
+        }
+    }
+
+    // Emit ld rd, SpillOffset(slot)(sp) — handles offsets > 2047
+    void EmitSpillLoad(uint rd, uint slot)
+    {
+        int offset = SpillOffset(slot);
+        if (offset >= -2048 && offset <= 2047)
+        {
+            Emit(RiscVEncoder.Ld(rd, Reg.Sp, offset));
+        }
+        else
+        {
+            // For T0/T1 loads: use T2 as scratch for address computation
+            foreach (uint insn in RiscVEncoder.Li(Reg.T2, offset)) Emit(insn);
+            Emit(RiscVEncoder.Add(Reg.T2, Reg.Sp, Reg.T2));
+            Emit(RiscVEncoder.Ld(rd, Reg.T2, 0));
+        }
     }
 
     void Emit(uint instruction) => m_instructions.Add(instruction);
