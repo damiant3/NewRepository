@@ -306,4 +306,67 @@ public class ProseTemplateTests
         ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
         Assert.Equal(ProseTransitionKind.None, prose.Transition);
     }
+
+    // --- Phase 5: Prose-notation consistency checking ---
+
+    [Fact]
+    public void Matching_function_template_no_warning()
+    {
+        string source =
+            "Chapter: Greeting\n" +
+            "\n" +
+            "To greet (name : Text):\n" +
+            "\n" +
+            "    greet : Text -> Text\n" +
+            "    greet (name) = \"Hello, \" ++ name\n";
+
+        (DocumentNode doc, DiagnosticBag diags) = ParseProse(source);
+        Assert.False(diags.HasErrors);
+        Assert.Empty(diags.ToImmutable().Where(d => d.Code == "CDX1101" || d.Code == "CDX1102"));
+    }
+
+    [Fact]
+    public void Mismatched_function_name_warns()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "To deposit (amount : Integer):\n" +
+            "\n" +
+            "    withdraw : Integer -> Integer\n" +
+            "    withdraw (amount) = amount\n";
+
+        (DocumentNode doc, DiagnosticBag diags) = ParseProse(source);
+        Assert.Contains(diags.ToImmutable(), d => d.Code == "CDX1101");
+    }
+
+    [Fact]
+    public void Mismatched_parameter_name_warns()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "To deposit (amount : Integer):\n" +
+            "\n" +
+            "    deposit : Integer -> Integer\n" +
+            "    deposit (qty) = qty\n";
+
+        (DocumentNode doc, DiagnosticBag diags) = ParseProse(source);
+        Assert.Contains(diags.ToImmutable(), d => d.Code == "CDX1102");
+    }
+
+    [Fact]
+    public void No_warning_when_prose_has_no_template()
+    {
+        string source =
+            "Chapter: Greeting\n" +
+            "\n" +
+            "This module provides greetings.\n" +
+            "\n" +
+            "    greet : Text -> Text\n" +
+            "    greet (name) = \"Hello, \" ++ name\n";
+
+        (DocumentNode doc, DiagnosticBag diags) = ParseProse(source);
+        Assert.Empty(diags.ToImmutable().Where(d => d.Code == "CDX1101" || d.Code == "CDX1102"));
+    }
 }
