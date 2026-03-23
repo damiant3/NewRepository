@@ -760,15 +760,22 @@ sealed partial class ILAssemblyBuilder
             il.OpCode(ILOpCode.Ret);
         }
 
+        // Scale maxStack with function complexity.  Deeply nested let…in
+        // chains that feed long binary-op expressions (e.g. 20 let bindings
+        // followed by a 30-segment string concat) can exceed a fixed budget.
+        // locals.Count is a good proxy for expression depth; the +16 covers
+        // call arguments and intermediate binary-op values.
+        int maxStack = Math.Max(16, locals.Count + 16);
+
         int bodyOffset;
         if (locals.Count > 0)
         {
             StandaloneSignatureHandle localSig = locals.BuildSignature();
-            bodyOffset = m_methodBodies.AddMethodBody(il, maxStack: 32, localVariablesSignature: localSig);
+            bodyOffset = m_methodBodies.AddMethodBody(il, maxStack: maxStack, localVariablesSignature: localSig);
         }
         else
         {
-            bodyOffset = m_methodBodies.AddMethodBody(il, maxStack: 32);
+            bodyOffset = m_methodBodies.AddMethodBody(il, maxStack: maxStack);
         }
 
         MethodDefinitionHandle methodDef = m_metadata.AddMethodDefinition(
