@@ -83,6 +83,21 @@ length-prefixed strings, runtime helpers (print i64/bool). 10 tests.
 
 RiscVEncoder, ElfWriter, RiscVCodeGen, bare metal UART. 13 + 5 QEMU tests.
 
+### RISC-V Feature Parity ✅ (2026-03-22)
+
+~1,000 lines of RISC-V machine code generation in 6 phases:
+- **Phase 1**: Bump-alloc heap (S1 register, brk for Linux, fixed addr bare metal)
+- **Phase 2**: Records (heap-alloc + field store/load at 8-byte offsets)
+- **Phase 3**: Sum types (tagged unions `[tag:8B][fields...]`)
+- **Phase 4**: Pattern matching (wildcard, variable, literal, constructor patterns)
+- **Phase 5**: Text builtins (text-length, char-at, substring, to/from integer,
+  show, string equality via __str_eq, concatenation via __str_concat)
+- **Phase 7**: Region-based allocation (push/pop heap ptr, text escape)
+
+Register allocator split: temps (T3-T6, recycled) vs locals (S2-S11, monotonic).
+Equality bug fixed (slti→sltu+xori). 15 new tests (34 total RISC-V, all QEMU-verified).
+Design: `docs/Designs/RISCV-PARITY.md`. Review: `docs/Reviews/RISCV-PARITY-PHASES1-4-REVIEW.md`.
+
 ### Previously Completed
 
 - P1 — Self-Hosted Builtin Expansion ✅
@@ -134,7 +149,7 @@ Branches pending review:
 ### Ready Now
 | Task | What | Why |
 |------|------|-----|
-| RISC-V parity | Records, sum types, pattern matching, text builtins on RISC-V | Makes bare metal path real, not just a demo |
+| ~~RISC-V parity~~ | ~~Records, sum types, pattern matching, text builtins on RISC-V~~ | ✅ Done (2026-03-22) |
 | V4 | Proof-carrying facts | Views verify proofs at composition time |
 
 ### Medium Term
