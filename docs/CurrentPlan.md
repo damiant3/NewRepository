@@ -135,6 +135,27 @@ recursive IR walker. Found by dogfooding codex-agent.
 
 ## Active Work
 
+### Camp II-C — Self-Hosted on RISC-V (in progress)
+
+The self-hosted compiler (493 defs, 26 .codex files) compiles to a 223KB
+RISC-V ELF. The binary starts correctly (brk heap allocation succeeds)
+then hits a **null pointer dereference** (`si_addr=NULL`).
+
+**What works**: all 40 QEMU-verified test programs (records, sum types,
+pattern matching, lists, function pointers, text ops, string equality,
+register spills). Simple → medium complexity programs all run correctly.
+
+**What's broken**: the full compiler binary segfaults. The null deref is
+a runtime logic bug — some code path in the 493-definition compiler
+dereferences a pointer that was never initialized. Not a regalloc or
+spill issue (those are fixed and tested).
+
+**Next step**: bisect which .codex module triggers the crash. Either:
+1. Compile subsets of modules → find the smallest set that crashes
+2. Use `qemu-riscv64 -g 1234` + GDB to trace to the faulting instruction
+
+**Design doc**: `docs/Designs/CAMP-IIC-SELF-HOSTED-RISCV.md`
+
 Branches pending review:
 - `windows/v2-fail-clause` — fail clauses + gives articles on function templates
 - `windows/v2-constraint-templates` — CPL Form 2 constraints
