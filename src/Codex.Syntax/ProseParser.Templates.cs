@@ -294,6 +294,9 @@ public sealed partial class ProseParser
         // Check for procedure steps (First, / Then, / Finally,)
         ProseProcedure? procedure = TryParseProcedure(text);
 
+        // Check for quantified statements (for every, there exists, no)
+        List<ProseQuantifiedStatement> quantified = ExtractQuantifiedStatements(text);
+
         // Extract inline references from prose text
         List<InlineCodeRef> codeRefs = ExtractCodeRefs(text);
         List<InlineTypeRef> typeRefs = ExtractTypeRefs(text);
@@ -305,6 +308,7 @@ public sealed partial class ProseParser
             ClaimTemplate = claimTemplate,
             ProofTemplate = proofTemplate,
             Procedure = procedure,
+            QuantifiedStatements = quantified,
             CodeRefs = codeRefs,
             TypeRefs = typeRefs
         });
@@ -627,6 +631,91 @@ public sealed partial class ProseParser
         }
 
         return null;
+    }
+
+    static List<ProseQuantifiedStatement> ExtractQuantifiedStatements(string text)
+    {
+        List<ProseQuantifiedStatement> statements = [];
+        foreach (string rawLine in text.Split('\n'))
+        {
+            string line = rawLine.Trim().TrimEnd('.');
+            if (line.Length == 0) continue;
+
+            if (line.StartsWith("for every ", StringComparison.OrdinalIgnoreCase))
+            {
+                // "for every X in Y, CLAIM"
+                string rest = line["for every ".Length..];
+                int inIdx = rest.IndexOf(" in ", StringComparison.OrdinalIgnoreCase);
+                if (inIdx >= 0)
+                {
+                    string bound = rest[..inIdx].Trim();
+                    string afterIn = rest[(inIdx + 4)..].Trim();
+                    int commaIdx = afterIn.IndexOf(',');
+                    if (commaIdx >= 0)
+                    {
+                        string collection = afterIn[..commaIdx].Trim();
+                        string claim = afterIn[(commaIdx + 1)..].Trim();
+                        statements.Add(new ProseQuantifiedStatement(
+                            QuantifierKind.ForEvery, bound, collection, null, claim));
+                    }
+                }
+            }
+            else if (line.StartsWith("there exists ", StringComparison.OrdinalIgnoreCase))
+            {
+                // "there exists [qualifier] X in Y such that CLAIM"
+                string rest = line["there exists ".Length..];
+                string? qualifier = null;
+                if (rest.StartsWith("exactly one ", StringComparison.OrdinalIgnoreCase))
+                {
+                    qualifier = "exactly one";
+                    rest = rest["exactly one ".Length..];
+                }
+                else if (rest.StartsWith("at least one ", StringComparison.OrdinalIgnoreCase))
+                {
+                    qualifier = "at least one";
+                    rest = rest["at least one ".Length..];
+                }
+                int inIdx = rest.IndexOf(" in ", StringComparison.OrdinalIgnoreCase);
+                if (inIdx >= 0)
+                {
+                    string bound = rest[..inIdx].Trim();
+                    string afterIn = rest[(inIdx + 4)..].Trim();
+                    int suchIdx = afterIn.IndexOf(" such that ", StringComparison.OrdinalIgnoreCase);
+                    if (suchIdx >= 0)
+                    {
+                        string collection = afterIn[..suchIdx].Trim();
+                        string claim = afterIn[(suchIdx + 11)..].Trim();
+                        statements.Add(new ProseQuantifiedStatement(
+                            QuantifierKind.ThereExists, bound, collection, qualifier, claim));
+                    }
+                }
+            }
+            else if (line.StartsWith("no ", StringComparison.OrdinalIgnoreCase))
+            {
+                // "no X in Y satisfies/has/equals CLAIM"
+                string rest = line[3..];
+                int inIdx = rest.IndexOf(" in ", StringComparison.OrdinalIgnoreCase);
+                if (inIdx >= 0)
+                {
+                    string bound = rest[..inIdx].Trim();
+                    string afterIn = rest[(inIdx + 4)..].Trim();
+                    string? claim = null;
+                    foreach (string verb in new[] { " satisfies ", " has ", " equals " })
+                    {
+                        int verbIdx = afterIn.IndexOf(verb, StringComparison.OrdinalIgnoreCase);
+                        if (verbIdx >= 0)
+                        {
+                            string collection = afterIn[..verbIdx].Trim();
+                            claim = afterIn[(verbIdx + verb.Length)..].Trim();
+                            statements.Add(new ProseQuantifiedStatement(
+                                QuantifierKind.No, bound, collection, null, claim));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return statements;
     }
 
     List<ProseConstraint> ParseConstraintLines()
