@@ -713,4 +713,78 @@ public class ProseTemplateTests
         ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
         Assert.Null(prose.Procedure);
     }
+
+    // --- Quantified statements (CPL Form 6) ---
+
+    [Fact]
+    public void For_every_statement()
+    {
+        string source =
+            "Chapter: Rules\n" +
+            "\n" +
+            "For every transaction in the history, the amount is positive.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Single(prose.QuantifiedStatements);
+        ProseQuantifiedStatement qs = prose.QuantifiedStatements[0];
+        Assert.Equal(QuantifierKind.ForEvery, qs.Quantifier);
+        Assert.Equal("transaction", qs.BoundVariable);
+        Assert.Equal("the history", qs.Collection);
+        Assert.Equal("the amount is positive", qs.Claim);
+    }
+
+    [Fact]
+    public void There_exists_exactly_one()
+    {
+        string source =
+            "Chapter: Rules\n" +
+            "\n" +
+            "There exists exactly one owner in the accounts such that the owner is active.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Single(prose.QuantifiedStatements);
+        ProseQuantifiedStatement qs = prose.QuantifiedStatements[0];
+        Assert.Equal(QuantifierKind.ThereExists, qs.Quantifier);
+        Assert.Equal("exactly one", qs.Qualifier);
+        Assert.Equal("owner", qs.BoundVariable);
+        Assert.Equal("the accounts", qs.Collection);
+        Assert.Equal("the owner is active", qs.Claim);
+    }
+
+    [Fact]
+    public void No_statement()
+    {
+        string source =
+            "Chapter: Rules\n" +
+            "\n" +
+            "No account in the ledger has a negative balance.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Single(prose.QuantifiedStatements);
+        ProseQuantifiedStatement qs = prose.QuantifiedStatements[0];
+        Assert.Equal(QuantifierKind.No, qs.Quantifier);
+        Assert.Equal("account", qs.BoundVariable);
+        Assert.Equal("the ledger", qs.Collection);
+        Assert.Equal("a negative balance", qs.Claim);
+    }
+
+    [Fact]
+    public void No_quantified_in_plain_prose()
+    {
+        string source =
+            "Chapter: Intro\n" +
+            "\n" +
+            "Nothing quantified here.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Empty(prose.QuantifiedStatements);
+    }
 }

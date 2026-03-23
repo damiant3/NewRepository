@@ -182,6 +182,15 @@ public sealed record ProcedureStep(
 
 public sealed record ProseProcedure(IReadOnlyList<ProcedureStep> Steps);
 
+public enum QuantifierKind { ForEvery, ThereExists, No }
+
+public readonly record struct ProseQuantifiedStatement(
+    QuantifierKind Quantifier,
+    string BoundVariable,
+    string Collection,
+    string? Qualifier,
+    string Claim);
+
 public sealed record ProseBlockNode(string Text, SourceSpan Span)
     : DocumentMember(SyntaxKind.ProseBlock, Span)
 {
@@ -189,6 +198,7 @@ public sealed record ProseBlockNode(string Text, SourceSpan Span)
     public ProseClaimInfo? ClaimTemplate { get; init; }
     public ProseProofInfo? ProofTemplate { get; init; }
     public ProseProcedure? Procedure { get; init; }
+    public IReadOnlyList<ProseQuantifiedStatement> QuantifiedStatements { get; init; } = [];
     public ProseTransitionKind Transition { get; init; } = ProseTransitionKind.None;
     public IReadOnlyList<InlineCodeRef> CodeRefs { get; init; } = [];
     public IReadOnlyList<InlineTypeRef> TypeRefs { get; init; } = [];
