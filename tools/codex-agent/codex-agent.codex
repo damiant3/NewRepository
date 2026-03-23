@@ -495,26 +495,50 @@ do-plan (args) =
          in print-line ("  Added: " ++ task)
     else print-line ("Unknown plan action: " ++ action ++ ". Use add, show, or clear.")
 
+agent-budget : Text -> Integer
+agent-budget (name) =
+ if name == "cam" then 800000
+ else if name == "windows" then 60000
+  else if name == "linux" then 60000
+   else 60000
+
+agent-label : Text -> Text
+agent-label (name) =
+ if name == "cam" then "Cam (Claude Code CLI, 1M context)"
+ else if name == "windows" then "Agent Windows (Copilot/VS)"
+  else if name == "linux" then "Agent Linux (Claude sandbox)"
+   else "unknown agent (using default 60K budget)"
+
+check-level : Integer -> Text
+check-level (pct) =
+ if pct > 90 then "RED - overloaded, build and verify NOW"
+ else if pct > 70 then "ORANGE - high load, finish current task then build"
+  else if pct > 40 then "YELLOW - moderate, stay focused"
+   else "GREEN - plenty of headroom"
+
 do-check : List Text -> [Console, FileSystem] Nothing
 do-check (args) =
- let budget = 60000
- in let pc = if file-exists "Codex.Codex/Syntax/Parser.codex" then read-file "Codex.Codex/Syntax/Parser.codex" else ""
-  in let parser-chars = text-length pc
-   in let tc = if file-exists "Codex.Codex/Types/TypeChecker.codex" then read-file "Codex.Codex/Types/TypeChecker.codex" else ""
-    in let tc-chars = text-length tc
-     in let ec = if file-exists "Codex.Codex/Emit/CSharpEmitter.codex" then read-file "Codex.Codex/Emit/CSharpEmitter.codex" else ""
-      in let emitter-chars = text-length ec
-       in let lc = if file-exists "Codex.Codex/IR/Lowering.codex" then read-file "Codex.Codex/IR/Lowering.codex" else ""
-        in let lowering-chars = text-length lc
-         in let uc = if file-exists "Codex.Codex/Types/Unifier.codex" then read-file "Codex.Codex/Types/Unifier.codex" else ""
-          in let unifier-chars = text-length uc
-           in let xc = if file-exists "Codex.Codex/Syntax/Lexer.codex" then read-file "Codex.Codex/Syntax/Lexer.codex" else ""
-            in let lexer-chars = text-length xc
-             in let total-hot = parser-chars + tc-chars + emitter-chars + lowering-chars + unifier-chars + lexer-chars
-              in let pct = (total-hot * 100) / budget
-               in let level = if pct > 90 then "RED - overloaded, build and verify NOW" else if pct > 70 then "ORANGE - high load, finish current task then build" else if pct > 40 then "YELLOW - moderate, stay focused" else "GREEN - plenty of headroom"
-                in let plan-status = if file-exists plan-file then let planc = read-file plan-file in if text-length planc == 0 then "  Plan: (empty)" else "  Plan: " ++ integer-to-text (list-length (text-split planc "\n") - 1) ++ " tasks" else "  Plan: (none)"
-                 in print-line ("=== Cognitive Check ===\n" ++ "  Hot path files: " ++ integer-to-text total-hot ++ " chars / " ++ integer-to-text budget ++ " budget (" ++ integer-to-text pct ++ "%)\n" ++ "  Load: " ++ level ++ "\n" ++ "  Parser.codex:       " ++ pad-left (integer-to-text parser-chars) 6 ++ " chars\n" ++ "  TypeChecker.codex:  " ++ pad-left (integer-to-text tc-chars) 6 ++ " chars\n" ++ "  CSharpEmitter.codex:" ++ pad-left (integer-to-text emitter-chars) 6 ++ " chars\n" ++ "  Lowering.codex:     " ++ pad-left (integer-to-text lowering-chars) 6 ++ " chars\n" ++ "  Unifier.codex:      " ++ pad-left (integer-to-text unifier-chars) 6 ++ " chars\n" ++ "  Lexer.codex:        " ++ pad-left (integer-to-text lexer-chars) 6 ++ " chars\n" ++ plan-status ++ "\n" ++ "=======================")
+ let argc = list-length args
+ in let name = if argc > 2 then list-at args 2 else "unknown"
+  in let budget = agent-budget name
+   in let label = agent-label name
+    in let pc = if file-exists "Codex.Codex/Syntax/Parser.codex" then read-file "Codex.Codex/Syntax/Parser.codex" else ""
+     in let parser-chars = text-length pc
+      in let tc = if file-exists "Codex.Codex/Types/TypeChecker.codex" then read-file "Codex.Codex/Types/TypeChecker.codex" else ""
+       in let tc-chars = text-length tc
+        in let ec = if file-exists "Codex.Codex/Emit/CSharpEmitter.codex" then read-file "Codex.Codex/Emit/CSharpEmitter.codex" else ""
+         in let emitter-chars = text-length ec
+          in let lc = if file-exists "Codex.Codex/IR/Lowering.codex" then read-file "Codex.Codex/IR/Lowering.codex" else ""
+           in let lowering-chars = text-length lc
+            in let uc = if file-exists "Codex.Codex/Types/Unifier.codex" then read-file "Codex.Codex/Types/Unifier.codex" else ""
+             in let unifier-chars = text-length uc
+              in let xc = if file-exists "Codex.Codex/Syntax/Lexer.codex" then read-file "Codex.Codex/Syntax/Lexer.codex" else ""
+               in let lexer-chars = text-length xc
+                in let total-hot = parser-chars + tc-chars + emitter-chars + lowering-chars + unifier-chars + lexer-chars
+                 in let pct = (total-hot * 100) / budget
+                  in let level = check-level pct
+                   in let plan-status = if file-exists plan-file then let planc = read-file plan-file in if text-length planc == 0 then "  Plan: (empty)" else "  Plan: " ++ integer-to-text (list-length (text-split planc "\n") - 1) ++ " tasks" else "  Plan: (none)"
+                    in print-line ("=== Cognitive Check ===\n" ++ "  Agent:  " ++ label ++ "\n" ++ "  Hot path files: " ++ integer-to-text total-hot ++ " chars / " ++ integer-to-text budget ++ " budget (" ++ integer-to-text pct ++ "%)\n" ++ "  Load: " ++ level ++ "\n" ++ "  Parser.codex:       " ++ pad-left (integer-to-text parser-chars) 6 ++ " chars\n" ++ "  TypeChecker.codex:  " ++ pad-left (integer-to-text tc-chars) 6 ++ " chars\n" ++ "  CSharpEmitter.codex:" ++ pad-left (integer-to-text emitter-chars) 6 ++ " chars\n" ++ "  Lowering.codex:     " ++ pad-left (integer-to-text lowering-chars) 6 ++ " chars\n" ++ "  Unifier.codex:      " ++ pad-left (integer-to-text unifier-chars) 6 ++ " chars\n" ++ "  Lexer.codex:        " ++ pad-left (integer-to-text lexer-chars) 6 ++ " chars\n" ++ plan-status ++ "\n" ++ "=======================")
 
 do-build : List Text -> [Console, FileSystem] Nothing
 do-build (args) =
@@ -563,7 +587,7 @@ print-help =
   "  snap restore <file>                Restore from snapshot\n" ++
   "  status                             Project status check\n" ++
   "  plan [add <task>|show|clear]       Task list (survives context loss)\n" ++
-  "  check                              Cognitive load estimate\n" ++
+  "  check [agent]                      Cognitive load estimate (cam|windows|linux)\n" ++
   "  doctor                             Known conditions & diagnostics briefing\n" ++
   "  handoff [show]                     Show current handoff state\n" ++
   "  handoff push <summary>             Create/update handoff, request review\n" ++
