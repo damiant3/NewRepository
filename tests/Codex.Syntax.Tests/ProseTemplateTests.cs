@@ -621,4 +621,96 @@ public class ProseTemplateTests
         Assert.NotNull(prose.FunctionTemplate);
         Assert.Equal("Account", prose.FunctionTemplate.ReturnType);
     }
+
+    // --- Procedure steps (CPL Form 5) ---
+
+    [Fact]
+    public void Procedure_let_step()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "First, let new-balance be the balance plus the amount.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.Procedure);
+        Assert.Single(prose.Procedure.Steps);
+        ProcedureStep step = prose.Procedure.Steps[0];
+        Assert.Equal(ProcedureStepKind.Let, step.Kind);
+        Assert.Equal("first", step.Marker);
+        Assert.Equal("new-balance", step.Binding);
+        Assert.Equal("the balance plus the amount", step.Value);
+    }
+
+    [Fact]
+    public void Procedure_multi_step()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "First, let updated be the balance plus amount.\n" +
+            "Then, return a new Account with balance set to updated.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.Procedure);
+        Assert.Equal(2, prose.Procedure.Steps.Count);
+        Assert.Equal(ProcedureStepKind.Let, prose.Procedure.Steps[0].Kind);
+        Assert.Equal(ProcedureStepKind.Return, prose.Procedure.Steps[1].Kind);
+        Assert.Equal("a new Account with balance set to updated", prose.Procedure.Steps[1].Value);
+    }
+
+    [Fact]
+    public void Procedure_if_otherwise()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "First, if the amount is negative, fail with \"invalid amount\", otherwise let valid be the amount.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.Procedure);
+        ProcedureStep step = prose.Procedure.Steps[0];
+        Assert.Equal(ProcedureStepKind.If, step.Kind);
+        Assert.Equal("the amount is negative", step.Condition);
+        Assert.Contains("invalid amount", step.Value!);
+        Assert.Contains("let valid be the amount", step.Otherwise!);
+    }
+
+    [Fact]
+    public void Procedure_fail_with()
+    {
+        string source =
+            "Chapter: Error\n" +
+            "\n" +
+            "Finally, fail with \"not enough funds\".\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.Procedure);
+        ProcedureStep step = prose.Procedure.Steps[0];
+        Assert.Equal(ProcedureStepKind.FailWith, step.Kind);
+        Assert.Equal("finally", step.Marker);
+        Assert.Equal("not enough funds", step.Value);
+    }
+
+    [Fact]
+    public void No_procedure_in_plain_prose()
+    {
+        string source =
+            "Chapter: Intro\n" +
+            "\n" +
+            "This is just regular prose.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Null(prose.Procedure);
+    }
 }

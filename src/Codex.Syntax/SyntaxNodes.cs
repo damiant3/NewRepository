@@ -167,12 +167,28 @@ public readonly record struct InlineTypeRef(string TypeName, int StartOffset, in
 public readonly record struct ProseClaimInfo(string Description);
 public readonly record struct ProseProofInfo(string Strategy);
 
+public enum ProcedureStepKind { Let, Set, Return, FailWith, If }
+
+public sealed record ProcedureStep(
+    ProcedureStepKind Kind,
+    string Marker,
+    string Text)
+{
+    public string? Binding { get; init; }
+    public string? Value { get; init; }
+    public string? Condition { get; init; }
+    public string? Otherwise { get; init; }
+}
+
+public sealed record ProseProcedure(IReadOnlyList<ProcedureStep> Steps);
+
 public sealed record ProseBlockNode(string Text, SourceSpan Span)
     : DocumentMember(SyntaxKind.ProseBlock, Span)
 {
     public FunctionTemplateInfo? FunctionTemplate { get; init; }
     public ProseClaimInfo? ClaimTemplate { get; init; }
     public ProseProofInfo? ProofTemplate { get; init; }
+    public ProseProcedure? Procedure { get; init; }
     public ProseTransitionKind Transition { get; init; } = ProseTransitionKind.None;
     public IReadOnlyList<InlineCodeRef> CodeRefs { get; init; } = [];
     public IReadOnlyList<InlineTypeRef> TypeRefs { get; init; } = [];

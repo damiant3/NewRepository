@@ -291,6 +291,9 @@ public sealed partial class ProseParser
         else if (trimmedText.StartsWith("Proof:", StringComparison.OrdinalIgnoreCase))
             proofTemplate = new ProseProofInfo(trimmedText["Proof:".Length..].Trim().TrimEnd('.'));
 
+        // Check for procedure steps (First, / Then, / Finally,)
+        ProseProcedure? procedure = TryParseProcedure(text);
+
         // Extract inline references from prose text
         List<InlineCodeRef> codeRefs = ExtractCodeRefs(text);
         List<InlineTypeRef> typeRefs = ExtractTypeRefs(text);
@@ -301,6 +304,7 @@ public sealed partial class ProseParser
             FunctionTemplate = funcTemplate,
             ClaimTemplate = claimTemplate,
             ProofTemplate = proofTemplate,
+            Procedure = procedure,
             CodeRefs = codeRefs,
             TypeRefs = typeRefs
         });
@@ -501,6 +505,128 @@ public sealed partial class ProseParser
         TokenKind kind, string text, SourceSpan span)
     {
         return new Token(kind, text, span);
+    }
+
+    static ProseProcedure? TryParseProcedure(string text)
+    {
+        string[] lines = text.Split('\n');
+        List<ProcedureStep> steps = [];
+
+        foreach (string rawLine in lines)
+        {
+            string line = rawLine.Trim();
+            if (line.Length == 0)
+                continue;
+
+            string? marker = null;
+            string body;
+            if (line.StartsWith("First,", StringComparison.OrdinalIgnoreCase))
+            {
+                marker = "first";
+                body = line["First,".Length..].Trim();
+            }
+            else if (line.StartsWith("Then,", StringComparison.OrdinalIgnoreCase))
+            {
+                marker = "then";
+                body = line["Then,".Length..].Trim();
+            }
+            else if (line.StartsWith("Finally,", StringComparison.OrdinalIgnoreCase))
+            {
+                marker = "finally";
+                body = line["Finally,".Length..].Trim();
+            }
+            else
+            {
+                continue;
+            }
+
+            body = body.TrimEnd('.');
+
+            ProcedureStep? step = ParseSingleStep(marker, body);
+            if (step is not null)
+                steps.Add(step);
+        }
+
+        return steps.Count > 0 ? new ProseProcedure(steps) : null;
+    }
+
+    static ProcedureStep? ParseSingleStep(string marker, string body)
+    {
+        if (body.StartsWith("let ", StringComparison.OrdinalIgnoreCase))
+        {
+            string rest = body[4..].Trim();
+            int beIdx = rest.IndexOf(" be ", StringComparison.OrdinalIgnoreCase);
+            if (beIdx >= 0)
+            {
+                string binding = rest[..beIdx].Trim();
+                string value = rest[(beIdx + 4)..].Trim();
+                return new ProcedureStep(ProcedureStepKind.Let, marker, body)
+                {
+                    Binding = binding,
+                    Value = value
+                };
+            }
+        }
+
+        if (body.StartsWith("set ", StringComparison.OrdinalIgnoreCase))
+        {
+            string rest = body[4..].Trim();
+            int toIdx = rest.IndexOf(" to ", StringComparison.OrdinalIgnoreCase);
+            if (toIdx >= 0)
+            {
+                string binding = rest[..toIdx].Trim();
+                string value = rest[(toIdx + 4)..].Trim();
+                return new ProcedureStep(ProcedureStepKind.Set, marker, body)
+                {
+                    Binding = binding,
+                    Value = value
+                };
+            }
+        }
+
+        if (body.StartsWith("return ", StringComparison.OrdinalIgnoreCase))
+        {
+            string value = body[7..].Trim();
+            return new ProcedureStep(ProcedureStepKind.Return, marker, body)
+            {
+                Value = value
+            };
+        }
+
+        if (body.StartsWith("fail with ", StringComparison.OrdinalIgnoreCase))
+        {
+            string reason = body[10..].Trim().Trim('"');
+            return new ProcedureStep(ProcedureStepKind.FailWith, marker, body)
+            {
+                Value = reason
+            };
+        }
+
+        if (body.StartsWith("if ", StringComparison.OrdinalIgnoreCase))
+        {
+            string rest = body[3..].Trim();
+            int otherwiseIdx = rest.LastIndexOf(" otherwise ", StringComparison.OrdinalIgnoreCase);
+            if (otherwiseIdx >= 0)
+            {
+                string condAndThen = rest[..otherwiseIdx].Trim();
+                string otherwise = rest[(otherwiseIdx + 11)..].Trim();
+                // Split condition from then-branch at the comma
+                int commaIdx = condAndThen.IndexOf(',');
+                if (commaIdx >= 0)
+                {
+                    string condition = condAndThen[..commaIdx].Trim();
+                    string thenBranch = condAndThen[(commaIdx + 1)..].Trim();
+                    return new ProcedureStep(ProcedureStepKind.If, marker, body)
+                    {
+                        Condition = condition,
+                        Value = thenBranch,
+                        Otherwise = otherwise
+                    };
+                }
+            }
+        }
+
+        return null;
     }
 
     List<ProseConstraint> ParseConstraintLines()
