@@ -150,6 +150,7 @@ public abstract record DocumentMember(SyntaxKind Kind, SourceSpan Span) : Syntax
 public enum ProseTransitionKind { None, WeSay, ThisIsWritten, ToDefine }
 
 public readonly record struct FailClause(string? Reason, string Condition);
+public readonly record struct ProseConstraint(string Keyword, string Text);
 
 public sealed record FunctionTemplateInfo(
     string FunctionName,
@@ -490,6 +491,7 @@ public abstract record TypeDefinitionBody(SyntaxKind Kind, SourceSpan Span) : Sy
 public sealed record RecordTypeBody(IReadOnlyList<RecordTypeFieldNode> Fields, SourceSpan Span)
     : TypeDefinitionBody(SyntaxKind.RecordType, Span)
 {
+    public IReadOnlyList<ProseConstraint> Constraints { get; init; } = [];
     public override IEnumerable<SyntaxNode> Children => Fields;
 }
 
@@ -502,6 +504,7 @@ public sealed record RecordTypeFieldNode(Token Name, TypeNode Type, SourceSpan S
 public sealed record VariantTypeBody(IReadOnlyList<VariantConstructorNode> Constructors, SourceSpan Span)
     : TypeDefinitionBody(SyntaxKind.VariantType, Span)
 {
+    public IReadOnlyList<ProseConstraint> Constraints { get; init; } = [];
     public override IEnumerable<SyntaxNode> Children => Constructors;
 }
 

@@ -351,10 +351,12 @@ public sealed partial class ProseParser
         if (fields.Count == 0)
             return null;
 
+        List<ProseConstraint> constraints = ParseConstraintLines();
+
         int endOffset = m_lineIndex < m_lines.Length
             ? LineOffset(m_lineIndex) : m_source.Content.Length;
         SourceSpan bodySpan = MakeSpan(startOffset, endOffset);
-        RecordTypeBody body = new(fields, bodySpan);
+        RecordTypeBody body = new(fields, bodySpan) { Constraints = constraints };
 
         SourceSpan fullSpan = headerSpan.Through(bodySpan);
         Token nameToken = MakeSyntheticToken(
@@ -391,10 +393,12 @@ public sealed partial class ProseParser
         if (ctors.Count == 0)
             return null;
 
+        List<ProseConstraint> constraints = ParseConstraintLines();
+
         int endOffset = m_lineIndex < m_lines.Length
             ? LineOffset(m_lineIndex) : m_source.Content.Length;
         SourceSpan bodySpan = MakeSpan(startOffset, endOffset);
-        VariantTypeBody body = new(ctors, bodySpan);
+        VariantTypeBody body = new(ctors, bodySpan) { Constraints = constraints };
 
         SourceSpan fullSpan = headerSpan.Through(bodySpan);
         Token nameToken = MakeSyntheticToken(
@@ -486,6 +490,44 @@ public sealed partial class ProseParser
         TokenKind kind, string text, SourceSpan span)
     {
         return new Token(kind, text, span);
+    }
+
+    List<ProseConstraint> ParseConstraintLines()
+    {
+        List<ProseConstraint> constraints = [];
+        SkipBlankLines();
+        while (m_lineIndex < m_lines.Length)
+        {
+            string line = m_lines[m_lineIndex];
+            string trimmed = line.Trim();
+            if (trimmed.Length == 0)
+                break;
+
+            string? keyword = null;
+            string? text = null;
+            if (trimmed.StartsWith("such that ", StringComparison.OrdinalIgnoreCase))
+            {
+                keyword = "such that";
+                text = trimmed["such that ".Length..].TrimEnd('.');
+            }
+            else if (trimmed.StartsWith("where ", StringComparison.OrdinalIgnoreCase))
+            {
+                keyword = "where";
+                text = trimmed["where ".Length..].TrimEnd('.');
+            }
+            else if (trimmed.StartsWith("provided that ", StringComparison.OrdinalIgnoreCase))
+            {
+                keyword = "provided that";
+                text = trimmed["provided that ".Length..].TrimEnd('.');
+            }
+
+            if (keyword is null)
+                break;
+
+            constraints.Add(new ProseConstraint(keyword, text!));
+            m_lineIndex++;
+        }
+        return constraints;
     }
 
     static string ToPascalCase(string text)
