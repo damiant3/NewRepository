@@ -147,4 +147,163 @@ public class ProseTemplateTests
         Assert.Equal("Account", rec.Name.Value);
         Assert.Equal(2, rec.Fields.Count);
     }
+
+    // --- Phase 1: Function templates ---
+
+    [Fact]
+    public void Function_template_basic()
+    {
+        string source =
+            "Chapter: Greeting\n" +
+            "\n" +
+            "To greet (name : Text):\n" +
+            "\n" +
+            "    greet : Text -> Text\n" +
+            "    greet (name) = \"Hello, \" ++ name\n";
+
+        (DocumentNode doc, DiagnosticBag diags) = ParseProse(source);
+        Assert.False(diags.HasErrors);
+
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.FunctionTemplate);
+        Assert.Equal("greet", prose.FunctionTemplate.FunctionName);
+        Assert.Single(prose.FunctionTemplate.Parameters);
+        Assert.Equal("name", prose.FunctionTemplate.Parameters[0].Name);
+        Assert.Equal("Text", prose.FunctionTemplate.Parameters[0].Type);
+    }
+
+    [Fact]
+    public void Function_template_multiple_params()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "To deposit (amount : Integer) into (account : Account):\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.FunctionTemplate);
+        Assert.Equal("deposit", prose.FunctionTemplate.FunctionName);
+        Assert.Equal(2, prose.FunctionTemplate.Parameters.Count);
+        Assert.Equal("amount", prose.FunctionTemplate.Parameters[0].Name);
+        Assert.Equal("Integer", prose.FunctionTemplate.Parameters[0].Type);
+        Assert.Equal("account", prose.FunctionTemplate.Parameters[1].Name);
+        Assert.Equal("Account", prose.FunctionTemplate.Parameters[1].Type);
+    }
+
+    [Fact]
+    public void Function_template_gives_clause()
+    {
+        string source =
+            "Chapter: Math\n" +
+            "\n" +
+            "To compute (x : Integer) gives Integer:\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.FunctionTemplate);
+        Assert.Equal("compute", prose.FunctionTemplate.FunctionName);
+        Assert.Equal("Integer", prose.FunctionTemplate.ReturnType);
+    }
+
+    [Fact]
+    public void Function_template_no_colon_is_plain_prose()
+    {
+        string source =
+            "Chapter: Intro\n" +
+            "\n" +
+            "To understand this module, read the docs.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Null(prose.FunctionTemplate);
+    }
+
+    [Fact]
+    public void Function_template_multi_word_name()
+    {
+        string source =
+            "Chapter: Banking\n" +
+            "\n" +
+            "To compute monthly interest (rate : Number) on (account : Account):\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.FunctionTemplate);
+        Assert.Equal("compute-monthly-interest", prose.FunctionTemplate.FunctionName);
+        Assert.Equal(2, prose.FunctionTemplate.Parameters.Count);
+        Assert.Equal("rate", prose.FunctionTemplate.Parameters[0].Name);
+        Assert.Equal("account", prose.FunctionTemplate.Parameters[1].Name);
+    }
+
+    // --- Phase 2: Claims and proofs ---
+
+    [Fact]
+    public void Claims_collected_from_notation_block()
+    {
+        string source =
+            "Chapter: Proofs\n" +
+            "\n" +
+            "    claim add-comm (x) (y) : Integer === Integer\n";
+
+        (DocumentNode doc, DiagnosticBag diags) = ParseProse(source);
+        Assert.False(diags.HasErrors);
+        Assert.Single(doc.Claims);
+        Assert.Equal("add-comm", doc.Claims[0].Name.Text);
+    }
+
+    // --- Phase 3: Transition markers ---
+
+    [Fact]
+    public void We_say_sets_transition_kind()
+    {
+        string source =
+            "Chapter: Greeting\n" +
+            "\n" +
+            "This module provides greetings. We say:\n" +
+            "\n" +
+            "    greet : Text -> Text\n" +
+            "    greet (name) = \"Hello, \" ++ name\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Equal(ProseTransitionKind.WeSay, prose.Transition);
+    }
+
+    [Fact]
+    public void This_is_written_sets_transition_kind()
+    {
+        string source =
+            "Chapter: Math\n" +
+            "\n" +
+            "Addition is straightforward. This is written:\n" +
+            "\n" +
+            "    add : Integer -> Integer -> Integer\n" +
+            "    add (x) (y) = x + y\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Equal(ProseTransitionKind.ThisIsWritten, prose.Transition);
+    }
+
+    [Fact]
+    public void Plain_prose_has_no_transition()
+    {
+        string source =
+            "Chapter: Intro\n" +
+            "\n" +
+            "This is just regular prose.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.Equal(ProseTransitionKind.None, prose.Transition);
+    }
 }
