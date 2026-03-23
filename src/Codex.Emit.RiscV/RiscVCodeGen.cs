@@ -983,9 +983,11 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                 StoreLocal(savedList, listReg);
                 uint idxReg = EmitExpr(args[1]);
                 // Load element at offset 8 + idx * 8
-                foreach (uint insn in RiscVEncoder.Li(Reg.T0, 8)) Emit(insn);
-                Emit(RiscVEncoder.Mul(Reg.T0, idxReg, Reg.T0));
-                Emit(RiscVEncoder.Add(Reg.T0, LoadLocal(savedList), Reg.T0));
+                // Use T2 for idx*8 to avoid LoadLocal clobbering T0
+                foreach (uint insn in RiscVEncoder.Li(Reg.T2, 8)) Emit(insn);
+                Emit(RiscVEncoder.Mul(Reg.T2, idxReg, Reg.T2));
+                uint listVal = LoadLocal(savedList);
+                Emit(RiscVEncoder.Add(Reg.T0, listVal, Reg.T2));
                 Emit(RiscVEncoder.Ld(Reg.A0, Reg.T0, 8));
                 return true;
             }
@@ -1051,7 +1053,9 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                 uint savedText = AllocLocal();
                 StoreLocal(savedText, textReg);
                 uint idxReg = EmitExpr(args[1]);
-                Emit(RiscVEncoder.Add(Reg.T0, LoadLocal(savedText), idxReg));
+                Emit(RiscVEncoder.Mv(Reg.T2, idxReg)); // save idx before LoadLocal
+                uint textVal = LoadLocal(savedText);
+                Emit(RiscVEncoder.Add(Reg.T0, textVal, Reg.T2));
                 Emit(RiscVEncoder.Lbu(Reg.A0, Reg.T0, 8)); // skip 8-byte length prefix
                 return true;
             }
@@ -1287,7 +1291,9 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         foreach (uint insn in RiscVEncoder.Li(Reg.T0, 1)) Emit(insn);
         Emit(RiscVEncoder.Sd(Reg.A0, Reg.T0, 0));
 
-        Emit(RiscVEncoder.Add(Reg.T0, LoadLocal(savedText), indexReg));
+        Emit(RiscVEncoder.Mv(Reg.T2, indexReg)); // save index before LoadLocal
+        uint charTextVal = LoadLocal(savedText);
+        Emit(RiscVEncoder.Add(Reg.T0, charTextVal, Reg.T2));
         Emit(RiscVEncoder.Lbu(Reg.T0, Reg.T0, 8));
         Emit(RiscVEncoder.Sb(Reg.A0, Reg.T0, 8));
     }
@@ -1314,7 +1320,11 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         Emit(RiscVEncoder.Sd(Reg.A0, Reg.T5, 0));
 
         // Copy: src = text + 8 + start, dst = result + 8
-        Emit(RiscVEncoder.Add(Reg.T0, LoadLocal(savedText), LoadLocal(savedStart)));
+        // Load both into T2/T0 separately to avoid LoadLocal clobber
+        uint subTextVal = LoadLocal(savedText);
+        Emit(RiscVEncoder.Mv(Reg.T2, subTextVal));
+        uint subStartVal = LoadLocal(savedStart);
+        Emit(RiscVEncoder.Add(Reg.T0, Reg.T2, subStartVal));
         Emit(RiscVEncoder.Addi(Reg.T0, Reg.T0, 8));
         Emit(RiscVEncoder.Addi(Reg.T1, Reg.A0, 8));
 
