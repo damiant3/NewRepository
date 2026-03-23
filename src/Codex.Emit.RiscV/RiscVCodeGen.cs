@@ -1358,54 +1358,34 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         // List layout: [length:8][elem0:8][elem1:8]...
         m_functionOffsets["__list_cons"] = m_instructions.Count;
 
-        Emit(RiscVEncoder.Ld(Reg.T0, Reg.A1, 0));        // t0 = old length
-        Emit(RiscVEncoder.Addi(Reg.T1, Reg.T0, 1));      // t1 = new length
-        // Alloc: (1 + newLen) * 8 bytes
-        Emit(RiscVEncoder.Addi(Reg.T2, Reg.T1, 1));
-        Emit(RiscVEncoder.Sll(Reg.T2, Reg.T2, Reg.T6));  // need shift by 3
-        // Use immediate shift instead
-        Emit(RiscVEncoder.Mv(Reg.T3, Reg.A0));            // save head
-        Emit(RiscVEncoder.Mv(Reg.T4, Reg.A1));            // save tail ptr
+        Emit(RiscVEncoder.Ld(Reg.T0, Reg.A1, 0));         // t0 = old length
+        Emit(RiscVEncoder.Addi(Reg.T1, Reg.T0, 1));       // t1 = new length
+        Emit(RiscVEncoder.Mv(Reg.T3, Reg.A0));            // t3 = head value
+        Emit(RiscVEncoder.Mv(Reg.T4, Reg.A1));            // t4 = tail list ptr
+
+        // Alloc: (newLen + 1) * 8
         Emit(RiscVEncoder.Mv(Reg.A0, Reg.S1));            // result = heap ptr
-
-        // size = (newLen + 1) * 8
-        Emit(RiscVEncoder.Addi(Reg.T2, Reg.T1, 1));
+        Emit(RiscVEncoder.Addi(Reg.T2, Reg.T1, 1));       // t2 = newLen + 1
         foreach (uint insn in RiscVEncoder.Li(Reg.T5, 8)) Emit(insn);
-        Emit(RiscVEncoder.Mul(Reg.T2, Reg.T2, Reg.T5));
-        Emit(RiscVEncoder.Add(Reg.S1, Reg.S1, Reg.T2));  // bump heap
+        Emit(RiscVEncoder.Mul(Reg.T2, Reg.T2, Reg.T5));   // t2 = (newLen+1)*8
+        Emit(RiscVEncoder.Add(Reg.S1, Reg.S1, Reg.T2));   // bump heap
 
-        // Store new length
-        Emit(RiscVEncoder.Sd(Reg.A0, Reg.T1, 0));
-        // Store head at offset 8
-        Emit(RiscVEncoder.Sd(Reg.A0, Reg.T3, 8));
+        // Store new length and head
+        Emit(RiscVEncoder.Sd(Reg.A0, Reg.T1, 0));         // [0] = new length
+        Emit(RiscVEncoder.Sd(Reg.A0, Reg.T3, 8));         // [8] = head
 
-        // Copy old elements: src=t4+8, dst=a0+16, count=t0
+        // Copy old elements: t2 = byte offset (0, 8, 16, ...), t5 = oldLen*8
+        foreach (uint insn in RiscVEncoder.Li(Reg.T5, 8)) Emit(insn);
+        Emit(RiscVEncoder.Mul(Reg.T5, Reg.T0, Reg.T5));   // t5 = oldLen * 8
         foreach (uint insn in RiscVEncoder.Li(Reg.T2, 0)) Emit(insn);
+
         int loopStart = m_instructions.Count;
         int exitIdx = m_instructions.Count;
-        Emit(RiscVEncoder.Nop());
-        Emit(RiscVEncoder.Mul(Reg.T5, Reg.T2, Reg.T5)); // won't work, t5 is 8 still? No, we used it.
-        // Actually, let's use a simpler byte offset approach
-        // Restart: use t2 as byte offset, increment by 8
-        m_instructions.RemoveAt(m_instructions.Count - 1); // remove bad mul
-        m_instructions.RemoveAt(m_instructions.Count - 1); // remove Nop
-        m_instructions.RemoveAt(m_instructions.Count - 1); // remove Li(t2,0)
-
-        // Copy loop: t2 = byte index (0, 8, 16, ...)
-        foreach (uint insn in RiscVEncoder.Li(Reg.T2, 0)) Emit(insn);
-        // t5 = old_len * 8
-        foreach (uint insn in RiscVEncoder.Li(Reg.T6, 8)) Emit(insn);
-        Emit(RiscVEncoder.Mul(Reg.T5, Reg.T0, Reg.T6));
-
-        loopStart = m_instructions.Count;
-        exitIdx = m_instructions.Count;
-        Emit(RiscVEncoder.Nop());
-        // src: t4 + 8 + t2
+        Emit(RiscVEncoder.Nop());                          // patched: bge t2, t5 → exit
         Emit(RiscVEncoder.Add(Reg.T6, Reg.T4, Reg.T2));
-        Emit(RiscVEncoder.Ld(Reg.T6, Reg.T6, 8));
-        // dst: a0 + 16 + t2
+        Emit(RiscVEncoder.Ld(Reg.T6, Reg.T6, 8));         // src[8 + t2]
         Emit(RiscVEncoder.Add(Reg.T3, Reg.A0, Reg.T2));
-        Emit(RiscVEncoder.Sd(Reg.T3, Reg.T6, 16));
+        Emit(RiscVEncoder.Sd(Reg.T3, Reg.T6, 16));        // dst[16 + t2]
         Emit(RiscVEncoder.Addi(Reg.T2, Reg.T2, 8));
         Emit(RiscVEncoder.J((loopStart - m_instructions.Count) * 4));
         int exitTarget = m_instructions.Count;

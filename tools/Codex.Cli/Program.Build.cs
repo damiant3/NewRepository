@@ -266,14 +266,39 @@ public static partial class Program
             Console.WriteLine($"  {kv.Key} : {kv.Value}");
     }
 
-    static bool IsAssemblyTarget(string target) => target is "il" or "exe";
+    static bool IsAssemblyTarget(string target) => target is "il" or "exe" or "riscv" or "riscv-bare" or "wasm";
 
     static int EmitAssembly(IRCompilationResult irResult, string outputDir, string moduleName, string target)
     {
+        if (target is "riscv" or "riscv-bare")
+        {
+            Emit.RiscV.RiscVTarget rvTarget = target == "riscv-bare"
+                ? Emit.RiscV.RiscVTarget.BareMetal : Emit.RiscV.RiscVTarget.LinuxUser;
+            Emit.RiscV.RiscVEmitter rvEmitter = new(rvTarget);
+            byte[] elf = rvEmitter.EmitAssembly(irResult.Module, moduleName);
+            string ext = target == "riscv-bare" ? ".bin" : "";
+            string outputPath = Path.Combine(outputDir, moduleName + ext);
+            File.WriteAllBytes(outputPath, elf);
+            Console.WriteLine($"✓ Compiled to {outputPath} ({target}, {elf.Length:N0} bytes)");
+            PrintTypes(irResult);
+            return 0;
+        }
+
+        if (target == "wasm")
+        {
+            Emit.Wasm.WasmEmitter wasmEmitter = new();
+            byte[] wasm = wasmEmitter.EmitAssembly(irResult.Module, moduleName);
+            string outputPath = Path.Combine(outputDir, moduleName + ".wasm");
+            File.WriteAllBytes(outputPath, wasm);
+            Console.WriteLine($"✓ Compiled to {outputPath} ({target}, {wasm.Length:N0} bytes)");
+            PrintTypes(irResult);
+            return 0;
+        }
+
         Emit.IL.ILEmitter emitter = new();
         byte[] assembly = emitter.EmitAssembly(irResult.Module, moduleName);
-        string outputPath = Path.Combine(outputDir, moduleName + ".exe");
-        File.WriteAllBytes(outputPath, assembly);
+        string ilOutputPath = Path.Combine(outputDir, moduleName + ".exe");
+        File.WriteAllBytes(ilOutputPath, assembly);
 
         string runtimeConfigPath = Path.Combine(outputDir, moduleName + ".runtimeconfig.json");
         File.WriteAllText(runtimeConfigPath, """
@@ -288,7 +313,7 @@ public static partial class Program
             }
             """);
 
-        Console.WriteLine($"✓ Compiled to {outputPath} ({target})");
+        Console.WriteLine($"✓ Compiled to {ilOutputPath} ({target})");
         PrintTypes(irResult);
         return 0;
     }
