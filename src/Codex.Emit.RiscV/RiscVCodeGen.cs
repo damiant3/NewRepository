@@ -56,6 +56,17 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             m_instructions[trampolineIndex] = RiscVEncoder.J((startIndex - trampolineIndex) * 4);
 
         PatchCalls();
+
+        // Function address map for QEMU trace analysis (stderr)
+        ulong textBase = m_target == RiscVTarget.BareMetal
+            ? 0x80000000UL
+            : 0x10000UL + (ulong)ElfWriter.ComputeTextFileOffset(m_target);
+        foreach ((string name, int idx) in m_functionOffsets.OrderBy(kv => kv.Value))
+        {
+            int spills = m_spillCounts.GetValueOrDefault(name);
+            if (name.StartsWith("__tramp_")) continue; // skip trampolines
+            Console.Error.WriteLine($"RISCV FUNC: 0x{textBase + (ulong)(idx * 4):x} {name} (spills={spills})");
+        }
     }
 
     public byte[] BuildElf()
