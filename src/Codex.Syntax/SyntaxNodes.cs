@@ -164,10 +164,15 @@ public sealed record FunctionTemplateInfo(
 public readonly record struct InlineCodeRef(string Code, int StartOffset, int EndOffset);
 public readonly record struct InlineTypeRef(string TypeName, int StartOffset, int EndOffset);
 
+public readonly record struct ProseClaimInfo(string Description);
+public readonly record struct ProseProofInfo(string Strategy);
+
 public sealed record ProseBlockNode(string Text, SourceSpan Span)
     : DocumentMember(SyntaxKind.ProseBlock, Span)
 {
     public FunctionTemplateInfo? FunctionTemplate { get; init; }
+    public ProseClaimInfo? ClaimTemplate { get; init; }
+    public ProseProofInfo? ProofTemplate { get; init; }
     public ProseTransitionKind Transition { get; init; } = ProseTransitionKind.None;
     public IReadOnlyList<InlineCodeRef> CodeRefs { get; init; } = [];
     public IReadOnlyList<InlineTypeRef> TypeRefs { get; init; } = [];
