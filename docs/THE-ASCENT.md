@@ -217,6 +217,23 @@ codex-native == codex-native'  ← fixed point
 After this, we delete the .NET bootstrap. Not archive it — delete it.
 The language stands alone.
 
+#### Progress (2026-03-23)
+
+The 493-definition, 26-file self-hosted compiler compiles to a 223KB RISC-V
+ELF. The road to get here required:
+
+- 5 missing text-processing builtins (`text-replace`, `char-code-at`,
+  `char-code`, `code-to-char`, `is-letter`)
+- A `__str_replace` runtime helper (~100 machine instructions)
+- Register spill to stack when S-registers exhausted (virtual regs ≥32,
+  patched frame size, T0/T1 alternating scratch for loads)
+- Page-aligned rodata segment to prevent permission clobbering in ELF
+- IRRegion SP fix for scalar types (the interaction between regions and
+  spill slots — scalar regions don't need heap save/restore)
+
+40/40 RISC-V QEMU tests pass. The binary awaits final verification:
+run under QEMU with `.codex` input and compare output to the C# bootstrap.
+
 **Summit marker**: `codex build codex --target native` produces a
 self-sufficient binary. The only file you need is the source.
 
@@ -440,7 +457,7 @@ arriving ahead of our sightlines, so draw your own conclusions.
 
 ## The Climbing Party
 
-A human. Two AI agents. A lot of `.codex` files.
+A human. Three AI agents. A lot of `.codex` files.
 
 The agents work in bounded context windows. They don't see the whole mountain.
 They see the pitch — the next rock, the next hold. They're good at that: fast,
@@ -450,8 +467,11 @@ the rope across the gaps the agents can't jump, and calls the weather.
 The party has found its rhythm. Agent Windows (GitHub Copilot in VS) builds
 features, reviews code, pushes to master. Agent Linux (Claude on the sandbox)
 pulls, tests on real hardware and emulators, finds bugs by tracing execution.
-The human routes between them — not writing code, but directing attention,
-relaying findings when one agent's session dies, and deciding what matters.
+Agent Cam (Claude Code CLI, 1M context Opus) does fast iteration and parallel
+work from a separate worktree — 79 commits in a single day on the RISC-V
+parity push. The human routes between them — not writing code, but directing
+attention, relaying findings when one agent's session dies, and deciding
+what matters.
 
 The coordination protocol is simple: Git is the shared state. Push to master
 is the handoff. `dotnet test` is the acceptance criterion. No Jira. No
@@ -464,6 +484,17 @@ bug by watching register values in the QEMU trace. The Windows agent prepared
 the fix but held back — the Linux agent earned that commit. It was pushed
 from the sandbox, pulled to Windows, verified. The mountain doesn't care
 who placed the piton, only that it holds.
+
+On the register spill push (2026-03-22/23), the collaboration deepened further.
+Agent Linux reviewed Cam's RISC-V parity merge and found a critical silent
+corruption bug: `AllocLocal` saturated at S11 instead of spilling. Cam
+implemented the spill-to-stack fix in five minutes — but his own test
+segfaulted. The human relayed Cam's test matrix to Linux, who ran it under
+QEMU: the no-spill baseline passed, but the spill test crashed. Cam found
+the root cause — `EmitRegion` was shifting SP mid-function to save the heap
+pointer, even for scalar types that don't allocate, breaking all spill slot
+offsets. Three-line fix. Linux verified: 40/40 QEMU tests green. The bug
+lived for exactly one review cycle. That's the rhythm working.
 
 That changes as we climb. The IL backend and the agent toolkit exist so that
 other climbers can join. Every `.exe` we ship, every tool that works, every

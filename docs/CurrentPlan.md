@@ -1,6 +1,6 @@
 # Current Plan
 
-**Date**: 2026-03-22 (verified via system clock)
+**Date**: 2026-03-23 (verified via system clock)
 
 ---
 
@@ -13,6 +13,7 @@
 **R2b (Effects Formalized) complete.** Five effects as `.codex` source, loaded by parser.
 **Camp III-B (Capability System) complete.** CapabilityChecker + CLI `--capabilities` enforcement merged.
 **Camp III-A (Linear Allocator) Phase 1 complete.** IRRegion node + WASM region-based allocator merged.
+**Register spill verified (2026-03-23).** AllocLocal saturation bug found by Linux review, spill-to-stack + IRRegion SP fix verified under QEMU — 40/40 RISC-V tests green.
 
 The C# bootstrap compiler is locked. All forward development happens in `.codex` source.
 
@@ -23,11 +24,13 @@ The C# bootstrap compiler is locked. All forward development happens in `.codex`
 | Self-hosted compiler | 26 files, ~4,900 lines |
 | Prelude | 16 modules, ~1,250 lines (11 type + 5 effect) |
 | Backends | 12 transpilation + IL + RISC-V native + RISC-V bare metal + WASM |
-| Tests | 900+ passing |
+| Tests | 390+ passing (40 RISC-V QEMU, 23 WASM wasmtime) |
 | Type debt | 0 |
 | Fixed point | Proven (Stage 1 = Stage 3 at 255,344 chars) |
 | Reference compiler | 🔒 Locked |
 | Binary targets | RISC-V 64 (Linux user + bare metal), WASM/WASI |
+| RiscVCodeGen | 2,071 lines — register spill, runtime helpers, 5 builtins |
+| Agents | 3 (Windows/Copilot, Linux/sandbox, Cam/CLI) |
 
 ---
 
@@ -145,16 +148,33 @@ RISC-V ELF. Previous binary segfaulted with `si_addr=NULL`.
 `char-code`, `code-to-char`, `is-letter`). Unresolved calls became NOPs
 in the instruction stream, leaving A0 as garbage/NULL, causing the deref.
 
-**Fixes applied**:
+**Fixes applied (branch: cam/fix-riscv-null-deref)**:
 1. Implemented 5 missing builtins in `RiscVCodeGen.TryEmitBuiltin`
 2. Added `__str_replace` runtime helper (~100 instructions)
-3. Fixed `IRBinaryOp.Gt`/`LtEq` using `savedLeft` instead of `leftReg`
-4. Added diagnostic warnings for unhandled IR nodes + unresolved calls
-5. Reverted broken `Xunit.SkipException` in test file
+3. Register spill to stack when S-registers exhausted (`AllocLocal` → virtual
+   regs ≥32, `StoreLocal`/`LoadLocal` with T0/T1 alternating scratch)
+4. Frame size patched after body emission to accommodate spill slots
+5. Page-aligned rodata segment to prevent text permission clobber in ELF
+6. IRRegion SP fix: skip heap-ptr save/restore for scalar types (Integer,
+   Boolean, Function) — the mid-function SP shift was corrupting spill offsets
+7. Added diagnostic warnings for unhandled IR nodes + unresolved calls
+8. QEMU tests skip explicitly instead of silently passing
+
+**Review cycle (2026-03-22/23)**:
+- Agent Linux reviewed `riscv-parity-phases1-4` merge, found `AllocLocal`
+  saturation bug (silent corruption when >10 locals). Review pushed to
+  `docs/reviews/riscv-parity-phases1-4-review.md`.
+- Agent Cam implemented spill-to-stack fix (`3e4b948`), but spill test
+  segfaulted under QEMU. Agent Linux ran Cam's isolation test matrix
+  (no-spill baseline / minimal spill / heavy spill no arithmetic).
+- Root cause: `EmitRegion` pushed S1 onto stack even for scalar regions,
+  shifting SP mid-function and breaking all spill slot offsets.
+- Fix (`a5dd336`): skip region SP shift for scalar types. Agent Linux
+  verified: **40/40 RISC-V tests pass** including spill stress tests.
 
 **Status**: Binary compiles with 0 warnings. 390 tests pass, 0 fail.
-All 40 RISC-V QEMU tests pass. Binary is ready for QEMU verification
-on Linux (Agent Linux's job).
+All 40 RISC-V QEMU tests pass (including register spill). Binary is
+ready for QEMU verification on Linux.
 
 **Next step**: Run `qemu-riscv64 ./Codex.Codex` on Linux with a test
 `.codex` file piped to stdin. If output matches bootstrap C# output →
@@ -163,11 +183,7 @@ on Linux (Agent Linux's job).
 **Design doc**: `docs/Designs/CAMP-IIC-SELF-HOSTED-RISCV.md`
 
 Branches pending review:
-- `windows/v2-fail-clause` — fail clauses + gives articles on function templates
-- `windows/v2-constraint-templates` — CPL Form 2 constraints
-- `windows/v2-claim-proof-templates` — CPL Form 4 claim/proof templates
-- `windows/v2-procedure-steps` — CPL Form 5 procedure steps
-- `windows/v2-quantified-statements` — CPL Form 6 quantified statements
+- `cam/fix-riscv-null-deref` — register spill, 5 builtins, IRRegion fix (✅ verified by Linux)
 
 ---
 
@@ -177,7 +193,10 @@ Branches pending review:
 | Task | What | Why |
 |------|------|-----|
 | ~~RISC-V parity~~ | ~~Records, sum types, pattern matching, text builtins on RISC-V~~ | ✅ Done (2026-03-22) |
+| ~~Register spill~~ | ~~Spill locals to stack when S-regs exhausted~~ | ✅ Done (2026-03-23, verified by Linux) |
+| Camp II-C verify | Run self-hosted RISC-V binary under QEMU | The summit push — if output matches, Camp II-C is done |
 | V4 | Proof-carrying facts | Views verify proofs at composition time |
+| WASM Phase 3 fix | Fix `WasmModuleBuilder.Emit.cs` C#12 syntax error (collection exprs) | Blocks WASM tests on .NET 8.0.x SDK |
 
 ### Medium Term
 - **Camp III-C**: Structured concurrency — `par`, `race`, work-stealing
@@ -202,4 +221,4 @@ Branches pending review:
 - **Agent toolkit**: `tools/codex-agent/` — peek, snap, build, test, handoff, doctor
 - **MCP server**: `tools/Codex.Mcp/` — compiler-as-a-tool for agents
 - **Principles**: `docs/10-PRINCIPLES.md` — unchanged, still governing.
-- **Three-agent workflow**: Windows (Copilot/VS) builds + pushes, Linux (Claude/sandbox) tests + reviews, Cam (Claude Code CLI) fast iteration + parallel work. Git is the coordination protocol. Cam works from `D:\Projects\NewRepository-cam` worktree.
+- **Three-agent workflow**: Windows (Copilot/VS) builds + pushes, Linux (Claude/sandbox) tests + reviews, Cam (Claude Code CLI, 1M Opus) fast iteration + parallel work. Git is the coordination protocol. Cam works from `D:\Projects\NewRepository-cam` worktree. Linux reviews are pushed to `docs/reviews/`.
