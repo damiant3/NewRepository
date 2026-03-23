@@ -500,6 +500,54 @@ public class ProseTemplateTests
         Assert.Empty(body.Constraints);
     }
 
+    // --- Claim and proof templates ---
+
+    [Fact]
+    public void Claim_template_recognized()
+    {
+        string source =
+            "Chapter: Proofs\n" +
+            "\n" +
+            "Claim: reversing a list twice gives the original list.\n" +
+            "\n" +
+            "    claim reverse-twice (xs) : Integer === Integer\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.ClaimTemplate);
+        Assert.Equal("reversing a list twice gives the original list", prose.ClaimTemplate.Value.Description);
+    }
+
+    [Fact]
+    public void Proof_template_recognized()
+    {
+        string source =
+            "Chapter: Proofs\n" +
+            "\n" +
+            "Proof: by induction on the list.\n";
+
+        (DocumentNode doc, _) = ParseProse(source);
+        ChapterNode chapter = Assert.Single(doc.Chapters);
+        ProseBlockNode prose = chapter.Members.OfType<ProseBlockNode>().First();
+        Assert.NotNull(prose.ProofTemplate);
+        Assert.Equal("by induction on the list", prose.ProofTemplate.Value.Strategy);
+    }
+
+    [Fact]
+    public void Claim_without_notation_warns()
+    {
+        string source =
+            "Chapter: Proofs\n" +
+            "\n" +
+            "Claim: something is true.\n" +
+            "\n" +
+            "Just some prose here.\n";
+
+        (DocumentNode doc, DiagnosticBag diags) = ParseProse(source);
+        Assert.Contains(diags.ToImmutable(), d => d.Code == "CDX1105");
+    }
+
     // --- Fail clauses on function templates ---
 
     [Fact]

@@ -282,6 +282,15 @@ public sealed partial class ProseParser
             funcTemplate = TryMatchFunctionTemplate(text, proseSpan);
         }
 
+        // Check for Claim: or Proof: template
+        ProseClaimInfo? claimTemplate = null;
+        ProseProofInfo? proofTemplate = null;
+        string trimmedText = text.Trim();
+        if (trimmedText.StartsWith("Claim:", StringComparison.OrdinalIgnoreCase))
+            claimTemplate = new ProseClaimInfo(trimmedText["Claim:".Length..].Trim().TrimEnd('.'));
+        else if (trimmedText.StartsWith("Proof:", StringComparison.OrdinalIgnoreCase))
+            proofTemplate = new ProseProofInfo(trimmedText["Proof:".Length..].Trim().TrimEnd('.'));
+
         // Extract inline references from prose text
         List<InlineCodeRef> codeRefs = ExtractCodeRefs(text);
         List<InlineTypeRef> typeRefs = ExtractTypeRefs(text);
@@ -290,6 +299,8 @@ public sealed partial class ProseParser
         {
             Transition = transition,
             FunctionTemplate = funcTemplate,
+            ClaimTemplate = claimTemplate,
+            ProofTemplate = proofTemplate,
             CodeRefs = codeRefs,
             TypeRefs = typeRefs
         });

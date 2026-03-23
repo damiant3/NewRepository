@@ -41,7 +41,15 @@ public sealed partial class ProseParser
             }
 
             if (notation is null)
+            {
+                if (prose.ClaimTemplate is not null)
+                {
+                    m_diagnostics.Warning("CDX1105",
+                        "Prose declares a claim but no formal claim follows in notation",
+                        prose.Span);
+                }
                 continue;
+            }
 
             // Check function template against notation definitions
             if (prose.FunctionTemplate is not null && notation.Definitions.Count > 0)
@@ -49,9 +57,18 @@ public sealed partial class ProseParser
                 ValidateFunctionTemplate(prose.FunctionTemplate, notation.Definitions[0]);
             }
 
-            // Check record template (prose text contains the template, notation has the type def)
-            // Record/variant templates generate their own NotationBlockNode, so the type def
-            // IS the notation block. Check the prose text against adjacent type definitions.
+            // Check claim template against notation claims
+            if (prose.ClaimTemplate is not null && notation.Claims.Count > 0)
+            {
+                // Claim exists in both prose and notation — good, no warning needed
+            }
+            else if (prose.ClaimTemplate is not null && notation.Claims.Count == 0
+                     && notation.Definitions.Count == 0)
+            {
+                m_diagnostics.Warning("CDX1105",
+                    "Prose declares a claim but no formal claim follows in notation",
+                    prose.Span);
+            }
         }
     }
 
