@@ -29,7 +29,7 @@ The C# bootstrap compiler is locked. All forward development happens in `.codex`
 | Fixed point | Proven (Stage 1 = Stage 3 at 255,344 chars) |
 | Reference compiler | 🔒 Locked |
 | Binary targets | RISC-V 64 (Linux user + bare metal), WASM/WASI |
-| RiscVCodeGen | 2,071 lines — register spill, runtime helpers, 5 builtins |
+| RiscVCodeGen | 2,248 lines — register spill, closures, lists, file I/O, runtime helpers |
 | Agents | 3 (Windows/Copilot, Linux/sandbox, Cam/CLI) |
 
 ---
@@ -173,7 +173,9 @@ in the instruction stream, leaving A0 as garbage/NULL, causing the deref.
   verified: **40/40 RISC-V tests pass** including spill stress tests.
 
 **Status**: Binary compiles with 0 warnings. 390 tests pass, 0 fail.
-All 40 RISC-V QEMU tests pass (including register spill). Binary is
+All 40 RISC-V QEMU tests pass (including register spill, closures,
+lists, text builtins, and higher-order functions). Region heap
+reclamation disabled (1MB heap sufficient for compilation). Binary is
 ready for QEMU verification on Linux.
 
 **Next step**: Run `qemu-riscv64 ./Codex.Codex` on Linux with a test
@@ -182,8 +184,13 @@ ready for QEMU verification on Linux.
 
 **Design doc**: `docs/Designs/CAMP-IIC-SELF-HOSTED-RISCV.md`
 
-Branches pending review:
-- `cam/fix-riscv-null-deref` — register spill, 5 builtins, IRRegion fix (✅ verified by Linux)
+**Agent Windows full review (2026-03-23)**: Reviewed all 25 commits
+from this session. Build green (0 code warnings). 390 Types.Tests pass
+including all 7 previously-failing text QEMU tests (now fixed). Register
+allocator architecture is sound: temps T3-T6, locals S2-S11 monotonic,
+spill to stack with virtual regs ≥32, LoadLocal alternates T0/T1 scratch.
+Closure implementation uses T2 convention + inline trampolines. All
+branches merged to master, `cam/fix-riscv-null-deref` included.
 
 ---
 
