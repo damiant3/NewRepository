@@ -653,8 +653,11 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
     uint EmitRegion(IRRegion region)
     {
-        // Records, sum types, lists: skip region (deep copy needed)
-        if (region.Type is RecordType or SumType or ListType)
+        // Records, sum types, lists: skip region (deep copy needed).
+        // Scalars (integer, boolean): no heap allocation, region is a no-op.
+        // Skipping avoids SP shift that would corrupt spill slot offsets.
+        if (region.Type is RecordType or SumType or ListType
+            or IntegerType or BooleanType or FunctionType)
             return EmitExpr(region.Body);
 
         // Enter region: save heap ptr on stack
