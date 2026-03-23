@@ -21,8 +21,9 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     uint m_nextTemp = Reg.T0;
     Dictionary<string, uint> m_locals = [];
 
+    // S1 is reserved as the global heap pointer — NOT saved/restored by functions.
     static readonly uint[] CalleeSaved = {
-        Reg.S1, Reg.S2, Reg.S3, Reg.S4, Reg.S5, Reg.S6,
+        Reg.S2, Reg.S3, Reg.S4, Reg.S5, Reg.S6,
         Reg.S7, Reg.S8, Reg.S9, Reg.S10, Reg.S11
     };
 
@@ -76,13 +77,13 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         m_locals = new Dictionary<string, uint>();
         m_nextTemp = Reg.S2;
 
-        // Prologue: 112-byte frame = ra + s0 + s1-s11 (13 × 8, aligned to 16)
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -112));
-        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.Ra, 104));
-        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.S0, 96));
+        // Prologue: 96-byte frame = ra + s0 + s2-s11 (12 × 8)
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -96));
+        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.Ra, 88));
+        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.S0, 80));
         for (int i = 0; i < CalleeSaved.Length; i++)
-            Emit(RiscVEncoder.Sd(Reg.Sp, CalleeSaved[i], 88 - i * 8));
-        Emit(RiscVEncoder.Addi(Reg.S0, Reg.Sp, 112));
+            Emit(RiscVEncoder.Sd(Reg.Sp, CalleeSaved[i], 72 - i * 8));
+        Emit(RiscVEncoder.Addi(Reg.S0, Reg.Sp, 96));
 
         for (int i = 0; i < def.Parameters.Length && i < 8; i++)
         {
@@ -97,10 +98,10 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
         // Epilogue
         for (int i = 0; i < CalleeSaved.Length; i++)
-            Emit(RiscVEncoder.Ld(CalleeSaved[i], Reg.Sp, 88 - i * 8));
-        Emit(RiscVEncoder.Ld(Reg.Ra, Reg.Sp, 104));
-        Emit(RiscVEncoder.Ld(Reg.S0, Reg.Sp, 96));
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 112));
+            Emit(RiscVEncoder.Ld(CalleeSaved[i], Reg.Sp, 72 - i * 8));
+        Emit(RiscVEncoder.Ld(Reg.Ra, Reg.Sp, 88));
+        Emit(RiscVEncoder.Ld(Reg.S0, Reg.Sp, 80));
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 96));
         Emit(RiscVEncoder.Ret());
     }
 
@@ -118,6 +119,9 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         IRApply apply => EmitApply(apply),
         IRNegate neg => EmitNegate(neg),
         IRDo doExpr => EmitDo(doExpr),
+        IRRecord rec => EmitRecord(rec),
+        IRFieldAccess fa => EmitFieldAccess(fa),
+        IRMatch match => EmitMatch(match),
         IRRegion region => EmitExpr(region.Body),
         _ => Reg.Zero
     };
@@ -169,6 +173,30 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             return rd;
         }
 
+        // Zero-arg sum type constructor
+        if (name.Type is SumType sumType)
+        {
+            int tag = -1;
+            for (int i = 0; i < sumType.Constructors.Length; i++)
+            {
+                if (sumType.Constructors[i].Name.Value == name.Name)
+                {
+                    tag = i;
+                    break;
+                }
+            }
+            if (tag >= 0)
+            {
+                uint ptrReg = AllocTemp();
+                Emit(RiscVEncoder.Mv(ptrReg, Reg.S1));
+                Emit(RiscVEncoder.Addi(Reg.S1, Reg.S1, 8));
+                uint tagReg = AllocTemp();
+                foreach (uint insn in RiscVEncoder.Li(tagReg, tag)) Emit(insn);
+                Emit(RiscVEncoder.Sd(ptrReg, tagReg, 0));
+                return ptrReg;
+            }
+        }
+
         return Reg.Zero;
     }
 
@@ -189,7 +217,8 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             case IRBinaryOp.DivInt: Emit(RiscVEncoder.Div(rd, savedLeft, right)); break;
             case IRBinaryOp.Eq:
                 Emit(RiscVEncoder.Sub(rd, savedLeft, right));
-                Emit(RiscVEncoder.Slti(rd, rd, 1));
+                Emit(RiscVEncoder.Sltu(rd, Reg.Zero, rd));
+                Emit(RiscVEncoder.Xori(rd, rd, 1));
                 break;
             case IRBinaryOp.NotEq:
                 Emit(RiscVEncoder.Sub(rd, savedLeft, right));
@@ -264,6 +293,14 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             if (TryEmitBuiltin(funcName.Name, args))
                 return Reg.A0;
 
+            // Sum type constructor: allocate [tag][field0][field1]... on heap
+            if (apply.Type is SumType sumType)
+            {
+                uint ctorResult = EmitConstructor(funcName.Name, args, sumType);
+                if (ctorResult != Reg.Zero)
+                    return ctorResult;
+            }
+
             List<uint> argRegs = new();
             foreach (IRExpr arg in args)
                 argRegs.Add(EmitExpr(arg));
@@ -312,6 +349,204 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         return lastReg;
     }
 
+    // ── Records, sum types, pattern matching ─────────────────────
+
+    uint EmitRecord(IRRecord rec)
+    {
+        List<uint> fieldRegs = new();
+        foreach ((string _, IRExpr value) in rec.Fields)
+            fieldRegs.Add(EmitExpr(value));
+
+        int totalSize = rec.Fields.Length * 8;
+
+        uint ptrReg = AllocTemp();
+        Emit(RiscVEncoder.Mv(ptrReg, Reg.S1));
+        Emit(RiscVEncoder.Addi(Reg.S1, Reg.S1, totalSize));
+
+        for (int i = 0; i < fieldRegs.Count; i++)
+            Emit(RiscVEncoder.Sd(ptrReg, fieldRegs[i], i * 8));
+
+        return ptrReg;
+    }
+
+    uint EmitFieldAccess(IRFieldAccess fa)
+    {
+        uint baseReg = EmitExpr(fa.Record);
+
+        int fieldIndex = 0;
+        if (fa.Record.Type is RecordType rt)
+        {
+            for (int i = 0; i < rt.Fields.Length; i++)
+            {
+                if (rt.Fields[i].FieldName.Value == fa.FieldName)
+                {
+                    fieldIndex = i;
+                    break;
+                }
+            }
+        }
+
+        uint rd = AllocTemp();
+        Emit(RiscVEncoder.Ld(rd, baseReg, fieldIndex * 8));
+        return rd;
+    }
+
+    uint EmitConstructor(string ctorName, List<IRExpr> args, SumType sumType)
+    {
+        int tag = -1;
+        for (int i = 0; i < sumType.Constructors.Length; i++)
+        {
+            if (sumType.Constructors[i].Name.Value == ctorName)
+            {
+                tag = i;
+                break;
+            }
+        }
+        if (tag < 0) return Reg.Zero;
+
+        List<uint> argRegs = new();
+        foreach (IRExpr arg in args)
+            argRegs.Add(EmitExpr(arg));
+
+        int totalSize = (1 + args.Count) * 8;
+
+        uint ptrReg = AllocTemp();
+        Emit(RiscVEncoder.Mv(ptrReg, Reg.S1));
+        Emit(RiscVEncoder.Addi(Reg.S1, Reg.S1, totalSize));
+
+        uint tagReg = AllocTemp();
+        foreach (uint insn in RiscVEncoder.Li(tagReg, tag)) Emit(insn);
+        Emit(RiscVEncoder.Sd(ptrReg, tagReg, 0));
+
+        for (int i = 0; i < argRegs.Count; i++)
+            Emit(RiscVEncoder.Sd(ptrReg, argRegs[i], 8 + i * 8));
+
+        return ptrReg;
+    }
+
+    uint EmitMatch(IRMatch match)
+    {
+        uint scrutReg = EmitExpr(match.Scrutinee);
+        uint savedScrut = AllocLocal();
+        Emit(RiscVEncoder.Mv(savedScrut, scrutReg));
+
+        uint resultReg = AllocTemp();
+        EmitMatchBranches(match, 0, savedScrut, resultReg);
+        return resultReg;
+    }
+
+    void EmitMatchBranches(IRMatch match, int index, uint scrutReg, uint resultReg)
+    {
+        if (index >= match.Branches.Length)
+            return;
+
+        IRMatchBranch branch = match.Branches[index];
+
+        switch (branch.Pattern)
+        {
+            case IRWildcardPattern:
+            {
+                uint bodyReg = EmitExpr(branch.Body);
+                Emit(RiscVEncoder.Mv(resultReg, bodyReg));
+                break;
+            }
+
+            case IRVarPattern varPat:
+            {
+                uint localReg = AllocLocal();
+                Emit(RiscVEncoder.Mv(localReg, scrutReg));
+                m_locals[varPat.Name] = localReg;
+                uint bodyReg = EmitExpr(branch.Body);
+                Emit(RiscVEncoder.Mv(resultReg, bodyReg));
+                break;
+            }
+
+            case IRLiteralPattern litPat:
+            {
+                uint litReg = EmitLiteralValue(litPat.Value);
+                uint cmpReg = AllocTemp();
+                Emit(RiscVEncoder.Sub(cmpReg, scrutReg, litReg));
+                Emit(RiscVEncoder.Sltu(cmpReg, Reg.Zero, cmpReg));
+
+                int branchIdx = m_instructions.Count;
+                Emit(RiscVEncoder.Nop());
+
+                uint bodyReg = EmitExpr(branch.Body);
+                Emit(RiscVEncoder.Mv(resultReg, bodyReg));
+                int jumpEndIdx = m_instructions.Count;
+                Emit(RiscVEncoder.Nop());
+
+                int nextStart = m_instructions.Count;
+                EmitMatchBranches(match, index + 1, scrutReg, resultReg);
+                int endIdx = m_instructions.Count;
+
+                m_instructions[branchIdx] = RiscVEncoder.Bne(cmpReg, Reg.Zero,
+                    (nextStart - branchIdx) * 4);
+                m_instructions[jumpEndIdx] = RiscVEncoder.J(
+                    (endIdx - jumpEndIdx) * 4);
+                break;
+            }
+
+            case IRCtorPattern ctorPat:
+            {
+                uint tagReg = AllocTemp();
+                Emit(RiscVEncoder.Ld(tagReg, scrutReg, 0));
+
+                int expectedTag = 0;
+                if (ctorPat.Type is SumType sumType)
+                {
+                    for (int i = 0; i < sumType.Constructors.Length; i++)
+                    {
+                        if (sumType.Constructors[i].Name.Value == ctorPat.Name)
+                        {
+                            expectedTag = i;
+                            break;
+                        }
+                    }
+                }
+
+                uint expectedReg = AllocTemp();
+                foreach (uint insn in RiscVEncoder.Li(expectedReg, expectedTag)) Emit(insn);
+
+                int branchIdx = m_instructions.Count;
+                Emit(RiscVEncoder.Nop());
+
+                for (int i = 0; i < ctorPat.SubPatterns.Length; i++)
+                {
+                    if (ctorPat.SubPatterns[i] is IRVarPattern varPat)
+                    {
+                        uint fieldReg = AllocLocal();
+                        Emit(RiscVEncoder.Ld(fieldReg, scrutReg, 8 + i * 8));
+                        m_locals[varPat.Name] = fieldReg;
+                    }
+                }
+
+                uint bodyReg = EmitExpr(branch.Body);
+                Emit(RiscVEncoder.Mv(resultReg, bodyReg));
+                int jumpEndIdx = m_instructions.Count;
+                Emit(RiscVEncoder.Nop());
+
+                int nextStart = m_instructions.Count;
+                EmitMatchBranches(match, index + 1, scrutReg, resultReg);
+                int endIdx = m_instructions.Count;
+
+                m_instructions[branchIdx] = RiscVEncoder.Bne(tagReg, expectedReg,
+                    (nextStart - branchIdx) * 4);
+                m_instructions[jumpEndIdx] = RiscVEncoder.J(
+                    (endIdx - jumpEndIdx) * 4);
+                break;
+            }
+        }
+    }
+
+    uint EmitLiteralValue(object value) => value switch
+    {
+        long l => EmitIntegerLit(l),
+        bool b => EmitIntegerLit(b ? 1 : 0),
+        string s => EmitTextLit(s),
+        _ => Reg.Zero
+    };
+
     // ── Builtins ─────────────────────────────────────────────────
 
     bool TryEmitBuiltin(string name, List<IRExpr> args)
@@ -338,6 +573,10 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
     void EmitPrintI64(uint valueReg)
     {
+        // Save heap pointer (s1 is used as scratch in itoa)
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -16));
+        Emit(RiscVEncoder.Sd(Reg.Sp, Reg.S1, 0));
+
         // itoa on stack: divide by 10, store digits right-to-left, then write(2, buf, len)
         Emit(RiscVEncoder.Mv(Reg.S1, valueReg));
         Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -32));
@@ -408,6 +647,10 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         EmitSyscallWrite();
 
         Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 32));
+
+        // Restore heap pointer
+        Emit(RiscVEncoder.Ld(Reg.S1, Reg.Sp, 0));
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 16));
     }
 
     void EmitPrintBool(uint valueReg)
@@ -527,6 +770,19 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         if (m_target == RiscVTarget.BareMetal)
         {
             foreach (uint insn in RiscVEncoder.Li(Reg.Sp, 0x80100000L)) Emit(insn);
+            foreach (uint insn in RiscVEncoder.Li(Reg.S1, 0x80200000L)) Emit(insn);
+        }
+        else
+        {
+            // Linux: allocate heap via brk syscall (214)
+            foreach (uint insn in RiscVEncoder.Li(Reg.A0, 0)) Emit(insn);
+            foreach (uint insn in RiscVEncoder.Li(Reg.A7, 214)) Emit(insn);
+            Emit(RiscVEncoder.Ecall());
+            Emit(RiscVEncoder.Mv(Reg.S1, Reg.A0));
+            foreach (uint insn in RiscVEncoder.Li(Reg.T0, 1048576)) Emit(insn);
+            Emit(RiscVEncoder.Add(Reg.A0, Reg.S1, Reg.T0));
+            foreach (uint insn in RiscVEncoder.Li(Reg.A7, 214)) Emit(insn);
+            Emit(RiscVEncoder.Ecall());
         }
 
         IRDefinition? mainDef = null;
