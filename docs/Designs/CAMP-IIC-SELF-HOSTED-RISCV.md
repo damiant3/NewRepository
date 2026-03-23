@@ -250,3 +250,66 @@ may not be needed for Camp II-C.
 **Estimated effort**: 2-3 sessions for Phases 1-3, 1 session for Phase 4
 verification. With Cam's throughput (~1,000 lines/30 min), the coding
 is ~2 hours. The debugging is the unknown.
+
+---
+
+## Summit Verification Procedure
+
+The self-hosted compiler binary reads a file path from stdin, compiles
+the source, and writes C# to stdout. This is the same protocol as the
+bootstrap runner — it is not a test harness, it is the real compiler.
+
+### Prerequisites
+
+- RISC-V ELF binary: `codex build Codex.Codex --target riscv`
+- QEMU user-mode: `qemu-riscv64` (Linux only, or WSL)
+- A `.codex` test file (any valid Codex source with a `main` definition)
+- The C# bootstrap for comparison: `dotnet run --project tools/Codex.Cli`
+
+### Step 1: Build the binary
+
+```bash
+dotnet run --project tools/Codex.Cli -- build Codex.Codex --target riscv
+# Output: Codex.Codex/out/Codex.Codex (ELF binary, ~223 KB)
+```
+
+### Step 2: Prepare a test file
+
+```bash
+cat > /tmp/summit-test.codex << 'CODEX'
+main : Integer
+main = 42
+CODEX
+```
+
+### Step 3: Run the RISC-V binary under QEMU
+
+The binary reads a file path from stdin (line 1), opens that file,
+compiles it, and prints C# to stdout. Pipe the path:
+
+```bash
+echo "/tmp/summit-test.codex" | qemu-riscv64 ./Codex.Codex/out/Codex.Codex > /tmp/rv-output.cs
+```
+
+**Important**: The binary blocks on `read-line` (stdin) waiting for a
+file path. Always pipe input. A bare `qemu-riscv64 ./Codex.Codex` will
+hang indefinitely.
+
+### Step 4: Compare with bootstrap output
+
+```bash
+echo "/tmp/summit-test.codex" | dotnet run --project tools/Codex.Cli -- compile > /tmp/bootstrap-output.cs
+diff /tmp/rv-output.cs /tmp/bootstrap-output.cs
+```
+
+If the diff is empty (or differences are only whitespace/ordering),
+**Camp II-C is summited**: the Codex compiler, compiled to native
+RISC-V machine code, produces the same output as the C# bootstrap.
+
+### Performance notes
+
+Under QEMU emulation the compiler is slow — the 493-definition binary
+does byte-by-byte string operations and recursive type checking. A
+simple test file may take 30-120+ seconds. Use `timeout 300` to avoid
+indefinite hangs. On real RISC-V hardware it would be significantly
+faster.
