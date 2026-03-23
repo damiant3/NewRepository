@@ -21,6 +21,8 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
     uint m_nextTemp = Reg.T0;
     uint m_nextLocal = Reg.S2;
+    int m_spillCount;           // number of spilled locals beyond S-registers
+    int m_prologueIndex = -1;   // instruction index of the frame size addi (patched)
     Dictionary<string, uint> m_locals = [];
 
     // S1 is reserved as the global heap pointer — NOT saved/restored by functions.
@@ -81,19 +83,22 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         m_locals = new Dictionary<string, uint>();
         m_nextTemp = Reg.T3;
         m_nextLocal = Reg.S2;
+        m_spillCount = 0;
 
-        // Prologue: 96-byte frame = ra + s0 + s2-s11 (12 × 8)
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -96));
+        // Prologue: base frame = 96 bytes (ra + s0 + s2-s11).
+        // If spills are needed, frame grows — patched after body emission.
+        m_prologueIndex = m_instructions.Count;
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -96)); // patched if spills
         Emit(RiscVEncoder.Sd(Reg.Sp, Reg.Ra, 88));
         Emit(RiscVEncoder.Sd(Reg.Sp, Reg.S0, 80));
         for (int i = 0; i < CalleeSaved.Length; i++)
             Emit(RiscVEncoder.Sd(Reg.Sp, CalleeSaved[i], 72 - i * 8));
-        Emit(RiscVEncoder.Addi(Reg.S0, Reg.Sp, 96));
+        Emit(RiscVEncoder.Addi(Reg.S0, Reg.Sp, 96)); // also patched
 
         for (int i = 0; i < def.Parameters.Length && i < 8; i++)
         {
             uint savedReg = AllocLocal();
-            Emit(RiscVEncoder.Mv(savedReg, Reg.A0 + (uint)i));
+            StoreLocal(savedReg, Reg.A0 + (uint)i);
             m_locals[def.Parameters[i].Name] = savedReg;
         }
 
@@ -101,12 +106,23 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         if (resultReg != Reg.A0)
             Emit(RiscVEncoder.Mv(Reg.A0, resultReg));
 
+        // Patch frame size if spills were needed
+        int frameSize = 96 + m_spillCount * 8;
+        // Align to 16 bytes
+        if (frameSize % 16 != 0) frameSize += 8;
+        if (frameSize != 96)
+        {
+            m_instructions[m_prologueIndex] = RiscVEncoder.Addi(Reg.Sp, Reg.Sp, -frameSize);
+            m_instructions[m_prologueIndex + CalleeSaved.Length + 3] =
+                RiscVEncoder.Addi(Reg.S0, Reg.Sp, frameSize);
+        }
+
         // Epilogue
         for (int i = 0; i < CalleeSaved.Length; i++)
             Emit(RiscVEncoder.Ld(CalleeSaved[i], Reg.Sp, 72 - i * 8));
         Emit(RiscVEncoder.Ld(Reg.Ra, Reg.Sp, 88));
         Emit(RiscVEncoder.Ld(Reg.S0, Reg.Sp, 80));
-        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, 96));
+        Emit(RiscVEncoder.Addi(Reg.Sp, Reg.Sp, frameSize));
         Emit(RiscVEncoder.Ret());
     }
 
@@ -170,7 +186,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     uint EmitName(IRName name)
     {
         if (m_locals.TryGetValue(name.Name, out uint reg))
-            return reg;
+            return LoadLocal(reg);
 
         if (m_functionOffsets.ContainsKey(name.Name) && name.Type is not FunctionType)
         {
@@ -219,28 +235,29 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     {
         uint left = EmitExpr(bin.Left);
         uint savedLeft = AllocLocal();
-        Emit(RiscVEncoder.Mv(savedLeft, left));
+        StoreLocal(savedLeft, left);
 
         uint right = EmitExpr(bin.Right);
+        uint leftReg = LoadLocal(savedLeft);
         uint rd = AllocTemp();
 
         switch (bin.Op)
         {
-            case IRBinaryOp.AddInt: Emit(RiscVEncoder.Add(rd, savedLeft, right)); break;
-            case IRBinaryOp.SubInt: Emit(RiscVEncoder.Sub(rd, savedLeft, right)); break;
-            case IRBinaryOp.MulInt: Emit(RiscVEncoder.Mul(rd, savedLeft, right)); break;
-            case IRBinaryOp.DivInt: Emit(RiscVEncoder.Div(rd, savedLeft, right)); break;
+            case IRBinaryOp.AddInt: Emit(RiscVEncoder.Add(rd, leftReg, right)); break;
+            case IRBinaryOp.SubInt: Emit(RiscVEncoder.Sub(rd, leftReg, right)); break;
+            case IRBinaryOp.MulInt: Emit(RiscVEncoder.Mul(rd, leftReg, right)); break;
+            case IRBinaryOp.DivInt: Emit(RiscVEncoder.Div(rd, leftReg, right)); break;
             case IRBinaryOp.Eq:
                 if (bin.Left.Type is TextType)
                 {
-                    Emit(RiscVEncoder.Mv(Reg.A0, savedLeft));
+                    Emit(RiscVEncoder.Mv(Reg.A0, leftReg));
                     Emit(RiscVEncoder.Mv(Reg.A1, right));
                     EmitCallTo("__str_eq");
                     Emit(RiscVEncoder.Mv(rd, Reg.A0));
                 }
                 else
                 {
-                    Emit(RiscVEncoder.Sub(rd, savedLeft, right));
+                    Emit(RiscVEncoder.Sub(rd, leftReg, right));
                     Emit(RiscVEncoder.Sltu(rd, Reg.Zero, rd));
                     Emit(RiscVEncoder.Xori(rd, rd, 1));
                 }
@@ -248,7 +265,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             case IRBinaryOp.NotEq:
                 if (bin.Left.Type is TextType)
                 {
-                    Emit(RiscVEncoder.Mv(Reg.A0, savedLeft));
+                    Emit(RiscVEncoder.Mv(Reg.A0, leftReg));
                     Emit(RiscVEncoder.Mv(Reg.A1, right));
                     EmitCallTo("__str_eq");
                     Emit(RiscVEncoder.Xori(Reg.A0, Reg.A0, 1));
@@ -256,37 +273,37 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                 }
                 else
                 {
-                    Emit(RiscVEncoder.Sub(rd, savedLeft, right));
+                    Emit(RiscVEncoder.Sub(rd, leftReg, right));
                     Emit(RiscVEncoder.Sltu(rd, Reg.Zero, rd));
                 }
                 break;
             case IRBinaryOp.AppendText:
-                Emit(RiscVEncoder.Mv(Reg.A0, savedLeft));
+                Emit(RiscVEncoder.Mv(Reg.A0, leftReg));
                 Emit(RiscVEncoder.Mv(Reg.A1, right));
                 EmitCallTo("__str_concat");
                 Emit(RiscVEncoder.Mv(rd, Reg.A0));
                 break;
-            case IRBinaryOp.Lt:  Emit(RiscVEncoder.Slt(rd, savedLeft, right)); break;
+            case IRBinaryOp.Lt:  Emit(RiscVEncoder.Slt(rd, leftReg, right)); break;
             case IRBinaryOp.Gt:  Emit(RiscVEncoder.Slt(rd, right, savedLeft)); break;
             case IRBinaryOp.LtEq:
                 Emit(RiscVEncoder.Slt(rd, right, savedLeft));
                 Emit(RiscVEncoder.Xori(rd, rd, 1));
                 break;
             case IRBinaryOp.GtEq:
-                Emit(RiscVEncoder.Slt(rd, savedLeft, right));
+                Emit(RiscVEncoder.Slt(rd, leftReg, right));
                 Emit(RiscVEncoder.Xori(rd, rd, 1));
                 break;
-            case IRBinaryOp.And: Emit(RiscVEncoder.And(rd, savedLeft, right)); break;
-            case IRBinaryOp.Or:  Emit(RiscVEncoder.Or(rd, savedLeft, right)); break;
+            case IRBinaryOp.And: Emit(RiscVEncoder.And(rd, leftReg, right)); break;
+            case IRBinaryOp.Or:  Emit(RiscVEncoder.Or(rd, leftReg, right)); break;
             case IRBinaryOp.ConsList:
                 // Cons head tail: alloc [len+1][head][tail elements...]
-                Emit(RiscVEncoder.Mv(Reg.A0, savedLeft));
+                Emit(RiscVEncoder.Mv(Reg.A0, leftReg));
                 Emit(RiscVEncoder.Mv(Reg.A1, right));
                 EmitCallTo("__list_cons");
                 Emit(RiscVEncoder.Mv(rd, Reg.A0));
                 break;
             case IRBinaryOp.AppendList:
-                Emit(RiscVEncoder.Mv(Reg.A0, savedLeft));
+                Emit(RiscVEncoder.Mv(Reg.A0, leftReg));
                 Emit(RiscVEncoder.Mv(Reg.A1, right));
                 EmitCallTo("__list_append");
                 Emit(RiscVEncoder.Mv(rd, Reg.A0));
@@ -306,28 +323,28 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
 
         uint thenReg = EmitExpr(ifExpr.Then);
         uint resultReg = AllocLocal();
-        Emit(RiscVEncoder.Mv(resultReg, thenReg));
+        StoreLocal(resultReg, thenReg);
 
         int jEndIndex = m_instructions.Count;
         Emit(RiscVEncoder.Nop()); // patched: j → end
 
         int elseStart = m_instructions.Count;
         uint elseReg = EmitExpr(ifExpr.Else);
-        Emit(RiscVEncoder.Mv(resultReg, elseReg));
+        StoreLocal(resultReg, elseReg);
 
         int endIndex = m_instructions.Count;
 
         m_instructions[beqzIndex] = RiscVEncoder.Beq(cond, Reg.Zero, (elseStart - beqzIndex) * 4);
         m_instructions[jEndIndex] = RiscVEncoder.J((endIndex - jEndIndex) * 4);
 
-        return resultReg;
+        return LoadLocal(resultReg);
     }
 
     uint EmitLet(IRLet letExpr)
     {
         uint valReg = EmitExpr(letExpr.Value);
         uint savedReg = AllocLocal();
-        Emit(RiscVEncoder.Mv(savedReg, valReg));
+        StoreLocal(savedReg, valReg);
         m_locals[letExpr.Name] = savedReg;
         return EmitExpr(letExpr.Body);
     }
@@ -361,21 +378,22 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             {
                 uint r = EmitExpr(arg);
                 uint saved = AllocLocal();
-                Emit(RiscVEncoder.Mv(saved, r));
+                StoreLocal(saved, r);
                 argRegs.Add(saved);
             }
 
             for (int i = 0; i < argRegs.Count && i < 8; i++)
             {
-                if (argRegs[i] != Reg.A0 + (uint)i)
-                    Emit(RiscVEncoder.Mv(Reg.A0 + (uint)i, argRegs[i]));
+                uint argVal = LoadLocal(argRegs[i]);
+                if (argVal != Reg.A0 + (uint)i)
+                    Emit(RiscVEncoder.Mv(Reg.A0 + (uint)i, argVal));
             }
 
             // Check if it's a local (function pointer) or a top-level function
             if (m_locals.ContainsKey(funcName.Name))
             {
                 // Indirect call via function pointer in local register
-                uint fpReg = m_locals[funcName.Name];
+                uint fpReg = LoadLocal(m_locals[funcName.Name]);
                 Emit(RiscVEncoder.Jalr(Reg.Ra, fpReg, 0));
             }
             else
@@ -411,7 +429,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                 case IRDoBind bind:
                     uint valReg = EmitExpr(bind.Value);
                     uint savedReg = AllocLocal();
-                    Emit(RiscVEncoder.Mv(savedReg, valReg));
+                    StoreLocal(savedReg, valReg);
                     m_locals[bind.Name] = savedReg;
                     break;
             }
@@ -428,7 +446,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         {
             uint r = EmitExpr(value);
             uint saved = AllocLocal();
-            Emit(RiscVEncoder.Mv(saved, r));
+            StoreLocal(saved, r);
             fieldRegs.Add(saved);
         }
 
@@ -484,7 +502,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         {
             uint r = EmitExpr(arg);
             uint saved = AllocLocal();
-            Emit(RiscVEncoder.Mv(saved, r));
+            StoreLocal(saved, r);
             argRegs.Add(saved);
         }
 
@@ -508,7 +526,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     {
         uint scrutReg = EmitExpr(match.Scrutinee);
         uint savedScrut = AllocLocal();
-        Emit(RiscVEncoder.Mv(savedScrut, scrutReg));
+        StoreLocal(savedScrut, scrutReg);
 
         uint resultReg = AllocTemp();
         EmitMatchBranches(match, 0, savedScrut, resultReg);
@@ -527,17 +545,17 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             case IRWildcardPattern:
             {
                 uint bodyReg = EmitExpr(branch.Body);
-                Emit(RiscVEncoder.Mv(resultReg, bodyReg));
+                StoreLocal(resultReg, bodyReg);
                 break;
             }
 
             case IRVarPattern varPat:
             {
                 uint localReg = AllocLocal();
-                Emit(RiscVEncoder.Mv(localReg, scrutReg));
+                StoreLocal(localReg, scrutReg);
                 m_locals[varPat.Name] = localReg;
                 uint bodyReg = EmitExpr(branch.Body);
-                Emit(RiscVEncoder.Mv(resultReg, bodyReg));
+                StoreLocal(resultReg, bodyReg);
                 break;
             }
 
@@ -552,7 +570,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                 Emit(RiscVEncoder.Nop());
 
                 uint bodyReg = EmitExpr(branch.Body);
-                Emit(RiscVEncoder.Mv(resultReg, bodyReg));
+                StoreLocal(resultReg, bodyReg);
                 int jumpEndIdx = m_instructions.Count;
                 Emit(RiscVEncoder.Nop());
 
@@ -596,13 +614,16 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
                     if (ctorPat.SubPatterns[i] is IRVarPattern varPat)
                     {
                         uint fieldReg = AllocLocal();
-                        Emit(RiscVEncoder.Ld(fieldReg, scrutReg, 8 + i * 8));
+                        uint scrut = LoadLocal(scrutReg);
+                        uint tmp = AllocTemp();
+                        Emit(RiscVEncoder.Ld(tmp, scrut, 8 + i * 8));
+                        StoreLocal(fieldReg, tmp);
                         m_locals[varPat.Name] = fieldReg;
                     }
                 }
 
                 uint bodyReg = EmitExpr(branch.Body);
-                Emit(RiscVEncoder.Mv(resultReg, bodyReg));
+                StoreLocal(resultReg, bodyReg);
                 int jumpEndIdx = m_instructions.Count;
                 Emit(RiscVEncoder.Nop());
 
@@ -684,7 +705,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         {
             uint r = EmitExpr(elem);
             uint saved = AllocLocal();
-            Emit(RiscVEncoder.Mv(saved, r));
+            StoreLocal(saved, r);
             elemRegs.Add(saved);
         }
 
@@ -794,7 +815,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             {
                 uint listReg = EmitExpr(args[0]);
                 uint savedList = AllocLocal();
-                Emit(RiscVEncoder.Mv(savedList, listReg));
+                StoreLocal(savedList, listReg);
                 uint idxReg = EmitExpr(args[1]);
                 // Load element at offset 8 + idx * 8
                 foreach (uint insn in RiscVEncoder.Li(Reg.T0, 8)) Emit(insn);
@@ -820,7 +841,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
             {
                 uint pathReg = EmitExpr(args[0]);
                 uint savedPath = AllocLocal();
-                Emit(RiscVEncoder.Mv(savedPath, pathReg));
+                StoreLocal(savedPath, pathReg);
                 uint contentReg = EmitExpr(args[1]);
                 // For now: write content to stdout (simplified)
                 Emit(RiscVEncoder.Ld(Reg.A2, contentReg, 0));
@@ -1015,7 +1036,7 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     {
         uint textReg = EmitExpr(args[0]);
         uint savedText = AllocLocal();
-        Emit(RiscVEncoder.Mv(savedText, textReg));
+        StoreLocal(savedText, textReg);
         uint indexReg = EmitExpr(args[1]);
 
         // Alloc 16 bytes: [8-byte len=1][1 byte data][7 padding]
@@ -1034,11 +1055,11 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
     {
         uint textReg = EmitExpr(args[0]);
         uint savedText = AllocLocal();
-        Emit(RiscVEncoder.Mv(savedText, textReg));
+        StoreLocal(savedText, textReg);
 
         uint startReg = EmitExpr(args[1]);
         uint savedStart = AllocLocal();
-        Emit(RiscVEncoder.Mv(savedStart, startReg));
+        StoreLocal(savedStart, startReg);
 
         uint lenReg = EmitExpr(args[2]);
         Emit(RiscVEncoder.Mv(Reg.T5, lenReg));
@@ -1762,12 +1783,43 @@ sealed class RiscVCodeGen(RiscVTarget target = RiscVTarget.LinuxUser)
         return reg;
     }
 
+    // Virtual register numbers >31 indicate stack-spilled locals.
+    // Slot 0 is at sp+96, slot 1 at sp+104, etc. (above the base frame).
+    const uint SpillBase = 32;
+
     uint AllocLocal()
     {
-        uint reg = m_nextLocal;
-        m_nextLocal++;
-        if (m_nextLocal > Reg.S11) m_nextLocal = Reg.S11; // saturate — no wrap
-        return reg;
+        if (m_nextLocal <= Reg.S11)
+        {
+            uint reg = m_nextLocal;
+            m_nextLocal++;
+            return reg;
+        }
+        // Spill to stack: return virtual register number
+        uint slot = SpillBase + (uint)m_spillCount;
+        m_spillCount++;
+        return slot;
+    }
+
+    int SpillOffset(uint virtualReg) => 96 + ((int)(virtualReg - SpillBase)) * 8;
+
+    // Store a value into a local (register or stack slot)
+    void StoreLocal(uint local, uint valueReg)
+    {
+        if (local < SpillBase)
+            Emit(RiscVEncoder.Mv(local, valueReg));
+        else
+            Emit(RiscVEncoder.Sd(Reg.Sp, valueReg, SpillOffset(local)));
+    }
+
+    // Load a local into a temp register for use
+    uint LoadLocal(uint local)
+    {
+        if (local < SpillBase)
+            return local;
+        uint tmp = AllocTemp();
+        Emit(RiscVEncoder.Ld(tmp, Reg.Sp, SpillOffset(local)));
+        return tmp;
     }
 
     void Emit(uint instruction) => m_instructions.Add(instruction);
