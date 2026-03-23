@@ -10,8 +10,8 @@ sealed partial class WasmModuleBuilder
     void EmitImports()
     {
         int fdWriteType = AddFuncType(
-            [WasmI32, WasmI32, WasmI32, WasmI32],
-            [WasmI32]);
+            new byte[] { WasmI32, WasmI32, WasmI32, WasmI32 },
+            new byte[] { WasmI32 });
         m_fdWriteIndex = m_nextFuncIndex++;
         m_imports.Add(new WasmImport("wasi_snapshot_preview1", "fd_write", ImportFunc, fdWriteType));
         m_importCount = m_nextFuncIndex;
@@ -59,13 +59,13 @@ sealed partial class WasmModuleBuilder
             paramTypes[i] = WasmTypeFor(def.Parameters[i].Type);
 
         byte[] resultTypes = returnType is VoidType or NothingType
-            ? [] : [WasmTypeFor(returnType)];
+            ? Array.Empty<byte>() : new byte[] { WasmTypeFor(returnType) };
 
         int typeIndex = AddFuncType(paramTypes, resultTypes);
         int funcSlot = m_functionIndex.Get(def.Name, 0) - m_importCount;
         m_functionTypeIndices[funcSlot] = typeIndex;
 
-        List<byte> localTypes = [];
+        List<byte> localTypes = new();
         ValueMap<string, int> localMap = ValueMap<string, int>.s_empty;
         for (int i = 0; i < paramCount; i++)
             localMap = localMap.Set(def.Parameters[i].Name, i);
@@ -95,19 +95,19 @@ sealed partial class WasmModuleBuilder
 
         if (mainDef is null)
         {
-            int voidType = AddFuncType([], []);
+            int voidType = AddFuncType(Array.Empty<byte>(), Array.Empty<byte>());
             m_functionTypeIndices[startSlot] = voidType;
             MemoryStream body = new();
             body.WriteByte(OpEnd);
-            m_functionBodies.Add(EncodeFunctionBody(body.ToArray(), []));
+            m_functionBodies.Add(EncodeFunctionBody(body.ToArray(), new List<byte>()));
         }
         else
         {
-            int voidType = AddFuncType([], []);
+            int voidType = AddFuncType(Array.Empty<byte>(), Array.Empty<byte>());
             m_functionTypeIndices[startSlot] = voidType;
 
             MemoryStream body = new();
-            List<byte> localTypes = [];
+            List<byte> localTypes = new();
             CodexType returnType = ComputeReturnType(mainDef.Type, mainDef.Parameters.Length);
 
             int mainIdx = m_functionIndex.Get("main", 0);
@@ -405,7 +405,7 @@ sealed partial class WasmModuleBuilder
     void EmitApply(MemoryStream body, IRApply apply,
         ValueMap<string, int> localMap, ref int nextLocal, List<byte> localTypes)
     {
-        List<IRExpr> args = [];
+        List<IRExpr> args = new();
         IRExpr func = apply;
         while (func is IRApply inner)
         {

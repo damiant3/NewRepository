@@ -107,15 +107,15 @@ sealed partial class WasmModuleBuilder
     const byte GlobalMut = 0x01;
 
     // ── Data ─────────────────────────────────────────────────────
-    readonly List<byte[]> m_dataSegments = [];
+    readonly List<byte[]> m_dataSegments = new();
     int m_dataOffset = 1024; // data starts at offset 1024, leaving room for iov structs
 
-    readonly List<WasmFuncType> m_types = [];
-    readonly List<WasmImport> m_imports = [];
-    readonly List<int> m_functionTypeIndices = [];
-    readonly List<byte[]> m_functionBodies = [];
-    readonly List<WasmExport> m_exports = [];
-    readonly List<WasmGlobal> m_globals = [];
+    readonly List<WasmFuncType> m_types = new();
+    readonly List<WasmImport> m_imports = new();
+    readonly List<int> m_functionTypeIndices = new();
+    readonly List<byte[]> m_functionBodies = new();
+    readonly List<WasmExport> m_exports = new();
+    readonly List<WasmGlobal> m_globals = new();
 
     ValueMap<string, int> m_functionIndex = ValueMap<string, int>.s_empty;
     ValueMap<string, int> m_stringOffsets = ValueMap<string, int>.s_empty;

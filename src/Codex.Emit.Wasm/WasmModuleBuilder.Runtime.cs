@@ -69,12 +69,12 @@ sealed partial class WasmModuleBuilder
 
     void EmitPrintI64Helper()
     {
-        int typeIndex = AddFuncType([WasmI64], []);
+        int typeIndex = AddFuncType(new byte[] { WasmI64 }, Array.Empty<byte>());
         int funcSlot = m_printI64Index - m_importCount;
         m_functionTypeIndices[funcSlot] = typeIndex;
 
         MemoryStream body = new();
-        List<byte> localTypes = [];
+        List<byte> localTypes = new();
 
         // Locals: value is param 0
         int bufStart = 0; localTypes.Add(WasmI32); // scratch buffer start
@@ -218,7 +218,7 @@ sealed partial class WasmModuleBuilder
     void EmitPrintBoolHelper()
     {
         // __print_bool(value: i32) -> void
-        int typeIndex = AddFuncType([WasmI32], []);
+        int typeIndex = AddFuncType(new byte[] { WasmI32 }, Array.Empty<byte>());
         int funcSlot = m_printBoolIndex - m_importCount;
         m_functionTypeIndices[funcSlot] = typeIndex;
 
@@ -226,7 +226,7 @@ sealed partial class WasmModuleBuilder
         int falseOffset = AddDataSegment(EncodeLengthPrefixedString("False"));
 
         MemoryStream body = new();
-        List<byte> localTypes = [];
+        List<byte> localTypes = new();
 
         int ptrLocal = 0; localTypes.Add(WasmI32);
 
@@ -250,12 +250,12 @@ sealed partial class WasmModuleBuilder
     {
         // __str_eq(ptrA: i32, ptrB: i32) -> i32
         // Returns 1 if length-prefixed strings are equal, 0 otherwise
-        int typeIndex = AddFuncType([WasmI32, WasmI32], [WasmI32]);
+        int typeIndex = AddFuncType(new byte[] { WasmI32, WasmI32 }, new byte[] { WasmI32 });
         int funcSlot = m_strEqIndex - m_importCount;
         m_functionTypeIndices[funcSlot] = typeIndex;
 
         MemoryStream body = new();
-        List<byte> localTypes = [];
+        List<byte> localTypes = new();
 
         // param 0 = ptrA, param 1 = ptrB
         // local 2 = lenA, local 3 = idx
@@ -583,7 +583,7 @@ sealed partial class WasmModuleBuilder
     static byte[] EncodeFunctionBody(byte[] code, List<byte> localTypes)
     {
         // Group consecutive identical local types
-        List<(int Count, byte Type)> localGroups = [];
+        List<(int Count, byte Type)> localGroups = new();
         for (int i = 0; i < localTypes.Count; i++)
         {
             if (localGroups.Count > 0 && localGroups[^1].Type == localTypes[i])
