@@ -649,6 +649,517 @@ public class ViewCompositionTests : IDisposable
     }
 }
 
+public class ViewImportTests : IDisposable
+{
+    readonly string m_tempDir;
+    readonly FactStore m_store;
+
+    public ViewImportTests()
+    {
+        m_tempDir = Path.Combine(Path.GetTempPath(), "codex_import_test_" + Guid.NewGuid().ToString("N")[..8]);
+        m_store = FactStore.Init(m_tempDir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(m_tempDir, true); } catch { }
+    }
+
+    Fact StoreDef(string source)
+    {
+        Fact def = Fact.CreateDefinition(source, "alice", "init");
+        m_store.Store(def);
+        return def;
+    }
+
+    [Fact]
+    public void ImportFact_by_hash_roundtrips()
+    {
+        Fact external = StoreDef("json-parse s = s");
+        m_store.CreateView("app");
+        m_store.ImportFactIntoView("app", external.Hash, "json-parser");
+
+        IReadOnlyList<ImportedFact> imports = m_store.GetViewImports("app");
+        Assert.Single(imports);
+        Assert.Equal(external.Hash, imports[0].Hash);
+        Assert.Equal("json-parser", imports[0].LocalName);
+    }
+
+    [Fact]
+    public void ImportFact_missing_hash_throws()
+    {
+        ContentHash fakeHash = ContentHash.Of("nonexistent-fact-content");
+        m_store.CreateView("app");
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.ImportFactIntoView("app", fakeHash, "missing"));
+    }
+
+    [Fact]
+    public void ImportFact_non_definition_throws()
+    {
+        ContentHash defHash = ContentHash.Of("some-def");
+        Fact trust = Fact.CreateTrust(defHash, TrustDegree.Reviewed, "bob", "ok");
+        m_store.Store(trust);
+        m_store.CreateView("app");
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.ImportFactIntoView("app", trust.Hash, "bad"));
+    }
+
+    [Fact]
+    public void ImportFact_duplicate_local_name_throws()
+    {
+        Fact def1 = StoreDef("a = 1");
+        Fact def2 = StoreDef("b = 2");
+        m_store.CreateView("app");
+        m_store.ImportFactIntoView("app", def1.Hash, "util");
+        Assert.Throws<InvalidOperationException>(
+            () => m_store.ImportFactIntoView("app", def2.Hash, "util"));
+    }
+
+    [Fact]
+    public void RemoveImport_removes_by_local_name()
+    {
+        Fact def = StoreDef("x = 1");
+        m_store.CreateView("app");
+        m_store.ImportFactIntoView("app", def.Hash, "x-lib");
+
+        m_store.RemoveImportFromView("app", "x-lib");
+
+        IReadOnlyList<ImportedFact> imports = m_store.GetViewImports("app");
+        Assert.Empty(imports);
+    }
+
+    [Fact]
+    public void RemoveImport_missing_name_is_silent()
+    {
+        m_store.CreateView("app");
+        m_store.RemoveImportFromView("app", "nonexistent");
+        Assert.Empty(m_store.GetViewImports("app"));
+    }
+
+    [Fact]
+    public void GetViewImports_empty_view_returns_empty()
+    {
+        m_store.CreateView("app");
+        Assert.Empty(m_store.GetViewImports("app"));
+    }
+
+    [Fact]
+    public void Consistency_check_includes_imports()
+    {
+        Fact local = StoreDef("local-fn x = x");
+        Fact external = StoreDef("imported-fn y = y + 1");
+
+        m_store.CreateView("app");
+        m_store.UpdateNamedView("app", "local-fn", local.Hash);
+        m_store.ImportFactIntoView("app", external.Hash, "imported-fn");
+
+        ImportTestChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistency("app", checker);
+
+        Assert.True(result.IsConsistent);
+        Assert.Equal(2, checker.ReceivedDefinitions.Count);
+        Assert.Contains(checker.ReceivedDefinitions, d => d.Name == "imported-fn");
+    }
+
+    [Fact]
+    public void Consistency_check_fails_on_missing_import()
+    {
+        m_store.CreateView("app");
+
+        // Manually write an imports file referencing a hash not in the store
+        string importsPath = Path.Combine(m_tempDir, ".codex", "views", "app.imports.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(importsPath)!);
+        File.WriteAllText(importsPath,
+            "[{\"hash\":\"" + ContentHash.Of("ghost").ToHex() + "\",\"localName\":\"ghost\"}]");
+
+        ImportTestChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistency("app", checker);
+
+        Assert.False(result.IsConsistent);
+        Assert.Contains(result.Errors, e => e.Contains("ghost") && e.Contains("missing fact"));
+    }
+
+    sealed class ImportTestChecker : IViewConsistencyChecker
+    {
+        public List<ViewDefinition> ReceivedDefinitions { get; } = [];
+
+        public ViewConsistencyResult Check(IReadOnlyList<ViewDefinition> definitions)
+        {
+            ReceivedDefinitions.AddRange(definitions);
+            return new ViewConsistencyResult(true, []);
+        }
+    }
+
+    [Fact]
+    public void DeleteView_cleans_up_imports()
+    {
+        Fact def = StoreDef("x = 1");
+        m_store.CreateView("temp");
+        m_store.ImportFactIntoView("temp", def.Hash, "x-lib");
+
+        m_store.DeleteView("temp");
+
+        string importsPath = Path.Combine(m_tempDir, ".codex", "views", "temp.imports.json");
+        Assert.False(File.Exists(importsPath));
+    }
+}
+
+public class TrustLatticeTests : IDisposable
+{
+    readonly string m_tempDir;
+    readonly FactStore m_store;
+
+    public TrustLatticeTests()
+    {
+        m_tempDir = Path.Combine(Path.GetTempPath(), "codex_trust_test_" + Guid.NewGuid().ToString("N")[..8]);
+        m_store = FactStore.Init(m_tempDir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(m_tempDir, true); } catch { }
+    }
+
+    Fact StoreDef(string source, string author = "alice")
+    {
+        Fact def = Fact.CreateDefinition(source, author, "init");
+        m_store.Store(def);
+        return def;
+    }
+
+    [Fact]
+    public void Direct_vouch_gives_full_weight()
+    {
+        Fact def = StoreDef("f x = x");
+        Fact trust = Fact.CreateTrust(def.Hash, TrustDegree.Verified, "bob", "reviewed");
+        m_store.Store(trust);
+
+        TrustScore score = m_store.ComputeTrust(def.Hash, "bob");
+        Assert.Equal(0.75, score.Weight);
+        Assert.Contains("direct vouch", score.Reason);
+    }
+
+    [Fact]
+    public void No_vouch_gives_zero()
+    {
+        Fact def = StoreDef("f x = x");
+        TrustScore score = m_store.ComputeTrust(def.Hash, "bob");
+        Assert.Equal(0.0, score.Weight);
+    }
+
+    [Fact]
+    public void Direct_vouch_critical_gives_1()
+    {
+        Fact def = StoreDef("f x = x");
+        Fact trust = Fact.CreateTrust(def.Hash, TrustDegree.Critical, "bob", "critical");
+        m_store.Store(trust);
+
+        TrustScore score = m_store.ComputeTrust(def.Hash, "bob");
+        Assert.Equal(1.0, score.Weight);
+    }
+
+    [Fact]
+    public void Transitive_trust_decays()
+    {
+        // Alice creates a fact
+        Fact def = StoreDef("f x = x", "alice");
+
+        // Alice vouches for her own fact (Verified = 0.75)
+        Fact aliceVouch = Fact.CreateTrust(def.Hash, TrustDegree.Verified, "alice", "self-review");
+        m_store.Store(aliceVouch);
+
+        // Bob vouches for something by alice (Tested = 0.5) — establishes trust in alice
+        Fact aliceDef2 = StoreDef("g y = y", "alice");
+        Fact bobVouchAlice = Fact.CreateTrust(aliceDef2.Hash, TrustDegree.Tested, "bob", "alice seems good");
+        m_store.Store(bobVouchAlice);
+
+        // Bob's trust in def = bob's trust in alice (0.5) * alice's vouch weight (0.75) = 0.375
+        TrustScore score = m_store.ComputeTrust(def.Hash, "bob");
+        Assert.True(score.Weight > 0.0, "Should have transitive trust");
+        Assert.True(score.Weight <= 0.5, $"Transitive trust should decay, got {score.Weight}");
+    }
+
+    [Fact]
+    public void Trust_threshold_rejects_untrusted_imports()
+    {
+        Fact local = StoreDef("local-fn x = x");
+        Fact external = StoreDef("external-fn y = y", "stranger");
+
+        m_store.CreateView("app");
+        m_store.UpdateNamedView("app", "local-fn", local.Hash);
+        m_store.ImportFactIntoView("app", external.Hash, "ext");
+
+        // No vouches for external — trust is 0.0
+        TrustChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistencyWithTrust("app", checker, 0.5, "bob");
+
+        Assert.False(result.IsConsistent);
+        Assert.Contains(result.Errors, e => e.Contains("trust") && e.Contains("0.00"));
+    }
+
+    [Fact]
+    public void Trust_threshold_accepts_vouched_imports()
+    {
+        Fact external = StoreDef("external-fn y = y", "alice");
+
+        // Bob vouches for alice's fact
+        Fact vouch = Fact.CreateTrust(external.Hash, TrustDegree.Verified, "bob", "reviewed");
+        m_store.Store(vouch);
+
+        m_store.CreateView("app");
+        m_store.ImportFactIntoView("app", external.Hash, "ext");
+
+        TrustChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistencyWithTrust("app", checker, 0.5, "bob");
+
+        Assert.True(result.IsConsistent);
+    }
+
+    [Fact]
+    public void Trust_threshold_zero_skips_check()
+    {
+        Fact external = StoreDef("f x = x", "stranger");
+        m_store.CreateView("app");
+        m_store.ImportFactIntoView("app", external.Hash, "ext");
+
+        TrustChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckViewConsistencyWithTrust("app", checker, 0.0, "bob");
+
+        Assert.True(result.IsConsistent);
+    }
+
+    [Fact]
+    public void Multiple_vouchers_takes_max()
+    {
+        Fact def = StoreDef("f x = x");
+        Fact v1 = Fact.CreateTrust(def.Hash, TrustDegree.Reviewed, "bob", "quick look");
+        Fact v2 = Fact.CreateTrust(def.Hash, TrustDegree.Verified, "bob", "deep review");
+        m_store.Store(v1);
+        m_store.Store(v2);
+
+        TrustScore score = m_store.ComputeTrust(def.Hash, "bob");
+        Assert.Equal(0.75, score.Weight); // max(Reviewed=0.25, Verified=0.75)
+    }
+
+    sealed class TrustChecker : IViewConsistencyChecker
+    {
+        public ViewConsistencyResult Check(IReadOnlyList<ViewDefinition> definitions)
+            => new(true, []);
+    }
+}
+
+public class ProposalWorkflowTests : IDisposable
+{
+    readonly string m_tempDir;
+    readonly FactStore m_store;
+
+    public ProposalWorkflowTests()
+    {
+        m_tempDir = Path.Combine(Path.GetTempPath(), "codex_proposal_test_" + Guid.NewGuid().ToString("N")[..8]);
+        m_store = FactStore.Init(m_tempDir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(m_tempDir, true); } catch { }
+    }
+
+    Fact StoreDef(string source, string author = "alice")
+    {
+        Fact def = Fact.CreateDefinition(source, author, "init");
+        m_store.Store(def);
+        return def;
+    }
+
+    [Fact]
+    public void CreateViewProposal_roundtrips()
+    {
+        Fact def = StoreDef("json-parse s = s");
+        List<ProposalAddition> adds = [new("json-parse", def.Hash)];
+        Fact proposal = m_store.CreateViewProposal("add-json", adds, [], "alice", "new feature", []);
+        m_store.Store(proposal);
+
+        ViewProposal? parsed = FactStore.ParseViewProposal(proposal);
+        Assert.NotNull(parsed);
+        Assert.Equal("add-json", parsed.Name);
+        Assert.Single(parsed.Additions);
+        Assert.Equal("json-parse", parsed.Additions[0].DefinitionName);
+        Assert.Equal(def.Hash, parsed.Additions[0].DefinitionHash);
+        Assert.Empty(parsed.Removals);
+    }
+
+    [Fact]
+    public void CreateViewProposal_with_removals()
+    {
+        Fact def = StoreDef("new-impl x = x + 1");
+        List<ProposalAddition> adds = [new("new-impl", def.Hash)];
+        List<string> removals = ["old-impl"];
+        Fact proposal = m_store.CreateViewProposal("replace-impl", adds, removals, "alice", "refactor", []);
+        m_store.Store(proposal);
+
+        ViewProposal? parsed = FactStore.ParseViewProposal(proposal);
+        Assert.NotNull(parsed);
+        Assert.Single(parsed.Additions);
+        Assert.Single(parsed.Removals);
+        Assert.Equal("old-impl", parsed.Removals[0]);
+    }
+
+    [Fact]
+    public void PreviewProposal_shows_additions_and_removals()
+    {
+        Fact defA = StoreDef("a = 1");
+        Fact defB = StoreDef("b = 2");
+        Fact defC = StoreDef("c = 3");
+
+        m_store.CreateView("base");
+        m_store.UpdateNamedView("base", "a", defA.Hash);
+        m_store.UpdateNamedView("base", "b", defB.Hash);
+
+        ViewProposal proposal = new("swap",
+            [new("c", defC.Hash)],
+            ["b"]);
+
+        ProposalPreview preview = m_store.PreviewProposal("base", proposal);
+
+        Assert.Equal(2, preview.ResultingView.Count);
+        Assert.NotNull(preview.ResultingView["a"]);
+        Assert.NotNull(preview.ResultingView["c"]);
+        Assert.Null(preview.ResultingView["b"]);
+        Assert.Contains("c", preview.AddedNames);
+        Assert.Contains("b", preview.RemovedNames);
+    }
+
+    [Fact]
+    public void PreviewProposal_detects_modifications()
+    {
+        Fact defA1 = StoreDef("a = 1");
+        Fact defA2 = StoreDef("a = 2");
+
+        m_store.CreateView("base");
+        m_store.UpdateNamedView("base", "a", defA1.Hash);
+
+        ViewProposal proposal = new("update-a",
+            [new("a", defA2.Hash)],
+            []);
+
+        ProposalPreview preview = m_store.PreviewProposal("base", proposal);
+
+        Assert.Single(preview.ModifiedNames);
+        Assert.Equal("a", preview.ModifiedNames[0]);
+        Assert.Equal(defA2.Hash, preview.ResultingView["a"]);
+    }
+
+    [Fact]
+    public void CheckProposalConsistency_passes_for_valid_proposal()
+    {
+        Fact defA = StoreDef("a = 1");
+        Fact defB = StoreDef("b = 2");
+
+        m_store.CreateView("base");
+        m_store.UpdateNamedView("base", "a", defA.Hash);
+
+        ViewProposal proposal = new("add-b",
+            [new("b", defB.Hash)],
+            []);
+
+        ProposalChecker checker = new();
+        ViewConsistencyResult result = m_store.CheckProposalConsistency("base", proposal, checker);
+
+        Assert.True(result.IsConsistent);
+        Assert.Equal(2, checker.ReceivedCount);
+    }
+
+    [Fact]
+    public void ApplyViewProposal_requires_consensus()
+    {
+        Fact def = StoreDef("f x = x");
+        List<ProposalAddition> adds = [new("f", def.Hash)];
+        Fact proposal = m_store.CreateViewProposal("add-f", adds, [], "alice", "init",
+            System.Collections.Immutable.ImmutableArray.Create("bob"));
+        m_store.Store(proposal);
+
+        m_store.CreateView("target");
+
+        ProposalChecker checker = new();
+        bool applied = m_store.ApplyViewProposal(proposal.Hash, "target", checker);
+        Assert.False(applied); // Bob hasn't voted
+    }
+
+    [Fact]
+    public void ApplyViewProposal_succeeds_with_consensus()
+    {
+        Fact def = StoreDef("f x = x");
+        List<ProposalAddition> adds = [new("f", def.Hash)];
+        Fact proposal = m_store.CreateViewProposal("add-f", adds, [], "alice", "init",
+            System.Collections.Immutable.ImmutableArray.Create("bob"));
+        m_store.Store(proposal);
+
+        // Bob accepts
+        Fact verdict = Fact.CreateVerdict(proposal.Hash, VerdictDecision.Accept, "bob", "lgtm");
+        m_store.Store(verdict);
+
+        m_store.CreateView("target");
+
+        ProposalChecker checker = new();
+        bool applied = m_store.ApplyViewProposal(proposal.Hash, "target", checker);
+        Assert.True(applied);
+
+        ValueMap<string, ContentHash> view = m_store.GetNamedView("target");
+        Assert.Equal(def.Hash, view["f"]);
+    }
+
+    [Fact]
+    public void ApplyViewProposal_no_stakeholders_auto_accepts()
+    {
+        Fact def = StoreDef("g y = y");
+        List<ProposalAddition> adds = [new("g", def.Hash)];
+        Fact proposal = m_store.CreateViewProposal("add-g", adds, [], "alice", "init",
+            System.Collections.Immutable.ImmutableArray<string>.Empty);
+        m_store.Store(proposal);
+
+        m_store.CreateView("target");
+
+        ProposalChecker checker = new();
+        bool applied = m_store.ApplyViewProposal(proposal.Hash, "target", checker);
+        Assert.True(applied);
+    }
+
+    [Fact]
+    public void ApplyViewProposal_removes_definitions()
+    {
+        Fact defA = StoreDef("a = 1");
+        Fact defB = StoreDef("b = 2");
+
+        m_store.CreateView("target");
+        m_store.UpdateNamedView("target", "a", defA.Hash);
+        m_store.UpdateNamedView("target", "b", defB.Hash);
+
+        Fact proposal = m_store.CreateViewProposal("remove-b", [], ["b"], "alice", "cleanup",
+            System.Collections.Immutable.ImmutableArray<string>.Empty);
+        m_store.Store(proposal);
+
+        ProposalChecker checker = new();
+        bool applied = m_store.ApplyViewProposal(proposal.Hash, "target", checker);
+        Assert.True(applied);
+
+        ValueMap<string, ContentHash> view = m_store.GetNamedView("target");
+        Assert.NotNull(view["a"]);
+        Assert.Null(view["b"]);
+    }
+
+    sealed class ProposalChecker : IViewConsistencyChecker
+    {
+        public int ReceivedCount { get; private set; }
+
+        public ViewConsistencyResult Check(IReadOnlyList<ViewDefinition> definitions)
+        {
+            ReceivedCount = definitions.Count;
+            return new ViewConsistencyResult(true, []);
+        }
+    }
+}
+
 public class ProofFactTests : IDisposable
 {
     readonly string m_tempDir;

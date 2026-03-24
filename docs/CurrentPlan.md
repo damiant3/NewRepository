@@ -21,6 +21,7 @@ hardware. Region-based memory reclamation works via sub-expression regions.
 | Fixed point | Proven (Stage 1 = Stage 3 at 255,344 chars) |
 | Reference compiler | Locked |
 | Memory | Sub-expression regions: scalar lets reclaim intermediates at let boundary |
+| Concurrency | IR nodes + sequential handler (fork/await) — Phase 1+2 done |
 | Agents | 4 (Windows/Copilot, Linux/sandbox, Cam/CLI, Nut/garage-box) |
 
 **History**: `docs/OldStatus/CurrentPlan-2026-03-24-peak2-complete.md`
@@ -51,34 +52,58 @@ A Codex program running on the Samsung S7 Edge (SM-G935T).
 No threads. No locks. No data races. Codex concurrency is structured:
 every concurrent operation has a parent scope. `[Concurrent]` is an effect.
 
-**What to build:**
-- `par` (parallel map) and `race` (first result wins)
-- Work-stealing scheduler in the runtime
-- Effect system tracks `[Concurrent]`
-- Linear types guarantee no shared mutable state
-- Type system proves the task DAG has no cycles
+**Phase 1–3 DONE** (2026-03-24, Cam):
+- `IrFork` and `IrAwait` IR nodes added to self-hosted compiler
+- `fork : (Nothing → a) → Task a` (thunk-based), `await : Task a → a` in builtin type env
+- `par : (a → b) → List a → List b` and `race : List (Nothing → a) → a`
+- Lambda syntax (`\x -> body`) in both reference and self-hosted compilers
+- Lowering intercepts `fork`/`await` calls → specialized IR nodes
+- Real parallelism in C# emitter: `Task.Run`, `Task.WhenAll`, `Task.WhenAny`
+- JS backend: `Promise.resolve().then()`, `Promise.all`, `Promise.race`
+- Python backend: `ThreadPoolExecutor.submit`, `.map()`, `as_completed`
+- Go backend: goroutines + channels
+- `[Concurrent]` effect on all four primitives — type checker enforces effect propagation
+- All tests green (134 syntax, 472 types, 103 repository)
 
-**Design needed**: `docs/Designs/CAMP-IIIC-STRUCTURED-CONCURRENCY.md`
+**What remains (Phase 4):**
+- Work-stealing scheduler in native backends (RISC-V, x86-64)
+- Linear types guarantee no shared mutable state
+
+**Design**: `docs/Designs/CAMP-IIIC-STRUCTURED-CONCURRENCY.md`
 
 ### V3 — Repository Federation
 
 Multi-repo sync, cross-repo trust. The content-addressed fact store
 extends across trust boundaries.
 
-**What to build:**
-- Proposal workflow (replace pull requests)
-- Trust lattice (vouching with degrees, trust-ranked search)
-- Cross-repo dependency resolution by hash, not name
-- Federated sync protocol
+**Phase 1 DONE** (2026-03-24, Cam):
+- `ImportFactIntoView` / `RemoveImportFromView` / `GetViewImports` on FactStore
+- `CheckViewConsistency` resolves imported facts alongside local definitions
+- Imports stored in `.imports.json` sidecar files (backward compatible)
 
-**Design needed**: `docs/Designs/V3-REPOSITORY-FEDERATION.md`
+**Phase 2 DONE** (2026-03-24, Cam):
+- Trust lattice: `ComputeTrust` with transitive vouch graph walk (max depth 5, cycle detection)
+- Weights: Reviewed=0.25, Tested=0.5, Verified=0.75, Critical=1.0; transitive decay
+- `CheckViewConsistencyWithTrust` gates imports on trust threshold
+- 94 repository tests green (8 new trust tests)
+
+**Phase 3 DONE** (2026-03-24, Cam):
+- Proposal workflow: `CreateViewProposal` / `ParseViewProposal` / `PreviewProposal`
+- `CheckProposalConsistency` validates proposed view state
+- `ApplyViewProposal` requires stakeholder consensus before applying
+- 103 repository tests green (9 new proposal tests)
+
+**What remains (Phase 4):**
+- Federated sync protocol (networking)
+
+**Design**: `docs/Designs/V3-REPOSITORY-FEDERATION.md`
 
 ### Camp III-A — Memory (Remaining)
 
 Sub-expression regions handle scalar returns. Remaining:
 - Heap-returning reclamation (copy-above-then-compact infrastructure exists in `#if false`)
 - Closure escape (capture types unknown at region exit)
-- LinearityChecker integration for formal soundness proof
+- LinearityChecker: CDX2043 closure capture warning DONE (2026-03-24, Cam)
 
 ---
 
