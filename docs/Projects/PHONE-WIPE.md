@@ -1,3 +1,5 @@
+File: docs\Projects\PHONE-WIPE.md
+````````markdown
 # ⚠️ PHONE WIPE — Flash TWRP to Samsung Galaxy S7 Edge
 
 **THIS PROCEDURE REPLACES THE RECOVERY PARTITION ON A REAL PHONE.**
@@ -7,7 +9,7 @@
 ---
 
 **Phone**: SM-G935T (T-Mobile), Samsung Galaxy S7 Edge
-**Image**: `phone/flash/recovery-fixed.img.tar` (25,098,240 bytes)
+**Image**: `phone/flash/recovery.img.tar` (25,090,048 bytes)
 **Tool**: Odin v3.x (Windows)
 **Date**: 2026-03-24
 **Author**: Agent Windows
@@ -26,6 +28,7 @@
 | Kernel, ramdisk, DTB are real extracted components | ✅ Real files from TWRP build |
 | ARM64 Codex binaries run on Android emulator | ✅ Proven (adb push + execute) |
 | **This image actually boots on an S7 Edge** | ❌ **NOT PROVEN — cannot be emulated** |
+| **Odin flash to SM-G935T (T-Mobile)** | ❌ **FAILED — RQT_CLOSE after NAND write (2026-03-24)** |
 
 The Samsung S7 Edge has a Qualcomm-specific bootloader, Samsung partition
 layout, and hardware-specific DTB. No emulator exists that can tell you
@@ -61,9 +64,9 @@ USB 3.0 ports are unreliable with Odin.
 
 Open PowerShell:
 ```powershell
-(Get-Item "D:\Projects\NewRepository\phone\flash\recovery-fixed.img.tar").Length
+(Get-Item "D:\Projects\NewRepository\phone\flash\recovery.img.tar").Length
 ```
-**Expected: 25098240**
+**Expected: 25090048**
 
 If the number is different, **STOP**.
 
@@ -87,7 +90,7 @@ Click the **AP** button in Odin.
 
 Navigate to:
 ```
-D:\Projects\NewRepository\phone\flash\recovery-fixed.img.tar
+D:\Projects\NewRepository\phone\flash\recovery.img.tar
 ```
 
 Select it. The Log should confirm the filename.
@@ -182,3 +185,62 @@ Don't do that.
 
 *Written for one specific human who has bricked a keyboard before.*
 *The phone will probably be fine. Probably.*
+
+---
+
+## Flash Attempt Log (2026-03-24)
+
+**Result: FAILED** — multiple approaches tried, none successful yet.
+Phone boots to Android fine. No damage done.
+
+### What Was Tried
+
+| # | Change | Result |
+|---|--------|--------|
+| 1 | `recovery-fixed.img.tar` (wrong internal filename) | FAIL — Odin doesn't recognize partition name `recovery-fixed` |
+| 2 | Rebuilt as `recovery.img.tar` (correct internal name) | FAIL — `RQT_CLOSE` after NAND write |
+| 3 | USB port change (white → black USB 2.0 on rear panel) | FAIL — same `RQT_CLOSE` |
+| 4 | Rebuilt with blank board name (was `SRPPA14B001RU` from CHN) | FAIL — same `RQT_CLOSE` |
+| 5 | Full reboot cycle (Android → clean shutdown → Download Mode) | FAIL — same `RQT_CLOSE` |
+| 6 | Heimdall via WSL2 (installed usbipd, attached USB to WSL) | FAIL — Heimdall 2.0.2 too old, `Failed to send handshake` |
+| 7 | Official TWRP 3.7.0 for hero2qltechn from twrp.me | FAIL — `SetupConnection` failure (USB state degraded) |
+| 8 | Multiple retries after reboot cycles | FAIL — `SetupConnection` keeps failing |
+
+### Key Findings
+
+- **Heimdall 2.0.2** cannot handshake with the S7 Edge — protocol too new for the tool.
+  Installed `usbipd-win` to pass USB from Windows to WSL2. Device detected by `lsusb`
+  but Heimdall can't initialize the Samsung download protocol.
+- **TWRP build from source** is blocked — the TWRP minimal manifest repo only has
+  branches `twrp-11`, `twrp-12.1`, `twrp-14`, `twrp-14.1`. The device tree
+  (`jcadduono/android_device_samsung_hero2qlte`) is on `android-6.0`. Massive
+  version mismatch makes building from source a porting project, not a script run.
+- **Official TWRP builds exist** for `hero2qltechn` (China variant) but NOT for
+  `hero2qlte` (T-Mobile). Downloaded `twrp-3.7.0_9-0-hero2qltechn.img.tar`
+  (26.7 MB, built by Jenkins) — available at `phone/flash/twrp-official-hero2qltechn.img.tar`.
+- **USB driver state degrades** after repeated failed flashes. Windows accumulates
+  ghost Samsung USB device entries across multiple COM ports. Multiple stale
+  `PID_685D` (download mode) and `PID_6860` (normal mode) entries in Device Manager.
+  **PC reboot recommended** to clear USB driver cache before next attempt.
+- **Phone is fine** — boots to Android normally after all failed flash attempts.
+
+### Files in phone/flash/
+
+| File | Description |
+|------|-------------|
+| `recovery.img.tar` | Hand-packed image (blank board name). Failed `RQT_CLOSE`. |
+| `twrp-official-hero2qltechn.img.tar` | Official TWRP 3.7.0 from twrp.me. Not yet tested with clean USB state. |
+| `dtb.img`, `Image.gz`, `initrd.img` | Source components of hand-packed image. |
+
+### Next Steps
+
+1. **Reboot the Windows PC** to clear stale USB driver state.
+2. **Try official TWRP** (`twrp-official-hero2qltechn.img.tar`) with clean USB state.
+3. If official TWRP also fails `RQT_CLOSE`, the T-Mobile bootloader may be blocking
+   unsigned recovery images entirely. In that case:
+   - Try `fastboot flash recovery` if the bootloader supports it
+   - Try `adb sideload` from stock recovery
+   - Research whether SM-G935T requires a full stock firmware flash first to downgrade
+     to a bootloader that allows custom recovery
+
+The phone is fine — still boots into Android and Download Mode normally.
