@@ -130,7 +130,20 @@ python3 phone/inspect-bootimg.py known-good-chn.img our-new-image.img
 ## Next Steps (This Session)
 
 1. ✅ Feature branch created: `windows/codex-phone`
-2. [ ] Test ARM64 binary under QEMU in WSL
-3. [ ] Write `pack-samsung-bootimg.py` with proper DTB support
-4. [ ] Validate packed image with `inspect-bootimg.py`
-5. [ ] Test adb workflow on Android emulator
+2. ✅ ARM64 binary under QEMU in WSL — hello=25, factorial=3628800, greeting=Hello World
+3. ✅ Fixed ARM64 str_concat bug (byte copy + alloc sizing)
+4. ✅ Fixed ARM64 ELF section headers for Android (bionic linker requires .shstrtab)
+5. ✅ All 5 samples running on Android 15 emulator via adb push
+6. ✅ `pack-samsung-bootimg.py` with proper DTB support — self-test passes
+7. ✅ Packed real recovery image — dt_size=6414336, matches CHN reference exactly
+8. ✅ compare-headers.py confirms structural match to known-good image
+9. [ ] **Phase D: Flash to phone** — recovery-fixed.img.tar ready for Odin
+
+## Bugs Found and Fixed Along the Way
+
+| Bug | Where | Impact |
+|-----|-------|--------|
+| str_concat second loop: 8-byte Ldr/Str + stride 8 | Arm64CodeGen.cs | Segfault on string concat |
+| str_concat allocation: (total+1)*8 | Arm64CodeGen.cs | Massive over-allocation |
+| ELF missing section headers | ElfWriterArm64.cs | Android refuses to execute |
+| Samsung DTB not in header | abootimg (upstream tool) | Phone won't boot |
