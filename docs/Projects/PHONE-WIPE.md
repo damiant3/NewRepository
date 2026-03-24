@@ -203,8 +203,9 @@ Phone boots to Android fine. No damage done.
 | 4 | Rebuilt with blank board name (was `SRPPA14B001RU` from CHN) | FAIL — same `RQT_CLOSE` |
 | 5 | Full reboot cycle (Android → clean shutdown → Download Mode) | FAIL — same `RQT_CLOSE` |
 | 6 | Heimdall via WSL2 (installed usbipd, attached USB to WSL) | FAIL — Heimdall 2.0.2 too old, `Failed to send handshake` |
-| 7 | Official TWRP 3.7.0 for hero2qltechn from twrp.me | FAIL — `SetupConnection` failure (USB state degraded) |
+| 7 | Official TWRP 3.7.0 for hero2qltechn (stale USB state) | FAIL — `SetupConnection` failure |
 | 8 | Multiple retries after reboot cycles | FAIL — `SetupConnection` keeps failing |
+| 9 | **PC reboot + official TWRP 3.7.0** (clean USB, fresh Odin) | FAIL — `RQT_CLOSE` after NAND write (clean connection, same result) |
 
 ### Key Findings
 
@@ -229,18 +230,37 @@ Phone boots to Android fine. No damage done.
 | File | Description |
 |------|-------------|
 | `recovery.img.tar` | Hand-packed image (blank board name). Failed `RQT_CLOSE`. |
-| `twrp-official-hero2qltechn.img.tar` | Official TWRP 3.7.0 from twrp.me. Not yet tested with clean USB state. |
+| `twrp-official-hero2qltechn.img.tar` | Official TWRP 3.7.0 from twrp.me. **Also fails `RQT_CLOSE`.** |
 | `dtb.img`, `Image.gz`, `initrd.img` | Source components of hand-packed image. |
+
+### Diagnosis — Bootloader Signature Verification
+
+Attempt 9 is conclusive. An official TWRP image built by TWRP's own Jenkins CI
+also fails at `RQT_CLOSE`. This eliminates our hand-packed image as the cause.
+
+**The T-Mobile SM-G935T bootloader is enforcing signature verification on the
+recovery partition.** The `OEM Unlock` toggle in Developer Options was enabled,
+but on Samsung devices that only *permits* unlocking — it doesn't *perform* it.
+The bootloader must be explicitly unlocked before it will accept unsigned images.
+
+On Samsung Galaxy S7 Edge (T-Mobile), unlocking requires one of:
+- **`fastboot oem unlock`** — if the phone supports fastboot mode
+- **Stock firmware with unlocked bootloader flag** — some T-Mobile firmware
+  versions ship with bootloader restrictions even after OEM Unlock toggle
+- **Combination firmware** — Samsung engineering firmware that disables
+  signature verification for development purposes
 
 ### Next Steps
 
-1. **Reboot the Windows PC** to clear stale USB driver state.
-2. **Try official TWRP** (`twrp-official-hero2qltechn.img.tar`) with clean USB state.
-3. If official TWRP also fails `RQT_CLOSE`, the T-Mobile bootloader may be blocking
-   unsigned recovery images entirely. In that case:
-   - Try `fastboot flash recovery` if the bootloader supports it
-   - Try `adb sideload` from stock recovery
-   - Research whether SM-G935T requires a full stock firmware flash first to downgrade
-     to a bootloader that allows custom recovery
+1. **Check if the bootloader is actually unlocked.** In Download Mode, the
+   screen should say `OEM LOCK: OFF` (or `CUSTOM: YES`). If it says
+   `OEM LOCK: ON`, the bootloader was never unlocked despite the toggle.
+2. **If locked**: Research SM-G935T bootloader unlock procedure — may require
+   `fastboot oem unlock`, a specific stock firmware version, or combination firmware.
+3. **If unlocked**: The `RQT_CLOSE` failure has another cause. Try Odin 3.14.4
+   (newer version) or a different Odin fork (e.g., Odin4 or Society Odin).
+4. **Alternative path**: Skip TWRP entirely. Use `adb` from Android to push
+   Codex ARM64 binaries to `/data/local/tmp/` and run them under Android.
+   This achieves Phase 1 (Codex running on the phone) without flashing anything.
 
 The phone is fine — still boots into Android and Download Mode normally.
