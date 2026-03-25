@@ -1,5 +1,3 @@
-File: docs\Projects\PHONE-WIPE.md
-````````markdown
 # ⚠️ PHONE WIPE — Flash TWRP to Samsung Galaxy S7 Edge
 
 **THIS PROCEDURE REPLACES THE RECOVERY PARTITION ON A REAL PHONE.**

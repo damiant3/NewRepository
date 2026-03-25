@@ -1,5 +1,3 @@
-File: docs\Projects\TWRP-BUILD-HANDOFF.md
-````````markdown
 # TWRP Build Handoff — Agent Linux
 
 **Date**: 2026-03-23 (updated 2026-03-24)
