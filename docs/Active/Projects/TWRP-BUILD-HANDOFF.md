@@ -11,7 +11,7 @@ step. Eight attempts with different configurations all failed. The official TWRP
 `hero2qltechn` was downloaded but not yet tested with clean USB state. The TWRP manifest
 repo only has branches `twrp-11` and up — the `twrp-6.0` branch referenced below no
 longer exists. Building from source requires porting the `android-6.0` device tree to
-a newer TWRP base. See `docs/Projects/PHONE-WIPE.md` flash attempt log for full details.
+a newer TWRP base. See `docs/Active/Projects/PHONE-WIPE.md` flash attempt log for full details.
 
 ---
 
@@ -121,7 +121,7 @@ step. Eight attempts with different configurations all failed. The official TWRP
 `hero2qltechn` was downloaded but not yet tested with clean USB state. The TWRP manifest
 repo only has branches `twrp-11` and up — the `twrp-6.0` branch referenced below no
 longer exists. Building from source requires porting the `android-6.0` device tree to
-a newer TWRP base. See `docs/Projects/PHONE-WIPE.md` flash attempt log for full details.
+a newer TWRP base. See `docs/Active/Projects/PHONE-WIPE.md` flash attempt log for full details.
 
 ---
 
