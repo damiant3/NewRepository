@@ -901,23 +901,6 @@ Section: Constructor Map
    in if i >= list-length (d.params) then VoidTy
       else zig-subst-ctx ((list-at (d.params) i).type-val) ctx
 
-  zig-param-ll-elem : ZigCtx, Text, Integer -> Text
-  zig-param-ll-elem (ctx) (fname) (argi) =
-   zig-param-ll-scan (ctx.irdefs) 0 fname argi ctx
-
-  zig-param-ll-scan : List IRDef, Integer, Text, Integer, ZigCtx -> Text
-  zig-param-ll-scan (defs) (i) (fname) (argi) (ctx) =
-   if i >= list-length defs then ""
-   else let d = list-at defs i
-   in if d.name == fname then
-    (if argi >= list-length (d.params) then ""
-     else let pty = zig-subst-ctx ((list-at (d.params) argi).type-val) ctx
-     in when pty
-      is ListTy (elem) -> emit-zig-type elem (ctx.scope-tvars)
-      is LinkedListTy (elem) -> emit-zig-type elem (ctx.scope-tvars)
-      is otherwise -> "")
-   else zig-param-ll-scan defs (i + 1) fname argi ctx
-
  RECORDS have reference semantics on bare metal -- all of them, not
  the ones spelled `mutable`: emit-record-set-builtin stores through the
  record's pointer and returns that pointer, and a field store mutates
@@ -2465,13 +2448,6 @@ Section: Apply Emission
     is ForAllEff (c) (inner) -> ForAllEff c (zig-subst-tvar inner id with-ty)
     is otherwise -> ty
 
-  zig-subst-arg-type : CodexType, IRDef, List CodexType, CodexType, List Integer, Integer -> CodexType
-  zig-subst-arg-type (ty) (d) (actuals) (resty) (ids) (i) =
-   if i >= list-length ids then ty
-   else let id = list-at ids i
-   in let bound = zig-resolve-tvar-type id d actuals resty 0
-   in zig-subst-arg-type (zig-subst-tvar ty id bound) d actuals resty ids (i + 1)
-
  Recovering one variable: walk the declared type and the type actually
  supplied in step, and answer with the type sitting where the variable
  sits. VoidTy means this pair does not mention it, and the caller tries
@@ -2956,12 +2932,6 @@ Section: Apply Emission
    in let one = emit-zig-expr a (zig-expect ctx (zig-callee-param-type ctx fname i)) (d + 1)
    in if i == list-length args - 1 then one
       else one & ", " & emit-zig-call-args fname args ctx d (i + 1)
-
-  emit-zig-apply-args : List IRExpr, ZigCtx, Integer, Integer -> Text
-  emit-zig-apply-args (args) (ctx) (d) (i) =
-   if i == list-length args then ""
-   else if i == list-length args - 1 then emit-zig-expr (list-at args i) ctx (d + 1)
-   else emit-zig-expr (list-at args i) ctx (d + 1) & ", " & emit-zig-apply-args args ctx d (i + 1)
 
  A constructor payload is the third place an empty list can learn what it
  holds, alongside a record field decl and a callee's parameter. The
