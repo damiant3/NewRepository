@@ -3949,7 +3949,6 @@ Section: Chapter Emission
   zig-p-cx-ll-of : List ShakeFrag
   zig-p-cx-ll-of = [ShakeLit "// Exact, not rounded. These three build most of what emission\n// allocates -- every instruction is a list literal (mov-rr is\n// [rex-w, 137, modrm]) and write-bytes concatenates one per byte of an\n// immediate -- and they all land on the DECK, which is a finite\n// reservation nothing reclaims until the phase ends. Growing through\n// std's geometric growCapacity asked for 17 slots to hold four, twice\n// per concat, and measured 2026-08-21 that cost 6,963,432 bytes of deck\n// on fibx: 9,392,656 bytes of emit-runtime-helpers where bare metal\n// spends at most 2,682,824. Bare metal allocates cap*8 + 16 once, from\n// __list_concat_many over all operands at their true total. Reserve the\n// true total and append without re-checking; cx_ll_push keeps geometric\n// growth on purpose, because it is the repeated-append path.\nfn ", ShakeUse "cx_ll_of", ShakeLit "(comptime T: type, vs: []const T) *", ShakeUse "CxList", ShakeLit "(T) {\n    const l = ", ShakeUse "cx_ll_empty", ShakeLit "(T);\n    l.items.ensureTotalCapacityPrecise(", ShakeUse "cx_gpa", ShakeLit ", vs.len) catch @panic(\"oom\");\n    l.items.appendSliceAssumeCapacity(vs);\n    return l;\n}\n"]
 
-  zig-p-cx-ll-concat : List ShakeFrag
  IT MATERIALISES, and identity is the one thing it must not do. A linked
  list and a list share a representation here, so returning the argument is
  representationally right and still wrong: callers write
@@ -3962,6 +3961,7 @@ Section: Chapter Emission
   zig-p-cx-ll-copy : List ShakeFrag
   zig-p-cx-ll-copy = [ShakeLit "fn ", ShakeUse "cx_ll_copy", ShakeLit "(l: anytype) @TypeOf(l) {\n    const c = ", ShakeUse "cx_new", ShakeLit "(@TypeOf(l.*){ .items = .empty });\n    c.items.ensureTotalCapacityPrecise(", ShakeUse "cx_gpa", ShakeLit ", l.items.items.len) catch @panic(\"oom\");\n    c.items.appendSliceAssumeCapacity(l.items.items);\n    return c;\n}\n"]
 
+  zig-p-cx-ll-concat : List ShakeFrag
   zig-p-cx-ll-concat = [ShakeLit "fn ", ShakeUse "cx_ll_concat", ShakeLit "(a: anytype, b: @TypeOf(a)) @TypeOf(a) {\n    const c = ", ShakeUse "cx_new", ShakeLit "(@TypeOf(a.*){ .items = .empty });\n    c.items.ensureTotalCapacityPrecise(", ShakeUse "cx_gpa", ShakeLit ", a.items.items.len + b.items.items.len) catch @panic(\"oom\");\n    c.items.appendSliceAssumeCapacity(a.items.items);\n    c.items.appendSliceAssumeCapacity(b.items.items);\n    return c;\n}\n"]
 
   zig-p-cx-ll-cons : List ShakeFrag
