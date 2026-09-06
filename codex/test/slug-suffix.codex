@@ -1,0 +1,92 @@
+Chapter: SlugSuffix
+  cites Foreword chapter Console
+
+ `slug-has-suffix` in ChapterScoper decides whether a chapter slug ends with
+ `--<bare name>`, and it is the hottest comparison in cite resolution: it runs
+ per assignment, per citation that misses the composed key, per slug transition
+ of the defs walk, in all four passes.
+
+ IT MUST NOT ALLOCATE, which is why it was written as a character loop in the
+ first place -- the chapter's own note records that a `substring` form put
+ 5.4 MB per bare-name citation on the LOWER deck, about 135 MB of the
+ selfhost's 302. A `text-contains` guard in front of the loop keeps that
+ property (`bs-alloc = "none"`) and rejects the common case in one call
+ instead of one call per character.
+
+ THE GUARD IS A FILTER AND NOT THE ANSWER. `text-contains` is implied by
+ ending-with and does not imply it: `Foo--Bar--Baz` contains `--Bar` and does
+ not end with it. That pair is the reason this file exists.
+
+We say:
+
+Section: The Two Forms
+
+ The loop as it stands.
+
+  old-suffix-eq : Text, Text, Integer, Integer, Integer -> Boolean
+  old-suffix-eq (s) (suf) (base) (j) (fl) =
+   if j == fl then True
+   else if char-code-at s (base + j) == char-code-at suf j then old-suffix-eq s suf base (j + 1) fl
+   else False
+
+  old-has-suffix : Text, Text -> Boolean
+  old-has-suffix (s) (suf) =
+   let sl = text-length s
+   in let fl = text-length suf
+   in if fl > sl then False else old-suffix-eq s suf (sl - fl) 0 fl
+
+ The loop with the guard in front of it.
+
+  new-has-suffix : Text, Text -> Boolean
+  new-has-suffix (s) (suf) =
+   let sl = text-length s
+   in let fl = text-length suf
+   in if fl > sl then False
+      else if text-contains s suf == False then False
+      else old-suffix-eq s suf (sl - fl) 0 fl
+
+Section: The Pairs
+
+ Every pair a slug walk can present, and the two that discriminate: a suffix
+ that occurs only in the MIDDLE, and one that occurs twice.
+
+  slugs : List Text
+  slugs = ["Parsmi--Unification", "Parsmi--Unification", "Foo--Bar--Baz", "Foo--Bar--Baz",
+           "Bar", "Bar", "Codex_Codex", "A--B--B", "x", "", "Parsmi--Unify"]
+
+  sufs : List Text
+  sufs = ["--Unification", "--Unify", "--Baz", "--Bar",
+          "Bar", "--Bar", "--Codex", "--B", "--x", "", "--Unification"]
+
+  want : List Boolean
+  want = [True, False, True, False,
+          True, False, False, True, False, True, False]
+
+Section: The Check
+
+  check : Integer, Integer, Integer -> Integer
+  check (i) (n) (bad) =
+   if i >= n then bad
+   else let s = list-at slugs i
+   in let f = list-at sufs i
+   in let o = old-has-suffix s f
+   in let w = new-has-suffix s f
+   in let expected = list-at want i
+   in check (i + 1) n (bad + (if o == w & o == expected then 0 else 1))
+
+  report : Integer, Integer, Text -> Text
+  report (i) (n) (acc) =
+   if i >= n then acc
+   else let s = list-at slugs i
+   in let f = list-at sufs i
+   in let line = "\n  " & s & " ends-with " & f & " old=" & show (old-has-suffix s f) & " new=" & show (new-has-suffix s f) & " want=" & show (list-at want i)
+   in report (i + 1) n (acc & line)
+
+Section: Entry
+
+  opening : [Console] Nothing = act
+    let n = list-length slugs
+    in let bad = check 0 n 0
+    in let head = if bad == 0 then "slug-suffix: " & show n & " pairs agree" else "slug-suffix: " & show bad & " of " & show n & " WRONG"
+    in print-line-uni (head & report 0 n "")
+  end
