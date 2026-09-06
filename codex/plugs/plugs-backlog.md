@@ -14312,3 +14312,82 @@ What the taker does, in order:
 Boundary: the CCE layer itself (R-CCE, `Foreword chapter CCE`) is untouched;
 this row is about emitting it where nothing needs it. One plug per CL
 (R-ONE); the compiler is not on the path, so no token.
+
+## 2.29 -- CONTRIBUTED by Steve Howell (PR pending, 2026-09-06): the zig plug's `address-of` answers 0 for every source literal, and the checker keys type identity on that answer
+
+`cx_address_of` is heap-relative. Its last line reads
+
+    return if (cx_p >= cx_base) @intCast(cx_p - cx_base) else 0;
+
+and a string literal lives in `.rodata`, below the heap base, so it takes the
+`else`. Zero is not a spare value there: the zero-length-slice case two lines
+above uses it deliberately, meaning "no pointer, share as-is", and the compiler
+reads it as an answer.
+
+Measured with a six-line program built by the plug's own binary:
+
+    literal 0  other 0  computed 6291456  empty 0
+
+Two distinct non-empty literals, one address between them. A computed text gets
+a real one.
+
+WHAT READS IT. `mcopy-name-fresh` keys a `Name` on `cons-norm (cons-mix 701
+(address-of tv))` and nothing else, so every literal-named `Name` collides on
+one key and the first one copied is adopted by all the rest. The mechanism is
+not confined to names: the content keys are all built this way, and
+`is TypeCon (n) -> cons-mix 26 (address-of (mcopy-name n mc))` keys a type on
+its name's canonical address alone.
+
+THE OBSERVABLE. Every effect label in a compiled program becomes the same one.
+A program whose six labels are `Device.Mmio` x3, `Device.Port` x2 and
+`Console.Write` x1 comes out `Device.Mmio` x6; a six-line program using only
+`print-line-uni` reports its row as `Task`, a name from the builtin table it
+never mentions.
+
+    bare metal at 53b3b213     Device.Mmio x3, Device.Port x2, Console.Write x1
+    bare metal at U56          the same
+    a Rust interpreter at U56  the same
+    the zig plug at U56        Device.Mmio x6
+
+THE FIX is one line: return the signed displacement, so `.rodata` answers a
+distinct negative. Every reader then gets what it wants -- `a == 0` stays false
+so identity survives, and `a < mc.mc-floor` and `address-of t < b` stay true,
+which is the right answer because a literal never moves. Bare metal has the
+same shape from the other side: its literals sit in the image below the heap
+and its identity-`address-of` answers them distinctly. Offset 0 cannot collide
+with the empty-slice sentinel because `cx_hp` starts at 6291456.
+
+The empty literal moves off 0 as well, and that was not the intent: zig types
+`""` as `*const [0:0]u8`, a pointer rather than a slice, so the zero-length
+guard never fired for it either way. Behaviour is unchanged -- `a <
+mc.mc-floor` shares it exactly as `a == 0` did -- and a runtime empty slice,
+whose `.ptr` really is undefined, still hits the guard and still answers 0.
+
+EVIDENCE. Three bootstrap rounds: the emitter emits the same bytes for its own
+source whether built from the old prelude or the new, `r3.zig == r2.zig` byte
+for byte, so the collision never reached emitted code and the fixed point holds
+with the fix in. That also answers the hazard the fix introduces -- literal
+addresses now vary with ASLR, and emission is stable regardless. 35 corpus
+programs compiled to IR and compared against an independent arm: 35 byte-
+identical after, 0 before, and nothing changed but the labels. safari's 54
+specs on the fixed binary, with the same three issue-125 gaps and no new ones.
+
+NOT PROVEN: that type identity was safe. Zero of 35 programs changed anywhere
+but their labels, and none of them had two literal-named builtin types to tell
+apart. Absence in a sample is not confinement.
+
+WHY IT WAS INVISIBLE. `mcopy-name` runs only on names inside the copied region,
+and names from user source are computed texts with real addresses. Only names
+built from literals in the COMPILER'S OWN source take the zero path. Both
+existing arms consume the IR rather than read it, so a field neither looks at
+could be wrong indefinitely.
+
+The comment above `cx_address_of` describes this failure as Finding 31 --
+"answering a constant 0 made every object identical to every other one AND to
+null, and the compiler reads that as an answer". This is the residue that fix
+left behind.
+
+Boundary: one plug (R-ONE), the zig plug's prelude, one line plus its comment.
+The compiler is not on the path, so no token.
+
+Reported by Claude (Anthropic), working with Steve Howell.
