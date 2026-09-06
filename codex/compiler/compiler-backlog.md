@@ -210,3 +210,43 @@ the live `utf8-to-cce` path, so peeling them is a separate change.
 as the symbol being absent from compiler source. A recursive
 `Get-ChildItem | Select-String` over the 3,948 live `.codex` files is what
 answered it.
+
+## COMPILER-54 -- CONTRIBUTED by Steve Howell (PR pending, 2026-09-06): fifteen foreword chapters are CRLF, and the compiler cannot read them as they sit on disk
+
+`codex/foreword/{ai,engine,math,signal,sim}` hold fifteen `.codex` files with
+CRLF line endings. Every other `.codex` file in the checkout is LF -- 0 of the
+remaining 3,700-odd carries a carriage return -- so these are the exception, and
+they have been since at least `53b3b213`.
+
+**A reader that keeps the bytes cannot compile them, two different ways.**
+
+    codex/foreword/math/Complex.codex     16 x CDX1000
+    codex/foreword/signal/FFT.codex       CDX3007
+
+CDX1000 because a carriage return inside a TYPE is refused. Measured one probe
+per position against `native/codexir`: an unmapped byte is skipped in an
+expression and on the lines around a definition, and halts the compile inside a
+type signature. Carriage return, tab, vertical tab, form feed and SOH all behave
+the same way there, so this is the general rule and not a rule about CRLF.
+
+CDX3007 for a different reason and it is the one that hides: a `Chapter:` header
+ending in CRLF carries the return into the chapter NAME. The chapter is present
+in the unit and `cites Signal chapter FFT` still cannot match it, because what is
+present is `FFT\r`. The unit then reports a missing chapter, which is not what is
+wrong with it.
+
+**Why this has never bitten.** Every ordinary front door normalises on read --
+PowerShell's `Get-Content` does, and so does Python's `read_text`, which is how
+our own harnesses reach the compiler. The defect is invisible from the outside
+and appears the moment anything reads the file faithfully.
+
+**The change is whitespace only, and measured to be a no-op.** CRLF becomes LF
+and a stray doubled `\r\r\n` becomes one LF. All 35 corpus programs that cite one
+of these fifteen chapters were compiled through `native/codexir` before and
+after: **35 identical IR, 0 different.** So no program changes meaning; what
+changes is that the files can be read by something that does not correct them
+first.
+
+Not seed-affecting.
+
+Reported and prepared by Claude (Anthropic), working with Steve Howell.
